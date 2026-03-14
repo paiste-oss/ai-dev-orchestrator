@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
-  const [model, setModel] = useState("llama3.1");
+  const [model, setModel] = useState("auto");
   const [status, setStatus] = useState("");
   const [history, setHistory] = useState<any[]>([]);
 
@@ -24,6 +24,7 @@ export default function Home() {
     if (!prompt) return;
 
     const modelLabel =
+      model === "auto" ? "Router 🧭" :
       model === "openclaw" ? "OpenClaw 🦞" :
       model.startsWith("claude") ? "Claude ☁️" :
       "Llama 3.1 🖥️";
@@ -55,7 +56,9 @@ export default function Home() {
   const modelBadgeColor = (m: string) => {
     if (m === "openclaw") return "bg-red-900 text-red-300";
     if (m.startsWith("claude")) return "bg-purple-900 text-purple-300";
-    return "bg-blue-900 text-blue-300";
+    if (m === "mistral") return "bg-orange-900 text-orange-300";
+    if (m.startsWith("llama")) return "bg-blue-900 text-blue-300";
+    return "bg-gray-700 text-gray-300";
   };
 
   return (
@@ -70,7 +73,9 @@ export default function Home() {
             onChange={(e) => setModel(e.target.value)}
             className="w-full bg-gray-700 border border-gray-600 rounded p-3 text-white focus:outline-none focus:border-blue-500"
           >
-            <option value="llama3.1">🖥️ Ollama Llama 3.1 (Lokal)</option>
+            <option value="auto">🧭 Auto (Router entscheidet)</option>
+            <option value="mistral">🖥️ Mistral 7B (Lokal)</option>
+            <option value="llama3.2">🖥️ Llama 3.2 (Lokal)</option>
             <option value="claude-sonnet-4-6">☁️ Claude Sonnet (Anthropic)</option>
             <option value="openclaw">🦞 OpenClaw Agent (Lokal Gateway)</option>
           </select>

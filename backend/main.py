@@ -1,19 +1,12 @@
 import os
-import requests
-import base64
 import sqlite3
-import asyncio
-import websockets
-import json
 from datetime import datetime
-from crewai.tools import BaseTool
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from crewai import Agent, Task, Crew, Process
-from langchain_openai import ChatOpenAI
-from anthropic import Anthropic
 from apscheduler.schedulers.background import BackgroundScheduler
+from router import route_prompt
+from agents import execute_agent_with_tools
 
 # --- KONFIGURATION ---
 os.environ["OPENAI_API_KEY"] = "NA"
@@ -21,9 +14,15 @@ os.environ["OPENAI_API_BASE"] = "http://host.docker.internal:11434/v1"
 os.environ["OPENAI_BASE_URL"] = "http://host.docker.internal:11434/v1"
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
-# --- 1. DATENBANK SETUP ---
+# --- DATENBANK ---
 def init_db():
     conn = sqlite3.connect("memory.db")
     cursor = conn.cursor()
@@ -36,42 +35,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-init_db()
-
-# --- 2. TOOLS ---
-class FolderSensorTool(BaseTool):
-    name: str = "Folder Sensor"
-    description: str = "Liest alle Dateien im Projektordner, um den aktuellen Stand des Codes zu verstehen."
-    def _run(self) -> str:
-        root_dir = ".."
-        project_summary = ""
-        ignore = ["node_modules", ".next", "__pycache__", ".git", "venv", "memory.db"]
-        for root, dirs, files in os.walk(root_dir):
-            dirs[:] = [d for d in dirs if d not in ignore]
-            for file in files:
-                if file.endswith(('.py', '.tsx', '.json', '.yml')):
-                    file_path = os.path.join(root, file)
-                    project_summary += f"\n--- DATEI: {file_path} ---\n"
-                    try:
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            project_summary += f.read()[:500]
-                    except: pass
-        return project_summary
-
-class GitHubUploadTool(BaseTool):
-    name: str = "GitHub Code Uploader"
-    description: str = "Lädt Code auf GitHub hoch."
-    def _run(self, code: str, filename: str) -> str:
-        token = os.getenv("GITHUB_TOKEN")
-        repo_name = "paiste-oss/ai-dev-orchestrator"  # BITTE ANPASSEN
-        url = f"https://api.github.com/repos/{repo_name}/contents/{filename}"
-        headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
-        encoded_code = base64.b64encode(code.encode("utf-8")).decode("utf-8")
-        data = {"message": f"KI-Upload: {filename}", "content": encoded_code}
-        res = requests.put(url, headers=headers, json=data)
-        return "Erfolg!" if res.status_code in [200, 201] else f"Fehler: {res.text}"
-
-# --- 3. HILFSFUNKTION: In DB speichern ---
 def save_to_db(prompt_text, model_name, result):
     conn = sqlite3.connect("memory.db")
     cursor = conn.cursor()
@@ -82,130 +45,30 @@ def save_to_db(prompt_text, model_name, result):
     conn.commit()
     conn.close()
 
-# --- 4. OLLAMA: Direkt (einfache Prompts) ---
-def execute_agent_task(prompt_text, model_name="llama3.1"):
-    # Prüfe ob der Prompt Code/Projekt-Arbeit erfordert
-    code_keywords = ["datei", "code", "schreib", "erstell", "github", "projekt", "ordner", "analysier", "upload"]
-    needs_agent = any(kw in prompt_text.lower() for kw in code_keywords)
+init_db()
 
-    if needs_agent:
-        result = execute_agent_with_tools(prompt_text, model_name)
-    else:
-        result = execute_ollama_direct(prompt_text, model_name)
-
-    save_to_db(prompt_text, model_name, result)
-    return result
-
-def execute_ollama_direct(prompt_text, model_name="llama3.1"):
-    import httpx
-    response = httpx.post(
-        "http://host.docker.internal:11434/api/chat",
-        json={
-            "model": model_name,
-            "messages": [{"role": "user", "content": prompt_text}],
-            "stream": False
-        },
-        timeout=120
-    )
-    response.raise_for_status()
-    return response.json()["message"]["content"]
-
-def execute_agent_with_tools(prompt_text, model_name="llama3.1"):
-    local_llm = ChatOpenAI(model=model_name, api_key="NA", base_url="http://host.docker.internal:11434/v1")
-    sensor = FolderSensorTool()
-    gh = GitHubUploadTool()
-
-    agent = Agent(
-        role='Senior System Architect',
-        goal='Analysiere das Projekt und führe Code-Aufgaben präzise aus.',
-        backstory='Du bist ein erfahrener Entwickler mit Zugriff auf den Projektordner. Antworte immer auf Deutsch.',
-        llm=local_llm,
-        tools=[sensor, gh],
-        verbose=True,
-        allow_delegation=False
-    )
-
-    task = Task(
-        description=prompt_text,
-        expected_output='Eine saubere, deutschsprachige Antwort ohne technische Protokolle oder JSON-Strukturen.',
-        agent=agent
-    )
-
-    crew = Crew(agents=[agent], tasks=[task], process=Process.sequential)
-    return str(crew.kickoff())
-
-# --- 5. CLAUDE (Anthropic API) ---
-def execute_claude_task(prompt_text, model_name="claude-sonnet-4-6"):
-    client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-    message = client.messages.create(
-        model=model_name,
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt_text}]
-    )
-    result = message.content[0].text
-    save_to_db(prompt_text, model_name, result)
-    return result
-
-# --- 6. OPENCLAW (WebSocket Gateway) ---
-async def execute_openclaw_task_async(prompt_text: str) -> str:
-    gateway_url = "ws://127.0.0.1:18789"
-    token = os.getenv("OPENCLAW_TOKEN")
-
-    if not token:
-        raise Exception("OPENCLAW_TOKEN nicht in .env gesetzt!")
-
-    headers = {"Authorization": f"Bearer {token}"}
-
-    async with websockets.connect(gateway_url, additional_headers=headers) as ws:
-        payload = {
-            "type": "agent.run",
-            "message": prompt_text,
-            "stream": False
-        }
-        await ws.send(json.dumps(payload))
-
-        full_response = ""
-        async for message in ws:
-            data = json.loads(message)
-            msg_type = data.get("type", "")
-
-            if msg_type in ("agent.response", "agent.done"):
-                full_response = data.get("content", data.get("text", str(data)))
-                break
-            elif msg_type == "error":
-                raise Exception(f"OpenClaw Fehler: {data.get('message', str(data))}")
-
-        return full_response if full_response else "Keine Antwort von OpenClaw erhalten."
-
-def execute_openclaw_task(prompt_text: str) -> str:
-    result = asyncio.run(execute_openclaw_task_async(prompt_text))
-    save_to_db(prompt_text, "openclaw", result)
-    return result
-
-# --- 7. AUTOMATISCHER WECKER (Scheduler) ---
+# --- SCHEDULER ---
 def daily_job():
     print(f"[{datetime.now()}] Starte automatische Zusammenfassung...")
-    execute_agent_task("Erstelle eine JSON-Zusammenfassung des aktuellen Projektstands basierend auf den Dateien, die du im Folder Sensor siehst.")
+    result = execute_agent_with_tools("Erstelle eine JSON-Zusammenfassung des aktuellen Projektstands.")
+    save_to_db("daily_summary", "llama3.2", result)
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(daily_job, 'cron', hour=20, minute=0)
 scheduler.start()
 
-# --- 8. API ENDPUNKTE ---
+# --- API ---
 class AIRequest(BaseModel):
     prompt: str
-    model: str = "llama3.1"
+    model: str = "auto"  # "auto" = Router entscheidet, sonst Modell erzwingen
 
 @app.post("/agent/run")
 async def run_api_agent(request: AIRequest):
     try:
-        if request.model == "openclaw":
-            output = execute_openclaw_task(request.prompt)
-        elif request.model.startswith("claude"):
-            output = execute_claude_task(request.prompt, request.model)
-        else:
-            output = execute_agent_task(request.prompt, request.model)
-        return {"status": "success", "output": output}
+        forced = None if request.model == "auto" else request.model
+        output, model_used = route_prompt(request.prompt, forced_model=forced)
+        save_to_db(request.prompt, model_used, output)
+        return {"status": "success", "output": output, "model_used": model_used}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
