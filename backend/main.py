@@ -63,7 +63,7 @@ class GitHubUploadTool(BaseTool):
     description: str = "Lädt Code auf GitHub hoch."
     def _run(self, code: str, filename: str) -> str:
         token = os.getenv("GITHUB_TOKEN")
-        repo_name = "paiste-oss/ai-test"  # BITTE ANPASSEN
+        repo_name = "paiste-oss/ai-dev-orchestrator"  # BITTE ANPASSEN
         url = f"https://api.github.com/repos/{repo_name}/contents/{filename}"
         headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
         encoded_code = base64.b64encode(code.encode("utf-8")).decode("utf-8")
@@ -82,29 +82,57 @@ def save_to_db(prompt_text, model_name, result):
     conn.commit()
     conn.close()
 
-# --- 4. OLLAMA / CREWAI AGENT ---
+# --- 4. OLLAMA: Direkt (einfache Prompts) ---
 def execute_agent_task(prompt_text, model_name="llama3.1"):
+    # Prüfe ob der Prompt Code/Projekt-Arbeit erfordert
+    code_keywords = ["datei", "code", "schreib", "erstell", "github", "projekt", "ordner", "analysier", "upload"]
+    needs_agent = any(kw in prompt_text.lower() for kw in code_keywords)
+
+    if needs_agent:
+        result = execute_agent_with_tools(prompt_text, model_name)
+    else:
+        result = execute_ollama_direct(prompt_text, model_name)
+
+    save_to_db(prompt_text, model_name, result)
+    return result
+
+def execute_ollama_direct(prompt_text, model_name="llama3.1"):
+    import httpx
+    response = httpx.post(
+        "http://host.docker.internal:11434/api/chat",
+        json={
+            "model": model_name,
+            "messages": [{"role": "user", "content": prompt_text}],
+            "stream": False
+        },
+        timeout=120
+    )
+    response.raise_for_status()
+    return response.json()["message"]["content"]
+
+def execute_agent_with_tools(prompt_text, model_name="llama3.1"):
     local_llm = ChatOpenAI(model=model_name, api_key="NA", base_url="http://host.docker.internal:11434/v1")
     sensor = FolderSensorTool()
     gh = GitHubUploadTool()
 
     agent = Agent(
         role='Senior System Architect',
-        goal='Analysiere das Projekt und führe Aufgaben präzise aus.',
-        backstory='Du hast vollen Zugriff auf den Code via Folder Sensor.',
-        llm=local_llm, tools=[sensor, gh], verbose=True
+        goal='Analysiere das Projekt und führe Code-Aufgaben präzise aus.',
+        backstory='Du bist ein erfahrener Entwickler mit Zugriff auf den Projektordner. Antworte immer auf Deutsch.',
+        llm=local_llm,
+        tools=[sensor, gh],
+        verbose=True,
+        allow_delegation=False
     )
 
     task = Task(
-        description=f"Nutze den Folder Sensor für Kontext. Dann: {prompt_text}",
-        expected_output='Eine detaillierte Zusammenfassung oder Erfolgsmeldung.',
+        description=prompt_text,
+        expected_output='Eine saubere, deutschsprachige Antwort ohne technische Protokolle oder JSON-Strukturen.',
         agent=agent
     )
 
     crew = Crew(agents=[agent], tasks=[task], process=Process.sequential)
-    result = str(crew.kickoff())
-    save_to_db(prompt_text, model_name, result)
-    return result
+    return str(crew.kickoff())
 
 # --- 5. CLAUDE (Anthropic API) ---
 def execute_claude_task(prompt_text, model_name="claude-sonnet-4-6"):

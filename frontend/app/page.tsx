@@ -31,16 +31,18 @@ export default function Home() {
     setStatus(`${modelLabel} denkt nach...`);
 
     try {
-      const response = await fetch("http://localhost:8000/agent/run", {
+      const response = await fetch("http://localhost:5678/webhook/agent/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, model }),
       });
 
       const data = await response.json();
-
+      console.log("Das schickt n8n im Live-Modus:", data);
       if (response.ok) {
-        setStatus("Ergebnis:\n\n" + data.output);
+        const rawOutput = Array.isArray(data) ? data[0]?.output : data.output;
+        const botReply = rawOutput || "Antwortformat unbekannt (siehe Konsole)";
+        setStatus("Ergebnis:\n\n" + botReply);
         fetchHistory();
       } else {
         setStatus("Fehler vom Server: " + data.detail);

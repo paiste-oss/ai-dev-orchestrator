@@ -8,6 +8,8 @@ services:
       - ./backend:/app
     env_file:
       - ./backend/.env
+    networks:
+      - ai_network
 
   frontend:
     build: ./frontend
@@ -19,9 +21,37 @@ services:
       - /app/node_modules
     depends_on:
       - backend
+    networks:
+      - ai_network
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: always
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    environment:
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+    networks:
+      - ai_network
 
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: cloudflare_tunnel
     restart: always
-    command: "tunnel run --token eyJhIjoiNDA5NDgwOTQ1Nzc5MmFkNWU4MWMxMTQ2NGNiZTY3MzkiLCJ0IjoiMGQwODEyNzctY2U3Mi00OWE2LWEwOWMtMmIxMWFmMmE3OWFiIiwicyI6Ik1HWTBOek5qWm1VdFlUSXpNQzAwWVRWbExXSmtZbUV0TVRRMU9ERmlaalJpT0RsaiJ9"
+    command: "tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}"
+    networks:
+      - ai_network
+
+volumes:
+  n8n_data:
+
+networks:
+  ai_network:
+    driver: bridge
