@@ -1,0 +1,27 @@
+services:
+  backend:
+    build: ./backend
+    container_name: ai_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    env_file:
+      - ./backend/.env
+
+  frontend:
+    build: ./frontend
+    container_name: ai_frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflare_tunnel
+    restart: always
+    command: "tunnel run --token eyJhIjoiNDA5NDgwOTQ1Nzc5MmFkNWU4MWMxMTQ2NGNiZTY3MzkiLCJ0IjoiMGQwODEyNzctY2U3Mi00OWE2LWEwOWMtMmIxMWFmMmE3OWFiIiwicyI6Ik1HWTBOek5qWm1VdFlUSXpNQzAwWVRWbExXSmtZbUV0TVRRMU9ERmlaalJpT0RsaiJ9"

@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+crewai
+langchain
+langchain-openai
+python-dotenv
+requests
+apscheduler
+anthropic
+websockets

@@ -1,0 +1,59 @@
+# ========================
+# SECRETS & ENVIRONMENT
+# ========================
+.env
+*.env
+.env.local
+.env.*.local
+
+# ========================
+# DATENBANK
+# ========================
+*.db
+*.sqlite
+*.sqlite3
+memory.db
+
+# ========================
+# PYTHON
+# ========================
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+env/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# ========================
+# NODE / NEXT.JS
+# ========================
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ========================
+# DOCKER
+# ========================
+*.log
+
+# ========================
+# OS
+# ========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========================
+# IDE
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
