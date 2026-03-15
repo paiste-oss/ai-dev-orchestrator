@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from core.config import settings
+from core.dependencies import require_admin
+from models.customer import Customer
 from services import n8n_client
 import httpx
 
@@ -78,3 +80,49 @@ async def trigger_service(service_name: str, body: ServicePayload):
     """
     result = await n8n_client.trigger(service_name, body.payload)
     return {"service": service_name, "result": result}
+
+
+# ---------------------------------------------------------------------------
+# Backend-Tasks (Celery Beat)
+# ---------------------------------------------------------------------------
+
+CELERY_TASKS = [
+    {
+        "name": "tasks.summaries.daily_summary",
+        "label": "Tägliche Zusammenfassung",
+        "description": "Erstellt eine KI-Zusammenfassung des aktuellen Projektstands.",
+        "schedule": "Täglich um 20:00 Uhr",
+        "type": "scheduled",
+    },
+    {
+        "name": "tasks.dev_task_processor.process_dev_tasks",
+        "label": "Dev-Task Prozessor",
+        "description": "Verarbeitet ausstehende Entwickler-Aufgaben (Dev Orchestrator).",
+        "schedule": "Alle 30 Sekunden",
+        "type": "scheduled",
+    },
+    {
+        "name": "tasks.reminders.send_reminder",
+        "label": "Erinnerung senden",
+        "description": "Sendet eine proaktive Erinnerung über einen Buddy (manuell oder per Trigger).",
+        "schedule": "Manuell",
+        "type": "manual",
+    },
+]
+
+
+@router.get("/celery")
+async def list_celery_tasks(_: Customer = Depends(require_admin)):
+    """Gibt alle bekannten Celery-Tasks zurück."""
+    return CELERY_TASKS
+
+
+@router.post("/celery/{task_name}/trigger")
+async def trigger_celery_task(task_name: str, _: Customer = Depends(require_admin)):
+    """Löst einen Celery-Task manuell aus."""
+    from tasks.celery_app import celery_app
+    known = {t["name"] for t in CELERY_TASKS}
+    if task_name not in known:
+        raise HTTPException(status_code=404, detail="Task nicht gefunden")
+    celery_app.send_task(task_name)
+    return {"triggered": task_name}
