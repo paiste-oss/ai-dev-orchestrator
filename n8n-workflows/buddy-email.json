@@ -1,0 +1,65 @@
+{
+  "name": "Buddy — Email Überwachung",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [{ "mode": "everyMinute" }]
+        },
+        "mailbox": "INBOX",
+        "options": {}
+      },
+      "name": "Email Eingang",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "credentials": {
+        "imap": {
+          "name": "IMAP Konto"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = [];\nfor (const item of $input.all()) {\n  const email = item.json;\n  const from = email.from?.text || email.from?.value?.[0]?.address || 'Unbekannt';\n  const subject = email.subject || '(kein Betreff)';\n  const snippet = (email.text || email.html || '').replace(/<[^>]+>/g, '').substring(0, 300);\n  const messageId = email.messageId || `email-${Date.now()}`;\n\n  items.push({\n    json: {\n      source: 'email',\n      source_id: messageId,\n      summary: `E-Mail von ${from}: ${subject}`,\n      priority: subject.toLowerCase().includes('dringend') || subject.toLowerCase().includes('urgent') ? 'high' : 'medium',\n      customer_id: $env.CUSTOMER_ID || null,\n      buddy_id: $env.BUDDY_ID || null,\n      timestamp: email.date || new Date().toISOString(),\n      details: {\n        from: from,\n        subject: subject,\n        snippet: snippet,\n        has_attachment: (email.attachments || []).length > 0\n      }\n    }\n  });\n}\nreturn items;"
+      },
+      "name": "Email aufbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/v1/agent/event",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $env.BACKEND_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify($json) }}"
+      },
+      "name": "An Backend senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Email Eingang": {
+      "main": [[{ "node": "Email aufbereiten", "type": "main", "index": 0 }]]
+    },
+    "Email aufbereiten": {
+      "main": [[{ "node": "An Backend senden", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "buddy-senses" }]
+}

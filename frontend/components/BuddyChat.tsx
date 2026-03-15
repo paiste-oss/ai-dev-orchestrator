@@ -6,6 +6,8 @@ import { clearSession, getSession } from "@/lib/auth";
 import type { UseCase } from "@/lib/usecases";
 import VoiceButton from "@/components/VoiceButton";
 import FileDropZone, { AttachedFile } from "@/components/FileDropZone";
+import { BuddyEventBannerList } from "@/components/BuddyEventBanner";
+import { useBuddyEvents } from "@/lib/useBuddyEvents";
 import { API_ROUTES, BACKEND_URL } from "@/lib/config";
 
 interface Message {
@@ -33,8 +35,21 @@ export default function BuddyChat({ useCase }: Props) {
   const [loading, setLoading] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOverChat, setIsDragOverChat] = useState(false);
+  const [customerId, setCustomerId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Customer-UUID für SSE laden
+  useEffect(() => {
+    if (!user?.email) return;
+    fetch(`${BACKEND_URL}/v1/customers/lookup?email=${encodeURIComponent(user.email)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((c) => { if (c?.id) setCustomerId(c.id); })
+      .catch(() => {});
+  }, [user?.email]);
+
+  // Echtzeit-Events von n8n via SSE
+  const { notifications, dismiss, dismissAll } = useBuddyEvents(customerId);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -224,6 +239,17 @@ export default function BuddyChat({ useCase }: Props) {
           </button>
         </div>
       </header>
+
+      {/* Echtzeit-Event-Banner (n8n → Buddy → Frontend) */}
+      {notifications.length > 0 && (
+        <div className="max-w-2xl w-full mx-auto px-4 pt-3">
+          <BuddyEventBannerList
+            notifications={notifications}
+            onDismiss={dismiss}
+            onDismissAll={dismissAll}
+          />
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3 max-w-2xl w-full mx-auto">

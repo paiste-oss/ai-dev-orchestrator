@@ -47,6 +47,16 @@ async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_d
     return customer
 
 
+@router.get("/lookup", response_model=CustomerOut)
+async def lookup_customer_by_email(email: str, db: AsyncSession = Depends(get_db)):
+    """Findet einen Kunden anhand seiner E-Mail-Adresse (für SSE-Subscription)."""
+    result = await db.execute(select(Customer).where(Customer.email == email))
+    customer = result.scalar_one_or_none()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    return customer
+
+
 @router.get("/{customer_id}", response_model=CustomerOut)
 async def get_customer(customer_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     customer = await db.get(Customer, customer_id)

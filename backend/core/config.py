@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     # n8n (Microservice-Executor — kein zentraler Router)
     n8n_base_url: str
     n8n_api_key: str = ""
+    n8n_webhook_secret: str = ""  # Shared Secret für POST /v1/agent/event
 
     # OpenClaw
     openclaw_token: str = ""

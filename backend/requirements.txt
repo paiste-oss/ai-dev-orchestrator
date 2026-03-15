@@ -1,5 +1,6 @@
 fastapi
 uvicorn
+redis[asyncio]
 crewai
 langchain
 langchain-openai

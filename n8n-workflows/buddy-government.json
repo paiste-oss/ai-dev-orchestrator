@@ -1,0 +1,89 @@
+{
+  "name": "Buddy — Behördenmitteilungen",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 4 }]
+        }
+      },
+      "name": "Alle 4 Stunden",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://www.admin.ch/gov/de/start/dokumentation/medienmitteilungen.rss.html",
+        "options": {}
+      },
+      "name": "Bundesrat RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [460, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://www.fedlex.admin.ch/api/feed/de.rss",
+        "options": {}
+      },
+      "name": "Fedlex (Gesetze) RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1,
+      "position": [460, 380]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = [];\nconst cutoff = Date.now() - 8 * 60 * 60 * 1000; // Letzte 8h\n\nfor (const item of $input.all()) {\n  const entry = item.json;\n  const pubDate = entry.pubDate || entry.isoDate;\n  if (!pubDate) continue;\n\n  const pubMs = new Date(pubDate).getTime();\n  if (pubMs < cutoff) continue;\n\n  const url = entry.link || entry.guid || '';\n  const title = entry.title || '(kein Titel)';\n  const feedSource = entry.feed?.title || 'Behörde';\n\n  // Dringlichkeit erkennen\n  const titleLower = title.toLowerCase();\n  let priority = 'medium';\n  let alertType = 'announcement';\n\n  if (titleLower.includes('warnung') || titleLower.includes('alarm') || titleLower.includes('notfall')) {\n    priority = 'urgent';\n    alertType = 'warning';\n  } else if (titleLower.includes('massnahme') || titleLower.includes('verordnung') || titleLower.includes('gesetz')) {\n    priority = 'high';\n    alertType = 'regulation';\n  }\n\n  items.push({\n    json: {\n      source: 'government',\n      source_id: url || `gov-${pubMs}`,\n      summary: `[${feedSource}] ${title}`,\n      priority: priority,\n      customer_id: $env.CUSTOMER_ID || null,\n      buddy_id: $env.BUDDY_ID || null,\n      timestamp: pubDate,\n      details: {\n        agency: feedSource,\n        alert_type: alertType,\n        title: title,\n        official_url: url,\n        published_at: pubDate,\n        region: $env.CUSTOMER_REGION || 'Schweiz'\n      }\n    }\n  });\n}\n\nreturn items.slice(0, 10);"
+      },
+      "name": "Meldungen aufbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/v1/agent/event",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $env.BACKEND_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify($json) }}"
+      },
+      "name": "An Backend senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [920, 300]
+    }
+  ],
+  "connections": {
+    "Alle 4 Stunden": {
+      "main": [
+        [
+          { "node": "Bundesrat RSS", "type": "main", "index": 0 },
+          { "node": "Fedlex (Gesetze) RSS", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Bundesrat RSS": {
+      "main": [[{ "node": "Meldungen aufbereiten", "type": "main", "index": 0 }]]
+    },
+    "Fedlex (Gesetze) RSS": {
+      "main": [[{ "node": "Meldungen aufbereiten", "type": "main", "index": 0 }]]
+    },
+    "Meldungen aufbereiten": {
+      "main": [[{ "node": "An Backend senden", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "buddy-senses" }]
+}

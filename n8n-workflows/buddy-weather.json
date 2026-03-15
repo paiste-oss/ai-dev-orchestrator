@@ -1,0 +1,77 @@
+{
+  "name": "Buddy — Wetter",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7,16 * * *"
+            }
+          ]
+        }
+      },
+      "name": "2x täglich (7h + 16h)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.openweathermap.org/data/2.5/weather?q={{ $env.WEATHER_CITY || 'Bern' }}&appid={{ $env.OPENWEATHER_API_KEY }}&units=metric&lang=de",
+        "options": {}
+      },
+      "name": "OpenWeatherMap",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const w = $input.first().json;\nconst city = w.name || $env.WEATHER_CITY || 'Stadt';\nconst temp = Math.round(w.main?.temp || 0);\nconst feelsLike = Math.round(w.main?.feels_like || 0);\nconst desc = w.weather?.[0]?.description || 'unbekannt';\nconst windKmh = Math.round((w.wind?.speed || 0) * 3.6);\nconst humidity = w.main?.humidity || 0;\nconst rain = w.rain?.['1h'] || 0;\nconst snow = w.snow?.['1h'] || 0;\nconst weatherId = w.weather?.[0]?.id || 800;\n\n// Warnung bestimmen\nlet warning = null;\nlet priority = 'low';\n\nif (weatherId >= 200 && weatherId < 300) { warning = 'Gewitter'; priority = 'high'; }\nelse if (weatherId >= 600 && weatherId < 700) { warning = 'Schneefall'; priority = 'medium'; }\nelse if (rain > 5) { warning = 'Starkregen'; priority = 'medium'; }\nelse if (windKmh > 60) { warning = 'Sturmwind'; priority = 'high'; }\nelse if (temp < -5) { warning = 'Starker Frost'; priority = 'high'; }\nelse if (temp < 0) { warning = 'Frost'; priority = 'medium'; }\nelse if (temp > 35) { warning = 'Extreme Hitze'; priority = 'high'; }\n\nconst summaryParts = [`Wetter in ${city}: ${desc}, ${temp}°C`];\nif (warning) summaryParts.push(`⚠️ ${warning}`);\nif (rain > 0) summaryParts.push(`Regen ${rain}mm/h`);\n\nreturn [{\n  json: {\n    source: 'weather',\n    source_id: `weather-${city}-${new Date().toISOString().slice(0,13)}`,\n    summary: summaryParts.join(' — '),\n    priority: priority,\n    customer_id: $env.CUSTOMER_ID || null,\n    buddy_id: $env.BUDDY_ID || null,\n    timestamp: new Date().toISOString(),\n    details: {\n      city: city,\n      temperature_c: temp,\n      feels_like_c: feelsLike,\n      condition: desc,\n      warning_level: priority === 'high' ? 'red' : priority === 'medium' ? 'yellow' : 'green',\n      warning: warning,\n      wind_kmh: windKmh,\n      humidity_pct: humidity,\n      rain_mm_h: rain,\n      snow_mm_h: snow\n    }\n  }\n}];"
+      },
+      "name": "Wetter aufbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/v1/agent/event",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $env.BACKEND_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify($json) }}"
+      },
+      "name": "An Backend senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "2x täglich (7h + 16h)": {
+      "main": [[{ "node": "OpenWeatherMap", "type": "main", "index": 0 }]]
+    },
+    "OpenWeatherMap": {
+      "main": [[{ "node": "Wetter aufbereiten", "type": "main", "index": 0 }]]
+    },
+    "Wetter aufbereiten": {
+      "main": [[{ "node": "An Backend senden", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "buddy-senses" }]
+}

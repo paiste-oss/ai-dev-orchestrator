@@ -4,6 +4,7 @@ from models.workflow import N8nWorkflow
 from models.credential import CustomerCredential
 from models.dev_task import DevTask
 from models.document import CustomerDocument
+from models.buddy_event import BuddyEvent
 
 __all__ = [
     "Customer", "SubscriptionPlan",
@@ -12,4 +13,5 @@ __all__ = [
     "CustomerCredential",
     "DevTask",
     "CustomerDocument",
+    "BuddyEvent",
 ]

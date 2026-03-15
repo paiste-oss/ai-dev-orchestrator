@@ -1,0 +1,108 @@
+{
+  "name": "Buddy — Kalender Erinnerungen",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 30 }]
+        }
+      },
+      "name": "Alle 30 Min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "event",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list"
+        },
+        "timeMin": "={{ new Date().toISOString() }}",
+        "timeMax": "={{ new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString() }}",
+        "options": {
+          "singleEvents": true,
+          "orderBy": "startTime"
+        }
+      },
+      "name": "Google Kalender",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "name": "Google Calendar Konto"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = [];\nconst now = Date.now();\n\nfor (const item of $input.all()) {\n  const event = item.json;\n  const startTime = event.start?.dateTime || event.start?.date;\n  if (!startTime) continue;\n\n  const startMs = new Date(startTime).getTime();\n  const minutesUntil = Math.round((startMs - now) / 60000);\n\n  // Nur Events innerhalb 24h melden\n  if (minutesUntil < 0 || minutesUntil > 1440) continue;\n\n  let priority = 'low';\n  if (minutesUntil <= 30) priority = 'urgent';\n  else if (minutesUntil <= 120) priority = 'high';\n  else if (minutesUntil <= 480) priority = 'medium';\n\n  const sourceId = `cal-${event.id}-${startTime}`;\n\n  items.push({\n    json: {\n      source: 'calendar',\n      source_id: sourceId,\n      summary: `Termin in ${minutesUntil} Min: ${event.summary || 'Unbenannter Termin'}`,\n      priority: priority,\n      customer_id: $env.CUSTOMER_ID || null,\n      buddy_id: $env.BUDDY_ID || null,\n      timestamp: startTime,\n      details: {\n        event_title: event.summary || 'Unbenannter Termin',\n        start_time: startTime,\n        end_time: event.end?.dateTime || event.end?.date,\n        location: event.location || null,\n        minutes_until: minutesUntil,\n        calendar_name: event.organizer?.displayName || 'Kalender'\n      }\n    }\n  });\n}\nreturn items;"
+      },
+      "name": "Events filtern & aufbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.details.minutes_until }}",
+              "operation": "largerEqual",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "name": "Nur relevante?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/v1/agent/event",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Secret",
+              "value": "={{ $env.BACKEND_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ JSON.stringify($json) }}"
+      },
+      "name": "An Backend senden",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1120, 240]
+    }
+  ],
+  "connections": {
+    "Alle 30 Min": {
+      "main": [[{ "node": "Google Kalender", "type": "main", "index": 0 }]]
+    },
+    "Google Kalender": {
+      "main": [[{ "node": "Events filtern & aufbereiten", "type": "main", "index": 0 }]]
+    },
+    "Events filtern & aufbereiten": {
+      "main": [[{ "node": "Nur relevante?", "type": "main", "index": 0 }]]
+    },
+    "Nur relevante?": {
+      "main": [[{ "node": "An Backend senden", "type": "main", "index": 0 }], []]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": [{ "name": "buddy-senses" }]
+}

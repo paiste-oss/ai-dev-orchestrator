@@ -47,7 +47,7 @@ export default function LandingPage() {
       <div className="max-w-xl w-full text-center space-y-10">
 
         <div className="space-y-3">
-          <h1 className="text-5xl font-bold text-blue-400">AI Buddy</h1>
+          <h1 className="text-5xl font-bold text-blue-400">Baddi</h1>
           <p className="text-gray-400 text-lg">Persönliche KI-Begleiter für Menschen und Unternehmen</p>
         </div>
 
