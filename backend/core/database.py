@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import text
 from core.config import settings
 
 engine = create_async_engine(settings.database_url, echo=False)
@@ -18,3 +19,9 @@ async def get_db() -> AsyncSession:
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Neue Spalten sicher hinzufügen (idempotent)
+        migrations = [
+            "ALTER TABLE ai_buddies ADD COLUMN IF NOT EXISTS usecase_id VARCHAR",
+        ]
+        for sql in migrations:
+            await conn.execute(text(sql))

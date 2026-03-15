@@ -24,7 +24,15 @@ const NAV: NavEntry[] = [
   { label: "Dashboard",        href: "/admin",              icon: "🏠" },
   { label: "Dev Orchestrator", href: "/admin/devtool",      icon: "🛠️" },
   { label: "Kunden",           href: "/admin/customers",    icon: "👥" },
-  { label: "AI Baddis",        href: "/admin/buddies",      icon: "🤖" },
+  {
+    label: "AI Baddis",
+    icon: "🤖",
+    children: [
+      { label: "Menschen",   href: "/admin/buddies/menschen",   icon: "🧑" },
+      { label: "Firmen",     href: "/admin/buddies/firmen",     icon: "🏢" },
+      { label: "Funktionen", href: "/admin/buddies/funktionen", icon: "⚡" },
+    ],
+  },
   { label: "Dokumente",        href: "/admin/documents",    icon: "📁" },
   {
     label: "Workflows",

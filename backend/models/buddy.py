@@ -21,6 +21,7 @@ class AiBuddy(Base):
         "system_prompt_template": "Du bist {name}, ein freundlicher KI-Begleiter.",
         "capabilities": ["conversation"],
     })
+    usecase_id: Mapped[str | None] = mapped_column(String, nullable=True)   # z.B. "silberperlen", "firma", "funktion-dokumente"
     n8n_workflow_id: Mapped[str | None] = mapped_column(String, nullable=True)
     qdrant_collection: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -6,6 +6,7 @@ from core.database import get_db
 from core.security import hash_password, verify_password, create_access_token
 from core.dependencies import get_current_user
 from models.customer import Customer
+from models.buddy import AiBuddy
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -20,6 +21,7 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
     segment: str = "personal"
+    usecase_id: str | None = None   # wird beim Registrieren mitgeschickt → default Buddy
 
 
 class TokenResponse(BaseModel):
@@ -60,6 +62,27 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     db.add(user)
     await db.commit()
     await db.refresh(user)
+
+    # Standard-Buddy automatisch zuweisen
+    if data.usecase_id:
+        buddy_names = {
+            "silberperlen": "Emma", "bestager": "Leo", "mittlerweiler": "Max",
+            "newgen": "Noa", "youngsters": "Lumi", "gesundheit": "Vita",
+            "mental-health": "Seele", "lernbuddy": "Klaro", "karriere": "Victor",
+            "firma": "Aria", "firma-hr": "Petra", "firma-support": "Sam",
+            "funktion-dokumente": "Dox", "funktion-chat": "Ada", "funktion-sprache": "Vox",
+            "funktion-workflow": "Flow", "funktion-uebersetzung": "Lingua", "funktion-wissen": "Sage",
+        }
+        buddy_name = buddy_names.get(data.usecase_id, "Baddi")
+        default_buddy = AiBuddy(
+            customer_id=user.id,
+            usecase_id=data.usecase_id,
+            name=buddy_name,
+            segment=data.segment,
+            qdrant_collection=f"buddy_{str(user.id)[:8]}",
+        )
+        db.add(default_buddy)
+        await db.commit()
 
     token = create_access_token(subject=user.email, role=user.role)
     return TokenResponse(access_token=token, role=user.role, name=user.name, email=user.email)
