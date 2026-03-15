@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { BACKEND_URL } from "./config";
 
-export interface BuddyNotification {
+export interface BaddiNotification {
   event_id: string;
   source: "email" | "calendar" | "news" | "weather" | "government";
   priority: "low" | "medium" | "high" | "urgent";
@@ -14,8 +14,8 @@ export interface BuddyNotification {
   created_at: string;
 }
 
-export function useBuddyEvents(customerId: string | null) {
-  const [notifications, setNotifications] = useState<BuddyNotification[]>([]);
+export function useBaddiEvents(customerId: string | null) {
+  const [notifications, setNotifications] = useState<BaddiNotification[]>([]);
   const [connected, setConnected] = useState(false);
 
   const dismiss = useCallback((eventId: string) => {

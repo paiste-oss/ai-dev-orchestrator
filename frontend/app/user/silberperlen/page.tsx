@@ -1,8 +1,8 @@
 "use client";
-import BuddyChat from "@/components/BuddyChat";
+import BaddiChat from "@/components/BaddiChat";
 import { getUseCase } from "@/lib/usecases";
 
 export default function SilberperlenPage() {
   const uc = getUseCase("silberperlen")!;
-  return <BuddyChat useCase={uc} />;
+  return <BaddiChat useCase={uc} />;
 }

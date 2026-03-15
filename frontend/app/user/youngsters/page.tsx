@@ -1,8 +1,8 @@
 "use client";
-import BuddyChat from "@/components/BuddyChat";
+import BaddiChat from "@/components/BaddiChat";
 import { getUseCase } from "@/lib/usecases";
 
 export default function YoungtersPage() {
   const uc = getUseCase("youngsters")!;
-  return <BuddyChat useCase={uc} />;
+  return <BaddiChat useCase={uc} />;
 }

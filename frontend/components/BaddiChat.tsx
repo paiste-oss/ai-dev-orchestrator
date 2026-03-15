@@ -6,12 +6,12 @@ import { clearSession, getSession } from "@/lib/auth";
 import type { UseCase } from "@/lib/usecases";
 import VoiceButton from "@/components/VoiceButton";
 import FileDropZone, { AttachedFile } from "@/components/FileDropZone";
-import { BuddyEventBannerList } from "@/components/BuddyEventBanner";
-import { useBuddyEvents } from "@/lib/useBuddyEvents";
+import { BaddiEventBannerList } from "@/components/BaddiEventBanner";
+import { useBaddiEvents } from "@/lib/useBaddiEvents";
 import { API_ROUTES, BACKEND_URL } from "@/lib/config";
 
 interface Message {
-  role: "user" | "buddy";
+  role: "user" | "baddi";
   text: string;
   files?: string[];  // Dateinamen der angehängten Dateien
   fileInfo?: {       // Infos über verarbeitete Dateien
@@ -27,7 +27,7 @@ interface Props {
   useCase: UseCase;
 }
 
-export default function BuddyChat({ useCase }: Props) {
+export default function BaddiChat({ useCase }: Props) {
   const router = useRouter();
   const user = getSession();
   const [prompt, setPrompt] = useState("");
@@ -49,7 +49,7 @@ export default function BuddyChat({ useCase }: Props) {
   }, [user?.email]);
 
   // Echtzeit-Events von n8n via SSE
-  const { notifications, dismiss, dismissAll } = useBuddyEvents(customerId);
+  const { notifications, dismiss, dismissAll } = useBaddiEvents(customerId);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -122,7 +122,7 @@ export default function BuddyChat({ useCase }: Props) {
         setMessages((prev) => [
           ...prev,
           {
-            role: "buddy",
+            role: "baddi",
             text: combinedOutput || "Keine Antwort.",
             fileInfo: fileInfos,
           },
@@ -142,13 +142,13 @@ export default function BuddyChat({ useCase }: Props) {
         const data = await res.json();
         setMessages((prev) => [
           ...prev,
-          { role: "buddy", text: data.output || "Keine Antwort." },
+          { role: "baddi", text: data.output || "Keine Antwort." },
         ]);
       }
     } catch {
       setMessages((prev) => [
         ...prev,
-        { role: "buddy", text: "Verbindung fehlgeschlagen. Läuft Docker?" },
+        { role: "baddi", text: "Verbindung fehlgeschlagen. Läuft Docker?" },
       ]);
     } finally {
       setLoading(false);
@@ -240,10 +240,10 @@ export default function BuddyChat({ useCase }: Props) {
         </div>
       </header>
 
-      {/* Echtzeit-Event-Banner (n8n → Buddy → Frontend) */}
+      {/* Echtzeit-Event-Banner (n8n → Baddi → Frontend) */}
       {notifications.length > 0 && (
         <div className="max-w-2xl w-full mx-auto px-4 pt-3">
-          <BuddyEventBannerList
+          <BaddiEventBannerList
             notifications={notifications}
             onDismiss={dismiss}
             onDismissAll={dismissAll}
@@ -268,7 +268,7 @@ export default function BuddyChat({ useCase }: Props) {
 
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            {msg.role === "buddy" && (
+            {msg.role === "baddi" && (
               <span className="text-xl mr-2 mt-1 self-end">{useCase.icon}</span>
             )}
             <div className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed ${
@@ -321,101 +321,68 @@ export default function BuddyChat({ useCase }: Props) {
       </div>
 
       {/* Input Area */}
-      <div className={`bg-black/30 border-t ${useCase.borderColor} px-4 py-3 max-w-2xl w-full mx-auto`}>
+      <div className={`bg-black/30 border-t ${useCase.borderColor} p-4`}>
+        <div className="max-w-2xl mx-auto space-y-2">
+          {/* Angehängte Dateien Vorschau */}
+          {attachedFiles.length > 0 && (
+            <FileDropZone
+              files={attachedFiles}
+              onFilesChange={setAttachedFiles}
+              accentColor={useCase.borderColor}
+            />
+          )}
 
-        {/* FileDropZone kompakt — zeigt angehängte Dateien als Chips */}
-        <FileDropZone
-          files={attachedFiles}
-          onFilesChange={setAttachedFiles}
-          compact
-          className="mb-2"
-        />
+          <div className="flex gap-2 items-end">
+            {/* Datei-Upload Button */}
+            <label className={`cursor-pointer flex-none w-10 h-10 flex items-center justify-center rounded-xl border ${useCase.borderColor} text-gray-400 hover:text-white hover:bg-white/10 transition-colors`}>
+              📎
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.md"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) {
+                    const newFiles: AttachedFile[] = Array.from(e.target.files).map((file) => ({
+                      file,
+                      id: `${Date.now()}-${Math.random()}`,
+                    }));
+                    setAttachedFiles((prev) => [...prev, ...newFiles].slice(0, 5));
+                    e.target.value = "";
+                  }
+                }}
+              />
+            </label>
 
-        <div className="flex items-end gap-2">
-          {/* Datei-Anheft-Button */}
-          <button
-            onClick={() => {
-              // Trigger versteckten File-Input via ID
-              document.getElementById("buddy-file-input")?.click();
-            }}
-            className="text-gray-400 hover:text-white transition-colors p-2 shrink-0 mb-0.5"
-            title="Datei anhängen"
-          >
-            📎
-          </button>
-          <input
-            id="buddy-file-input"
-            type="file"
-            multiple
-            className="hidden"
-            accept=".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.xml,.html,.log"
-            onChange={(e) => {
-              if (e.target.files) {
-                const newFiles: AttachedFile[] = Array.from(e.target.files).map((f) => ({
-                  file: f,
-                  id: `${Date.now()}-${Math.random()}`,
-                }));
-                setAttachedFiles((prev) => [...prev, ...newFiles].slice(0, 5));
-              }
-              e.target.value = "";
-            }}
-          />
+            <textarea
+              ref={textareaRef}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={useCase.placeholder}
+              rows={1}
+              className={`flex-1 bg-white/10 border ${useCase.borderColor} rounded-xl px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-white/20 resize-none text-sm leading-relaxed`}
+              style={{ maxHeight: "120px", overflowY: "auto" }}
+            />
 
-          {/* Textarea */}
-          <textarea
-            ref={textareaRef}
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              attachedFiles.length > 0
-                ? "Was soll ich mit der Datei machen? (oder leer lassen für Zusammenfassung)"
-                : useCase.placeholder
-            }
-            rows={1}
-            className={`
-              flex-1 bg-white/10 border ${useCase.borderColor} rounded-2xl px-4 py-3
-              text-sm text-white placeholder-gray-500 outline-none focus:ring-1
-              focus:ring-white/30 resize-none overflow-hidden min-h-[44px] max-h-[120px]
-            `}
-            style={{ height: "auto" }}
-            onInput={(e) => {
-              const t = e.target as HTMLTextAreaElement;
-              t.style.height = "auto";
-              t.style.height = `${Math.min(t.scrollHeight, 120)}px`;
-            }}
-          />
+            <VoiceButton
+              onResult={(text) => setPrompt((prev) => (prev ? prev + " " + text : text))}
+              className="flex-none w-10 h-10"
+            />
 
-          {/* Voice Button */}
-          <VoiceButton
-            onResult={(text: string) => setPrompt((prev) => prev + text)}
-            className="shrink-0"
-          />
-
-          {/* Senden */}
-          <button
-            onClick={handleSend}
-            disabled={loading || (!prompt.trim() && attachedFiles.length === 0)}
-            className={`
-              shrink-0 w-10 h-10 rounded-full flex items-center justify-center
-              transition-all duration-150 font-bold text-lg
-              ${loading || (!prompt.trim() && attachedFiles.length === 0)
-                ? "bg-white/10 text-gray-600 cursor-not-allowed"
-                : `bg-white/20 hover:bg-white/30 text-white`
-              }
-            `}
-          >
-            {loading ? (
-              <span className="w-4 h-4 border-2 border-gray-400 border-t-white rounded-full animate-spin" />
-            ) : (
-              "↑"
-            )}
-          </button>
+            <button
+              onClick={handleSend}
+              disabled={loading || (!prompt.trim() && attachedFiles.length === 0)}
+              className={`flex-none w-10 h-10 rounded-xl font-bold text-white transition-all ${
+                loading || (!prompt.trim() && attachedFiles.length === 0)
+                  ? "bg-white/10 text-gray-600 cursor-not-allowed"
+                  : `bg-white/20 hover:bg-white/30 ${useCase.color}`
+              }`}
+            >
+              ↑
+            </button>
+          </div>
         </div>
-
-        <p className="text-center text-gray-600 text-xs mt-2">
-          Enter zum Senden · Shift+Enter für Zeilenumbruch · 📎 für Datei-Anhang
-        </p>
       </div>
     </div>
   );

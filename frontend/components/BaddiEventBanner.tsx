@@ -1,6 +1,6 @@
 "use client";
 
-import { BuddyNotification } from "@/lib/useBuddyEvents";
+import { BaddiNotification } from "@/lib/useBaddiEvents";
 
 const SOURCE_ICONS: Record<string, string> = {
   email: "✉️",
@@ -18,11 +18,11 @@ const PRIORITY_STYLES: Record<string, string> = {
 };
 
 interface Props {
-  notification: BuddyNotification;
+  notification: BaddiNotification;
   onDismiss: (id: string) => void;
 }
 
-export default function BuddyEventBanner({ notification, onDismiss }: Props) {
+export default function BaddiEventBanner({ notification, onDismiss }: Props) {
   const icon = SOURCE_ICONS[notification.source] ?? "🔔";
   const style = PRIORITY_STYLES[notification.priority] ?? PRIORITY_STYLES.low;
 
@@ -50,12 +50,12 @@ export default function BuddyEventBanner({ notification, onDismiss }: Props) {
 }
 
 interface BannerListProps {
-  notifications: BuddyNotification[];
+  notifications: BaddiNotification[];
   onDismiss: (id: string) => void;
   onDismissAll: () => void;
 }
 
-export function BuddyEventBannerList({
+export function BaddiEventBannerList({
   notifications,
   onDismiss,
   onDismissAll,
@@ -73,7 +73,7 @@ export function BuddyEventBannerList({
         </button>
       )}
       {notifications.map((n) => (
-        <BuddyEventBanner key={n.event_id} notification={n} onDismiss={onDismiss} />
+        <BaddiEventBanner key={n.event_id} notification={n} onDismiss={onDismiss} />
       ))}
     </div>
   );

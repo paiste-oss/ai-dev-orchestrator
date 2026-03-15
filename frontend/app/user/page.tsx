@@ -27,7 +27,7 @@ export default function UserHub() {
       {/* Header */}
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex justify-between items-center">
         <div>
-          <h1 className="text-xl font-bold text-white">AI Buddy</h1>
+          <h1 className="text-xl font-bold text-white">AI Baddi</h1>
           <p className="text-xs text-gray-500">Wähle deinen Begleiter</p>
         </div>
         <div className="flex items-center gap-4">
@@ -44,7 +44,7 @@ export default function UserHub() {
       <main className="flex-1 p-6 max-w-4xl mx-auto w-full space-y-10">
         {/* Aktive UseCases */}
         <section className="space-y-4">
-          <h2 className="text-lg font-bold text-gray-200">Dein Buddy</h2>
+          <h2 className="text-lg font-bold text-gray-200">Dein Baddi</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {active.map((uc) => (
               <button
@@ -62,7 +62,7 @@ export default function UserHub() {
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{uc.description}</p>
                 <div className="flex items-center gap-2 pt-1">
-                  <span className="text-xs text-gray-400">Buddy:</span>
+                  <span className="text-xs text-gray-400">Baddi:</span>
                   <span className={`text-xs font-semibold ${uc.color}`}>{uc.buddyName}</span>
                 </div>
               </button>

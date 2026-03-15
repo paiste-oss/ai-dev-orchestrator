@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Buddy",
+  title: "AI Baddi",
   description: "Persönliche KI-Begleiter für Menschen und Unternehmen",
 };
 

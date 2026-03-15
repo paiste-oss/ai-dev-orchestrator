@@ -53,7 +53,7 @@ export default function RegisterAllgemein() {
           <button onClick={() => router.push("/")} className="text-gray-500 hover:text-white text-xl">←</button>
           <div>
             <h1 className="text-2xl font-bold text-green-300">🌍 Registrierung</h1>
-            <p className="text-xs text-gray-500">Für alle — entdecke deinen Buddy</p>
+            <p className="text-xs text-gray-500">Für alle — entdecke deinen Baddi</p>
           </div>
         </div>
 
@@ -82,12 +82,12 @@ export default function RegisterAllgemein() {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500" />
           </div>
 
-          {/* Vorschau des zugewiesenen Buddys */}
+          {/* Vorschau des zugewiesenen Baddis */}
           {assignedUseCase && (
             <div className={`${assignedUseCase.bgColor} border ${assignedUseCase.borderColor} rounded-xl p-4 flex items-center gap-3`}>
               <span className="text-3xl">{assignedUseCase.icon}</span>
               <div>
-                <p className={`font-bold text-sm ${assignedUseCase.color}`}>Dein Buddy: {assignedUseCase.buddyName}</p>
+                <p className={`font-bold text-sm ${assignedUseCase.color}`}>Dein Baddi: {assignedUseCase.buddyName}</p>
                 <p className="text-xs text-gray-400">{assignedUseCase.name} · {assignedUseCase.tagline}</p>
               </div>
             </div>

@@ -23,7 +23,7 @@ export default function RegisterPerson() {
     setSubmitted(true);
   };
 
-  // Vorschau des zugewiesenen Buddys
+  // Vorschau des zugewiesenen Baddis
   const assignedUseCase = form.geburtsjahr
     ? getUseCase(getUseCaseByBirthYear(Number(form.geburtsjahr)))
     : null;
@@ -81,12 +81,12 @@ export default function RegisterPerson() {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500" />
           </div>
 
-          {/* Vorschau des zugewiesenen Buddys */}
+          {/* Vorschau des zugewiesenen Baddis */}
           {assignedUseCase && (
             <div className={`${assignedUseCase.bgColor} border ${assignedUseCase.borderColor} rounded-xl p-4 flex items-center gap-3`}>
               <span className="text-3xl">{assignedUseCase.icon}</span>
               <div>
-                <p className={`font-bold text-sm ${assignedUseCase.color}`}>Dein Buddy: {assignedUseCase.buddyName}</p>
+                <p className={`font-bold text-sm ${assignedUseCase.color}`}>Dein Baddi: {assignedUseCase.buddyName}</p>
                 <p className="text-xs text-gray-400">{assignedUseCase.name} · {assignedUseCase.tagline}</p>
               </div>
             </div>

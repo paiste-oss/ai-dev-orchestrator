@@ -8,7 +8,7 @@ import { API_ROUTES } from "@/lib/config";
 
 const NAV = [
   { label: "Übersicht", href: "/enterprise", icon: "🏢" },
-  { label: "Meine Buddies", href: "/enterprise/buddies", icon: "🤖" },
+  { label: "Meine Baddis", href: "/enterprise/buddies", icon: "🤖" },
   { label: "Gespräche", href: "/enterprise/conversations", icon: "💬" },
   { label: "Auslastung", href: "/enterprise/usage", icon: "📈" },
   { label: "Einstellungen", href: "/enterprise/settings", icon: "⚙️" },
@@ -71,7 +71,7 @@ export default function EnterpriseDashboard() {
       `}>
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-blue-400">AI Buddy</h1>
+            <h1 className="text-xl font-bold text-blue-400">AI Baddi</h1>
             <p className="text-xs text-gray-500">Enterprise</p>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-gray-500 hover:text-white text-xl">✕</button>
@@ -110,7 +110,7 @@ export default function EnterpriseDashboard() {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
-            { label: "Aktive Buddies", value: "—", color: "text-blue-400" },
+            { label: "Aktive Baddis", value: "—", color: "text-blue-400" },
             { label: "Gespräche heute", value: "—", color: "text-green-400" },
             { label: "Nutzer", value: "—", color: "text-purple-400" },
           ].map((card) => (
@@ -123,13 +123,13 @@ export default function EnterpriseDashboard() {
 
         {/* Schnell-Chat */}
         <div className="bg-gray-800 rounded-xl p-4 md:p-6 border border-gray-700 space-y-4">
-          <h3 className="font-semibold text-gray-200">AI Buddy — Schnell-Chat</h3>
+          <h3 className="font-semibold text-gray-200">AI Baddi — Schnell-Chat</h3>
           <div className="flex flex-col sm:flex-row gap-2">
             <input
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleChat()}
-              placeholder="Frag deinen Buddy..."
+              placeholder="Frag deinen Baddi..."
               className="flex-1 bg-gray-700 border border-gray-600 rounded p-3 text-white focus:outline-none focus:border-blue-500"
             />
             <div className="flex gap-2">
