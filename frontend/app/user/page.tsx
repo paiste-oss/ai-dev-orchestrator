@@ -1,19 +1,23 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, clearSession } from "@/lib/auth";
 import { USE_CASES } from "@/lib/usecases";
 
 export default function UserHub() {
   const router = useRouter();
-  const user = getSession();
+  const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<ReturnType<typeof getSession>>(null);
 
   useEffect(() => {
-    if (!user || user.role !== "user") router.replace("/login");
+    const u = getSession();
+    setUser(u);
+    setMounted(true);
+    if (!u || u.role !== "user") router.replace("/login");
   }, []);
 
-  if (!user) return null;
+  if (!mounted || !user) return null;
 
   const active = USE_CASES.filter((uc) => uc.status === "active");
   const planned = USE_CASES.filter((uc) => uc.status === "coming_soon");

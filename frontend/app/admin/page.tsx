@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, clearSession } from "@/lib/auth";
 import { API_ROUTES } from "@/lib/config";
@@ -17,13 +17,17 @@ const NAV = [
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const user = getSession();
+  const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<ReturnType<typeof getSession>>(null);
 
   useEffect(() => {
-    if (!user || user.role !== "admin") router.replace("/login");
+    const u = getSession();
+    setUser(u);
+    setMounted(true);
+    if (!u || u.role !== "admin") router.replace("/login");
   }, []);
 
-  if (!user) return null;
+  if (!mounted || !user) return null;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex">

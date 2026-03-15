@@ -42,7 +42,7 @@ const STATUS_ICON: Record<string, string> = {
 
 export default function DevTool() {
   const router = useRouter();
-  const user = getSession();
+  const [mounted, setMounted] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selected, setSelected] = useState<Task | null>(null);
   const [title, setTitle] = useState("");
@@ -53,6 +53,8 @@ export default function DevTool() {
   const outputRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setMounted(true);
+    const user = getSession();
     if (!user || user.role !== "admin") router.replace("/login");
   }, []);
 
@@ -117,7 +119,7 @@ export default function DevTool() {
   const pending = tasks.filter(t => t.status === "pending").length;
   const paused  = tasks.filter(t => t.status === "paused").length;
 
-  if (!user) return null;
+  if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">

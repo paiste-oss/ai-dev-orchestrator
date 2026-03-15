@@ -16,16 +16,20 @@ const NAV = [
 
 export default function EnterpriseDashboard() {
   const router = useRouter();
-  const user = getSession();
+  const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<ReturnType<typeof getSession>>(null);
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role !== "enterprise") router.replace("/login");
+    const u = getSession();
+    setUser(u);
+    setMounted(true);
+    if (!u || u.role !== "enterprise") router.replace("/login");
   }, []);
 
-  if (!user) return null;
+  if (!mounted || !user) return null;
 
   const handleChat = async () => {
     if (!prompt) return;
