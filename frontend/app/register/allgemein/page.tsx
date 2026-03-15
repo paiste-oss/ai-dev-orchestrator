@@ -2,18 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { USE_CASES } from "@/lib/usecases";
-
-const ACTIVE_CASES = USE_CASES.filter((uc) => uc.status === "active");
+import { getUseCaseByBirthYear, getUseCase } from "@/lib/usecases";
 
 export default function RegisterAllgemein() {
   const router = useRouter();
   const [form, setForm] = useState({
     vorname: "",
     nachname: "",
+    geburtsjahr: "",
     email: "",
     passwort: "",
-    usecase: "",
     sprache: "de",
   });
   const [submitted, setSubmitted] = useState(false);
@@ -24,6 +22,10 @@ export default function RegisterAllgemein() {
     e.preventDefault();
     setSubmitted(true);
   };
+
+  const assignedUseCase = form.geburtsjahr
+    ? getUseCase(getUseCaseByBirthYear(Number(form.geburtsjahr)))
+    : null;
 
   if (submitted) {
     return (
@@ -47,7 +49,6 @@ export default function RegisterAllgemein() {
     <main className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-lg space-y-6">
 
-        {/* Header */}
         <div className="flex items-center gap-3">
           <button onClick={() => router.push("/")} className="text-gray-500 hover:text-white text-xl">←</button>
           <div>
@@ -74,6 +75,25 @@ export default function RegisterAllgemein() {
           </div>
 
           <div className="space-y-1">
+            <label className="text-sm text-gray-400">Geburtsjahr</label>
+            <input required type="number" min="1920" max={new Date().getFullYear() - 6} value={form.geburtsjahr}
+              onChange={(e) => set("geburtsjahr", e.target.value)}
+              placeholder="z.B. 1990"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500" />
+          </div>
+
+          {/* Vorschau des zugewiesenen Buddys */}
+          {assignedUseCase && (
+            <div className={`${assignedUseCase.bgColor} border ${assignedUseCase.borderColor} rounded-xl p-4 flex items-center gap-3`}>
+              <span className="text-3xl">{assignedUseCase.icon}</span>
+              <div>
+                <p className={`font-bold text-sm ${assignedUseCase.color}`}>Dein Buddy: {assignedUseCase.buddyName}</p>
+                <p className="text-xs text-gray-400">{assignedUseCase.name} · {assignedUseCase.tagline}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1">
             <label className="text-sm text-gray-400">E-Mail</label>
             <input required type="email" value={form.email} onChange={(e) => set("email", e.target.value)}
               placeholder="deine@email.com"
@@ -85,28 +105,6 @@ export default function RegisterAllgemein() {
             <input required type="password" value={form.passwort} onChange={(e) => set("passwort", e.target.value)}
               placeholder="••••••••"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500" />
-          </div>
-
-          {/* Buddy wählen */}
-          <div className="space-y-2">
-            <label className="text-sm text-gray-400">Welcher Buddy interessiert dich? <span className="text-gray-600">(optional)</span></label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {ACTIVE_CASES.map((uc) => (
-                <button type="button" key={uc.id}
-                  onClick={() => set("usecase", form.usecase === uc.id ? "" : uc.id)}
-                  className={`flex items-center gap-2 p-3 rounded-xl border text-left text-sm transition-colors ${
-                    form.usecase === uc.id
-                      ? `${uc.bgColor} ${uc.borderColor} ${uc.color}`
-                      : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500"
-                  }`}>
-                  <span>{uc.icon}</span>
-                  <div>
-                    <p className="font-semibold text-xs">{uc.name}</p>
-                    <p className="text-xs opacity-60">{uc.ageRange}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
           </div>
 
           <div className="space-y-1">

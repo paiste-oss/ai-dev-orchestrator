@@ -213,3 +213,13 @@ Deine Eigenschaften:
 export function getUseCase(id: string): UseCase | undefined {
   return USE_CASES.find((uc) => uc.id === id);
 }
+
+/** Weist automatisch den passenden UseCase anhand des Geburtsjahrs zu. */
+export function getUseCaseByBirthYear(birthYear: number): string {
+  const age = new Date().getFullYear() - birthYear;
+  if (age <= 16) return "youngsters";
+  if (age <= 30) return "newgen";
+  if (age <= 50) return "mittlerweiler";
+  if (age <= 70) return "bestager";
+  return "silberperlen";
+}

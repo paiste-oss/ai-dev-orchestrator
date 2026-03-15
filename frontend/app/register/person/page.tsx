@@ -2,11 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { USE_CASES } from "@/lib/usecases";
-
-const USECASES_PERSONAL = USE_CASES.filter((uc) =>
-  ["silberperlen", "bestager", "mittlerweiler", "newgen", "youngsters"].includes(uc.id)
-);
+import { getUseCaseByBirthYear, getUseCase } from "@/lib/usecases";
 
 export default function RegisterPerson() {
   const router = useRouter();
@@ -16,7 +12,6 @@ export default function RegisterPerson() {
     geburtsjahr: "",
     email: "",
     passwort: "",
-    usecase: "",
     sprache: "de",
   });
   const [submitted, setSubmitted] = useState(false);
@@ -25,9 +20,13 @@ export default function RegisterPerson() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Phase 2: echte API-Registrierung
     setSubmitted(true);
   };
+
+  // Vorschau des zugewiesenen Buddys
+  const assignedUseCase = form.geburtsjahr
+    ? getUseCase(getUseCaseByBirthYear(Number(form.geburtsjahr)))
+    : null;
 
   if (submitted) {
     return (
@@ -51,7 +50,6 @@ export default function RegisterPerson() {
     <main className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-lg space-y-6">
 
-        {/* Header */}
         <div className="flex items-center gap-3">
           <button onClick={() => router.push("/")} className="text-gray-500 hover:text-white text-xl">←</button>
           <div>
@@ -62,7 +60,6 @@ export default function RegisterPerson() {
 
         <form onSubmit={handleSubmit} className="bg-gray-900 rounded-2xl border border-gray-800 p-6 space-y-5">
 
-          {/* Name */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-sm text-gray-400">Vorname</label>
@@ -76,16 +73,25 @@ export default function RegisterPerson() {
             </div>
           </div>
 
-          {/* Geburtsjahr */}
           <div className="space-y-1">
             <label className="text-sm text-gray-400">Geburtsjahr</label>
-            <input required type="number" min="1920" max="2018" value={form.geburtsjahr}
+            <input required type="number" min="1920" max={new Date().getFullYear() - 6} value={form.geburtsjahr}
               onChange={(e) => set("geburtsjahr", e.target.value)}
               placeholder="1955"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500" />
           </div>
 
-          {/* E-Mail */}
+          {/* Vorschau des zugewiesenen Buddys */}
+          {assignedUseCase && (
+            <div className={`${assignedUseCase.bgColor} border ${assignedUseCase.borderColor} rounded-xl p-4 flex items-center gap-3`}>
+              <span className="text-3xl">{assignedUseCase.icon}</span>
+              <div>
+                <p className={`font-bold text-sm ${assignedUseCase.color}`}>Dein Buddy: {assignedUseCase.buddyName}</p>
+                <p className="text-xs text-gray-400">{assignedUseCase.name} · {assignedUseCase.tagline}</p>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-1">
             <label className="text-sm text-gray-400">E-Mail</label>
             <input required type="email" value={form.email} onChange={(e) => set("email", e.target.value)}
@@ -93,7 +99,6 @@ export default function RegisterPerson() {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500" />
           </div>
 
-          {/* Passwort */}
           <div className="space-y-1">
             <label className="text-sm text-gray-400">Passwort</label>
             <input required type="password" value={form.passwort} onChange={(e) => set("passwort", e.target.value)}
@@ -101,29 +106,6 @@ export default function RegisterPerson() {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500" />
           </div>
 
-          {/* Buddy-Auswahl */}
-          <div className="space-y-2">
-            <label className="text-sm text-gray-400">Welcher Buddy passt zu dir?</label>
-            <div className="grid grid-cols-1 gap-2">
-              {USECASES_PERSONAL.map((uc) => (
-                <button type="button" key={uc.id}
-                  onClick={() => set("usecase", uc.id)}
-                  className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-colors ${
-                    form.usecase === uc.id
-                      ? `${uc.bgColor} ${uc.borderColor} ${uc.color}`
-                      : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500"
-                  }`}>
-                  <span className="text-xl">{uc.icon}</span>
-                  <div>
-                    <p className="font-semibold text-sm">{uc.name}</p>
-                    <p className="text-xs opacity-70">{uc.ageRange} · {uc.buddyName}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Sprache */}
           <div className="space-y-1">
             <label className="text-sm text-gray-400">Bevorzugte Sprache</label>
             <select value={form.sprache} onChange={(e) => set("sprache", e.target.value)}
