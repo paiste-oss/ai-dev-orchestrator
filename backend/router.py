@@ -6,9 +6,7 @@ from agents import (
     execute_claude_task,
     execute_openclaw_task,
 )
-
-OLLAMA_BASE_URL = "http://host.docker.internal:11434"
-ROUTER_MODEL = "phi3"  # Schnelles, kleines Modell ideal für Routing
+from core.config import settings
 
 ROUTER_SYSTEM_PROMPT = """Du bist ein Router-Agent. Deine einzige Aufgabe ist es, eingehende Prompts zu klassifizieren.
 
@@ -28,14 +26,17 @@ Beispiele:
 - "Speichere diese Info: X=5" → {"route": "save_data", "reason": "Datenspeicherung"}
 """
 
-SIMPLE_CHAT_MODEL = "mistral"
-CODE_TASK_MODEL = "llama3.2"
+def _chat_model():
+    return settings.ollama_chat_model
+
+def _code_model():
+    return settings.ollama_code_model
 
 ROUTE_TO_HANDLER = {
-    "simple_chat":  (lambda prompt: execute_ollama_direct(prompt, SIMPLE_CHAT_MODEL), SIMPLE_CHAT_MODEL),
-    "code_task":    (lambda prompt: execute_agent_with_tools(prompt, CODE_TASK_MODEL), CODE_TASK_MODEL),
-    "save_data":    (lambda prompt: execute_ollama_direct(prompt, SIMPLE_CHAT_MODEL), SIMPLE_CHAT_MODEL),
-    "automation":   (lambda prompt: execute_ollama_direct(prompt, SIMPLE_CHAT_MODEL), SIMPLE_CHAT_MODEL),
+    "simple_chat":  (lambda prompt: execute_ollama_direct(prompt, _chat_model()), _chat_model()),
+    "code_task":    (lambda prompt: execute_agent_with_tools(prompt, _code_model()), _code_model()),
+    "save_data":    (lambda prompt: execute_ollama_direct(prompt, _chat_model()), _chat_model()),
+    "automation":   (lambda prompt: execute_ollama_direct(prompt, _chat_model()), _chat_model()),
     "complex_task": (lambda prompt: execute_claude_task(prompt), "claude-sonnet-4-6"),
 }
 
@@ -44,9 +45,9 @@ def classify_prompt(prompt_text: str) -> dict:
     """Fragt das Router-Modell und gibt die Klassifizierung zurück."""
     try:
         response = httpx.post(
-            f"{OLLAMA_BASE_URL}/api/chat",
+            f"{settings.ollama_base_url}/api/chat",
             json={
-                "model": ROUTER_MODEL,
+                "model": settings.ollama_router_model,
                 "messages": [
                     {"role": "system", "content": ROUTER_SYSTEM_PROMPT},
                     {"role": "user", "content": prompt_text}

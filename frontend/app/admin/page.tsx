@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, clearSession } from "@/lib/auth";
+import { API_ROUTES } from "@/lib/config";
 
 const NAV = [
   { label: "Dashboard", href: "/admin", icon: "🏠" },
@@ -78,8 +79,8 @@ export default function AdminDashboard() {
               { label: "Neuen Kunden anlegen", href: "/admin/customers", icon: "➕" },
               { label: "Buddy konfigurieren", href: "/admin/buddies", icon: "🤖" },
               { label: "n8n Workflows", href: "/admin/workflows", icon: "⚙️" },
-              { label: "Metabase Analytik", href: "http://localhost:3001", icon: "📊", external: true },
-              { label: "API Docs", href: "http://localhost:8000/docs", icon: "📖", external: true },
+              { label: "Metabase Analytik", href: API_ROUTES.metabase, icon: "📊", external: true },
+              { label: "API Docs", href: API_ROUTES.apiDocs, icon: "📖", external: true },
               { label: "Portal öffnen", href: "/portal", icon: "🔬" },
             ].map((item) => (
               <button

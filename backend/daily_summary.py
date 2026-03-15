@@ -1,8 +1,10 @@
+import os
 import requests
 
 # Dieses Skript simuliert einen Klick auf den Button
 def run_daily_update():
-    url = "http://localhost:8000/agent/run"
+    backend_url = os.environ.get("BACKEND_URL", "http://localhost:8000")
+    url = f"{backend_url}/agent/run"
     payload = {
         "prompt": "Führe einen kompletten Projekt-Scan durch und erstelle eine JSON-Zusammenfassung des aktuellen Stands für das Langzeitgedächtnis.",
         "model": "llama3.1"

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, clearSession } from "@/lib/auth";
 import VoiceButton from "@/components/VoiceButton";
+import { API_ROUTES } from "@/lib/config";
 
 export default function Portal() {
   const [prompt, setPrompt] = useState("");
@@ -15,7 +16,7 @@ export default function Portal() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch("http://localhost:8000/agent/history");
+      const res = await fetch(API_ROUTES.agentHistory);
       const data = await res.json();
       if (data.history) setHistory(data.history);
     } catch (error) {
@@ -33,7 +34,7 @@ export default function Portal() {
       model.startsWith("claude") ? "Claude" : model;
     setStatus(`${modelLabel} denkt nach...`);
     try {
-      const response = await fetch("http://localhost:5678/webhook/agent/run", {
+      const response = await fetch(API_ROUTES.webhook, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, model }),

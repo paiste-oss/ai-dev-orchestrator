@@ -1,7 +1,7 @@
-import os
 import base64
 import requests
 from crewai.tools import BaseTool
+from core.config import settings
 
 
 class FolderSensorTool(BaseTool):
@@ -31,10 +31,8 @@ class GitHubUploadTool(BaseTool):
     description: str = "Lädt Code auf GitHub hoch."
 
     def _run(self, code: str, filename: str) -> str:
-        token = os.getenv("GITHUB_TOKEN")
-        repo_name = "paiste-oss/ai-dev-orchestrator"
-        url = f"https://api.github.com/repos/{repo_name}/contents/{filename}"
-        headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+        url = f"https://api.github.com/repos/{settings.github_repo}/contents/{filename}"
+        headers = {"Authorization": f"token {settings.github_token}", "Accept": "application/vnd.github.v3+json"}
         encoded_code = base64.b64encode(code.encode("utf-8")).decode("utf-8")
         data = {"message": f"KI-Upload: {filename}", "content": encoded_code}
         res = requests.put(url, headers=headers, json=data)

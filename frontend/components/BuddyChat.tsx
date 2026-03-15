@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { clearSession, getSession } from "@/lib/auth";
 import type { UseCase } from "@/lib/usecases";
 import VoiceButton from "@/components/VoiceButton";
+import { API_ROUTES } from "@/lib/config";
 
 interface Message {
   role: "user" | "buddy";
@@ -35,7 +36,7 @@ export default function BuddyChat({ useCase }: Props) {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:8000/agent/run", {
+      const res = await fetch(API_ROUTES.agentRun, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

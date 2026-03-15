@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, clearSession } from "@/lib/auth";
 import VoiceButton from "@/components/VoiceButton";
+import { API_ROUTES } from "@/lib/config";
 
 const NAV = [
   { label: "Übersicht", href: "/enterprise", icon: "🏢" },
@@ -31,7 +32,7 @@ export default function EnterpriseDashboard() {
     setLoading(true);
     setResponse("");
     try {
-      const res = await fetch("http://localhost:5678/webhook/agent/run", {
+      const res = await fetch(API_ROUTES.webhook, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, model: "auto" }),

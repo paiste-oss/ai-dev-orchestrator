@@ -1,4 +1,3 @@
-import os
 import asyncio
 import httpx
 import json
@@ -7,9 +6,7 @@ from crewai import Agent, Task, Crew, Process
 from langchain_openai import ChatOpenAI
 from anthropic import Anthropic
 from tools import FolderSensorTool, GitHubUploadTool
-
-
-OLLAMA_BASE_URL = "http://host.docker.internal:11434"
+from core.config import settings
 
 
 def detect_language_simple(text: str) -> str:
@@ -20,6 +17,7 @@ def detect_language_simple(text: str) -> str:
         return "de"
     return "en"
 
+
 def get_language_system_prompt(prompt_text: str) -> str:
     lang = detect_language_simple(prompt_text)
     hints = {
@@ -28,13 +26,15 @@ def get_language_system_prompt(prompt_text: str) -> str:
     }
     return hints.get(lang, hints["en"])
 
-def execute_ollama_direct(prompt_text: str, model_name: str = "llama3.1", system_prompt: str = None) -> str:
+
+def execute_ollama_direct(prompt_text: str, model_name: str = None, system_prompt: str = None) -> str:
     """Direkte Ollama-Anfrage ohne Agent-Overhead — für einfache Prompts."""
+    model = model_name or settings.ollama_chat_model
     sys_prompt = system_prompt if system_prompt else get_language_system_prompt(prompt_text)
     response = httpx.post(
-        f"{OLLAMA_BASE_URL}/api/chat",
+        f"{settings.ollama_base_url}/api/chat",
         json={
-            "model": model_name,
+            "model": model,
             "messages": [
                 {"role": "system", "content": sys_prompt},
                 {"role": "user", "content": prompt_text}
@@ -47,12 +47,13 @@ def execute_ollama_direct(prompt_text: str, model_name: str = "llama3.1", system
     return response.json()["message"]["content"]
 
 
-def execute_agent_with_tools(prompt_text: str, model_name: str = "llama3.1") -> str:
+def execute_agent_with_tools(prompt_text: str, model_name: str = None) -> str:
     """CrewAI Agent mit Folder Sensor und GitHub Upload — für Code/Projektaufgaben."""
+    model = model_name or settings.ollama_code_model
     local_llm = ChatOpenAI(
-        model=model_name,
+        model=model,
         api_key="NA",
-        base_url=f"{OLLAMA_BASE_URL}/v1"
+        base_url=f"{settings.ollama_base_url}/v1"
     )
 
     agent = Agent(
@@ -77,7 +78,7 @@ def execute_agent_with_tools(prompt_text: str, model_name: str = "llama3.1") -> 
 
 def execute_claude_task(prompt_text: str, model_name: str = "claude-sonnet-4-6") -> str:
     """Anthropic Claude API — für komplexe Aufgaben."""
-    client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    client = Anthropic(api_key=settings.anthropic_api_key)
     message = client.messages.create(
         model=model_name,
         max_tokens=2048,
@@ -89,15 +90,12 @@ def execute_claude_task(prompt_text: str, model_name: str = "claude-sonnet-4-6")
 
 async def execute_openclaw_task_async(prompt_text: str) -> str:
     """OpenClaw WebSocket Gateway."""
-    gateway_url = "ws://127.0.0.1:18789"
-    token = os.getenv("OPENCLAW_TOKEN")
-
-    if not token:
+    if not settings.openclaw_token:
         raise Exception("OPENCLAW_TOKEN nicht in .env gesetzt!")
 
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {settings.openclaw_token}"}
 
-    async with websockets.connect(gateway_url, additional_headers=headers) as ws:
+    async with websockets.connect(settings.openclaw_gateway_url, additional_headers=headers) as ws:
         payload = {"type": "agent.run", "message": prompt_text, "stream": False}
         await ws.send(json.dumps(payload))
 

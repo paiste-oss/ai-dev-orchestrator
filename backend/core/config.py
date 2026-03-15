@@ -2,36 +2,47 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # Database
-    database_url: str = "postgresql+asyncpg://aibuddy:aibuddy@postgres:5432/aibuddy"
+    # Datenbank
+    database_url: str
     postgres_password: str = "aibuddy"
 
     # Redis / Celery
-    redis_url: str = "redis://redis:6379/0"
-    celery_broker_url: str = "redis://redis:6379/0"
-    celery_result_backend: str = "redis://redis:6379/1"
+    redis_url: str
+    celery_broker_url: str
+    celery_result_backend: str
 
     # Qdrant
     qdrant_host: str = "qdrant"
     qdrant_port: int = 6333
 
     # Ollama
-    ollama_base_url: str = "http://host.docker.internal:11434"
+    ollama_base_url: str
+    ollama_router_model: str = "phi3"
+    ollama_chat_model: str = "mistral"
+    ollama_code_model: str = "llama3.2"
 
     # Anthropic
     anthropic_api_key: str = ""
 
+    # GitHub
+    github_token: str = ""
+    github_repo: str = "paiste-oss/ai-dev-orchestrator"
+
     # n8n
-    n8n_base_url: str = "http://n8n:5678"
+    n8n_base_url: str
     n8n_api_key: str = ""
+    n8n_webhook_path: str = "/webhook/agent/run"
+
+    # OpenClaw
+    openclaw_token: str = ""
+    openclaw_gateway_url: str = "ws://127.0.0.1:18789"
 
     # JWT
-    secret_key: str = "changeme-in-production"
+    secret_key: str
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 60 * 24  # 24h
+    access_token_expire_minutes: int = 60 * 24
 
     class Config:
-        env_file = ".env"
         extra = "ignore"
 
 
