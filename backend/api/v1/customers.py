@@ -1,8 +1,10 @@
 import uuid
-from fastapi import APIRouter, HTTPException, Depends
+from datetime import datetime
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, or_
 from core.database import get_db
 from models.customer import Customer
 
@@ -21,16 +23,74 @@ class CustomerOut(BaseModel):
     name: str
     email: str
     segment: str
+    role: str
     is_active: bool
+    created_at: datetime
 
     class Config:
         from_attributes = True
 
 
-@router.get("", response_model=list[CustomerOut])
-async def list_customers(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Customer).where(Customer.is_active == True))
-    return result.scalars().all()
+class CustomerListResponse(BaseModel):
+    items: list[CustomerOut]
+    total: int
+    page: int
+    page_size: int
+
+
+@router.get("", response_model=CustomerListResponse)
+async def list_customers(
+    search: Optional[str] = Query(None, description="Suche in Name und E-Mail"),
+    segment: Optional[str] = Query(None, description="Filter nach Segment: personal, elderly, corporate"),
+    role: Optional[str] = Query(None, description="Filter nach Rolle: admin, customer"),
+    is_active: Optional[bool] = Query(None, description="Filter nach aktivem Status"),
+    page: int = Query(1, ge=1, description="Seitennummer"),
+    page_size: int = Query(20, ge=1, le=100, description="Einträge pro Seite"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Gibt alle Kunden mit optionalen Filtern und Paginierung zurück."""
+    query = select(Customer)
+
+    # Suchfilter über Name und E-Mail
+    if search:
+        term = f"%{search.lower()}%"
+        query = query.where(
+            or_(
+                func.lower(Customer.name).like(term),
+                func.lower(Customer.email).like(term),
+            )
+        )
+
+    # Segment-Filter
+    if segment:
+        query = query.where(Customer.segment == segment)
+
+    # Rollen-Filter
+    if role:
+        query = query.where(Customer.role == role)
+
+    # Aktiv-Filter
+    if is_active is not None:
+        query = query.where(Customer.is_active == is_active)
+
+    # Gesamtanzahl für Paginierung
+    count_query = select(func.count()).select_from(query.subquery())
+    total_result = await db.execute(count_query)
+    total = total_result.scalar_one()
+
+    # Sortierung und Paginierung
+    query = query.order_by(Customer.created_at.desc())
+    query = query.offset((page - 1) * page_size).limit(page_size)
+
+    result = await db.execute(query)
+    items = result.scalars().all()
+
+    return CustomerListResponse(
+        items=list(items),
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.post("", response_model=CustomerOut, status_code=201)
@@ -62,4 +122,16 @@ async def get_customer(customer_id: uuid.UUID, db: AsyncSession = Depends(get_db
     customer = await db.get(Customer, customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
+    return customer
+
+
+@router.patch("/{customer_id}/toggle-active", response_model=CustomerOut)
+async def toggle_customer_active(customer_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Aktiviert oder deaktiviert einen Kunden."""
+    customer = await db.get(Customer, customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    customer.is_active = not customer.is_active
+    await db.commit()
+    await db.refresh(customer)
     return customer
