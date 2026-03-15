@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/auth";
+import { useRouter } from "next/navigation";
+import { apiFetch, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
+import AdminSidebar from "@/components/AdminSidebar";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -56,6 +58,9 @@ function chf(n: number) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function KostenPage() {
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [entries, setEntries] = useState<CostEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<Category | "alle">("alle");
@@ -64,7 +69,14 @@ export default function KostenPage() {
   const [form, setForm] = useState(EMPTY_FORM());
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const u = getSession();
+    setMounted(true);
+    if (!u || u.role !== "admin") { router.replace("/login"); return; }
+    load();
+  }, []);
+
+  if (!mounted) return null;
 
   async function load() {
     setLoading(true);
@@ -120,19 +132,25 @@ export default function KostenPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-8">
+    <div className="min-h-screen bg-gray-950 text-white flex">
+      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      <main className="flex-1 p-4 md:p-8 space-y-8 overflow-y-auto">
 
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Kosten</h1>
-          <p className="text-gray-500 text-sm mt-0.5">CAPEX Übersicht — alle Kosten des Projekts</p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white text-2xl md:hidden">☰</button>
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold">💰 Kosten</h1>
+            <p className="text-gray-500 text-sm mt-0.5">CAPEX Übersicht — alle Kosten des Projekts</p>
+          </div>
         </div>
         <button
           onClick={openCreate}
-          className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-sm px-4 py-2 rounded-xl transition-colors"
+          className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-sm px-4 py-2 rounded-xl transition-colors shrink-0"
         >
-          + Eintrag hinzufügen
+          + Eintrag
         </button>
       </div>
 
@@ -443,6 +461,8 @@ export default function KostenPage() {
           </div>
         </div>
       )}
+
+      </main>
     </div>
   );
 }
