@@ -388,7 +388,7 @@ export default function BuddyChat({ useCase }: Props) {
 
           {/* Voice Button */}
           <VoiceButton
-            onTranscript={(text) => setPrompt((prev) => prev + text)}
+            onResult={(text: string) => setPrompt((prev) => prev + text)}
             className="shrink-0"
           />
 
