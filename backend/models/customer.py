@@ -32,5 +32,7 @@ class Customer(Base):
     subscription_plan_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("subscription_plans.id"), nullable=True)
 
     subscription_plan: Mapped["SubscriptionPlan | None"] = relationship(back_populates="customers")
-    buddies: Mapped[list["AiBuddy"]] = relationship(back_populates="customer")
-    credentials: Mapped[list["CustomerCredential"]] = relationship(back_populates="customer", cascade="all, delete-orphan")
+    buddies: Mapped[list["AiBuddy"]] = relationship(back_populates="customer")  # type: ignore
+    credentials: Mapped[list["CustomerCredential"]] = relationship(back_populates="customer", cascade="all, delete-orphan")  # type: ignore
+    # Dokumente: alle hochgeladenen Files dieses Kunden
+    documents: Mapped[list["CustomerDocument"]] = relationship(back_populates="customer", cascade="all, delete-orphan")  # type: ignore
