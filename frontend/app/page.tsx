@@ -73,19 +73,13 @@ export default function LandingPage() {
           ))}
         </div>
 
-        {/* Anmelden & Portal */}
+        {/* Anmelden */}
         <div className="flex flex-col gap-3">
           <button
             onClick={() => router.push("/login")}
             className="w-full bg-blue-600 hover:bg-blue-500 transition-colors py-3 rounded-xl font-bold text-white text-lg"
           >
             Anmelden
-          </button>
-          <button
-            onClick={() => router.push("/portal")}
-            className="w-full bg-gray-800 hover:bg-gray-700 transition-colors py-3 rounded-xl text-gray-300 border border-gray-700"
-          >
-            Developer Portal öffnen
           </button>
         </div>
 

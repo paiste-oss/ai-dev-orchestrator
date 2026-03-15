@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from core.config import settings
 from core.database import get_db
+from core.dependencies import require_admin
+from models.customer import Customer
 from models.dev_task import DevTask
 
 _redis = redis_lib.from_url(settings.redis_url, decode_responses=True)
@@ -30,7 +32,7 @@ class TaskUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.get("")
-async def list_tasks(db: AsyncSession = Depends(get_db)):
+async def list_tasks(db: AsyncSession = Depends(get_db), _: Customer = Depends(require_admin)):
     result = await db.execute(
         select(DevTask).order_by(DevTask.priority, DevTask.created_at)
     )
@@ -39,7 +41,7 @@ async def list_tasks(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("", status_code=201)
-async def create_task(body: TaskCreate, db: AsyncSession = Depends(get_db)):
+async def create_task(body: TaskCreate, db: AsyncSession = Depends(get_db), _: Customer = Depends(require_admin)):
     task = DevTask(
         title=body.title,
         description=body.description,
@@ -52,13 +54,13 @@ async def create_task(body: TaskCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{task_id}")
-async def get_task(task_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_task(task_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: Customer = Depends(require_admin)):
     task = await _get_or_404(db, task_id)
     return _serialize(task)
 
 
 @router.patch("/{task_id}")
-async def update_task(task_id: uuid.UUID, body: TaskUpdate, db: AsyncSession = Depends(get_db)):
+async def update_task(task_id: uuid.UUID, body: TaskUpdate, db: AsyncSession = Depends(get_db), _: Customer = Depends(require_admin)):
     task = await _get_or_404(db, task_id)
     if body.priority is not None:
         task.priority = body.priority
@@ -70,7 +72,7 @@ async def update_task(task_id: uuid.UUID, body: TaskUpdate, db: AsyncSession = D
 
 
 @router.delete("/{task_id}", status_code=204)
-async def delete_task(task_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def delete_task(task_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: Customer = Depends(require_admin)):
     task = await _get_or_404(db, task_id)
     if task.status == "running":
         raise HTTPException(status_code=409, detail="Laufende Tasks können nicht gelöscht werden.")
@@ -79,7 +81,7 @@ async def delete_task(task_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{task_id}/retry")
-async def retry_task(task_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def retry_task(task_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: Customer = Depends(require_admin)):
     """Setzt einen failed/paused Task manuell auf pending zurück."""
     task = await _get_or_404(db, task_id)
     if task.status not in ("failed", "paused", "cancelled", "running"):
@@ -93,7 +95,7 @@ async def retry_task(task_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{task_id}/run-now")
-async def run_now(task_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def run_now(task_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: Customer = Depends(require_admin)):
     """Löst sofortige Verarbeitung aus (überspringt Queue-Reihenfolge)."""
     task = await _get_or_404(db, task_id)
     if task.status not in ("pending", "paused"):

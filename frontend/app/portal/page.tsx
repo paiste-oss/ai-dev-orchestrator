@@ -14,7 +14,11 @@ export default function Portal() {
   const router = useRouter();
   const [user, setUser] = useState<ReturnType<typeof getSession>>(null);
 
-  useEffect(() => { setUser(getSession()); }, []);
+  useEffect(() => {
+    const session = getSession();
+    if (!session) { router.replace("/login"); return; }
+    setUser(session);
+  }, []);
 
   const fetchHistory = async () => {
     try {

@@ -2,19 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { saveSession, getDashboardPath, type UserRole } from "@/lib/auth";
-
-interface Account {
-  password: string;
-  name: string;
-  role: UserRole;
-  usecase?: string;
-}
-
-const ACCOUNTS: Record<string, Account> = {
-  "admin@baddi.ch": { password: "2R8bFIdkKKMZj!wy", name: "Admin", role: "admin" },
-  "naor@aibuddy.ch": { password: "2R8bFIdkKKMZj!wy", name: "Naor", role: "admin" },
-};
+import { saveSession, saveToken, getDashboardPath } from "@/lib/auth";
+import { BACKEND_URL } from "@/lib/config";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -27,18 +16,29 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 300));
 
-    const account = ACCOUNTS[email.toLowerCase()];
-    if (!account || account.password !== password) {
-      setError("E-Mail oder Passwort falsch.");
+    try {
+      const res = await fetch(`${BACKEND_URL}/v1/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.toLowerCase(), password }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        setError(err.detail ?? "Anmeldung fehlgeschlagen.");
+        return;
+      }
+
+      const data = await res.json();
+      saveToken(data.access_token);
+      saveSession({ name: data.name, email: data.email, role: data.role });
+      router.push(getDashboardPath({ name: data.name, email: data.email, role: data.role }));
+    } catch {
+      setError("Verbindungsfehler. Bitte erneut versuchen.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const user = { name: account.name, email, role: account.role, usecase: account.usecase };
-    saveSession(user);
-    router.push(getDashboardPath(user));
   };
 
   return (
