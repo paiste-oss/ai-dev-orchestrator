@@ -42,7 +42,14 @@ const NAV: NavEntry[] = [
       { label: "Backend Tasks", href: "/admin/workflows/celery", icon: "⏰" },
     ],
   },
-  { label: "Analytik",         href: "/admin/analytics",    icon: "📊" },
+  {
+    label: "Finanzen",
+    icon: "💰",
+    children: [
+      { label: "Kosten", href: "/admin/finanzen/kosten", icon: "📊" },
+    ],
+  },
+  { label: "Analytik",         href: "/admin/analytics",    icon: "📈" },
   {
     label: "Konfigurieren",
     icon: "🔧",
