@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.database import init_db
-from api.v1 import agent, customers, buddies, workflows, credentials, oauth
+from api.v1 import agent, customers, buddies, workflows, credentials, oauth, dev_tasks
 
 # Ollama als OpenAI-kompatibler Endpunkt für CrewAI/LangChain
 os.environ["OPENAI_API_KEY"] = "NA"
@@ -34,6 +34,7 @@ app.include_router(buddies.router, prefix="/v1")
 app.include_router(workflows.router, prefix="/v1")
 app.include_router(credentials.router, prefix="/v1")
 app.include_router(oauth.router, prefix="/v1")
+app.include_router(dev_tasks.router, prefix="/v1")
 
 
 @app.get("/")

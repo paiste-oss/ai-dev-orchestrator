@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     # Frontend URL (für OAuth-Redirect nach Google-Login)
     frontend_url: str = "http://localhost:3000"
 
+    # Dev Orchestrator — Projekt-Root im Container
+    project_root: str = "/project"
+
     # JWT
     secret_key: str
     algorithm: str = "HS256"

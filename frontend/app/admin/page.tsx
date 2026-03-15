@@ -7,6 +7,7 @@ import { API_ROUTES } from "@/lib/config";
 
 const NAV = [
   { label: "Dashboard", href: "/admin", icon: "🏠" },
+  { label: "Dev Orchestrator", href: "/admin/devtool", icon: "🛠️" },
   { label: "Kunden", href: "/admin/customers", icon: "👥" },
   { label: "AI Buddies", href: "/admin/buddies", icon: "🤖" },
   { label: "Workflows", href: "/admin/workflows", icon: "⚙️" },
@@ -76,6 +77,7 @@ export default function AdminDashboard() {
           <h3 className="font-semibold text-gray-200 mb-4">Schnellzugriff</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {[
+              { label: "Dev Orchestrator", href: "/admin/devtool", icon: "🛠️" },
               { label: "Neuen Kunden anlegen", href: "/admin/customers", icon: "➕" },
               { label: "Buddy konfigurieren", href: "/admin/buddies", icon: "🤖" },
               { label: "n8n Workflows", href: "/admin/workflows", icon: "⚙️" },
