@@ -122,7 +122,8 @@ Stack:
 # ---------------------------------------------------------------------------
 
 def _read_file(path: str) -> str:
-    full = os.path.join(PROJECT_ROOT, path.lstrip("/"))
+    # Absoluten Pfad direkt verwenden, relativen an PROJECT_ROOT hängen
+    full = path if os.path.isabs(path) else os.path.join(PROJECT_ROOT, path)
     try:
         with open(full, encoding="utf-8") as f:
             content = f.read()
@@ -136,7 +137,7 @@ def _read_file(path: str) -> str:
 
 
 def _write_file(path: str, content: str) -> str:
-    full = os.path.join(PROJECT_ROOT, path.lstrip("/"))
+    full = path if os.path.isabs(path) else os.path.join(PROJECT_ROOT, path)
     os.makedirs(os.path.dirname(full), exist_ok=True)
     with open(full, "w", encoding="utf-8") as f:
         f.write(content)

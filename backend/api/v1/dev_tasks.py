@@ -82,7 +82,7 @@ async def delete_task(task_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 async def retry_task(task_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     """Setzt einen failed/paused Task manuell auf pending zurück."""
     task = await _get_or_404(db, task_id)
-    if task.status not in ("failed", "paused", "cancelled"):
+    if task.status not in ("failed", "paused", "cancelled", "running"):
         raise HTTPException(status_code=409, detail=f"Task ist '{task.status}', nicht retrybar.")
     task.status = "pending"
     task.retry_after = None

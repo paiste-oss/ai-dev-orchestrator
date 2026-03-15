@@ -12,16 +12,33 @@ damit das Frontend echtzeitnah den Fortschritt zeigen kann.
 import asyncio
 import redis as redis_lib
 from datetime import datetime, timedelta
-from sqlalchemy import select
+from sqlalchemy import select, update
 from core.config import settings
 from core.database import AsyncSessionLocal
 from models.dev_task import DevTask
 from services import task_runner
 from tasks.celery_app import celery_app
+from celery.signals import worker_ready
+
+
+@worker_ready.connect
+def recover_stuck_tasks(**kwargs):
+    """Beim Worker-Start: alle hängenden 'running' Tasks auf 'pending' zurücksetzen."""
+    asyncio.run(_recover_stuck())
 
 _redis = redis_lib.from_url(settings.redis_url, decode_responses=True)
 
 REDIS_OUTPUT_TTL = 3600  # 1 Stunde
+
+
+async def _recover_stuck():
+    async with AsyncSessionLocal() as db:
+        await db.execute(
+            update(DevTask)
+            .where(DevTask.status == "running")
+            .values(status="pending", context_snapshot=None)
+        )
+        await db.commit()
 
 
 @celery_app.task(name="tasks.dev_task_processor.process_dev_tasks")
