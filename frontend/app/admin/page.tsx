@@ -9,7 +9,7 @@ const NAV = [
   { label: "Dashboard", href: "/admin", icon: "🏠" },
   { label: "Dev Orchestrator", href: "/admin/devtool", icon: "🛠️" },
   { label: "Kunden", href: "/admin/customers", icon: "👥" },
-  { label: "AI Buddies", href: "/admin/buddies", icon: "🤖" },
+  { label: "AI Baddis", href: "/admin/buddies", icon: "🤖" },
   { label: "Workflows", href: "/admin/workflows", icon: "⚙️" },
   { label: "Analytik", href: "/admin/analytics", icon: "📊" },
   { label: "Portal", href: "/portal", icon: "🔬" },
@@ -49,7 +49,7 @@ export default function AdminDashboard() {
       `}>
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-yellow-400">AI Buddy</h1>
+            <h1 className="text-xl font-bold text-yellow-400">AI Baddi</h1>
             <p className="text-xs text-gray-500">Admin</p>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-gray-500 hover:text-white text-xl">✕</button>
@@ -78,7 +78,7 @@ export default function AdminDashboard() {
         {/* Mobile header */}
         <div className="flex items-center gap-3 md:hidden">
           <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white text-2xl">☰</button>
-          <h1 className="text-lg font-bold text-yellow-400">AI Buddy Admin</h1>
+          <h1 className="text-lg font-bold text-yellow-400">AI Baddi Admin</h1>
         </div>
 
         <div>
@@ -89,7 +89,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: "Kunden", value: "—", color: "text-blue-400" },
-            { label: "Aktive Buddies", value: "—", color: "text-green-400" },
+            { label: "Aktive Baddis", value: "—", color: "text-green-400" },
             { label: "Gespräche heute", value: "—", color: "text-purple-400" },
             { label: "Workflows", value: "—", color: "text-yellow-400" },
           ].map((card) => (
@@ -106,7 +106,7 @@ export default function AdminDashboard() {
             {[
               { label: "Dev Orchestrator", href: "/admin/devtool", icon: "🛠️" },
               { label: "Neuen Kunden anlegen", href: "/admin/customers", icon: "➕" },
-              { label: "Buddy konfigurieren", href: "/admin/buddies", icon: "🤖" },
+              { label: "Baddi konfigurieren", href: "/admin/buddies", icon: "🤖" },
               { label: "n8n Workflows", href: "/admin/workflows", icon: "⚙️" },
               { label: "Metabase Analytik", href: API_ROUTES.metabase, icon: "📊", external: true },
               { label: "API Docs", href: API_ROUTES.apiDocs, icon: "📖", external: true },
