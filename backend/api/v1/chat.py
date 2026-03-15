@@ -10,7 +10,6 @@ Flow per request:
   6. Fire-and-forget: Ollama extracts new memory facts in background
 """
 from datetime import datetime
-from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -34,7 +33,6 @@ _CONTEXT_WINDOW = 10   # messages sent to external LLM
 
 class ChatRequest(BaseModel):
     message: str
-    provider: Literal["gemini", "openai"] = "gemini"
     buddy_id: str | None = None
 
 
@@ -94,17 +92,21 @@ async def send_message(
     messages = [{"role": m.role, "content": m.content} for m in history[-_CONTEXT_WINDOW:]]
     messages.append({"role": "user", "content": req.message})
 
-    # 5. Call external LLM
-    model_name = "gemini-2.0-flash" if req.provider == "gemini" else "gpt-4o-mini"
+    # 5. Gemini primary → ChatGPT fallback
+    provider = "gemini"
+    model_name = "gemini-2.0-flash"
     try:
-        if req.provider == "gemini":
-            response_text = await chat_with_gemini(messages, system_prompt)
-        else:
+        response_text = await chat_with_gemini(messages, system_prompt)
+    except Exception as gemini_exc:
+        provider = "openai"
+        model_name = "gpt-4o-mini"
+        try:
             response_text = await chat_with_openai(messages, system_prompt)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"LLM-Fehler: {exc}")
+        except Exception as openai_exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Gemini: {gemini_exc} | ChatGPT: {openai_exc}",
+            )
 
     # 6. Persist both turns
     user_msg = ChatMessage(
@@ -112,7 +114,7 @@ async def send_message(
         buddy_id=req.buddy_id,
         role="user",
         content=req.message,
-        provider=req.provider,
+        provider=provider,
         model=model_name,
     )
     assistant_msg = ChatMessage(
@@ -120,7 +122,7 @@ async def send_message(
         buddy_id=req.buddy_id,
         role="assistant",
         content=response_text,
-        provider=req.provider,
+        provider=provider,
         model=model_name,
     )
     db.add(user_msg)
@@ -134,7 +136,7 @@ async def send_message(
     return ChatResponse(
         message_id=str(assistant_msg.id),
         response=response_text,
-        provider=req.provider,
+        provider=provider,
         model=model_name,
     )
 

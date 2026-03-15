@@ -5,8 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 import { apiFetch, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 
-type Provider = "gemini" | "openai";
-
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -30,10 +28,10 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [input, setInput] = useState("");
-  const [provider, setProvider] = useState<Provider>("gemini");
   const [loading, setLoading] = useState(false);
   const [showMemory, setShowMemory] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [lastProvider, setLastProvider] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -80,7 +78,7 @@ export default function ChatPage() {
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/chat/message`, {
         method: "POST",
-        body: JSON.stringify({ message: text, provider, buddy_id: buddyId }),
+        body: JSON.stringify({ message: text, buddy_id: buddyId }),
       });
 
       if (!res.ok) {
@@ -97,6 +95,7 @@ export default function ChatPage() {
         model: data.model,
         created_at: new Date().toISOString(),
       };
+      setLastProvider(data.provider);
       setMessages((prev) => [...prev, assistantMsg]);
 
       // Refresh memories after 4s (Ollama extracts in background)
@@ -131,8 +130,8 @@ export default function ChatPage() {
     }
   }
 
-  const providerColor = provider === "gemini" ? "text-blue-400" : "text-green-400";
-  const providerLabel = provider === "gemini" ? "Gemini" : "ChatGPT";
+  const providerLabel = lastProvider === "openai" ? "ChatGPT (Fallback)" : "Gemini";
+  const providerColor = lastProvider === "openai" ? "text-green-400" : "text-blue-400";
 
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-white">
@@ -148,26 +147,6 @@ export default function ChatPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Provider toggle */}
-          <div className="flex bg-gray-800 rounded-lg p-0.5 text-xs font-semibold">
-            <button
-              onClick={() => setProvider("gemini")}
-              className={`px-3 py-1.5 rounded-md transition-colors ${
-                provider === "gemini" ? "bg-blue-600 text-white" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              Gemini
-            </button>
-            <button
-              onClick={() => setProvider("openai")}
-              className={`px-3 py-1.5 rounded-md transition-colors ${
-                provider === "openai" ? "bg-green-600 text-white" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              ChatGPT
-            </button>
-          </div>
-
           {/* Memory panel toggle */}
           <button
             onClick={() => setShowMemory(!showMemory)}
@@ -247,7 +226,7 @@ export default function ChatPage() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={`Nachricht an ${providerLabel}…`}
+                placeholder="Nachricht schreiben…"
                 className="flex-1 bg-transparent resize-none outline-none text-sm text-white placeholder-gray-600 max-h-32 py-1"
               />
               <button
