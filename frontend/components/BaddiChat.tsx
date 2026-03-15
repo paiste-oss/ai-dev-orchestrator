@@ -328,7 +328,6 @@ export default function BaddiChat({ useCase }: Props) {
             <FileDropZone
               files={attachedFiles}
               onFilesChange={setAttachedFiles}
-              accentColor={useCase.borderColor}
             />
           )}
 
