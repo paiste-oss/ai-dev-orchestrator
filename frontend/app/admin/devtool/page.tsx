@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getSession, clearSession } from "@/lib/auth";
-import { API_ROUTES } from "@/lib/config";
+import { getSession, clearSession, apiFetch } from "@/lib/auth";
+import { BACKEND_URL } from "@/lib/config";
 
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+const BACKEND = BACKEND_URL;
 
 interface Task {
   id: string;
@@ -60,12 +60,12 @@ export default function DevTool() {
 
   const fetchTasks = async () => {
     try {
-      const res = await fetch(`${BACKEND}/v1/dev-tasks`);
-      const data: Task[] = await res.json();
+      const res = await apiFetch(`${BACKEND}/v1/dev-tasks`);
+      const data = await res.json();
+      if (!Array.isArray(data)) return;
       setTasks(data);
-      // selected Task aktuell halten
       if (selected) {
-        const updated = data.find(t => t.id === selected.id);
+        const updated = data.find((t: Task) => t.id === selected.id);
         if (updated) setSelected(updated);
       }
     } catch {}
@@ -86,9 +86,8 @@ export default function DevTool() {
   const handleAdd = async () => {
     if (!title.trim() || !description.trim()) return;
     setAdding(true);
-    await fetch(`${BACKEND}/v1/dev-tasks`, {
+    await apiFetch(`${BACKEND}/v1/dev-tasks`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title, description, priority }),
     });
     setTitle("");
@@ -101,16 +100,15 @@ export default function DevTool() {
 
   const handleAction = async (taskId: string, action: string, body?: object) => {
     const url = `${BACKEND}/v1/dev-tasks/${taskId}/${action}`;
-    await fetch(url, {
+    await apiFetch(url, {
       method: action === "run-now" || action === "retry" ? "POST" : "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
     });
     fetchTasks();
   };
 
   const handleDelete = async (taskId: string) => {
-    await fetch(`${BACKEND}/v1/dev-tasks/${taskId}`, { method: "DELETE" });
+    await apiFetch(`${BACKEND}/v1/dev-tasks/${taskId}`, { method: "DELETE" });
     if (selected?.id === taskId) setSelected(null);
     fetchTasks();
   };
