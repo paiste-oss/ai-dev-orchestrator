@@ -12,8 +12,8 @@ interface Account {
 }
 
 const ACCOUNTS: Record<string, Account> = {
-  "admin@baddi.ch": { password: "admin123", name: "Admin", role: "admin" },
-  "naor@aibuddy.ch": { password: "admin123", name: "Naor", role: "admin" },
+  "admin@baddi.ch": { password: "2R8bFIdkKKMZj!wy", name: "Admin", role: "admin" },
+  "naor@aibuddy.ch": { password: "2R8bFIdkKKMZj!wy", name: "Naor", role: "admin" },
 };
 
 export default function LoginPage() {
