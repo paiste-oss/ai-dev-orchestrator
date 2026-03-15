@@ -28,14 +28,15 @@ def get_language_system_prompt(prompt_text: str) -> str:
     }
     return hints.get(lang, hints["en"])
 
-def execute_ollama_direct(prompt_text: str, model_name: str = "llama3.1") -> str:
+def execute_ollama_direct(prompt_text: str, model_name: str = "llama3.1", system_prompt: str = None) -> str:
     """Direkte Ollama-Anfrage ohne Agent-Overhead — für einfache Prompts."""
+    sys_prompt = system_prompt if system_prompt else get_language_system_prompt(prompt_text)
     response = httpx.post(
         f"{OLLAMA_BASE_URL}/api/chat",
         json={
             "model": model_name,
             "messages": [
-                {"role": "system", "content": get_language_system_prompt(prompt_text)},
+                {"role": "system", "content": sys_prompt},
                 {"role": "user", "content": prompt_text}
             ],
             "stream": False

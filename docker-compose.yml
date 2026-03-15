@@ -7,7 +7,42 @@ services:
     volumes:
       - ./backend:/app
     env_file:
-      - ./backend/.env
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+    networks:
+      - ai_network
+
+  celery_worker:
+    build: ./backend
+    container_name: ai_celery_worker
+    command: celery -A tasks.celery_app worker --loglevel=info --concurrency=4
+    volumes:
+      - ./backend:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - ai_network
+
+  celery_beat:
+    build: ./backend
+    container_name: ai_celery_beat
+    command: celery -A tasks.celery_app beat --loglevel=info
+    volumes:
+      - ./backend:/app
+      - celery_beat_data:/app/celerybeat-schedule
+    env_file:
+      - .env
+    depends_on:
+      - redis
     networks:
       - ai_network
 
@@ -41,6 +76,69 @@ services:
     networks:
       - ai_network
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai_postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: aibuddy
+      POSTGRES_USER: aibuddy
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ai_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aibuddy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai_redis
+    restart: always
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ai_network
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: ai_qdrant
+    restart: always
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - ai_network
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: ai_metabase
+    restart: always
+    ports:
+      - "3001:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: aibuddy
+      MB_DB_PORT: 5432
+      MB_DB_USER: aibuddy
+      MB_DB_PASS: ${POSTGRES_PASSWORD}
+      MB_DB_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ai_network
+
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: cloudflare_tunnel
@@ -51,6 +149,10 @@ services:
 
 volumes:
   n8n_data:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+  celery_beat_data:
 
 networks:
   ai_network:

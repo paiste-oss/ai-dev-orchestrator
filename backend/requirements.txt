@@ -5,8 +5,15 @@ langchain
 langchain-openai
 python-dotenv
 requests
-apscheduler
 anthropic
 websockets
 httpx
 langdetect
+pydantic-settings
+sqlalchemy[asyncio]
+asyncpg
+alembic
+celery[redis]
+qdrant-client
+python-jose[cryptography]
+passlib[bcrypt]

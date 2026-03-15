@@ -71,10 +71,11 @@ def classify_prompt(prompt_text: str) -> dict:
     return {"route": "simple_chat", "reason": "Fallback"}
 
 
-def route_prompt(prompt_text: str, forced_model: str = None) -> tuple[str, str]:
+def route_prompt(prompt_text: str, forced_model: str = None, system_prompt_override: str = None) -> tuple[str, str]:
     """
     Gibt (result, model_used) zurück.
     forced_model: wenn gesetzt, wird der Router übersprungen.
+    system_prompt_override: Persona-System-Prompt von einem AI Buddy.
     """
     if forced_model:
         if forced_model == "openclaw":
@@ -82,13 +83,17 @@ def route_prompt(prompt_text: str, forced_model: str = None) -> tuple[str, str]:
         elif forced_model.startswith("claude"):
             return execute_claude_task(prompt_text, forced_model), forced_model
         else:
-            return execute_ollama_direct(prompt_text, forced_model), forced_model
+            return execute_ollama_direct(prompt_text, forced_model, system_prompt=system_prompt_override), forced_model
 
     # Router entscheidet
     classification = classify_prompt(prompt_text)
     route = classification.get("route", "simple_chat")
     reason = classification.get("reason", "")
     print(f"[Router] Route: {route} | Grund: {reason}")
+
+    if system_prompt_override:
+        # Buddy-Persona überschreibt den Handler direkt
+        return execute_ollama_direct(prompt_text, SIMPLE_CHAT_MODEL, system_prompt=system_prompt_override), SIMPLE_CHAT_MODEL
 
     handler, model_used = ROUTE_TO_HANDLER.get(route, ROUTE_TO_HANDLER["simple_chat"])
     return handler(prompt_text), model_used
