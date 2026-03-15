@@ -5,16 +5,23 @@ Läuft alle 30 Sekunden (via Celery Beat) und:
   1. Nimmt pausierte Tasks wieder auf wenn retry_after abgelaufen ist
   2. Verarbeitet den nächsten ausstehenden Task (nach priority, created_at)
 
-Nur jeweils EIN Task läuft gleichzeitig um API-Limits nicht zu überlasten.
+Live-Output: wird während der Arbeit in Redis geschrieben (Key: devtask:output:{id})
+damit das Frontend echtzeitnah den Fortschritt zeigen kann.
 """
 
 import asyncio
+import redis as redis_lib
 from datetime import datetime, timedelta
 from sqlalchemy import select
+from core.config import settings
 from core.database import AsyncSessionLocal
 from models.dev_task import DevTask
 from services import task_runner
 from tasks.celery_app import celery_app
+
+_redis = redis_lib.from_url(settings.redis_url, decode_responses=True)
+
+REDIS_OUTPUT_TTL = 3600  # 1 Stunde
 
 
 @celery_app.task(name="tasks.dev_task_processor.process_dev_tasks")
@@ -29,10 +36,16 @@ async def _run():
         if not task:
             return
 
+        task_id = str(task.id)
+
         # Als "running" markieren
         task.status = "running"
         task.started_at = task.started_at or datetime.utcnow()
         await db.commit()
+
+        # Redis-Callback: schreibt Live-Output nach jedem Schritt
+        def progress_callback(output: str):
+            _redis.set(f"devtask:output:{task_id}", output, ex=REDIS_OUTPUT_TTL)
 
         # Task runner aufrufen (synchron — blockiert bis fertig oder rate-limited)
         try:
@@ -40,15 +53,20 @@ async def _run():
                 description=task.description,
                 messages_snapshot=task.context_snapshot.get("messages") if task.context_snapshot else None,
                 existing_output=task.output or "",
+                progress_callback=progress_callback,
             )
         except Exception as e:
             task.status = "failed"
             task.error = str(e)
+            _redis.delete(f"devtask:output:{task_id}")
             await db.commit()
             return
 
-        # Ergebnis in DB schreiben
-        task.output = result.get("output", "")
+        # Finalen Output aus Redis holen (falls letzter callback nicht mehr ausgeführt wurde)
+        final_output = result.get("output") or _redis.get(f"devtask:output:{task_id}") or ""
+        _redis.delete(f"devtask:output:{task_id}")
+
+        task.output = final_output
         task.token_usage = (task.token_usage or 0) + result.get("tokens", 0)
 
         if result["status"] == "paused":

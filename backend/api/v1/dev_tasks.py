@@ -1,11 +1,15 @@
 from datetime import datetime
 import uuid
+import redis as redis_lib
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select
+from core.config import settings
 from core.database import get_db
 from models.dev_task import DevTask
+
+_redis = redis_lib.from_url(settings.redis_url, decode_responses=True)
 
 router = APIRouter(prefix="/dev-tasks", tags=["dev-orchestrator"])
 
@@ -112,13 +116,20 @@ async def run_now(task_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 def _serialize(t: DevTask) -> dict:
+    # Bei laufenden Tasks: Live-Output aus Redis holen
+    output = t.output
+    if t.status == "running":
+        live = _redis.get(f"devtask:output:{t.id}")
+        if live:
+            output = live
+
     return {
         "id": str(t.id),
         "title": t.title,
         "description": t.description,
         "priority": t.priority,
         "status": t.status,
-        "output": t.output,
+        "output": output,
         "error": t.error,
         "token_usage": t.token_usage,
         "retry_after": t.retry_after.isoformat() if t.retry_after else None,

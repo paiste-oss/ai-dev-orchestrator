@@ -225,6 +225,7 @@ def run_task(
     description: str,
     messages_snapshot: list | None = None,
     existing_output: str = "",
+    progress_callback=None,  # optional: fn(output_str) wird nach jedem Schritt aufgerufen
 ) -> dict:
     """
     Führt eine Entwicklungsaufgabe mit Claude aus.
@@ -238,7 +239,9 @@ def run_task(
           "retry_after_seconds": int | None,
         }
     """
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    # max_retries=0: 429-Fehler sofort an unseren Code weitergeben statt SDK-intern zu retrien.
+    # Unser Celery-Beat übernimmt das Retry mit korrektem Pause-State.
+    client = anthropic.Anthropic(api_key=settings.anthropic_api_key, max_retries=0)
 
     messages = messages_snapshot or [{"role": "user", "content": description}]
     output_lines = [existing_output] if existing_output else []
@@ -283,6 +286,10 @@ def run_task(
             if hasattr(block, "text") and block.text:
                 output_lines.append(block.text)
 
+        # Live-Output nach jedem API-Call pushen
+        if progress_callback:
+            progress_callback("\n".join(output_lines))
+
         if response.stop_reason == "end_turn":
             return {
                 "status": "completed",
@@ -298,6 +305,9 @@ def run_task(
                     tool_result = _execute_tool(block.name, block.input)
                     preview = tool_result[:120].replace("\n", " ")
                     output_lines.append(f"🔧 {block.name}({list(block.input.values())[0] if block.input else ''}) → {preview}")
+                    # Live-Output nach jedem Tool-Call
+                    if progress_callback:
+                        progress_callback("\n".join(output_lines))
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,
