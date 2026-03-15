@@ -33,7 +33,7 @@ const SYSTEM_DEMOS = [
 const USECASE_DEMOS = [
   { email: "emma@aibuddy.com",  password: "silber123",   label: "Silberperlen", icon: "🌸", color: "text-rose-300",   bg: "bg-rose-950/50",   border: "border-rose-800" },
   { email: "leo@aibuddy.com",   password: "bestager123", label: "Bestager",     icon: "🌿", color: "text-emerald-300",bg: "bg-emerald-950/50",border: "border-emerald-800" },
-  { email: "max@aibuddy.com",   password: "mittel123",   label: "Mittlerweiler",icon: "⚖️", color: "text-blue-300",   bg: "bg-blue-950/50",   border: "border-blue-800" },
+  { email: "max@aibuddy.com",   password: "mittel123",   label: "Lebensprofi",  icon: "⚖️", color: "text-blue-300",   bg: "bg-blue-950/50",   border: "border-blue-800" },
   { email: "noa@aibuddy.com",   password: "newgen123",   label: "Newgen",       icon: "🚀", color: "text-violet-300", bg: "bg-violet-950/50", border: "border-violet-800" },
   { email: "lumi@aibuddy.com",  password: "young123",    label: "Youngsters",   icon: "⭐", color: "text-yellow-300", bg: "bg-yellow-950/50", border: "border-yellow-800" },
 ];

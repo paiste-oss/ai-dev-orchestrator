@@ -70,7 +70,7 @@ Deine Eigenschaften:
   },
   {
     id: "mittlerweiler",
-    name: "Mittlerweiler",
+    name: "Lebensprofi",
     tagline: "Mitten im Leben",
     description: "Für die Generation 30–50: Beruf, Familie, Balance. Dein Buddy unterstützt dich im Alltag, hilft Prioritäten zu setzen und bleibt realistisch.",
     ageRange: "30–50",
