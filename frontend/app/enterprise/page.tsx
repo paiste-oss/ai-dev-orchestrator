@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, clearSession } from "@/lib/auth";
+import VoiceButton from "@/components/VoiceButton";
 
 const NAV = [
   { label: "Übersicht", href: "/enterprise", icon: "🏢" },
@@ -95,13 +96,17 @@ export default function EnterpriseDashboard() {
         {/* Schnell-Chat */}
         <div className="bg-gray-800 rounded-xl p-6 border border-gray-700 space-y-4">
           <h3 className="font-semibold text-gray-200">AI Buddy — Schnell-Chat</h3>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <input
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleChat()}
               placeholder="Frag deinen Buddy..."
               className="flex-1 bg-gray-700 border border-gray-600 rounded p-3 text-white focus:outline-none focus:border-blue-500"
+            />
+            <VoiceButton
+              onResult={(text) => setPrompt((prev) => (prev ? prev + " " + text : text))}
+              className="w-12 h-12"
             />
             <button
               onClick={handleChat}

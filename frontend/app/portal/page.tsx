@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, clearSession } from "@/lib/auth";
+import VoiceButton from "@/components/VoiceButton";
 
 export default function Portal() {
   const [prompt, setPrompt] = useState("");
@@ -103,7 +104,13 @@ export default function Portal() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm text-gray-400">Dein Auftrag</label>
+          <div className="flex justify-between items-center">
+            <label className="text-sm text-gray-400">Dein Auftrag</label>
+            <VoiceButton
+              onResult={(text) => setPrompt((prev) => (prev ? prev + " " + text : text))}
+              className="w-9 h-9 text-sm"
+            />
+          </div>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}

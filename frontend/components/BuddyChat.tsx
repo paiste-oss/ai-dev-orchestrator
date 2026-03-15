@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { clearSession, getSession } from "@/lib/auth";
 import type { UseCase } from "@/lib/usecases";
+import VoiceButton from "@/components/VoiceButton";
 
 interface Message {
   role: "user" | "buddy";
@@ -120,7 +121,7 @@ export default function BuddyChat({ useCase }: Props) {
 
       {/* Input */}
       <div className={`border-t ${useCase.borderColor} bg-black/30 p-4`}>
-        <div className="max-w-2xl mx-auto flex gap-3">
+        <div className="max-w-2xl mx-auto flex gap-2">
           <input
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -128,10 +129,14 @@ export default function BuddyChat({ useCase }: Props) {
             placeholder={useCase.placeholder}
             className={`flex-1 bg-white/10 border ${useCase.borderColor} rounded-xl p-3 text-white placeholder-gray-500 focus:outline-none focus:border-white/40`}
           />
+          <VoiceButton
+            onResult={(text) => setPrompt((prev) => (prev ? prev + " " + text : text))}
+            className="w-12 h-12"
+          />
           <button
             onClick={handleSend}
             disabled={loading}
-            className={`px-5 rounded-xl font-bold transition-colors disabled:opacity-40 bg-white/20 hover:bg-white/30`}
+            className="w-12 h-12 rounded-xl font-bold transition-colors disabled:opacity-40 bg-white/20 hover:bg-white/30 text-lg"
           >
             →
           </button>
