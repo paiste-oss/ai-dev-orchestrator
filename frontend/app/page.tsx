@@ -67,7 +67,7 @@ export default function LandingPage() {
                 onClick={() => router.push(s.href)}
                 className={`w-full mt-auto text-xs font-semibold py-2 px-3 rounded-lg border ${s.border} ${s.color} hover:bg-white/5 transition-colors`}
               >
-                Registrieren →
+                Registrieren
               </button>
             </div>
           ))}
