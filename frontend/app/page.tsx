@@ -7,19 +7,19 @@ import { BACKEND_URL } from "@/lib/config";
 
 const SEGMENTS = [
   {
-    key: "show_register_person" as const,
-    icon: "👴",
-    label: "Ältere Menschen",
-    desc: "Gesellschaft & Unterstützung",
+    key: "show_register_menschen" as const,
+    icon: "🧑",
+    label: "Menschen",
+    desc: "Persönliche KI-Begleiter für jeden",
     href: "/register/person",
     color: "text-rose-300",
     border: "border-rose-800",
     bg: "bg-rose-950/30",
   },
   {
-    key: "show_register_firma" as const,
+    key: "show_register_firmen" as const,
     icon: "🏢",
-    label: "Unternehmen",
+    label: "Firmen",
     desc: "Interne Assistenten & Teams",
     href: "/register/firma",
     color: "text-blue-300",
@@ -27,29 +27,29 @@ const SEGMENTS = [
     bg: "bg-blue-950/30",
   },
   {
-    key: "show_register_allgemein" as const,
-    icon: "🌍",
-    label: "Alle",
-    desc: "Persönliche Begleiter",
-    href: "/register/allgemein",
-    color: "text-green-300",
-    border: "border-green-800",
-    bg: "bg-green-950/30",
+    key: "show_register_funktionen" as const,
+    icon: "⚡",
+    label: "Funktionen",
+    desc: "Einzelne KI-Funktionen & Integrationen",
+    href: "/register/funktionen",
+    color: "text-violet-300",
+    border: "border-violet-800",
+    bg: "bg-violet-950/30",
   },
 ];
 
 interface PortalSettings {
   show_login: boolean;
-  show_register_person: boolean;
-  show_register_firma: boolean;
-  show_register_allgemein: boolean;
+  show_register_menschen: boolean;
+  show_register_firmen: boolean;
+  show_register_funktionen: boolean;
 }
 
 const DEFAULTS: PortalSettings = {
   show_login: true,
-  show_register_person: true,
-  show_register_firma: true,
-  show_register_allgemein: true,
+  show_register_menschen: true,
+  show_register_firmen: true,
+  show_register_funktionen: true,
 };
 
 export default function LandingPage() {

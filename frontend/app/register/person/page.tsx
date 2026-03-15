@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUseCaseByBirthYear, getUseCase } from "@/lib/usecases";
 
-export default function RegisterPerson() {
+export default function RegisterMenschen() {
   const router = useRouter();
   const [form, setForm] = useState({
     vorname: "",
@@ -23,7 +23,6 @@ export default function RegisterPerson() {
     setSubmitted(true);
   };
 
-  // Vorschau des zugewiesenen Baddis
   const assignedUseCase = form.geburtsjahr
     ? getUseCase(getUseCaseByBirthYear(Number(form.geburtsjahr)))
     : null;
@@ -32,7 +31,7 @@ export default function RegisterPerson() {
     return (
       <main className="min-h-screen bg-rose-950 text-white flex items-center justify-center p-6">
         <div className="max-w-md w-full text-center space-y-6">
-          <div className="text-6xl">🌸</div>
+          <div className="text-6xl">🧑</div>
           <h2 className="text-2xl font-bold text-rose-300">Willkommen, {form.vorname}!</h2>
           <p className="text-gray-300">Dein Konto wurde erfolgreich erstellt. Du kannst dich jetzt anmelden.</p>
           <button
@@ -53,8 +52,8 @@ export default function RegisterPerson() {
         <div className="flex items-center gap-3">
           <button onClick={() => router.push("/")} className="text-gray-500 hover:text-white text-xl">←</button>
           <div>
-            <h1 className="text-2xl font-bold text-rose-300">👴 Registrierung</h1>
-            <p className="text-xs text-gray-500">Für Privatpersonen & Familien</p>
+            <h1 className="text-2xl font-bold text-rose-300">🧑 Registrierung Menschen</h1>
+            <p className="text-xs text-gray-500">Dein persönlicher KI-Begleiter</p>
           </div>
         </div>
 
@@ -77,11 +76,10 @@ export default function RegisterPerson() {
             <label className="text-sm text-gray-400">Geburtsjahr</label>
             <input required type="number" min="1920" max={new Date().getFullYear() - 6} value={form.geburtsjahr}
               onChange={(e) => set("geburtsjahr", e.target.value)}
-              placeholder="1955"
+              placeholder="z.B. 1990"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500" />
           </div>
 
-          {/* Vorschau des zugewiesenen Baddis */}
           {assignedUseCase && (
             <div className={`${assignedUseCase.bgColor} border ${assignedUseCase.borderColor} rounded-xl p-4 flex items-center gap-3`}>
               <span className="text-3xl">{assignedUseCase.icon}</span>

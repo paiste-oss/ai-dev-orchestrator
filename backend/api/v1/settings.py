@@ -13,17 +13,17 @@ _KEY = "portal:settings"
 
 _DEFAULTS = {
     "show_login": True,
-    "show_register_person": True,
-    "show_register_firma": True,
-    "show_register_allgemein": True,
+    "show_register_menschen": True,
+    "show_register_firmen": True,
+    "show_register_funktionen": True,
 }
 
 
 class PortalSettings(BaseModel):
     show_login: bool = True
-    show_register_person: bool = True
-    show_register_firma: bool = True
-    show_register_allgemein: bool = True
+    show_register_menschen: bool = True
+    show_register_firmen: bool = True
+    show_register_funktionen: bool = True
 
 
 @router.get("/portal")

@@ -8,9 +8,9 @@ import AdminSidebar from "@/components/AdminSidebar";
 
 interface PortalSettings {
   show_login: boolean;
-  show_register_person: boolean;
-  show_register_firma: boolean;
-  show_register_allgemein: boolean;
+  show_register_menschen: boolean;
+  show_register_firmen: boolean;
+  show_register_funktionen: boolean;
 }
 
 function Toggle({ label, description, checked, onChange }: {
@@ -43,9 +43,9 @@ export default function AdminSettings() {
   const [portalOpen, setPortalOpen] = useState(true);
   const [settings, setSettings] = useState<PortalSettings>({
     show_login: true,
-    show_register_person: true,
-    show_register_firma: true,
-    show_register_allgemein: true,
+    show_register_menschen: true,
+    show_register_firmen: true,
+    show_register_funktionen: true,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -122,22 +122,22 @@ export default function AdminSettings() {
                     onChange={v => set("show_login", v)}
                   />
                   <Toggle
-                    label="Registrierung: Privatpersonen"
-                    description="Karte «Ältere Menschen» → /register/person"
-                    checked={settings.show_register_person}
-                    onChange={v => set("show_register_person", v)}
+                    label="Registrierung: Menschen"
+                    description="Karte «Menschen» → /register/person"
+                    checked={settings.show_register_menschen}
+                    onChange={v => set("show_register_menschen", v)}
                   />
                   <Toggle
-                    label="Registrierung: Unternehmen"
-                    description="Karte «Unternehmen» → /register/firma"
-                    checked={settings.show_register_firma}
-                    onChange={v => set("show_register_firma", v)}
+                    label="Registrierung: Firmen"
+                    description="Karte «Firmen» → /register/firma"
+                    checked={settings.show_register_firmen}
+                    onChange={v => set("show_register_firmen", v)}
                   />
                   <Toggle
-                    label="Registrierung: Alle"
-                    description="Karte «Alle» → /register/allgemein"
-                    checked={settings.show_register_allgemein}
-                    onChange={v => set("show_register_allgemein", v)}
+                    label="Registrierung: Funktionen"
+                    description="Karte «Funktionen» → /register/funktionen"
+                    checked={settings.show_register_funktionen}
+                    onChange={v => set("show_register_funktionen", v)}
                   />
                 </div>
                 <div className="pt-4">
