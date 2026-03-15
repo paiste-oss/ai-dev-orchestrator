@@ -63,9 +63,14 @@ export default function DevTool() {
       const res = await apiFetch(`${BACKEND}/v1/dev-tasks`);
       const data = await res.json();
       if (!Array.isArray(data)) return;
-      setTasks(data);
+      // Neueste Tasks zuerst (absteigend nach created_at)
+      const sorted = [...data].sort(
+        (a: Task, b: Task) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setTasks(sorted);
       if (selected) {
-        const updated = data.find((t: Task) => t.id === selected.id);
+        const updated = sorted.find((t: Task) => t.id === selected.id);
         if (updated) setSelected(updated);
       }
     } catch {}
@@ -285,59 +290,54 @@ export default function DevTool() {
                         className="text-xs bg-blue-700 hover:bg-blue-600 px-3 py-1.5 rounded transition-colors"
                       >▶ Jetzt starten</button>
                     )}
-                    {(selected.status === "failed" || selected.status === "paused" || selected.status === "cancelled") && (
+                    {selected.status === "running" && (
+                      <button
+                        onClick={() => handleAction(selected.id, "pause")}
+                        className="text-xs bg-yellow-700 hover:bg-yellow-600 px-3 py-1.5 rounded transition-colors"
+                      >⏸ Pausieren</button>
+                    )}
+                    {selected.status === "failed" && (
                       <button
                         onClick={() => handleAction(selected.id, "retry")}
-                        className="text-xs bg-yellow-700 hover:bg-yellow-600 px-3 py-1.5 rounded transition-colors"
-                      >⟳ Retry</button>
-                    )}
-                    {(selected.status === "pending" || selected.status === "paused") && (
-                      <button
-                        onClick={() => handleAction(selected.id, "", { status: "cancelled" })}
-                        className="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded transition-colors"
-                      >✕ Abbrechen</button>
+                        className="text-xs bg-orange-700 hover:bg-orange-600 px-3 py-1.5 rounded transition-colors"
+                      >🔄 Wiederholen</button>
                     )}
                     {selected.status !== "running" && (
                       <button
                         onClick={() => handleDelete(selected.id)}
-                        className="text-xs text-red-500 hover:text-red-400 px-2 py-1.5 transition-colors"
-                      >🗑</button>
+                        className="text-xs bg-red-900 hover:bg-red-700 px-3 py-1.5 rounded transition-colors"
+                      >🗑 Löschen</button>
                     )}
                   </div>
                 </div>
 
-                {/* Aufgabenbeschreibung */}
+                {/* Task Description */}
                 <details className="mt-3">
-                  <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-200">Aufgabenbeschreibung anzeigen</summary>
-                  <p className="text-sm text-gray-300 mt-2 whitespace-pre-wrap bg-gray-800 p-3 rounded">{selected.description}</p>
+                  <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-300">Aufgabenbeschreibung anzeigen</summary>
+                  <p className="text-sm text-gray-400 mt-2 whitespace-pre-wrap">{selected.description}</p>
                 </details>
               </div>
 
-              {/* Output Log */}
-              <div
-                ref={outputRef}
-                className="flex-1 overflow-y-auto p-6 font-mono text-sm"
-              >
-                {selected.status === "running" && (
-                  <div className="flex items-center gap-2 text-blue-400 mb-4">
-                    <span className="animate-spin">⚙</span>
-                    <span>Claude arbeitet...</span>
-                  </div>
-                )}
-                {selected.status === "paused" && selected.retry_after && (
-                  <div className="bg-yellow-900/30 border border-yellow-700 rounded p-3 mb-4 text-yellow-300 text-sm">
-                    ⏸ Rate Limit erreicht — automatischer Neustart um {new Date(selected.retry_after).toLocaleTimeString("de-DE")}
-                  </div>
-                )}
+              {/* Output & Error */}
+              <div ref={outputRef} className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 font-mono text-sm">
                 {selected.error && (
-                  <div className="bg-red-900/30 border border-red-700 rounded p-3 mb-4 text-red-300 text-sm">
-                    ❌ {selected.error}
+                  <div className="bg-red-950 border border-red-800 rounded-lg p-4">
+                    <p className="text-red-400 font-bold mb-1">❌ Fehler</p>
+                    <p className="text-red-300 whitespace-pre-wrap text-xs">{selected.error}</p>
                   </div>
                 )}
                 {selected.output ? (
-                  <pre className="text-gray-300 whitespace-pre-wrap leading-relaxed">{selected.output}</pre>
+                  <div className="bg-gray-900 rounded-lg p-4">
+                    <p className="text-gray-500 text-xs mb-2">Output:</p>
+                    <p className="text-green-300 whitespace-pre-wrap leading-relaxed">{selected.output}</p>
+                  </div>
                 ) : (
-                  <p className="text-gray-600">Noch kein Output.</p>
+                  <div className="text-center text-gray-600 mt-8">
+                    {selected.status === "running"
+                      ? <p className="animate-pulse">⚡ Claude arbeitet...</p>
+                      : <p>Noch kein Output vorhanden.</p>
+                    }
+                  </div>
                 )}
               </div>
             </>
