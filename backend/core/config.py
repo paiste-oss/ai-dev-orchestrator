@@ -28,10 +28,9 @@ class Settings(BaseSettings):
     github_token: str = ""
     github_repo: str = "paiste-oss/ai-dev-orchestrator"
 
-    # n8n
+    # n8n (Microservice-Executor — kein zentraler Router)
     n8n_base_url: str
     n8n_api_key: str = ""
-    n8n_webhook_path: str = "/webhook/agent/run"
 
     # OpenClaw
     openclaw_token: str = ""

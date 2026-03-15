@@ -34,7 +34,7 @@ export default function Portal() {
       model.startsWith("claude") ? "Claude" : model;
     setStatus(`${modelLabel} denkt nach...`);
     try {
-      const response = await fetch(API_ROUTES.webhook, {
+      const response = await fetch(API_ROUTES.agentRun, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, model }),

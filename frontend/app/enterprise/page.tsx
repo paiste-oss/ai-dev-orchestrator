@@ -32,7 +32,7 @@ export default function EnterpriseDashboard() {
     setLoading(true);
     setResponse("");
     try {
-      const res = await fetch(API_ROUTES.webhook, {
+      const res = await fetch(API_ROUTES.agentRun, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, model: "auto" }),
