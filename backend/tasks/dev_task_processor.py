@@ -13,32 +13,41 @@ import asyncio
 import redis as redis_lib
 from datetime import datetime, timedelta
 from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from core.config import settings
-from core.database import AsyncSessionLocal
 from models.dev_task import DevTask
 from services import task_runner
 from tasks.celery_app import celery_app
 from celery.signals import worker_ready
 
-
-@worker_ready.connect
-def recover_stuck_tasks(**kwargs):
-    """Beim Worker-Start: alle hängenden 'running' Tasks auf 'pending' zurücksetzen."""
-    asyncio.run(_recover_stuck())
-
 _redis = redis_lib.from_url(settings.redis_url, decode_responses=True)
-
 REDIS_OUTPUT_TTL = 3600  # 1 Stunde
 
 
+def _make_session():
+    """Frische DB-Engine + Session pro Aufruf — verhindert asyncpg-Konflikte bei parallelen Celery-Tasks."""
+    engine = create_async_engine(settings.database_url, echo=False, pool_size=1, max_overflow=0)
+    return async_sessionmaker(engine, expire_on_commit=False), engine
+
+
+@worker_ready.connect
+def recover_stuck_tasks(**kwargs):
+    """Beim Worker-Start: hängende 'running' Tasks auf 'pending' zurücksetzen."""
+    asyncio.run(_recover_stuck())
+
+
 async def _recover_stuck():
-    async with AsyncSessionLocal() as db:
-        await db.execute(
-            update(DevTask)
-            .where(DevTask.status == "running")
-            .values(status="pending", context_snapshot=None)
-        )
-        await db.commit()
+    Session, engine = _make_session()
+    try:
+        async with Session() as db:
+            await db.execute(
+                update(DevTask)
+                .where(DevTask.status == "running")
+                .values(status="pending", context_snapshot=None)
+            )
+            await db.commit()
+    finally:
+        await engine.dispose()
 
 
 @celery_app.task(name="tasks.dev_task_processor.process_dev_tasks")
@@ -48,23 +57,23 @@ def process_dev_tasks():
 
 
 async def _run():
-    async with AsyncSessionLocal() as db:
-        task = await _get_next_task(db)
-        if not task:
-            return
+    Session, engine = _make_session()
+    try:
+        async with Session() as db:
+            task = await _get_next_task(db)
+            if not task:
+                return
 
-        task_id = str(task.id)
+            task_id = str(task.id)
+            task.status = "running"
+            task.started_at = task.started_at or datetime.utcnow()
+            await db.commit()
 
-        # Als "running" markieren
-        task.status = "running"
-        task.started_at = task.started_at or datetime.utcnow()
-        await db.commit()
-
-        # Redis-Callback: schreibt Live-Output nach jedem Schritt
+        # Session schliessen bevor task_runner läuft (blockiert lange)
+        # Eigene Session für das Schreiben des Ergebnisses
         def progress_callback(output: str):
             _redis.set(f"devtask:output:{task_id}", output, ex=REDIS_OUTPUT_TTL)
 
-        # Task runner aufrufen (synchron — blockiert bis fertig oder rate-limited)
         try:
             result = task_runner.run_task(
                 description=task.description,
@@ -73,59 +82,64 @@ async def _run():
                 progress_callback=progress_callback,
             )
         except Exception as e:
-            task.status = "failed"
-            task.error = str(e)
+            async with Session() as db2:
+                res = await db2.execute(select(DevTask).where(DevTask.id == task.id))
+                t = res.scalar_one()
+                t.status = "failed"
+                t.error = str(e)
+                await db2.commit()
             _redis.delete(f"devtask:output:{task_id}")
-            await db.commit()
             return
 
-        # Finalen Output aus Redis holen (falls letzter callback nicht mehr ausgeführt wurde)
         final_output = result.get("output") or _redis.get(f"devtask:output:{task_id}") or ""
         _redis.delete(f"devtask:output:{task_id}")
 
-        task.output = final_output
-        task.token_usage = (task.token_usage or 0) + result.get("tokens", 0)
+        async with Session() as db3:
+            res = await db3.execute(select(DevTask).where(DevTask.id == task.id))
+            t = res.scalar_one()
+            t.output = final_output
+            t.token_usage = (t.token_usage or 0) + result.get("tokens", 0)
 
-        if result["status"] == "paused":
-            retry_after_s = result.get("retry_after_seconds", 60)
-            task.status = "paused"
-            task.retry_after = datetime.utcnow() + timedelta(seconds=retry_after_s)
-            task.context_snapshot = {"messages": result.get("context", [])}
+            if result["status"] == "paused":
+                # Mindestens 60s warten damit das TPM-Fenster (1 Minute) sicher zurückgesetzt ist
+                retry_after_s = max(result.get("retry_after_seconds", 60), 60)
+                t.status = "paused"
+                t.retry_after = datetime.utcnow() + timedelta(seconds=retry_after_s)
+                t.context_snapshot = {"messages": result.get("context", [])}
+            elif result["status"] == "completed":
+                t.status = "completed"
+                t.completed_at = datetime.utcnow()
+                t.context_snapshot = None
+                t.retry_after = None
+            else:
+                t.status = "failed"
+                t.error = result.get("error", "Unbekannter Fehler")
+                t.context_snapshot = None
 
-        elif result["status"] == "completed":
-            task.status = "completed"
-            task.completed_at = datetime.utcnow()
-            task.context_snapshot = None
-            task.retry_after = None
-
-        else:  # failed
-            task.status = "failed"
-            task.error = result.get("error", "Unbekannter Fehler")
-            task.context_snapshot = None
-
-        await db.commit()
+            await db3.commit()
+    finally:
+        await engine.dispose()
 
 
 async def _get_next_task(db) -> DevTask | None:
-    """Gibt den nächsten verarbeitbaren Task zurück (paused zuerst, dann pending)."""
     now = datetime.utcnow()
 
     # Erst: pausierte Tasks die wieder bereit sind
-    result = await db.execute(
+    r = await db.execute(
         select(DevTask)
         .where(DevTask.status == "paused", DevTask.retry_after <= now)
         .order_by(DevTask.priority, DevTask.created_at)
         .limit(1)
     )
-    task = result.scalar_one_or_none()
+    task = r.scalar_one_or_none()
     if task:
         return task
 
     # Dann: neue ausstehende Tasks
-    result = await db.execute(
+    r = await db.execute(
         select(DevTask)
         .where(DevTask.status == "pending")
         .order_by(DevTask.priority, DevTask.created_at)
         .limit(1)
     )
-    return result.scalar_one_or_none()
+    return r.scalar_one_or_none()
