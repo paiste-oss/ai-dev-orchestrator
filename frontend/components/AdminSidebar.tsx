@@ -21,21 +21,22 @@ type NavEntry = NavItem | NavGroup;
 const isGroup = (entry: NavEntry): entry is NavGroup => "children" in entry;
 
 const NAV: NavEntry[] = [
-  { label: "Dashboard",        href: "/admin",           icon: "🏠" },
-  { label: "Dev Orchestrator", href: "/admin/devtool",   icon: "🛠️" },
-  { label: "Kunden",           href: "/admin/customers", icon: "👥" },
-  { label: "AI Baddis",        href: "/admin/buddies",   icon: "🤖" },
-  { label: "Dokumente",        href: "/admin/documents", icon: "📁" },
-  { label: "Workflows",        href: "/admin/workflows", icon: "⚙️" },
-  { label: "Analytik",         href: "/admin/analytics", icon: "📊" },
+  { label: "Dashboard",        href: "/admin",              icon: "🏠" },
+  { label: "Dev Orchestrator", href: "/admin/devtool",      icon: "🛠️" },
+  { label: "Kunden",           href: "/admin/customers",    icon: "👥" },
+  { label: "AI Baddis",        href: "/admin/buddies",      icon: "🤖" },
+  { label: "Dokumente",        href: "/admin/documents",    icon: "📁" },
+  { label: "Workflows",        href: "/admin/workflows",    icon: "⚙️" },
+  { label: "Analytik",         href: "/admin/analytics",    icon: "📊" },
   {
     label: "Konfigurieren",
     icon: "🔧",
     children: [
-      { label: "Portal",       href: "/admin/settings",  icon: "🌐" },
+      { label: "Portal",       href: "/admin/settings",     icon: "🌐" },
     ],
   },
-  { label: "Dev-Portal",       href: "/portal",          icon: "🔬" },
+  { label: "Testseiten",       href: "/admin/testpages",    icon: "🧪" },
+  { label: "Dev-Portal",       href: "/portal",             icon: "🔬" },
 ];
 
 interface Props {
@@ -92,6 +93,8 @@ export default function AdminSidebar({ open, onClose }: Props) {
         <nav className="flex-1 space-y-0.5 overflow-y-auto">
           {NAV.map((entry) => {
             if (!isGroup(entry)) {
+              // Testseiten-Eintrag bekommt eine leichte visuelle Trennung nach oben
+              const isTestpages = entry.href === "/admin/testpages";
               return (
                 <button
                   key={entry.href}
@@ -100,7 +103,7 @@ export default function AdminSidebar({ open, onClose }: Props) {
                     isActive(entry.href)
                       ? "bg-yellow-400/10 text-yellow-400"
                       : "text-gray-300 hover:text-white hover:bg-gray-800"
-                  }`}
+                  } ${isTestpages ? "mt-2 border-t border-gray-800 pt-3" : ""}`}
                 >
                   <span>{entry.icon}</span>
                   <span>{entry.label}</span>

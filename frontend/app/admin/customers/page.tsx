@@ -54,6 +54,47 @@ function formatDate(iso: string) {
   });
 }
 
+// ─── Bestätigungs-Dialog ──────────────────────────────────────────────────────
+
+function DeleteDialog({ customer, onConfirm, onCancel, loading }: {
+  customer: Customer;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70" onClick={onCancel} />
+      <div className="relative bg-gray-800 border border-gray-700 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-xl">
+        <div className="text-center space-y-2">
+          <div className="text-4xl">🗑️</div>
+          <h3 className="text-lg font-bold text-white">Kunden löschen?</h3>
+          <p className="text-sm text-gray-400">
+            <span className="text-white font-medium">{customer.name}</span> ({customer.email}) wird
+            permanent gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl border border-gray-600 text-gray-300 hover:bg-gray-700 transition-colors text-sm font-medium disabled:opacity-50"
+          >
+            Abbrechen
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white transition-colors text-sm font-bold disabled:opacity-50"
+          >
+            {loading ? "Löschen…" : "Ja, löschen"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Hauptkomponente ──────────────────────────────────────────────────────────
 
 export default function CustomersPage() {
@@ -73,6 +114,10 @@ export default function CustomersPage() {
   const [error, setError]         = useState<string | null>(null);
   const [page, setPage]           = useState(1);
   const PAGE_SIZE = 20;
+
+  // Löschen-State
+  const [deleteConfirm, setDeleteConfirm] = useState<Customer | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Debounce-Timer für Suchfeld
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -131,6 +176,22 @@ export default function CustomersPage() {
     }
   };
 
+  // Löschen bestätigt
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    try {
+      const res = await apiFetch(`${API_ROUTES.customers}/${deleteConfirm.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setDeleteConfirm(null);
+      fetchCustomers();
+    } catch {
+      alert("Fehler beim Löschen");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1;
 
   if (!mounted) return null;
@@ -138,6 +199,15 @@ export default function CustomersPage() {
   return (
     <div className="min-h-screen bg-gray-950 text-white flex">
       <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      {deleteConfirm && (
+        <DeleteDialog
+          customer={deleteConfirm}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteConfirm(null)}
+          loading={deleting}
+        />
+      )}
 
       <main className="flex-1 p-4 md:p-8 space-y-6 overflow-y-auto min-w-0">
 
@@ -323,7 +393,6 @@ export default function CustomersPage() {
                       {/* Name */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          {/* Avatar-Placeholder */}
                           <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold text-gray-200 shrink-0">
                             {customer.name.charAt(0).toUpperCase()}
                           </div>
@@ -382,6 +451,13 @@ export default function CustomersPage() {
                           >
                             {customer.is_active ? "Deaktivieren" : "Aktivieren"}
                           </button>
+                          <button
+                            onClick={() => setDeleteConfirm(customer)}
+                            title="Löschen"
+                            className="text-xs px-2 py-1 rounded transition-colors border border-red-700/40 text-red-500 hover:bg-red-500/10"
+                          >
+                            🗑️
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -414,7 +490,6 @@ export default function CustomersPage() {
                 ‹ Zurück
               </button>
 
-              {/* Seitenzahlen */}
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 const start = Math.max(1, Math.min(page - 2, totalPages - 4));
                 const p = start + i;

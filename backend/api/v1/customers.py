@@ -1,11 +1,12 @@
 import uuid
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from core.database import get_db
+from core.dependencies import require_admin
 from models.customer import Customer
 
 router = APIRouter(prefix="/customers", tags=["customers"])
@@ -135,3 +136,18 @@ async def toggle_customer_active(customer_id: uuid.UUID, db: AsyncSession = Depe
     await db.commit()
     await db.refresh(customer)
     return customer
+
+
+@router.delete("/{customer_id}", status_code=204)
+async def delete_customer(
+    customer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: Customer = Depends(require_admin),
+):
+    """Löscht einen Kunden permanent (nur Admin)."""
+    customer = await db.get(Customer, customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    await db.delete(customer)
+    await db.commit()
+    return Response(status_code=204)
