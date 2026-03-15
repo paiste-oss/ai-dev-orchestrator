@@ -23,7 +23,15 @@ interface CostEntry {
   amount_chf_monthly: number;
   url: string | null;
   notes: string | null;
+  balance_chf: number | null;
+  balance_updated_at: string | null;
   is_active: boolean;
+}
+
+interface LiveUsage {
+  openai?: { total_usd: number; total_chf: number; period: string; url: string };
+  anthropic?: { note: string; url: string };
+  gemini?: { note: string; url: string };
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -43,10 +51,25 @@ const CYCLE_LABEL: Record<BillingCycle, string> = {
   nutzungsbasiert: "variabel",
 };
 
-const EMPTY_FORM = (): Omit<CostEntry, "id"> => ({
+// Known billing console URLs per provider (fallback when entry.url is empty)
+const BILLING_URLS: Record<string, string> = {
+  "google":     "https://console.cloud.google.com/billing",
+  "openai":     "https://platform.openai.com/settings/organization/billing/overview",
+  "anthropic":  "https://console.anthropic.com/settings/billing",
+  "cloudflare": "https://dash.cloudflare.com/?to=/:account/billing",
+  "n8n":        "https://app.n8n.cloud/billing",
+  "github":     "https://github.com/settings/billing",
+};
+
+function billingUrl(entry: CostEntry): string | null {
+  if (entry.url) return entry.url;
+  return BILLING_URLS[entry.provider.toLowerCase()] ?? null;
+}
+
+const EMPTY_FORM = (): Omit<CostEntry, "id" | "balance_updated_at"> => ({
   name: "", provider: "", category: "api", billing_cycle: "monatlich",
   amount_original: 0, currency: "CHF", amount_chf_monthly: 0,
-  url: "", notes: "", is_active: true,
+  url: "", notes: "", balance_chf: null, is_active: true,
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -68,15 +91,26 @@ export default function KostenPage() {
   const [editEntry, setEditEntry] = useState<CostEntry | null>(null);
   const [form, setForm] = useState(EMPTY_FORM());
   const [saving, setSaving] = useState(false);
+  const [usage, setUsage] = useState<LiveUsage | null>(null);
+  const [usageLoading, setUsageLoading] = useState(false);
 
   useEffect(() => {
     const u = getSession();
     setMounted(true);
     if (!u || u.role !== "admin") { router.replace("/login"); return; }
     load();
+    loadUsage();
   }, []);
 
   if (!mounted) return null;
+
+  async function loadUsage() {
+    setUsageLoading(true);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/finance/usage`);
+      if (res.ok) setUsage(await res.json());
+    } finally { setUsageLoading(false); }
+  }
 
   async function load() {
     setLoading(true);
@@ -170,6 +204,49 @@ export default function KostenPage() {
         ))}
       </div>
 
+      {/* Live Usage Panel */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* OpenAI */}
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">OpenAI Verbrauch</p>
+            {usageLoading && <span className="text-xs text-gray-600 animate-pulse">lädt…</span>}
+          </div>
+          {usage?.openai ? (
+            <div className="space-y-1">
+              <p className="text-xl font-bold text-green-400">${usage.openai.total_usd.toFixed(4)}</p>
+              <p className="text-xs text-gray-500">≈ {chf(usage.openai.total_chf)} · {usage.openai.period}</p>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600">{usageLoading ? "…" : "Kein API-Key konfiguriert"}</p>
+          )}
+          <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-400">
+            Konsole öffnen ↗
+          </a>
+        </div>
+
+        {/* Anthropic */}
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 space-y-2">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Anthropic</p>
+          <p className="text-sm text-gray-500">Kein öffentlicher Usage-API verfügbar.</p>
+          <a href="https://console.anthropic.com/settings/billing" target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-orange-500 hover:text-orange-400">
+            Konsole öffnen ↗
+          </a>
+        </div>
+
+        {/* Google Gemini */}
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 space-y-2">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Google Gemini</p>
+          <p className="text-sm text-gray-500">Erfordert Google Cloud OAuth2.</p>
+          <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-400">
+            Cloud Console ↗
+          </a>
+        </div>
+      </div>
+
       {/* Category summary chips */}
       <div className="flex flex-wrap gap-3">
         {CATEGORIES.map((cat) => {
@@ -219,7 +296,8 @@ export default function KostenPage() {
                 <th className="text-left px-4 py-3 hidden lg:table-cell">Kategorie</th>
                 <th className="text-left px-4 py-3 hidden sm:table-cell">Turnus</th>
                 <th className="text-right px-4 py-3">CHF/Monat</th>
-                <th className="text-right px-5 py-3">Aktionen</th>
+                <th className="text-right px-4 py-3 hidden md:table-cell">Guthaben</th>
+                <th className="text-right px-5 py-3">Konsole</th>
               </tr>
             </thead>
             <tbody>
@@ -263,28 +341,46 @@ export default function KostenPage() {
                         </div>
                       )}
                     </td>
+                    {/* Balance */}
+                    <td className="px-4 py-3 text-right hidden md:table-cell">
+                      {e.balance_chf != null ? (
+                        <div className="flex flex-col items-end">
+                          <span className={`text-sm font-semibold ${e.balance_chf > 0 ? "text-green-400" : "text-red-400"}`}>
+                            {chf(e.balance_chf)}
+                          </span>
+                          {e.balance_updated_at && (
+                            <span className="text-xs text-gray-600">
+                              {new Date(e.balance_updated_at).toLocaleDateString("de-CH")}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-700 text-xs">—</span>
+                      )}
+                    </td>
+                    {/* Console link + actions */}
                     <td className="px-5 py-3">
-                      <div className="flex items-center justify-end gap-2">
-                        {e.url && (
+                      <div className="flex items-center justify-end gap-1.5">
+                        {billingUrl(e) && (
                           <a
-                            href={e.url}
+                            href={billingUrl(e)!}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-gray-600 hover:text-blue-400 transition-colors text-xs"
-                            title="Billing öffnen"
+                            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-blue-950/50 border border-blue-800/50 text-blue-400 hover:bg-blue-900/50 transition-colors font-medium"
+                            title="Billing-Konsole öffnen"
                           >
-                            🔗
+                            Konsole ↗
                           </a>
                         )}
                         <button
                           onClick={() => openEdit(e)}
-                          className="text-gray-500 hover:text-yellow-400 transition-colors text-xs px-2 py-1 rounded hover:bg-gray-800"
+                          className="text-gray-500 hover:text-yellow-400 transition-colors text-xs px-2 py-1.5 rounded hover:bg-gray-800"
                         >
                           ✏️
                         </button>
                         <button
                           onClick={() => remove(e.id)}
-                          className="text-gray-500 hover:text-red-400 transition-colors text-xs px-2 py-1 rounded hover:bg-gray-800"
+                          className="text-gray-500 hover:text-red-400 transition-colors text-xs px-2 py-1.5 rounded hover:bg-gray-800"
                         >
                           🗑️
                         </button>
@@ -410,6 +506,19 @@ export default function KostenPage() {
                 </div>
               </div>
               <p className="text-xs text-gray-600">CHF/Monat wird für die Übersicht normalisiert (z.B. Jahresbetrag ÷ 12).</p>
+
+              {/* Balance */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-gray-400">Aktuelles Guthaben (CHF) — optional</label>
+                <input
+                  type="number" step="0.01"
+                  value={form.balance_chf ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, balance_chf: e.target.value === "" ? null : parseFloat(e.target.value) }))}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-yellow-500"
+                  placeholder="z.B. 18.50"
+                />
+                <p className="text-xs text-gray-600">Manuell eingetragen — wird mit Datum gespeichert.</p>
+              </div>
 
               {/* URL + Notes */}
               <div className="space-y-1.5">

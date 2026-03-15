@@ -22,7 +22,8 @@ async def init_db():
         # Neue Spalten sicher hinzufügen (idempotent)
         migrations = [
             "ALTER TABLE ai_buddies ADD COLUMN IF NOT EXISTS usecase_id VARCHAR",
-            # chat_messages & memory_items are created by create_all above (new tables)
+            "ALTER TABLE cost_entries ADD COLUMN IF NOT EXISTS balance_chf FLOAT",
+            "ALTER TABLE cost_entries ADD COLUMN IF NOT EXISTS balance_updated_at TIMESTAMP",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

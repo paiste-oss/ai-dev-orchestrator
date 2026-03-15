@@ -18,5 +18,7 @@ class CostEntry(Base):
     amount_chf_monthly: Mapped[float] = mapped_column(Float, default=0.0) # normalized to CHF/month (estimate)
     url: Mapped[str | None] = mapped_column(String, nullable=True)         # billing dashboard
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    balance_chf: Mapped[float | None] = mapped_column(Float, nullable=True)          # manual: current account balance
+    balance_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
