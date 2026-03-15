@@ -55,17 +55,17 @@ const DEFAULTS: PortalSettings = {
 export default function LandingPage() {
   const router = useRouter();
   const user = getSession();
-  const [cfg, setCfg] = useState<PortalSettings>(DEFAULTS);
+  const [cfg, setCfg] = useState<PortalSettings | null>(null);
 
   useEffect(() => {
     if (user) { router.replace(getDashboardPath(user)); return; }
     fetch(`${BACKEND_URL}/v1/settings/portal`)
       .then(r => r.ok ? r.json() : DEFAULTS)
       .then(setCfg)
-      .catch(() => {});
+      .catch(() => setCfg(DEFAULTS));
   }, []);
 
-  const visibleSegments = SEGMENTS.filter(s => cfg[s.key]);
+  const visibleSegments = cfg ? SEGMENTS.filter(s => cfg[s.key]) : [];
 
   return (
     <main className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-6">
@@ -99,7 +99,7 @@ export default function LandingPage() {
           </div>
         )}
 
-        {cfg.show_login && (
+        {cfg?.show_login && (
           <div className="flex flex-col gap-3">
             <button
               onClick={() => router.push("/login")}
