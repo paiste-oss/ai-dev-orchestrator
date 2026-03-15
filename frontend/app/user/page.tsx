@@ -47,10 +47,9 @@ export default function UserHub() {
           <h2 className="text-lg font-bold text-gray-200">Dein Baddi</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {active.map((uc) => (
-              <button
+              <div
                 key={uc.id}
-                onClick={() => router.push(`/user/${uc.id}`)}
-                className={`${uc.bgColor} border ${uc.borderColor} rounded-2xl p-5 text-left hover:scale-[1.02] transition-transform space-y-3`}
+                className={`${uc.bgColor} border ${uc.borderColor} rounded-2xl p-5 space-y-3`}
               >
                 <div className="flex items-center justify-between">
                   <span className="text-3xl">{uc.icon}</span>
@@ -65,7 +64,17 @@ export default function UserHub() {
                   <span className="text-xs text-gray-400">Baddi:</span>
                   <span className={`text-xs font-semibold ${uc.color}`}>{uc.buddyName}</span>
                 </div>
-              </button>
+                <button
+                  onClick={() =>
+                    uc.id === "funktion-chat"
+                      ? router.push(`/chat/${uc.id}`)
+                      : router.push(`/user/${uc.id}`)
+                  }
+                  className={`w-full text-xs font-semibold py-2 px-3 rounded-lg border ${uc.borderColor} ${uc.color} hover:bg-white/5 transition-colors`}
+                >
+                  {uc.id === "funktion-chat" ? "💬 Chat öffnen" : "Öffnen"}
+                </button>
+              </div>
             ))}
           </div>
         </section>

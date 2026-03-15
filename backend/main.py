@@ -4,8 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.database import init_db
-from api.v1 import agent, customers, buddies, workflows, credentials, oauth, dev_tasks, documents, events, auth
+from api.v1 import agent, customers, buddies, workflows, credentials, oauth, dev_tasks, documents, events, auth, chat
 from api.v1 import settings as portal_settings
+import models.chat  # noqa: F401 — register ChatMessage & MemoryItem with Base.metadata
 
 # Ollama als OpenAI-kompatibler Endpunkt für CrewAI/LangChain
 os.environ["OPENAI_API_KEY"] = "NA"
@@ -47,6 +48,7 @@ app.include_router(documents.router, prefix="/v1")
 app.include_router(events.router, prefix="/v1")
 app.include_router(auth.router, prefix="/v1")
 app.include_router(portal_settings.router, prefix="/v1")
+app.include_router(chat.router, prefix="/v1")
 
 
 @app.get("/")

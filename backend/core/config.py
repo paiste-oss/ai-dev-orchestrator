@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # Anthropic
     anthropic_api_key: str = ""
 
+    # External LLMs (KI-Chat Funktion)
+    gemini_api_key: str = ""
+    openai_api_key: str = ""
+
     # GitHub
     github_token: str = ""
     github_repo: str = "paiste-oss/ai-dev-orchestrator"
