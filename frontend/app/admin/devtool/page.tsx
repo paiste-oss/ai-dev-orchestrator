@@ -119,33 +119,40 @@ export default function DevTool() {
   const pending = tasks.filter(t => t.status === "pending").length;
   const paused  = tasks.filter(t => t.status === "paused").length;
 
+  // On mobile: show list or detail, not both
+  const showDetailMobile = selected !== null;
+
   if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
       {/* Header */}
-      <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-4">
+      <header className="bg-gray-900 border-b border-gray-800 px-4 md:px-6 py-4 flex justify-between items-center">
+        <div className="flex items-center gap-3">
           <button onClick={() => router.push("/admin")} className="text-gray-400 hover:text-white text-xl">←</button>
           <div>
-            <h1 className="text-lg font-bold text-yellow-400">AI Dev Orchestrator</h1>
-            <p className="text-xs text-gray-500">Claude arbeitet deine Tasks automatisch ab</p>
+            <h1 className="text-base md:text-lg font-bold text-yellow-400">AI Dev Orchestrator</h1>
+            <p className="text-xs text-gray-500 hidden sm:block">Claude arbeitet deine Tasks automatisch ab</p>
           </div>
         </div>
-        <div className="flex items-center gap-4 text-sm">
-          <span className="text-blue-400">⚡ {running} läuft</span>
-          <span className="text-gray-400">⏳ {pending} ausstehend</span>
-          {paused > 0 && <span className="text-yellow-400">⏸ {paused} pausiert</span>}
+        <div className="flex items-center gap-2 md:gap-4 text-sm">
+          <span className="text-blue-400">⚡ {running}</span>
+          <span className="text-gray-400 hidden sm:inline">⏳ {pending} ausstehend</span>
+          {paused > 0 && <span className="text-yellow-400">⏸ {paused}</span>}
           <button
             onClick={() => { clearSession(); router.push("/"); }}
-            className="text-gray-500 hover:text-red-400 transition-colors"
+            className="text-gray-500 hover:text-red-400 transition-colors hidden sm:inline"
           >Abmelden</button>
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
         {/* Linke Spalte: Task-Liste */}
-        <div className="w-96 bg-gray-900 border-r border-gray-800 flex flex-col">
+        <div className={`
+          w-full md:w-96 bg-gray-900 border-b md:border-b-0 md:border-r border-gray-800 flex flex-col
+          ${showDetailMobile ? "hidden md:flex" : "flex"}
+          md:flex
+        `}>
           {/* Add Task Button */}
           <div className="p-4 border-b border-gray-800">
             <button
@@ -230,7 +237,10 @@ export default function DevTool() {
         </div>
 
         {/* Rechte Spalte: Task Detail & Output */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className={`
+          flex-1 flex flex-col overflow-hidden
+          ${showDetailMobile ? "flex" : "hidden md:flex"}
+        `}>
           {!selected ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center text-gray-500">
@@ -242,8 +252,14 @@ export default function DevTool() {
           ) : (
             <>
               {/* Task Header */}
-              <div className="bg-gray-900 border-b border-gray-800 px-6 py-4">
-                <div className="flex justify-between items-start">
+              <div className="bg-gray-900 border-b border-gray-800 px-4 md:px-6 py-4">
+                <button
+                  onClick={() => setSelected(null)}
+                  className="md:hidden text-gray-400 hover:text-white text-sm mb-3 flex items-center gap-1"
+                >
+                  ← Zurück zur Liste
+                </button>
+                <div className="flex justify-between items-start flex-wrap gap-2">
                   <div>
                     <div className="flex items-center gap-3 mb-1">
                       <span className={`text-sm px-2 py-0.5 rounded ${STATUS_STYLE[selected.status]}`}>
@@ -264,7 +280,7 @@ export default function DevTool() {
                   </div>
 
                   {/* Aktions-Buttons */}
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {(selected.status === "pending" || selected.status === "paused") && (
                       <button
                         onClick={() => handleAction(selected.id, "run-now")}

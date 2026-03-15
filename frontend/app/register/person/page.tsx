@@ -63,7 +63,7 @@ export default function RegisterPerson() {
         <form onSubmit={handleSubmit} className="bg-gray-900 rounded-2xl border border-gray-800 p-6 space-y-5">
 
           {/* Name */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-sm text-gray-400">Vorname</label>
               <input required value={form.vorname} onChange={(e) => set("vorname", e.target.value)}

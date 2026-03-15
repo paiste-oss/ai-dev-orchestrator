@@ -58,7 +58,7 @@ export default function RegisterAllgemein() {
 
         <form onSubmit={handleSubmit} className="bg-gray-900 rounded-2xl border border-gray-800 p-6 space-y-5">
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-sm text-gray-400">Vorname</label>
               <input required value={form.vorname} onChange={(e) => set("vorname", e.target.value)}
@@ -90,7 +90,7 @@ export default function RegisterAllgemein() {
           {/* Buddy wählen */}
           <div className="space-y-2">
             <label className="text-sm text-gray-400">Welcher Buddy interessiert dich? <span className="text-gray-600">(optional)</span></label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {ACTIVE_CASES.map((uc) => (
                 <button type="button" key={uc.id}
                   onClick={() => set("usecase", form.usecase === uc.id ? "" : uc.id)}

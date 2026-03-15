@@ -52,7 +52,7 @@ export default function LandingPage() {
         </div>
 
         {/* Segment-Karten mit Registrieren */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {SEGMENTS.map((s) => (
             <div
               key={s.label}

@@ -74,7 +74,7 @@ export default function RegisterFirma() {
           </div>
 
           {/* Kontakt */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-sm text-gray-400">Kontaktperson</label>
               <input required value={form.kontaktperson} onChange={(e) => set("kontaktperson", e.target.value)}
@@ -90,7 +90,7 @@ export default function RegisterFirma() {
           </div>
 
           {/* E-Mail & Telefon */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-sm text-gray-400">Geschäfts-E-Mail</label>
               <input required type="email" value={form.email} onChange={(e) => set("email", e.target.value)}
@@ -106,7 +106,7 @@ export default function RegisterFirma() {
           </div>
 
           {/* Branche & Mitarbeiter */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-sm text-gray-400">Branche</label>
               <select required value={form.branche} onChange={(e) => set("branche", e.target.value)}
