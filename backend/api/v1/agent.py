@@ -8,13 +8,18 @@ router = APIRouter()
 class AIRequest(BaseModel):
     prompt: str
     model: str = "auto"
+    system_prompt: str | None = None
 
 
 @router.post("/agent/run")
 async def run_agent(request: AIRequest):
     try:
         forced = None if request.model == "auto" else request.model
-        output, model_used = route_prompt(request.prompt, forced_model=forced)
+        output, model_used = route_prompt(
+            request.prompt,
+            forced_model=forced,
+            system_prompt_override=request.system_prompt,
+        )
         return {"status": "success", "output": output, "model_used": model_used}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

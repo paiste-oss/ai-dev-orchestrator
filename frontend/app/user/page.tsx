@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, clearSession } from "@/lib/auth";
+import { USE_CASES } from "@/lib/usecases";
 
-export default function UserDashboard() {
+export default function UserHub() {
   const router = useRouter();
   const user = getSession();
-  const [prompt, setPrompt] = useState("");
-  const [messages, setMessages] = useState<{ role: "user" | "buddy"; text: string }[]>([]);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!user || user.role !== "user") router.replace("/login");
@@ -17,36 +15,16 @@ export default function UserDashboard() {
 
   if (!user) return null;
 
-  const handleSend = async () => {
-    if (!prompt.trim()) return;
-    const userMsg = prompt.trim();
-    setPrompt("");
-    setMessages((prev) => [...prev, { role: "user", text: userMsg }]);
-    setLoading(true);
-
-    try {
-      const res = await fetch("http://localhost:5678/webhook/agent/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: userMsg, model: "auto" }),
-      });
-      const data = await res.json();
-      const out = Array.isArray(data) ? data[0]?.output : data.output;
-      setMessages((prev) => [...prev, { role: "buddy", text: out || "Keine Antwort erhalten." }]);
-    } catch {
-      setMessages((prev) => [...prev, { role: "buddy", text: "Verbindung fehlgeschlagen." }]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const active = USE_CASES.filter((uc) => uc.status === "active");
+  const planned = USE_CASES.filter((uc) => uc.status === "coming_soon");
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col">
       {/* Header */}
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex justify-between items-center">
         <div>
-          <h1 className="text-xl font-bold text-green-400">Dein AI Buddy</h1>
-          <p className="text-xs text-gray-500">Persönlicher Begleiter</p>
+          <h1 className="text-xl font-bold text-white">AI Buddy</h1>
+          <p className="text-xs text-gray-500">Wähle deinen Begleiter</p>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-400">{user.name}</span>
@@ -59,54 +37,55 @@ export default function UserDashboard() {
         </div>
       </header>
 
-      {/* Chat */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 max-w-2xl w-full mx-auto">
-        {messages.length === 0 && (
-          <div className="text-center text-gray-500 mt-20 space-y-2">
-            <p className="text-4xl">🤖</p>
-            <p className="text-lg">Hallo! Ich bin dein AI Buddy.</p>
-            <p className="text-sm">Schreib mir etwas — ich bin für dich da.</p>
+      <main className="flex-1 p-6 max-w-4xl mx-auto w-full space-y-10">
+        {/* Aktive UseCases */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-bold text-gray-200">Dein Buddy</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {active.map((uc) => (
+              <button
+                key={uc.id}
+                onClick={() => router.push(`/user/${uc.id}`)}
+                className={`${uc.bgColor} border ${uc.borderColor} rounded-2xl p-5 text-left hover:scale-[1.02] transition-transform space-y-3`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl">{uc.icon}</span>
+                  <span className="text-xs bg-black/30 px-2 py-1 rounded-full text-gray-400">{uc.ageRange}</span>
+                </div>
+                <div>
+                  <p className={`font-bold text-lg ${uc.color}`}>{uc.name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{uc.tagline}</p>
+                </div>
+                <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{uc.description}</p>
+                <div className="flex items-center gap-2 pt-1">
+                  <span className="text-xs text-gray-400">Buddy:</span>
+                  <span className={`text-xs font-semibold ${uc.color}`}>{uc.buddyName}</span>
+                </div>
+              </button>
+            ))}
           </div>
-        )}
-        {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap ${
-              msg.role === "user"
-                ? "bg-green-700 text-white rounded-br-sm"
-                : "bg-gray-800 text-gray-200 rounded-bl-sm"
-            }`}>
-              {msg.text}
-            </div>
-          </div>
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-gray-800 rounded-2xl rounded-bl-sm px-4 py-3 text-sm text-gray-400">
-              Buddy denkt nach...
-            </div>
-          </div>
-        )}
-      </div>
+        </section>
 
-      {/* Input */}
-      <div className="border-t border-gray-800 bg-gray-900 p-4">
-        <div className="max-w-2xl mx-auto flex gap-3">
-          <input
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-            placeholder="Schreib deinem Buddy..."
-            className="flex-1 bg-gray-700 border border-gray-600 rounded-xl p-3 text-white focus:outline-none focus:border-green-500"
-          />
-          <button
-            onClick={handleSend}
-            disabled={loading}
-            className="bg-green-600 hover:bg-green-500 disabled:opacity-50 px-5 rounded-xl font-bold transition-colors"
-          >
-            Senden
-          </button>
-        </div>
-      </div>
+        {/* Geplante UseCases */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-bold text-gray-500">Bald verfügbar</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {planned.map((uc) => (
+              <div
+                key={uc.id}
+                className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-2 opacity-60"
+              >
+                <div className="text-2xl">{uc.icon}</div>
+                <p className="font-semibold text-sm text-gray-400">{uc.name}</p>
+                <p className="text-xs text-gray-600">{uc.ageRange}</p>
+                <span className="inline-block text-xs bg-gray-800 text-gray-500 px-2 py-0.5 rounded-full">
+                  Coming Soon
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
