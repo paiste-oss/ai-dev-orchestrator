@@ -11,7 +11,13 @@
       "Bash(curl -s http://localhost:8000/v1/dev-tasks)",
       "Bash(python3 -c \"import json,sys; t=json.load\\(sys.stdin\\)[0]; print\\(''''Status:'''', t[''''status'''']\\); print\\(''''retry_after:'''', t[''''retry_after'''']\\)\" docker logs ai_celery_worker --tail 8)",
       "Bash(python3 -c \"import sys,json; tasks=json.load\\(sys.stdin\\); t=tasks[0]; print\\(f''''Status: {t[\"\"status\"\"]}\\\\nretry_after: {t[\"\"retry_after\"\"]}\\\\nOutput tail: ...{t[\"\"output\"\"][-300:]}''''\\)\")",
-      "Bash(curl -s http://localhost:8000/)"
+      "Bash(curl -s http://localhost:8000/)",
+      "Bash(sudo chown:*)",
+      "Bash(sudo -S chown -R naor:naor /home/naor/ai-dev-orchestrator/frontend/app/admin/documents/)",
+      "Bash(docker run:*)",
+      "Bash(cp /home/naor/ai-dev-orchestrator/frontend/app/admin/documents/page.tsx /tmp/documents_page.tsx)",
+      "Read(//tmp/**)",
+      "Bash(curl -s http://localhost:8000/v1/settings/portal)"
     ]
   }
 }
