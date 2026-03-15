@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getSession, getDashboardPath } from "@/lib/auth";
 import { useEffect } from "react";
 
 export default function LandingPage() {
@@ -10,7 +10,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     // Eingeloggter Nutzer direkt zum Dashboard
-    if (user) router.replace(`/${user.role}`);
+    if (user) router.replace(getDashboardPath(user));
   }, []);
 
   return (

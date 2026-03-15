@@ -6,6 +6,7 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
+  usecase?: string; // direkter UseCase nach Login
 }
 
 export function saveSession(user: AuthUser) {
@@ -22,6 +23,7 @@ export function clearSession() {
   localStorage.removeItem("aibuddy_user");
 }
 
-export function getDashboardPath(role: UserRole): string {
-  return `/${role}`;
+export function getDashboardPath(user: AuthUser): string {
+  if (user.role === "user" && user.usecase) return `/user/${user.usecase}`;
+  return `/${user.role}`;
 }
