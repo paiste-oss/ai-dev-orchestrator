@@ -36,6 +36,17 @@ class Settings(BaseSettings):
     openclaw_token: str = ""
     openclaw_gateway_url: str = "ws://127.0.0.1:18789"
 
+    # Credentials-Verschlüsselung (Fernet Key — einmalig generieren mit: Fernet.generate_key())
+    credentials_encryption_key: str
+
+    # Google OAuth2
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://localhost:8000/v1/oauth/google/callback"
+
+    # Frontend URL (für OAuth-Redirect nach Google-Login)
+    frontend_url: str = "http://localhost:3000"
+
     # JWT
     secret_key: str
     algorithm: str = "HS256"

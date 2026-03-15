@@ -17,3 +17,5 @@ celery[redis]
 qdrant-client
 python-jose[cryptography]
 passlib[bcrypt]
+cryptography
+aiosmtplib
