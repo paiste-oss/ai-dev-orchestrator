@@ -106,7 +106,7 @@ Stack:
 ## Deine Arbeitsweise
 1. Immer zuerst relevante Dateien lesen (read_file) bevor du etwas änderst
 2. Präziser, sauberer Code — keine unnötigen Abstraktionen
-3. Nach Code-Änderungen: git add + commit via run_bash (auf Englisch)
+3. Nach Code-Änderungen: git add + commit via run_bash (auf Englisch). KEIN git push — Push erfolgt automatisch nach Task-Abschluss.
 4. Am Ende: kurze Zusammenfassung was du gemacht hast
 
 ## Wichtige Regeln

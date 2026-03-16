@@ -10,6 +10,7 @@ damit das Frontend echtzeitnah den Fortschritt zeigen kann.
 """
 
 import asyncio
+import subprocess
 import redis as redis_lib
 from datetime import datetime, timedelta
 from sqlalchemy import select, update
@@ -111,6 +112,20 @@ async def _run():
                 t.completed_at = datetime.utcnow()
                 t.context_snapshot = None
                 t.retry_after = None
+                # Auto-push nach Abschluss — Ergebnis im Output festhalten
+                try:
+                    push = subprocess.run(
+                        "git push",
+                        shell=True,
+                        cwd=settings.project_root,
+                        timeout=30,
+                        capture_output=True,
+                        text=True,
+                    )
+                    push_info = (push.stdout + push.stderr).strip()
+                    t.output = (t.output or "") + f"\n\n📤 git push: {push_info or 'OK'}"
+                except Exception as push_err:
+                    t.output = (t.output or "") + f"\n\n⚠️ git push fehlgeschlagen: {push_err}"
             else:
                 t.status = "failed"
                 t.error = result.get("error", "Unbekannter Fehler")
