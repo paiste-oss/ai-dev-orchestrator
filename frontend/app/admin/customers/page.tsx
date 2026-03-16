@@ -512,7 +512,7 @@ export default function CustomersPage() {
                           </div>
                           <div className="flex flex-col">
                             <span className="font-medium text-white whitespace-nowrap">{customer.name}</span>
-                            {customer.primary_usecase_id && (() => {
+                            {customer.role !== "admin" && customer.primary_usecase_id && (() => {
                               const uc = USE_CASES.find(u => u.id === customer.primary_usecase_id);
                               return uc ? <span className="font-mono text-xs text-yellow-500">{uc.baddiD}</span> : null;
                             })()}
