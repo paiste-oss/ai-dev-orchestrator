@@ -1,19 +1,19 @@
 """
-Finance API — CAPEX/cost overview for the entire project.
+Finance API — CAPEX/cost overview + Revenue overview for the entire project.
 Admin-only. Pre-seeds known default costs on first load.
 """
 from datetime import datetime, date, timedelta
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, Query
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select, func, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from core.database import get_db
 from core.dependencies import require_admin
-from models.customer import Customer
+from models.customer import Customer, SubscriptionPlan
 from models.finance import CostEntry
 
 router = APIRouter(prefix="/finance", tags=["finance"])
@@ -129,7 +129,41 @@ def _to_out(e: CostEntry) -> CostEntryOut:
     )
 
 
-# ── Endpoints ──────────────────────────────────────────────────────────────────
+# ── Schemas: Revenue ──────────────────────────────────────────────────────────
+
+class CustomerRevenueRow(BaseModel):
+    """Einnahmen-Zeile pro Kunde."""
+    customer_id: str
+    customer_name: str
+    customer_email: str
+    segment: str
+    is_active: bool
+    registered_at: str
+    plan_name: str | None
+    monthly_price_chf: float
+    # Hochgerechnete Werte
+    revenue_monthly_chf: float
+    revenue_yearly_chf: float
+
+
+class RevenueOverview(BaseModel):
+    """Aggregierte Einnahmen-Übersicht."""
+    # KPIs
+    total_monthly_chf: float
+    total_yearly_chf: float
+    paying_customers: int
+    free_customers: int
+    total_customers: int
+    avg_revenue_per_paying_customer: float
+    # Aufschlüsselung nach Segment
+    by_segment: dict[str, float]          # segment → monthly CHF
+    # Aufschlüsselung nach Plan
+    by_plan: dict[str, dict]              # plan_name → {count, monthly_chf}
+    # Einzelne Kunden
+    customers: list[CustomerRevenueRow]
+
+
+# ── Endpoints: Costs ──────────────────────────────────────────────────────────
 
 @router.get("/costs", response_model=list[CostEntryOut])
 async def list_costs(
@@ -169,7 +203,7 @@ async def update_cost(
         raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
 
     payload = data.model_dump()
-    # If balance changed, stamp the update time
+    # Wenn Balance geändert wurde → Zeitstempel setzen
     if payload.get("balance_chf") != entry.balance_chf:
         payload["balance_updated_at"] = datetime.utcnow()
 
@@ -193,6 +227,100 @@ async def delete_cost(
     await db.delete(entry)
     await db.commit()
     return Response(status_code=204)
+
+
+# ── Endpoints: Revenue ────────────────────────────────────────────────────────
+
+@router.get("/revenue", response_model=RevenueOverview)
+async def get_revenue(
+    segment: str | None = Query(None, description="Filter: personal | elderly | corporate"),
+    plan: str | None = Query(None, description="Filter nach Plan-Name"),
+    is_active: bool | None = Query(None, description="Nur aktive / inaktive Kunden"),
+    _: Customer = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Gibt eine vollständige Einnahmen-Übersicht zurück.
+    Berechnet Einnahmen anhand der SubscriptionPlan.monthly_price jedes Kunden.
+    Kunden ohne Plan werden als CHF 0.00 (Free) gezählt.
+    """
+    # Kunden mit optionalem Join auf SubscriptionPlan laden
+    query = (
+        select(Customer, SubscriptionPlan)
+        .outerjoin(SubscriptionPlan, Customer.subscription_plan_id == SubscriptionPlan.id)
+        .where(Customer.role != "admin")  # Admins aus Einnahmen ausschliessen
+    )
+
+    # Optionale Filter
+    if segment:
+        query = query.where(Customer.segment == segment)
+    if is_active is not None:
+        query = query.where(Customer.is_active == is_active)
+    if plan:
+        query = query.where(
+            SubscriptionPlan.name.ilike(f"%{plan}%")
+        )
+
+    query = query.order_by(Customer.created_at.desc())
+    result = await db.execute(query)
+    rows = result.all()
+
+    # Aggregation
+    customer_rows: list[CustomerRevenueRow] = []
+    total_monthly = 0.0
+    paying_count = 0
+    free_count = 0
+    by_segment: dict[str, float] = {}
+    by_plan: dict[str, dict] = {}
+
+    for customer, sub_plan in rows:
+        price = float(sub_plan.monthly_price) if sub_plan else 0.0
+        plan_name = sub_plan.name if sub_plan else None
+
+        total_monthly += price
+        if price > 0:
+            paying_count += 1
+        else:
+            free_count += 1
+
+        # Segment-Aggregation
+        seg = customer.segment or "unbekannt"
+        by_segment[seg] = by_segment.get(seg, 0.0) + price
+
+        # Plan-Aggregation
+        plan_key = plan_name or "Kein Plan (Free)"
+        if plan_key not in by_plan:
+            by_plan[plan_key] = {"count": 0, "monthly_chf": 0.0}
+        by_plan[plan_key]["count"] += 1
+        by_plan[plan_key]["monthly_chf"] = round(by_plan[plan_key]["monthly_chf"] + price, 2)
+
+        customer_rows.append(CustomerRevenueRow(
+            customer_id=str(customer.id),
+            customer_name=customer.name,
+            customer_email=customer.email,
+            segment=seg,
+            is_active=customer.is_active,
+            registered_at=customer.created_at.isoformat(),
+            plan_name=plan_name,
+            monthly_price_chf=price,
+            revenue_monthly_chf=price,
+            revenue_yearly_chf=round(price * 12, 2),
+        ))
+
+    total_yearly = round(total_monthly * 12, 2)
+    avg_revenue = round(total_monthly / paying_count, 2) if paying_count > 0 else 0.0
+
+    return RevenueOverview(
+        total_monthly_chf=round(total_monthly, 2),
+        total_yearly_chf=total_yearly,
+        paying_customers=paying_count,
+        free_customers=free_count,
+        total_customers=len(customer_rows),
+        avg_revenue_per_paying_customer=avg_revenue,
+        by_segment={k: round(v, 2) for k, v in by_segment.items()},
+        by_plan=by_plan,
+        customers=customer_rows,
+    )
 
 
 # ── Live usage (best-effort) ───────────────────────────────────────────────────
@@ -221,7 +349,7 @@ async def get_live_usage(_: Customer = Depends(require_admin)):
                 )
                 if resp.status_code == 200:
                     data = resp.json()
-                    # total_usage is in cents
+                    # total_usage ist in Cent
                     total_usd = data.get("total_usage", 0) / 100
                     result["openai"] = {
                         "total_usd": round(total_usd, 4),
@@ -233,7 +361,7 @@ async def get_live_usage(_: Customer = Depends(require_admin)):
             pass
 
     # ── Anthropic ────────────────────────────────────────────────────────────
-    # Anthropic has no public usage API — link only
+    # Anthropic hat keinen öffentlichen Usage-API
     if settings.anthropic_api_key:
         result["anthropic"] = {
             "note": "Kein öffentlicher Usage-API verfügbar.",
@@ -241,7 +369,7 @@ async def get_live_usage(_: Customer = Depends(require_admin)):
         }
 
     # ── Google Gemini ────────────────────────────────────────────────────────
-    # Requires OAuth2, not supported via API key — link only
+    # Erfordert OAuth2
     if settings.gemini_api_key:
         result["gemini"] = {
             "note": "Erfordert Google Cloud OAuth2 — manuell prüfen.",
