@@ -70,7 +70,7 @@ export default function Portal() {
     <main className="min-h-screen bg-gray-900 text-white p-6 flex flex-col items-center">
       {/* Header */}
       <div className="w-full max-w-2xl flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-blue-400">AI Baddi Portal</h1>
+        <h1 className="text-2xl font-bold text-blue-400">Baddi Portal</h1>
         <div className="flex items-center gap-3">
           {user && (
             <span className="text-sm text-gray-400">

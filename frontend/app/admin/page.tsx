@@ -28,7 +28,7 @@ export default function AdminDashboard() {
       <main className="flex-1 p-4 md:p-8 space-y-6 md:space-y-8 overflow-y-auto">
         <div className="flex items-center gap-3 md:hidden">
           <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white text-2xl">☰</button>
-          <h1 className="text-lg font-bold text-yellow-400">AI Baddi Admin</h1>
+          <h1 className="text-lg font-bold text-yellow-400">Baddi Admin</h1>
         </div>
 
         <div>

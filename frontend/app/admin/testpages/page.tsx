@@ -143,7 +143,7 @@ const ALL_PAGES: PageEntry[] = [
     label: "Youngsters Baddi",
     icon: "🎮",
     role: "user",
-    description: "AI Baddi für Jugendliche & junge Erwachsene",
+    description: "Baddi für Jugendliche & junge Erwachsene",
     group: "User",
   },
   {
@@ -151,7 +151,7 @@ const ALL_PAGES: PageEntry[] = [
     label: "NewGen Baddi",
     icon: "🚀",
     role: "user",
-    description: "AI Baddi für Millennials & Gen Z",
+    description: "Baddi für Millennials & Gen Z",
     group: "User",
   },
   {
@@ -159,7 +159,7 @@ const ALL_PAGES: PageEntry[] = [
     label: "Mittlerweiler Baddi",
     icon: "🎯",
     role: "user",
-    description: "AI Baddi für die Mitte (35–55)",
+    description: "Baddi für die Mitte (35–55)",
     group: "User",
   },
   {
@@ -167,7 +167,7 @@ const ALL_PAGES: PageEntry[] = [
     label: "BestAger Baddi",
     icon: "🌟",
     role: "user",
-    description: "AI Baddi für Best Ager (55–70)",
+    description: "Baddi für Best Ager (55–70)",
     group: "User",
   },
   {
@@ -175,7 +175,7 @@ const ALL_PAGES: PageEntry[] = [
     label: "Silberperlen Baddi",
     icon: "💎",
     role: "user",
-    description: "AI Baddi für Senioren 70+",
+    description: "Baddi für Senioren 70+",
     group: "User",
   },
 

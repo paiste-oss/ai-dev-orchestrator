@@ -71,7 +71,7 @@ export default function EnterpriseDashboard() {
       `}>
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-blue-400">AI Baddi</h1>
+            <h1 className="text-xl font-bold text-blue-400">Baddi</h1>
             <p className="text-xs text-gray-500">Enterprise</p>
           </div>
           <button onClick={() => setSidebarOpen(false)} className="md:hidden text-gray-500 hover:text-white text-xl">✕</button>
@@ -123,7 +123,7 @@ export default function EnterpriseDashboard() {
 
         {/* Schnell-Chat */}
         <div className="bg-gray-800 rounded-xl p-4 md:p-6 border border-gray-700 space-y-4">
-          <h3 className="font-semibold text-gray-200">AI Baddi — Schnell-Chat</h3>
+          <h3 className="font-semibold text-gray-200">Baddi — Schnell-Chat</h3>
           <div className="flex flex-col sm:flex-row gap-2">
             <input
               value={prompt}

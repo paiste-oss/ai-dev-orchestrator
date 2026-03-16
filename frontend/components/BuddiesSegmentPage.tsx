@@ -76,7 +76,7 @@ export default function BuddiesSegmentPage({ segment, title, description }: Prop
         {/* Aktive Baddis */}
         {active.length > 0 && (
           <div className="space-y-3">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Aktive AI Baddis</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Aktive Baddis</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {active.map(uc => <UseCaseCard key={uc.id} uc={uc} />)}
             </div>

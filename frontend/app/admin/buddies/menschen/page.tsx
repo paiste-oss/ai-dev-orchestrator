@@ -4,7 +4,7 @@ export default function MenschenBuddies() {
   return (
     <BuddiesSegmentPage
       segment="menschen"
-      title="AI Baddis — Menschen"
+      title="Baddis — Menschen"
       description="Persönliche Begleiter für alle Altersgruppen"
     />
   );

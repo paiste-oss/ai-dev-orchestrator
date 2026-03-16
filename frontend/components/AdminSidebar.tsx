@@ -97,7 +97,7 @@ export default function AdminSidebar({ open, onClose }: Props) {
         {/* Logo */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-yellow-400">AI Baddi</h1>
+            <h1 className="text-xl font-bold text-yellow-400">Baddi</h1>
             <p className="text-xs text-gray-500">Admin</p>
           </div>
           <button onClick={onClose} className="md:hidden text-gray-500 hover:text-white text-xl">✕</button>

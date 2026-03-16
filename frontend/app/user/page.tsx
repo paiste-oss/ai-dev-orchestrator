@@ -29,7 +29,7 @@ export default function UserHub() {
       {/* Header */}
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex justify-between items-center">
         <div>
-          <h1 className="text-xl font-bold text-white">AI Baddi</h1>
+          <h1 className="text-xl font-bold text-white">Baddi</h1>
           <p className="text-xs text-gray-500">Wähle deinen Begleiter</p>
         </div>
         <div className="flex items-center gap-4">
