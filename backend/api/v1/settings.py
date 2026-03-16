@@ -61,6 +61,38 @@ async def update_impressum(
     return data
 
 
+class BaddiConfig(BaseModel):
+    system_prompt: str = ""
+    tone: str = "freundlich"
+    language: str = "de"
+    primary_model: str = "gemini-2.0-flash"
+    fallback_model: str = "gpt-4o-mini"
+    skills: dict = {}
+    memory_enabled: bool = True
+    context_window: int = 10
+    n8n_workflow_id: str = ""
+
+
+@router.get("/baddi/{baddi_id}")
+async def get_baddi_config(baddi_id: str):
+    """Lädt die Konfiguration eines Baddi-Archetyps."""
+    raw = _redis.get(f"baddi:config:{baddi_id}")
+    if raw:
+        return json.loads(raw)
+    return BaddiConfig().model_dump()
+
+
+@router.put("/baddi/{baddi_id}")
+async def update_baddi_config(
+    baddi_id: str,
+    body: BaddiConfig,
+    _: Customer = Depends(require_admin),
+):
+    data = body.model_dump()
+    _redis.set(f"baddi:config:{baddi_id}", json.dumps(data))
+    return data
+
+
 @router.get("/portal")
 async def get_portal_settings():
     """Öffentlich — wird von der Startseite gelesen."""
