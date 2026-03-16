@@ -484,6 +484,7 @@ export default function CustomersPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-900/60 border-b border-gray-700">
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">ID</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Name</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">E-Mail</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Segment</th>
@@ -496,6 +497,11 @@ export default function CustomersPage() {
                 <tbody className="divide-y divide-gray-700/50">
                   {data.items.map((customer) => (
                     <tr key={customer.id} className="hover:bg-gray-700/30 transition-colors">
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        <span className="font-mono text-xs text-gray-500 select-all" title={customer.id}>
+                          {customer.id.slice(0, 8)}…
+                        </span>
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold text-gray-200 shrink-0">

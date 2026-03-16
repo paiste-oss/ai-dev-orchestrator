@@ -21,6 +21,7 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
     segment: str = "personal"
+    birth_year: int | None = None
     usecase_id: str | None = None   # wird beim Registrieren mitgeschickt → default Buddy
 
 
@@ -56,6 +57,7 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
         name=data.name,
         email=data.email.lower(),
         segment=data.segment,
+        birth_year=data.birth_year,
         hashed_password=hash_password(data.password),
         role="customer",
     )
