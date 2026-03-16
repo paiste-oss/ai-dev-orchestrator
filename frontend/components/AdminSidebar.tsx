@@ -32,6 +32,7 @@ const NAV: NavEntry[] = [
     children: [
       { label: "n8n Workflows", href: "/admin/workflows",        icon: "🔗" },
       { label: "Backend Tasks", href: "/admin/workflows/celery", icon: "⏰" },
+      { label: "Agenten",       href: "/admin/workflows/agents", icon: "🤖" },
     ],
   },
   {
