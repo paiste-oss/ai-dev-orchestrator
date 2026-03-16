@@ -25,6 +25,8 @@ async def init_db():
             "ALTER TABLE cost_entries ADD COLUMN IF NOT EXISTS balance_chf FLOAT",
             "ALTER TABLE cost_entries ADD COLUMN IF NOT EXISTS balance_updated_at TIMESTAMP",
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS birth_year INTEGER",
+            "CREATE SEQUENCE IF NOT EXISTS baddi_number_seq START 0 MINVALUE 0",
+            "ALTER TABLE ai_buddies ADD COLUMN IF NOT EXISTS baddi_number INTEGER UNIQUE DEFAULT nextval('baddi_number_seq')",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

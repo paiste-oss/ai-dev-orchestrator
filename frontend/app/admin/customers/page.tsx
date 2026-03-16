@@ -30,6 +30,7 @@ interface CustomerListResponse {
 
 interface BuddyRecord {
   id: string;
+  baddi_id: string | null;
   usecase_id: string | null;
   name: string;
   segment: string;
@@ -199,7 +200,7 @@ function BuddyModal({ customer, onClose }: { customer: Customer; onClose: () => 
                     }`}>
                       <span>{uc?.icon ?? "🤖"}</span>
                       <span className={`font-medium ${uc?.color ?? "text-white"}`}>{b.name}</span>
-                      <span className="text-gray-500 text-xs">{b.usecase_id}</span>
+                      <span className="font-mono text-xs text-yellow-600">{b.baddi_id ?? b.usecase_id}</span>
                       <button
                         onClick={() => remove(b.id)}
                         disabled={removing === b.id}
