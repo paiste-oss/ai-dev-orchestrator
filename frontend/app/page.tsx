@@ -44,6 +44,7 @@ interface PortalSettings {
   show_register_menschen: boolean;
   show_register_firmen: boolean;
   show_register_funktionen: boolean;
+  show_tagline: boolean;
 }
 
 const DEFAULTS: PortalSettings = {
@@ -51,7 +52,10 @@ const DEFAULTS: PortalSettings = {
   show_register_menschen: true,
   show_register_firmen: true,
   show_register_funktionen: true,
+  show_tagline: true,
 };
+
+const CACHE_KEY = "portal_settings_cache";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -61,10 +65,25 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (user) { router.replace(getDashboardPath(user)); return; }
+
+    // Load cached settings immediately so page shows while backend wakes up
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) setCfg({ ...DEFAULTS, ...JSON.parse(cached) });
+    } catch {}
+
     fetch(`${BACKEND_URL}/v1/settings/portal`)
-      .then(r => r.ok ? r.json() : DEFAULTS)
-      .then(setCfg)
-      .catch(() => setCfg(DEFAULTS));
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) {
+          setCfg({ ...DEFAULTS, ...data });
+          try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch {}
+        }
+      })
+      .catch(() => {
+        // Backend offline — keep cached value, fall back to DEFAULTS if nothing cached
+        setCfg(c => c ?? DEFAULTS);
+      });
   }, []);
 
   const visibleSegments = cfg ? SEGMENTS.filter(s => cfg[s.key]) : [];
@@ -84,7 +103,9 @@ export default function LandingPage() {
 
             <div className="space-y-3">
               <h1 className="text-5xl font-bold text-blue-400">Baddi</h1>
-              <p className="text-gray-400 text-lg">Persönliche KI-Begleiter für Menschen und Unternehmen</p>
+              {cfg?.show_tagline !== false && (
+                <p className="text-gray-400 text-lg">Persönliche KI-Begleiter für Menschen und Unternehmen</p>
+              )}
             </div>
 
             {visibleSegments.length > 0 && (

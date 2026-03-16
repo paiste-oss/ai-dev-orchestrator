@@ -11,7 +11,10 @@ interface PortalSettings {
   show_register_menschen: boolean;
   show_register_firmen: boolean;
   show_register_funktionen: boolean;
+  show_tagline: boolean;
 }
+
+const CACHE_KEY = "portal_settings_cache";
 
 function Toggle({ label, description, checked, onChange }: {
   label: string;
@@ -46,6 +49,7 @@ export default function AdminSettings() {
     show_register_menschen: true,
     show_register_firmen: true,
     show_register_funktionen: true,
+    show_tagline: true,
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -56,9 +60,15 @@ export default function AdminSettings() {
     setMounted(true);
     if (!u || u.role !== "admin") { router.replace("/login"); return; }
 
+    // Load cache immediately, then fetch live
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) setSettings(s => ({ ...s, ...JSON.parse(cached) }));
+    } catch {}
+
     fetch(`${BACKEND_URL}/v1/settings/portal`)
       .then(r => r.json())
-      .then(setSettings)
+      .then(data => { setSettings(s => ({ ...s, ...data })); })
       .catch(() => {});
   }, []);
 
@@ -69,6 +79,8 @@ export default function AdminSettings() {
         method: "PUT",
         body: JSON.stringify(settings),
       });
+      // Cache locally so landing page works when backend is offline
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(settings)); } catch {}
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {}
@@ -115,6 +127,12 @@ export default function AdminSettings() {
             {portalOpen && (
               <div className="px-6 pb-6 border-t border-gray-700">
                 <div className="pt-2">
+                  <Toggle
+                    label="Tagline anzeigen"
+                    description={`"Persönliche KI-Begleiter für Menschen und Unternehmen"`}
+                    checked={settings.show_tagline}
+                    onChange={v => set("show_tagline", v)}
+                  />
                   <Toggle
                     label="Anmelden-Button"
                     description="Der blaue Login-Button auf der Startseite"

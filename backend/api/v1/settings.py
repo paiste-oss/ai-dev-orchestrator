@@ -16,6 +16,7 @@ _DEFAULTS = {
     "show_register_menschen": True,
     "show_register_firmen": True,
     "show_register_funktionen": True,
+    "show_tagline": True,
 }
 
 
@@ -24,6 +25,7 @@ class PortalSettings(BaseModel):
     show_register_menschen: bool = True
     show_register_firmen: bool = True
     show_register_funktionen: bool = True
+    show_tagline: bool = True
 
 
 @router.get("/portal")
