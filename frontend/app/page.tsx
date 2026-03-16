@@ -147,7 +147,7 @@ export default function LandingPage() {
 
         {/* ── Footer mit Impressum-Link ── */}
         <footer className="w-full max-w-xl mt-10 pt-4 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-600">
-          <span>© {new Date().getFullYear()} AI Buddy GmbH · Bern, Schweiz</span>
+          <span>© {new Date().getFullYear()} AI Baddi GmbH · Bern, Schweiz</span>
           <div className="flex items-center gap-4">
             <button
               onClick={() => setShowImpressum(true)}

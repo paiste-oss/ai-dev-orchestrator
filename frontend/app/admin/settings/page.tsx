@@ -28,7 +28,7 @@ interface ImpressumSettings {
 }
 
 const IMPRESSUM_DEFAULTS: ImpressumSettings = {
-  firma: "AI Buddy GmbH",
+  firma: "AI Baddi GmbH",
   strasse: "Musterstraße 1",
   plz_ort: "3000 Bern, Schweiz",
   vertreten_durch: "Max Mustermann",

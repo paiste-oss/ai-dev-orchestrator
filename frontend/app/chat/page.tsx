@@ -6,7 +6,7 @@ import { apiFetch, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { getUseCase } from "@/lib/usecases";
 
-interface Buddy {
+interface Baddi {
   id: string;
   name: string;
   usecase_id: string | null;
@@ -15,7 +15,7 @@ interface Buddy {
 
 export default function ChatIndexPage() {
   const router = useRouter();
-  const [buddies, setBuddies] = useState<Buddy[]>([]);
+  const [buddies, setBuddies] = useState<Baddi[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -26,7 +26,7 @@ export default function ChatIndexPage() {
     apiFetch(`${BACKEND_URL}/v1/buddies/me`)
       .then(async (res) => {
         if (!res.ok) { setError("Baddis konnten nicht geladen werden."); return; }
-        const data: Buddy[] = await res.json();
+        const data: Baddi[] = await res.json();
         if (data.length === 1) {
           router.replace(`/chat/${data[0].id}`);
         } else {

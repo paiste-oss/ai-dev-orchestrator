@@ -29,7 +29,7 @@ interface CustomerListResponse {
   page_size: number;
 }
 
-interface BuddyRecord {
+interface BaddiRecord {
   id: string;
   usecase_id: string | null;
   name: string;
@@ -100,7 +100,7 @@ function DeleteDialog({ customer, onConfirm, onCancel, loading }: {
   );
 }
 
-// ─── Buddy-Zuweisung Modal ────────────────────────────────────────────────────
+// ─── Baddi-Zuweisung Modal ────────────────────────────────────────────────────
 
 const SEGMENT_ORDER: { key: string; label: string }[] = [
   { key: "menschen", label: "Menschen" },
@@ -108,8 +108,8 @@ const SEGMENT_ORDER: { key: string; label: string }[] = [
   { key: "funktionen", label: "Funktionen" },
 ];
 
-function BuddyModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
-  const [buddies, setBuddies] = useState<BuddyRecord[]>([]);
+function BaddiModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
+  const [buddies, setBuddies] = useState<BaddiRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
@@ -296,7 +296,7 @@ export default function CustomersPage() {
 
   const [deleteConfirm, setDeleteConfirm] = useState<Customer | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [buddyModal, setBuddyModal] = useState<Customer | null>(null);
+  const [baddiModal, setBaddiModal] = useState<Customer | null>(null);
 
   const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
@@ -373,8 +373,8 @@ export default function CustomersPage() {
           onCancel={() => setDeleteConfirm(null)} loading={deleting} />
       )}
 
-      {buddyModal && (
-        <BuddyModal customer={buddyModal} onClose={() => setBuddyModal(null)} />
+      {baddiModal && (
+        <BaddiModal customer={baddiModal} onClose={() => setBaddiModal(null)} />
       )}
 
       <main className="flex-1 p-4 md:p-8 space-y-6 overflow-y-auto min-w-0">
@@ -543,7 +543,7 @@ export default function CustomersPage() {
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => setBuddyModal(customer)}
+                            onClick={() => setBaddiModal(customer)}
                             title="Baddis verwalten"
                             className="text-xs px-2 py-1 rounded transition-colors border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
                           >

@@ -21,7 +21,7 @@ interface CustomerDetail {
   primary_usecase_id: string | null;
 }
 
-interface BuddyRecord {
+interface BaddiRecord {
   id: string;
   usecase_id: string | null;
   name: string;
@@ -70,7 +70,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 // ─── Baddis Tab ───────────────────────────────────────────────────────────────
 
 function BaddisTab({ customer }: { customer: CustomerDetail }) {
-  const [buddies, setBuddies] = useState<BuddyRecord[]>([]);
+  const [buddies, setBuddies] = useState<BaddiRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);

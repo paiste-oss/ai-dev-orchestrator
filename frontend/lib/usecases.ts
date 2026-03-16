@@ -57,7 +57,7 @@ Beispielhafte Haltung: Wie eine gute, aufmerksame Tochter oder Enkelin — die e
     segment: "menschen",
     name: "Bestager",
     tagline: "In den besten Jahren",
-    description: "Begleitung für die Generation 50–70: Lebenserfahrung trifft neue Impulse. Ob Ruhestand, neue Projekte, Gesundheit oder Familie — dein Buddy versteht, wo du stehst.",
+    description: "Begleitung für die Generation 50–70: Lebenserfahrung trifft neue Impulse. Ob Ruhestand, neue Projekte, Gesundheit oder Familie — dein Baddi versteht, wo du stehst.",
     ageRange: "50–70",
     icon: "🌿",
     color: "text-emerald-300",
@@ -83,7 +83,7 @@ Deine Eigenschaften:
     segment: "menschen",
     name: "Lebensprofi",
     tagline: "Mitten im Leben",
-    description: "Für die Generation 30–50: Beruf, Familie, Balance. Dein Buddy unterstützt dich im Alltag, hilft Prioritäten zu setzen und bleibt realistisch.",
+    description: "Für die Generation 30–50: Beruf, Familie, Balance. Dein Baddi unterstützt dich im Alltag, hilft Prioritäten zu setzen und bleibt realistisch.",
     ageRange: "30–50",
     icon: "⚖️",
     color: "text-blue-300",
@@ -108,8 +108,8 @@ Deine Eigenschaften:
     baddiD: "baddiD_3",
     segment: "menschen",
     name: "Newgen",
-    tagline: "Deine Generation, dein Buddy",
-    description: "Für 16–30-Jährige: Studium, erster Job, Identität, Beziehungen, Zukunftsplanung. Ein moderner Buddy, der dich versteht — und der dir ehrlich sagt, was Sache ist.",
+    tagline: "Deine Generation, dein Baddi",
+    description: "Für 16–30-Jährige: Studium, erster Job, Identität, Beziehungen, Zukunftsplanung. Ein moderner Baddi, der dich versteht — und der dir ehrlich sagt, was Sache ist.",
     ageRange: "16–30",
     icon: "🚀",
     color: "text-violet-300",
@@ -119,7 +119,7 @@ Deine Eigenschaften:
     status: "active",
     buddyName: "Noa",
     placeholder: "Schreib Noa etwas...",
-    systemPrompt: `Du bist Noa, ein moderner und ehrlicher KI-Buddy für Menschen zwischen 16 und 30.
+    systemPrompt: `Du bist Noa, ein moderner und ehrlicher KI-Baddi für Menschen zwischen 16 und 30.
 
 Deine Eigenschaften:
 - Sprichst auf Augenhöhe — kein Belehren, keine Vorwürfe.
@@ -136,7 +136,7 @@ Deine Eigenschaften:
     segment: "menschen",
     name: "Youngsters",
     tagline: "Für Kinder und Jugendliche",
-    description: "Ein sicherer, spielerischer Buddy für Kinder ab der Einschulung bis 16. Altersgerecht, motivierend und immer sicher.",
+    description: "Ein sicherer, spielerischer Baddi für Kinder ab der Einschulung bis 16. Altersgerecht, motivierend und immer sicher.",
     ageRange: "6–16",
     icon: "⭐",
     color: "text-yellow-300",
@@ -146,7 +146,7 @@ Deine Eigenschaften:
     status: "active",
     buddyName: "Lumi",
     placeholder: "Schreib Lumi etwas...",
-    systemPrompt: `Du bist Lumi, ein freundlicher und sicherer KI-Buddy für Kinder und Jugendliche (6–16 Jahre).
+    systemPrompt: `Du bist Lumi, ein freundlicher und sicherer KI-Baddi für Kinder und Jugendliche (6–16 Jahre).
 
 Deine Eigenschaften:
 - Sprichst altersgerecht: bei jüngeren Kindern einfach und spielerisch, bei Teenagern etwas reifer.
@@ -161,7 +161,7 @@ Deine Eigenschaften:
     id: "gesundheit",
     baddiD: "baddiD_5",
     segment: "menschen",
-    name: "Gesundheits-Buddy",
+    name: "Gesundheits-Baddi",
     tagline: "Dein Begleiter für Gesundheit & Wohlbefinden",
     description: "Unterstützung bei gesunder Lebensführung, Symptomtagebuch, Motivation und Arztgespräch-Vorbereitung.",
     ageRange: "Alle",
@@ -197,7 +197,7 @@ Deine Eigenschaften:
     id: "lernbuddy",
     baddiD: "baddiD_7",
     segment: "menschen",
-    name: "Lernbuddy",
+    name: "Lernbaddi",
     tagline: "Lernen leicht gemacht",
     description: "Hausaufgabenhilfe, Prüfungsvorbereitung, Erklärungen für jedes Niveau.",
     ageRange: "Alle",
@@ -235,7 +235,7 @@ Deine Eigenschaften:
     id: "firma",
     baddiD: "baddiD_9",
     segment: "firmen",
-    name: "Business Buddy",
+    name: "Business Baddi",
     tagline: "Intelligente Unterstützung für Unternehmen",
     description: "Universeller KI-Assistent für Unternehmen. Unterstützt bei internen Prozessen, Wissensmanagement, Kundenkommunikation und Entscheidungsfindung.",
     ageRange: "Unternehmen",
@@ -262,7 +262,7 @@ Deine Eigenschaften:
     id: "firma-hr",
     baddiD: "baddiD_10",
     segment: "firmen",
-    name: "HR Buddy",
+    name: "HR Baddi",
     tagline: "Ihr Partner für Human Resources",
     description: "Unterstützung im gesamten HR-Prozess: Stellenausschreibungen, Onboarding, Mitarbeitergespräche, Personalentwicklung und Compliance.",
     ageRange: "HR-Teams",
@@ -288,7 +288,7 @@ Deine Eigenschaften:
     id: "firma-support",
     baddiD: "baddiD_11",
     segment: "firmen",
-    name: "Support Buddy",
+    name: "Support Baddi",
     tagline: "Kundensupport der nächsten Generation",
     description: "KI-gestützter Kundendienst: beantwortet Anfragen, löst Probleme, eskaliert bei Bedarf und lernt aus jeder Interaktion.",
     ageRange: "Support-Teams",
