@@ -37,16 +37,7 @@ export default function ChatIndexPage() {
       .catch(() => { setError("Server nicht erreichbar."); setLoading(false); });
   }, [router]);
 
-  if (loading && !error) {
-    return (
-      <main className="min-h-screen bg-gray-950 text-white flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <div className="text-4xl animate-pulse">🤖</div>
-          <p className="text-gray-400">Lade deinen Baddi…</p>
-        </div>
-      </main>
-    );
-  }
+  if (loading && !error) return null;
 
   if (error) {
     return (
