@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from core.database import get_db
-from core.dependencies import require_admin
+from core.dependencies import require_admin, get_current_user
 from models.buddy import AiBuddy
 from models.customer import Customer
 
@@ -35,6 +35,18 @@ class BuddyOut(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     model: str = "auto"
+
+
+@router.get("/me", response_model=list[BuddyOut])
+async def my_buddies(
+    current_user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Alle Baddis des eingeloggten Users."""
+    result = await db.execute(
+        select(AiBuddy).where(AiBuddy.customer_id == current_user.id, AiBuddy.is_active == True)
+    )
+    return result.scalars().all()
 
 
 @router.get("", response_model=list[BuddyOut])
