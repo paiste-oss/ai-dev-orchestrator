@@ -89,25 +89,103 @@ def execute_claude_task(prompt_text: str, model_name: str = "claude-sonnet-4-6")
 
 
 async def execute_openclaw_task_async(prompt_text: str) -> str:
-    """OpenClaw WebSocket Gateway."""
+    """OpenClaw WebSocket Gateway — ACP-Protokoll v3."""
+    import uuid as _uuid
+
     if not settings.openclaw_token:
         raise Exception("OPENCLAW_TOKEN nicht in .env gesetzt!")
 
-    headers = {"Authorization": f"Bearer {settings.openclaw_token}"}
+    token = settings.openclaw_token
+    url = settings.openclaw_gateway_url
 
-    async with websockets.connect(settings.openclaw_gateway_url, additional_headers=headers) as ws:
-        payload = {"type": "agent.run", "message": prompt_text, "stream": False}
-        await ws.send(json.dumps(payload))
+    def _req(method: str, params: dict) -> dict:
+        return {"type": "req", "id": str(_uuid.uuid4()), "method": method, "params": params}
 
-        async for message in ws:
-            data = json.loads(message)
+    connect_frame = _req("connect", {
+        "minProtocol": 3,
+        "maxProtocol": 3,
+        "client": {
+            "id": "gateway-client",
+            "version": "1.0.0",
+            "platform": "linux",
+            "mode": "backend",
+        },
+        "caps": [],
+        "auth": {"token": token},
+        "role": "operator",
+        "scopes": ["operator.admin"],
+    })
+
+    async with websockets.connect(url) as ws:
+        # 1. Challenge empfangen
+        raw = await asyncio.wait_for(ws.recv(), timeout=10)
+        challenge = json.loads(raw)
+        if challenge.get("event") != "connect.challenge":
+            raise Exception(f"Unerwartetes erstes Frame: {challenge}")
+
+        # 2. Authenticate
+        await ws.send(json.dumps(connect_frame))
+        raw = await asyncio.wait_for(ws.recv(), timeout=10)
+        auth_res = json.loads(raw)
+        if not auth_res.get("ok"):
+            raise Exception(f"OpenClaw Auth fehlgeschlagen: {auth_res.get('error', {}).get('message', str(auth_res))}")
+
+        # 3. Nachricht senden
+        chat_frame = _req("chat.send", {
+            "message": prompt_text,
+            "sessionKey": "agent:main:main",
+            "idempotencyKey": str(_uuid.uuid4()),
+        })
+        await ws.send(json.dumps(chat_frame))
+
+        # 4. Auf Antwort warten
+        # Gateway antwortet async: chat.send-res liefert nur {runId, status:"started"},
+        # danach kommen event-Frames: agent(stream=assistant), chat(state=final/delta)
+        result_text = ""
+        got_started = False
+        deadline = asyncio.get_event_loop().time() + 120
+        async for raw_msg in ws:
+            if asyncio.get_event_loop().time() > deadline:
+                break
+            data = json.loads(raw_msg)
+            event = data.get("event", "")
             msg_type = data.get("type", "")
-            if msg_type in ("agent.response", "agent.done"):
-                return data.get("content", data.get("text", str(data)))
-            elif msg_type == "error":
-                raise Exception(f"OpenClaw Fehler: {data.get('message', str(data))}")
 
-    return "Keine Antwort von OpenClaw erhalten."
+            if msg_type == "res" and data.get("id") == chat_frame["id"]:
+                if not data.get("ok"):
+                    raise Exception(f"OpenClaw Fehler: {data.get('error', {}).get('message', str(data))}")
+                got_started = True  # async start bestätigt, weiter auf Events warten
+                continue
+
+            # chat(state=final) → vollständige Antwort
+            if event == "chat":
+                payload = data.get("payload", {})
+                if payload.get("state") == "final":
+                    msg = payload.get("message", {})
+                    content = msg.get("content", "")
+                    if isinstance(content, list):
+                        # content blocks: [{type:"text", text:"..."}]
+                        result_text = " ".join(
+                            b.get("text", "") for b in content if isinstance(b, dict)
+                        )
+                    elif isinstance(content, str):
+                        result_text = content
+                    break
+                continue
+
+            # agent(stream=assistant) → streaming delta (als Fallback akkumulieren)
+            if event == "agent":
+                payload = data.get("payload", {})
+                if payload.get("stream") == "assistant":
+                    data_block = payload.get("data", {})
+                    result_text = data_block.get("text", result_text)  # überschreibe mit akkumuliertem Text
+                elif payload.get("stream") == "lifecycle":
+                    phase = payload.get("data", {}).get("phase", "")
+                    if phase == "end" and result_text:
+                        break  # Antwort vollständig
+                continue
+
+    return result_text or "Keine Antwort von OpenClaw erhalten."
 
 
 def execute_openclaw_task(prompt_text: str) -> str:
