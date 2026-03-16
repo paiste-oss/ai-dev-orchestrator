@@ -8,6 +8,7 @@ from sqlalchemy import select, func, or_
 from core.database import get_db
 from core.dependencies import require_admin
 from models.customer import Customer
+from models.buddy import AiBuddy
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
@@ -27,6 +28,7 @@ class CustomerOut(BaseModel):
     role: str
     is_active: bool
     created_at: datetime
+    primary_baddi_id: str | None = None   # BaddiD des ersten aktiven Buddys
 
     class Config:
         from_attributes = True
@@ -84,10 +86,31 @@ async def list_customers(
     query = query.offset((page - 1) * page_size).limit(page_size)
 
     result = await db.execute(query)
-    items = result.scalars().all()
+    customers = result.scalars().all()
+
+    # Primary BaddiD pro Kunde laden (erster aktiver Buddy mit Nummer)
+    customer_ids = [c.id for c in customers]
+    buddy_result = await db.execute(
+        select(AiBuddy)
+        .where(AiBuddy.customer_id.in_(customer_ids), AiBuddy.is_active == True)
+        .order_by(AiBuddy.baddi_number)
+    )
+    buddies_by_customer: dict[uuid.UUID, str | None] = {}
+    for buddy in buddy_result.scalars().all():
+        if buddy.customer_id not in buddies_by_customer:
+            buddies_by_customer[buddy.customer_id] = buddy.baddi_id
+
+    items = [
+        CustomerOut(
+            id=c.id, name=c.name, email=c.email, segment=c.segment,
+            role=c.role, is_active=c.is_active, created_at=c.created_at,
+            primary_baddi_id=buddies_by_customer.get(c.id),
+        )
+        for c in customers
+    ]
 
     return CustomerListResponse(
-        items=list(items),
+        items=items,
         total=total,
         page=page,
         page_size=page_size,

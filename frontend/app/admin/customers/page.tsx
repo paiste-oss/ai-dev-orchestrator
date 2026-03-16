@@ -19,6 +19,7 @@ interface Customer {
   role: string;
   is_active: boolean;
   created_at: string;
+  primary_baddi_id: string | null;
 }
 
 interface CustomerListResponse {
@@ -199,8 +200,10 @@ function BuddyModal({ customer, onClose }: { customer: Customer; onClose: () => 
                       uc ? `${uc.bgColor} ${uc.borderColor}` : "bg-gray-800 border-gray-600"
                     }`}>
                       <span>{uc?.icon ?? "🤖"}</span>
-                      <span className={`font-medium ${uc?.color ?? "text-white"}`}>{b.name}</span>
-                      <span className="font-mono text-xs text-yellow-600">{b.baddi_id ?? b.usecase_id}</span>
+                      <div className="flex flex-col">
+                        <span className={`font-medium text-xs ${uc?.color ?? "text-white"}`}>{b.name}</span>
+                        <span className="font-mono text-xs text-yellow-500">{b.baddi_id ?? "—"}</span>
+                      </div>
                       <button
                         onClick={() => remove(b.id)}
                         disabled={removing === b.id}
@@ -508,7 +511,12 @@ export default function CustomersPage() {
                           <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center text-xs font-bold text-gray-200 shrink-0">
                             {customer.name.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-medium text-white whitespace-nowrap">{customer.name}</span>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-white whitespace-nowrap">{customer.name}</span>
+                            {customer.primary_baddi_id && (
+                              <span className="font-mono text-xs text-yellow-500">{customer.primary_baddi_id}</span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-gray-300 whitespace-nowrap">

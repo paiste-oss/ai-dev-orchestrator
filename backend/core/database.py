@@ -27,6 +27,8 @@ async def init_db():
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS birth_year INTEGER",
             "CREATE SEQUENCE IF NOT EXISTS baddi_number_seq START 0 MINVALUE 0",
             "ALTER TABLE ai_buddies ADD COLUMN IF NOT EXISTS baddi_number INTEGER UNIQUE DEFAULT nextval('baddi_number_seq')",
+            # Backfill: bestehende Buddies ohne Nummer nachrüsten
+            "UPDATE ai_buddies SET baddi_number = nextval('baddi_number_seq') WHERE baddi_number IS NULL",
         ]
         for sql in migrations:
             await conn.execute(text(sql))
