@@ -28,7 +28,7 @@ class CustomerOut(BaseModel):
     role: str
     is_active: bool
     created_at: datetime
-    primary_baddi_id: str | None = None   # BaddiD des ersten aktiven Buddys
+    primary_usecase_id: str | None = None   # usecase_id des ersten aktiven Buddys
 
     class Config:
         from_attributes = True
@@ -93,18 +93,18 @@ async def list_customers(
     buddy_result = await db.execute(
         select(AiBuddy)
         .where(AiBuddy.customer_id.in_(customer_ids), AiBuddy.is_active == True)
-        .order_by(AiBuddy.baddi_number)
+        .order_by(AiBuddy.created_at)
     )
     buddies_by_customer: dict[uuid.UUID, str | None] = {}
     for buddy in buddy_result.scalars().all():
         if buddy.customer_id not in buddies_by_customer:
-            buddies_by_customer[buddy.customer_id] = buddy.baddi_id
+            buddies_by_customer[buddy.customer_id] = buddy.usecase_id
 
     items = [
         CustomerOut(
             id=c.id, name=c.name, email=c.email, segment=c.segment,
             role=c.role, is_active=c.is_active, created_at=c.created_at,
-            primary_baddi_id=buddies_by_customer.get(c.id),
+            primary_usecase_id=buddies_by_customer.get(c.id),
         )
         for c in customers
     ]

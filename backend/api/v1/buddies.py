@@ -21,7 +21,6 @@ class BuddyCreate(BaseModel):
 
 class BuddyOut(BaseModel):
     id: uuid.UUID
-    baddi_id: str | None
     customer_id: uuid.UUID
     usecase_id: str | None
     name: str

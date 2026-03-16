@@ -2,6 +2,7 @@ export type UseCaseSegment = "menschen" | "firmen" | "funktionen";
 
 export interface UseCase {
   id: string;
+  baddiD: string;   // Eindeutige Archetyp-ID, z.B. "baddiD_0"
   name: string;
   tagline: string;
   description: string;
@@ -22,6 +23,7 @@ export const USE_CASES: UseCase[] = [
   // ── Menschen ─────────────────────────────────────────────────────────────
   {
     id: "silberperlen",
+    baddiD: "baddiD_0",
     segment: "menschen",
     name: "Silberperlen",
     tagline: "Für Menschen mit viel Lebenserfahrung",
@@ -51,6 +53,7 @@ Beispielhafte Haltung: Wie eine gute, aufmerksame Tochter oder Enkelin — die e
   },
   {
     id: "bestager",
+    baddiD: "baddiD_1",
     segment: "menschen",
     name: "Bestager",
     tagline: "In den besten Jahren",
@@ -76,6 +79,7 @@ Deine Eigenschaften:
   },
   {
     id: "mittlerweiler",
+    baddiD: "baddiD_2",
     segment: "menschen",
     name: "Lebensprofi",
     tagline: "Mitten im Leben",
@@ -101,6 +105,7 @@ Deine Eigenschaften:
   },
   {
     id: "newgen",
+    baddiD: "baddiD_3",
     segment: "menschen",
     name: "Newgen",
     tagline: "Deine Generation, dein Buddy",
@@ -127,6 +132,7 @@ Deine Eigenschaften:
   },
   {
     id: "youngsters",
+    baddiD: "baddiD_4",
     segment: "menschen",
     name: "Youngsters",
     tagline: "Für Kinder und Jugendliche",
@@ -153,6 +159,7 @@ Deine Eigenschaften:
   },
   {
     id: "gesundheit",
+    baddiD: "baddiD_5",
     segment: "menschen",
     name: "Gesundheits-Buddy",
     tagline: "Dein Begleiter für Gesundheit & Wohlbefinden",
@@ -170,6 +177,7 @@ Deine Eigenschaften:
   },
   {
     id: "mental-health",
+    baddiD: "baddiD_6",
     segment: "menschen",
     name: "Innerer Kompass",
     tagline: "Begleitung für seelisches Wohlbefinden",
@@ -187,6 +195,7 @@ Deine Eigenschaften:
   },
   {
     id: "lernbuddy",
+    baddiD: "baddiD_7",
     segment: "menschen",
     name: "Lernbuddy",
     tagline: "Lernen leicht gemacht",
@@ -204,6 +213,7 @@ Deine Eigenschaften:
   },
   {
     id: "karriere",
+    baddiD: "baddiD_8",
     segment: "menschen",
     name: "Karriere-Coach",
     tagline: "Dein Weg nach oben",
@@ -223,6 +233,7 @@ Deine Eigenschaften:
   // ── Firmen ────────────────────────────────────────────────────────────────
   {
     id: "firma",
+    baddiD: "baddiD_9",
     segment: "firmen",
     name: "Business Buddy",
     tagline: "Intelligente Unterstützung für Unternehmen",
@@ -249,6 +260,7 @@ Deine Eigenschaften:
   },
   {
     id: "firma-hr",
+    baddiD: "baddiD_10",
     segment: "firmen",
     name: "HR Buddy",
     tagline: "Ihr Partner für Human Resources",
@@ -274,6 +286,7 @@ Deine Eigenschaften:
   },
   {
     id: "firma-support",
+    baddiD: "baddiD_11",
     segment: "firmen",
     name: "Support Buddy",
     tagline: "Kundensupport der nächsten Generation",
@@ -301,6 +314,7 @@ Deine Eigenschaften:
   // ── Funktionen ────────────────────────────────────────────────────────────
   {
     id: "funktion-dokumente",
+    baddiD: "baddiD_12",
     segment: "funktionen",
     name: "Dokument-Analyse",
     tagline: "PDFs, Word, Excel verstehen & zusammenfassen",
@@ -326,6 +340,7 @@ Deine Eigenschaften:
   },
   {
     id: "funktion-chat",
+    baddiD: "baddiD_13",
     segment: "funktionen",
     name: "KI-Chat",
     tagline: "Intelligente Konversationen & Beratung",
@@ -350,6 +365,7 @@ Deine Eigenschaften:
   },
   {
     id: "funktion-sprache",
+    baddiD: "baddiD_14",
     segment: "funktionen",
     name: "Sprach-Assistent",
     tagline: "Sprachsteuerung & Voice-to-Text",
@@ -374,6 +390,7 @@ Deine Eigenschaften:
   },
   {
     id: "funktion-workflow",
+    baddiD: "baddiD_15",
     segment: "funktionen",
     name: "Automatisierungen",
     tagline: "n8n-Workflows & Prozessautomatisierung",
@@ -398,6 +415,7 @@ Deine Eigenschaften:
   },
   {
     id: "funktion-uebersetzung",
+    baddiD: "baddiD_16",
     segment: "funktionen",
     name: "Übersetzung",
     tagline: "Mehrsprachige Kommunikation",
@@ -422,6 +440,7 @@ Deine Eigenschaften:
   },
   {
     id: "funktion-wissen",
+    baddiD: "baddiD_17",
     segment: "funktionen",
     name: "Wissensdatenbank",
     tagline: "Eigene Dokumente als KI-Wissensbasis",

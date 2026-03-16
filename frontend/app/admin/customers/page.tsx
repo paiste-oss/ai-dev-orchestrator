@@ -19,7 +19,7 @@ interface Customer {
   role: string;
   is_active: boolean;
   created_at: string;
-  primary_baddi_id: string | null;
+  primary_usecase_id: string | null;
 }
 
 interface CustomerListResponse {
@@ -31,7 +31,6 @@ interface CustomerListResponse {
 
 interface BuddyRecord {
   id: string;
-  baddi_id: string | null;
   usecase_id: string | null;
   name: string;
   segment: string;
@@ -202,7 +201,7 @@ function BuddyModal({ customer, onClose }: { customer: Customer; onClose: () => 
                       <span>{uc?.icon ?? "🤖"}</span>
                       <div className="flex flex-col">
                         <span className={`font-medium text-xs ${uc?.color ?? "text-white"}`}>{b.name}</span>
-                        <span className="font-mono text-xs text-yellow-500">{b.baddi_id ?? "—"}</span>
+                        <span className="font-mono text-xs text-yellow-500">{uc?.baddiD ?? "—"}</span>
                       </div>
                       <button
                         onClick={() => remove(b.id)}
@@ -513,9 +512,10 @@ export default function CustomersPage() {
                           </div>
                           <div className="flex flex-col">
                             <span className="font-medium text-white whitespace-nowrap">{customer.name}</span>
-                            {customer.primary_baddi_id && (
-                              <span className="font-mono text-xs text-yellow-500">{customer.primary_baddi_id}</span>
-                            )}
+                            {customer.primary_usecase_id && (() => {
+                              const uc = USE_CASES.find(u => u.id === customer.primary_usecase_id);
+                              return uc ? <span className="font-mono text-xs text-yellow-500">{uc.baddiD}</span> : null;
+                            })()}
                           </div>
                         </div>
                       </td>
