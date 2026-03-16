@@ -14,7 +14,9 @@ export default function UserHub() {
     const u = getSession();
     setUser(u);
     setMounted(true);
-    if (!u || u.role !== "user") router.replace("/login");
+    if (!u) { router.replace("/login"); return; }
+    if (u.role === "customer") { router.replace("/chat"); return; }
+    if (u.role !== "user") { router.replace("/login"); return; }
   }, []);
 
   if (!mounted || !user) return null;
