@@ -28,10 +28,18 @@ class CustomerOut(BaseModel):
     role: str
     is_active: bool
     created_at: datetime
+    birth_year: int | None = None
     primary_usecase_id: str | None = None   # usecase_id des ersten aktiven Buddys
 
     class Config:
         from_attributes = True
+
+
+class CustomerUpdate(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    segment: str | None = None
+    is_active: bool | None = None
 
 
 class CustomerListResponse(BaseModel):
@@ -147,6 +155,73 @@ async def get_customer(customer_id: uuid.UUID, db: AsyncSession = Depends(get_db
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     return customer
+
+
+@router.patch("/{customer_id}", response_model=CustomerOut)
+async def update_customer(
+    customer_id: uuid.UUID,
+    data: CustomerUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: Customer = Depends(require_admin),
+):
+    """Aktualisiert Felder eines Kunden (Admin)."""
+    customer = await db.get(Customer, customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(customer, field, value)
+    await db.commit()
+    await db.refresh(customer)
+    return customer
+
+
+@router.get("/{customer_id}/stats")
+async def get_customer_stats(
+    customer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Token-Nutzung und Konversations-Statistiken eines Kunden."""
+    from models.buddy import AiBuddy, ConversationThread, Message
+
+    buddy_result = await db.execute(
+        select(AiBuddy.id).where(AiBuddy.customer_id == customer_id)
+    )
+    buddy_ids = [row[0] for row in buddy_result.all()]
+
+    if not buddy_ids:
+        return {"threads": 0, "messages": 0, "total_tokens": 0, "by_model": {}}
+
+    thread_count = await db.scalar(
+        select(func.count(ConversationThread.id))
+        .where(ConversationThread.buddy_id.in_(buddy_ids))
+    )
+
+    rows = await db.execute(
+        select(
+            Message.model_used,
+            func.count().label("n"),
+            func.coalesce(func.sum(Message.tokens_used), 0).label("t"),
+        )
+        .join(ConversationThread, Message.thread_id == ConversationThread.id)
+        .where(ConversationThread.buddy_id.in_(buddy_ids))
+        .group_by(Message.model_used)
+    )
+
+    by_model: dict = {}
+    total_tokens = 0
+    total_messages = 0
+    for model, n, t in rows.all():
+        key = model or "unbekannt"
+        by_model[key] = {"messages": n, "tokens": int(t)}
+        total_tokens += int(t)
+        total_messages += n
+
+    return {
+        "threads": thread_count or 0,
+        "messages": total_messages,
+        "total_tokens": total_tokens,
+        "by_model": by_model,
+    }
 
 
 @router.patch("/{customer_id}/toggle-active", response_model=CustomerOut)

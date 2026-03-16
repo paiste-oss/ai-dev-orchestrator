@@ -175,7 +175,7 @@ function BuddyModal({ customer, onClose }: { customer: Customer; onClose: () => 
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
           <div>
-            <h2 className="font-bold text-white">🤖 AI Baddis — {customer.name}</h2>
+            <h2 className="font-bold text-white">🤖 Baddis — {customer.name}</h2>
             <p className="text-xs text-gray-400 mt-0.5">{customer.email}</p>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-xl">✕</button>
@@ -511,7 +511,12 @@ export default function CustomersPage() {
                             {customer.name.charAt(0).toUpperCase()}
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-medium text-white whitespace-nowrap">{customer.name}</span>
+                            <button
+                              onClick={() => router.push(`/admin/customers/${customer.id}`)}
+                              className="font-medium text-white whitespace-nowrap hover:text-yellow-400 transition-colors text-left"
+                            >
+                              {customer.name}
+                            </button>
                             {customer.role !== "admin" && customer.primary_usecase_id && (() => {
                               const uc = USE_CASES.find(u => u.id === customer.primary_usecase_id);
                               return uc ? <span className="font-mono text-xs text-yellow-500">{uc.baddiD}</span> : null;
@@ -539,7 +544,7 @@ export default function CustomersPage() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => setBuddyModal(customer)}
-                            title="AI Baddis verwalten"
+                            title="Baddis verwalten"
                             className="text-xs px-2 py-1 rounded transition-colors border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
                           >
                             🤖
