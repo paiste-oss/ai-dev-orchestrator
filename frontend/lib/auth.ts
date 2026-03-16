@@ -34,11 +34,10 @@ export function clearSession() {
 }
 
 export function getDashboardPath(user: AuthUser): string {
-  if (user.role === "customer" || user.role === "user") {
-    if (user.usecase) return `/user/${user.usecase}`;
-    return "/user";
-  }
-  return `/${user.role}`;
+  if (user.role === "admin") return "/admin";
+  if (user.role === "enterprise") return "/enterprise";
+  // customer + user → chat hub (loads their buddies)
+  return "/chat";
 }
 
 /** Fetch-Wrapper der den JWT automatisch mitsendet.
