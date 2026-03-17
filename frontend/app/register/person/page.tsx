@@ -14,12 +14,21 @@ function useMathCaptcha() {
   }, []);
 }
 
+const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
+const MONTHS = [
+  "Januar", "Februar", "März", "April", "Mai", "Juni",
+  "Juli", "August", "September", "Oktober", "November", "Dezember",
+];
+const currentYear = new Date().getFullYear();
+const YEARS = Array.from({ length: currentYear - 1920 - 5 }, (_, i) => currentYear - 6 - i);
+
 export default function RegisterMenschen() {
   const router = useRouter();
   const captcha = useMathCaptcha();
 
   const [form, setForm] = useState({
-    vorname: "", nachname: "", geburtsjahr: "",
+    vorname: "", nachname: "",
+    geburtstag: "", geburtsmonat: "", geburtsjahr: "",
     email: "", passwort: "", passwortBestaetigung: "",
     website: "", // honeypot
   });
@@ -34,6 +43,10 @@ export default function RegisterMenschen() {
     ? getUseCase(getUseCaseByBirthYear(Number(form.geburtsjahr)))
     : null;
 
+  const birthDateString = form.geburtstag && form.geburtsmonat && form.geburtsjahr
+    ? `${form.geburtsjahr}-${String(Number(form.geburtsmonat)).padStart(2, "0")}-${String(Number(form.geburtstag)).padStart(2, "0")}`
+    : null;
+
   const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault();
     setError("");
@@ -42,6 +55,10 @@ export default function RegisterMenschen() {
 
     if (parseInt(captchaInput) !== captcha.answer) {
       setError("Sicherheitsfrage falsch. Bitte nochmals versuchen.");
+      return;
+    }
+    if (!form.geburtstag || !form.geburtsmonat || !form.geburtsjahr) {
+      setError("Bitte vollständiges Geburtsdatum angeben.");
       return;
     }
     if (form.passwort !== form.passwortBestaetigung) {
@@ -67,6 +84,7 @@ export default function RegisterMenschen() {
           password: form.passwort,
           segment: "menschen",
           birth_year: birth || null,
+          birth_date: birthDateString,
           usecase_id: usecaseId,
         }),
       });
@@ -141,11 +159,30 @@ export default function RegisterMenschen() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm text-gray-400">Geburtsjahr</label>
-            <input required type="number" min="1920" max={new Date().getFullYear() - 6}
-              value={form.geburtsjahr} onChange={(e) => set("geburtsjahr", e.target.value)}
-              placeholder="z.B. 1990"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500" />
+            <label className="text-sm text-gray-400">Geburtsdatum</label>
+            <div className="grid grid-cols-3 gap-2">
+              <select required value={form.geburtstag} onChange={(e) => set("geburtstag", e.target.value)}
+                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500">
+                <option value="">Tag</option>
+                {DAYS.map((d) => (
+                  <option key={d} value={String(d)}>{d}</option>
+                ))}
+              </select>
+              <select required value={form.geburtsmonat} onChange={(e) => set("geburtsmonat", e.target.value)}
+                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500">
+                <option value="">Monat</option>
+                {MONTHS.map((m, i) => (
+                  <option key={i} value={String(i + 1)}>{m}</option>
+                ))}
+              </select>
+              <select required value={form.geburtsjahr} onChange={(e) => set("geburtsjahr", e.target.value)}
+                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500">
+                <option value="">Jahr</option>
+                {YEARS.map((y) => (
+                  <option key={y} value={String(y)}>{y}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {assignedUseCase && (

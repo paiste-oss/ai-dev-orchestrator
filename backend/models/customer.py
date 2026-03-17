@@ -1,6 +1,6 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import String, Boolean, DateTime, Numeric, Integer, ForeignKey
+from datetime import datetime, date
+from sqlalchemy import String, Boolean, DateTime, Date, Numeric, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.database import Base
@@ -30,6 +30,7 @@ class Customer(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     birth_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     subscription_plan_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("subscription_plans.id"), nullable=True)
 
     subscription_plan: Mapped["SubscriptionPlan | None"] = relationship(back_populates="customers")

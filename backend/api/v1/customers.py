@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, Query, Response
 from pydantic import BaseModel
@@ -8,7 +8,7 @@ from sqlalchemy import select, func, or_
 from core.database import get_db
 from core.dependencies import require_admin
 from models.customer import Customer
-from models.buddy import AiBuddy
+from models.buddy import AiBuddy, ConversationThread, Message
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
@@ -29,6 +29,7 @@ class CustomerOut(BaseModel):
     is_active: bool
     created_at: datetime
     birth_year: int | None = None
+    birth_date: date | None = None
     primary_usecase_id: str | None = None   # usecase_id des ersten aktiven Buddys
 
     class Config:
@@ -181,7 +182,7 @@ async def get_customer_stats(
     db: AsyncSession = Depends(get_db),
 ):
     """Token-Nutzung und Konversations-Statistiken eines Kunden."""
-    from models.buddy import AiBuddy, ConversationThread, Message
+
 
     buddy_result = await db.execute(
         select(AiBuddy.id).where(AiBuddy.customer_id == customer_id)
@@ -246,6 +247,26 @@ async def delete_customer(
     customer = await db.get(Customer, customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
+
+    # Delete messages → threads → buddies first to satisfy FK constraints
+    buddy_result = await db.execute(select(AiBuddy.id).where(AiBuddy.customer_id == customer_id))
+    buddy_ids = [row[0] for row in buddy_result.all()]
+    if buddy_ids:
+        thread_result = await db.execute(
+            select(ConversationThread.id).where(ConversationThread.buddy_id.in_(buddy_ids))
+        )
+        thread_ids = [row[0] for row in thread_result.all()]
+        if thread_ids:
+            await db.execute(
+                Message.__table__.delete().where(Message.thread_id.in_(thread_ids))
+            )
+        await db.execute(
+            ConversationThread.__table__.delete().where(ConversationThread.buddy_id.in_(buddy_ids))
+        )
+        await db.execute(
+            AiBuddy.__table__.delete().where(AiBuddy.customer_id == customer_id)
+        )
+
     await db.delete(customer)
     await db.commit()
     return Response(status_code=204)

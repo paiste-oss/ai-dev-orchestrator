@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, apiFetch } from "@/lib/auth";
-import { BACKEND_URL } from "@/lib/config";
+import { BACKEND_URL, N8N_URL } from "@/lib/config";
 import AdminSidebar from "@/components/AdminSidebar";
 
 interface N8nWorkflow {
@@ -115,11 +115,18 @@ export default function N8nWorkflowsPage() {
         {!loading && !error && workflows.length > 0 && (
           <div className="space-y-3">
             {workflows.map(wf => (
-              <div key={wf.id} className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4 flex items-center gap-4">
+              <div key={wf.id} className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4 flex items-center gap-4 hover:border-gray-500 transition-colors">
                 <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${wf.active ? "bg-green-400" : "bg-gray-500"}`} />
 
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-white text-sm truncate">{wf.name}</p>
+                  <a
+                    href={`${N8N_URL}/workflow/${wf.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-white text-sm truncate hover:text-blue-400 transition-colors block"
+                  >
+                    {wf.name} <span className="text-gray-600 text-xs">↗</span>
+                  </a>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className={`text-xs px-2 py-0.5 rounded-full border ${
                       wf.active
@@ -136,7 +143,6 @@ export default function N8nWorkflowsPage() {
                         {new Date(wf.updatedAt).toLocaleDateString("de-CH")}
                       </span>
                     )}
-                    <span className="text-xs text-gray-700 font-mono">ID: {wf.id}</span>
                   </div>
                 </div>
 

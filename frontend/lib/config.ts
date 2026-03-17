@@ -9,6 +9,7 @@
 
 export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
 export const METABASE_URL = process.env.NEXT_PUBLIC_METABASE_URL ?? "http://localhost:3001";
+export const N8N_URL = process.env.NEXT_PUBLIC_N8N_URL ?? "http://localhost:5678";
 
 export const API_ROUTES = {
   agentRun:          `${BACKEND_URL}/agent/run`,

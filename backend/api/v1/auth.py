@@ -1,3 +1,4 @@
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +23,7 @@ class RegisterRequest(BaseModel):
     password: str
     segment: str = "personal"
     birth_year: int | None = None
+    birth_date: date | None = None
     usecase_id: str | None = None   # wird beim Registrieren mitgeschickt → default Buddy
 
 
@@ -57,7 +59,8 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
         name=data.name,
         email=data.email.lower(),
         segment=data.segment,
-        birth_year=data.birth_year,
+        birth_year=data.birth_date.year if data.birth_date else data.birth_year,
+        birth_date=data.birth_date,
         hashed_password=hash_password(data.password),
         role="customer",
     )
