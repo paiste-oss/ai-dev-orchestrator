@@ -57,3 +57,9 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+
+# ========================
+# CELERY
+# ========================
+celerybeat-schedule
+celerybeat-schedule.db

@@ -60,23 +60,6 @@ async def stream_events(customer_id: UUID, request: Request):
     Server-Sent Events für den Browser.
     Frontend: new EventSource('/v1/agent/events/stream?customer_id=...')
     """
-    async def event_generator():
-        # Keepalive-Ping alle 25s (verhindert Browser/Proxy-Timeout)
-        keepalive_task = None
-
-        async def keepalive():
-            while True:
-                await asyncio.sleep(25)
-                yield  # Signal
-
-        try:
-            async for data in subscribe_customer(str(customer_id)):
-                if await request.is_disconnected():
-                    break
-                yield f"data: {data}\n\n"
-        except asyncio.CancelledError:
-            pass
-
     async def generator_with_keepalive():
         sub = subscribe_customer(str(customer_id))
         pending_ping = asyncio.create_task(asyncio.sleep(25))

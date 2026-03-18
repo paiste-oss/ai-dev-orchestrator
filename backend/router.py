@@ -91,7 +91,8 @@ def route_prompt(prompt_text: str, forced_model: str = None, system_prompt_overr
 
     if system_prompt_override:
         # Buddy-Persona überschreibt den Handler direkt
-        return execute_ollama_direct(prompt_text, SIMPLE_CHAT_MODEL, system_prompt=system_prompt_override), SIMPLE_CHAT_MODEL
+        model = _chat_model()
+        return execute_ollama_direct(prompt_text, model, system_prompt=system_prompt_override), model
 
     handler, model_used = ROUTE_TO_HANDLER.get(route, ROUTE_TO_HANDLER["simple_chat"])
     return handler(prompt_text), model_used

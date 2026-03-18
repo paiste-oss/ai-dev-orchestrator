@@ -8,7 +8,6 @@ python-dotenv
 requests
 anthropic
 httpx
-langdetect
 pydantic-settings
 sqlalchemy[asyncio]
 asyncpg
@@ -17,7 +16,6 @@ celery[redis]
 qdrant-client
 python-jose[cryptography]
 passlib[bcrypt]==1.7.4
-bcrypt==4.0.1
 cryptography
 aiosmtplib
 # File-Parsing
