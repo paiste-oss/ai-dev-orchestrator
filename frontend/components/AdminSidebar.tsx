@@ -2,68 +2,51 @@
 
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { clearSession } from "@/lib/auth";
+import { clearSession, getSession } from "@/lib/auth";
 
-interface NavItem {
-  label: string;
-  href: string;
-  icon: string;
-}
-
-interface NavGroup {
-  label: string;
-  icon: string;
-  children: NavItem[];
-}
-
+interface NavItem  { label: string; href: string; icon: string; }
+interface NavGroup { label: string; icon: string; children: NavItem[]; }
 type NavEntry = NavItem | NavGroup;
 
-const isGroup = (entry: NavEntry): entry is NavGroup => "children" in entry;
+const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
 
 const NAV: NavEntry[] = [
-  { label: "Dashboard",        href: "/admin",              icon: "🏠" },
-  { label: "Dev Orchestrator", href: "/admin/devtool",      icon: "🛠️" },
-  { label: "Kunden",           href: "/admin/customers",    icon: "👥" },
-  { label: "Baddis", href: "/admin/baddis", icon: "🤖" },
-  { label: "Dokumente",        href: "/admin/documents",    icon: "📁" },
+  { label: "Dashboard",        href: "/admin",              icon: "⬡" },
+  { label: "Dev Orchestrator", href: "/admin/devtool",      icon: "⌥" },
+  { label: "Kunden",           href: "/admin/customers",    icon: "◎" },
+  { label: "Baddis",           href: "/admin/baddis",       icon: "◈" },
+  { label: "Dokumente",        href: "/admin/documents",    icon: "▦" },
   {
-    label: "Workflows",
-    icon: "⚙️",
+    label: "Workflows", icon: "⇆",
     children: [
-      { label: "n8n Workflows", href: "/admin/workflows",        icon: "🔗" },
-      { label: "Backend Tasks", href: "/admin/workflows/celery", icon: "⏰" },
-      { label: "Agenten",       href: "/admin/workflows/agents", icon: "🤖" },
+      { label: "n8n Workflows", href: "/admin/workflows",        icon: "⇆" },
+      { label: "Backend Tasks", href: "/admin/workflows/celery", icon: "⏱" },
+      { label: "Agenten",       href: "/admin/workflows/agents", icon: "◈" },
     ],
   },
   {
-    label: "Finanzen",
-    icon: "💰",
+    label: "Finanzen", icon: "◇",
     children: [
-      { label: "Kosten", href: "/admin/finanzen/kosten", icon: "📊" },
+      { label: "Kosten", href: "/admin/finanzen/kosten", icon: "▤" },
     ],
   },
-  { label: "Analytik",         href: "/admin/analytics",    icon: "📈" },
   {
-    label: "Konfigurieren",
-    icon: "🔧",
+    label: "Konfigurieren", icon: "⊙",
     children: [
-      { label: "Portal",       href: "/admin/settings",     icon: "🌐" },
+      { label: "Portal", href: "/admin/settings", icon: "◉" },
     ],
   },
-  { label: "Testseiten",       href: "/admin/testpages",    icon: "🧪" },
-  { label: "Dev-Portal",       href: "/portal",             icon: "🔬" },
+  { label: "Testseiten", href: "/admin/testpages", icon: "⌘" },
+  { label: "Dev-Portal",  href: "/portal",         icon: "◬" },
 ];
 
-interface Props {
-  open: boolean;
-  onClose: () => void;
-}
+interface Props { open: boolean; onClose: () => void; }
 
 export default function AdminSidebar({ open, onClose }: Props) {
-  const router = useRouter();
+  const router   = useRouter();
   const pathname = usePathname();
+  const user     = getSession();
 
-  // Gruppen die aktuell aufgeklappt sind — auto-expand wenn aktive Unterseite
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     NAV.forEach(entry => {
@@ -74,91 +57,116 @@ export default function AdminSidebar({ open, onClose }: Props) {
     return init;
   });
 
-  const navigate = (href: string) => {
-    router.push(href);
-    onClose();
-  };
-
-  const isActive = (href: string) =>
+  const navigate  = (href: string) => { router.push(href); onClose(); };
+  const isActive  = (href: string) =>
     pathname === href || (href !== "/admin" && pathname?.startsWith(href));
 
   return (
     <>
-      {/* Mobile overlay */}
+      {/* Mobile-Overlay */}
       {open && (
-        <div className="fixed inset-0 z-30 bg-black/60 md:hidden" onClick={onClose} />
+        <div
+          className="fixed inset-0 z-30 bg-black/70 backdrop-blur-sm md:hidden"
+          onClick={onClose}
+        />
       )}
 
       <aside className={`
-        fixed inset-y-0 left-0 z-40 w-56 bg-gray-900 border-r border-gray-800
-        flex flex-col p-4 transition-transform duration-200
+        fixed inset-y-0 left-0 z-40 w-60
+        bg-gray-900/98 backdrop-blur-md border-r border-white/5
+        flex flex-col transition-transform duration-300 ease-out
         ${open ? "translate-x-0" : "-translate-x-full"}
         md:relative md:translate-x-0
       `}>
-        {/* Logo */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-yellow-400">Baddi</h1>
-            <p className="text-xs text-gray-500">Admin</p>
+
+        {/* ── Logo ── */}
+        <div className="px-5 pt-6 pb-5 flex items-center justify-between border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center shadow-lg shadow-yellow-500/20">
+              <span className="text-gray-900 font-black text-sm">B</span>
+            </div>
+            <div>
+              <p className="font-bold text-white text-sm leading-none">Baddi</p>
+              <p className="text-[10px] text-yellow-500/70 font-medium tracking-widest uppercase mt-0.5">Admin</p>
+            </div>
           </div>
-          <button onClick={onClose} className="md:hidden text-gray-500 hover:text-white text-xl">✕</button>
+          <button
+            onClick={onClose}
+            className="md:hidden w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
+          >✕</button>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 space-y-0.5 overflow-y-auto">
+        {/* ── Navigation ── */}
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto scrollbar-hide">
           {NAV.map((entry) => {
             if (!isGroup(entry)) {
-              // Testseiten-Eintrag bekommt eine leichte visuelle Trennung nach oben
-              const isTestpages = entry.href === "/admin/testpages";
+              const active     = isActive(entry.href);
+              const isDivider  = entry.href === "/admin/testpages";
               return (
-                <button
-                  key={entry.href}
-                  onClick={() => navigate(entry.href)}
-                  className={`w-full flex items-center gap-3 text-sm px-3 py-2 rounded transition-colors text-left ${
-                    isActive(entry.href)
-                      ? "bg-yellow-400/10 text-yellow-400"
-                      : "text-gray-300 hover:text-white hover:bg-gray-800"
-                  } ${isTestpages ? "mt-2 border-t border-gray-800 pt-3" : ""}`}
-                >
-                  <span>{entry.icon}</span>
-                  <span>{entry.label}</span>
-                </button>
+                <div key={entry.href}>
+                  {isDivider && <div className="my-2 h-px bg-white/5 mx-1" />}
+                  <button
+                    onClick={() => navigate(entry.href)}
+                    className={`
+                      w-full flex items-center gap-3 text-sm px-3 py-2.5 rounded-xl transition-all duration-150 text-left
+                      ${active
+                        ? "bg-yellow-500/12 text-yellow-400 font-medium"
+                        : "text-gray-400 hover:text-white hover:bg-white/5"
+                      }
+                    `}
+                  >
+                    <span className={`text-base w-5 text-center shrink-0 ${active ? "text-yellow-400" : "text-gray-600"}`}>
+                      {entry.icon}
+                    </span>
+                    <span className="flex-1 truncate">{entry.label}</span>
+                    {active && <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0" />}
+                  </button>
+                </div>
               );
             }
 
-            // Aufklappbare Gruppe
-            const isOpen = expanded[entry.label];
+            const isOpen    = expanded[entry.label];
             const hasActive = entry.children.some(c => isActive(c.href));
 
             return (
               <div key={entry.label}>
                 <button
                   onClick={() => setExpanded(e => ({ ...e, [entry.label]: !e[entry.label] }))}
-                  className={`w-full flex items-center gap-3 text-sm px-3 py-2 rounded transition-colors text-left ${
-                    hasActive ? "text-yellow-400" : "text-gray-300 hover:text-white hover:bg-gray-800"
-                  }`}
+                  className={`
+                    w-full flex items-center gap-3 text-sm px-3 py-2.5 rounded-xl transition-all duration-150 text-left
+                    ${hasActive ? "text-yellow-400 font-medium" : "text-gray-400 hover:text-white hover:bg-white/5"}
+                  `}
                 >
-                  <span>{entry.icon}</span>
-                  <span className="flex-1">{entry.label}</span>
-                  <span className={`text-xs text-gray-500 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}>▶</span>
+                  <span className={`text-base w-5 text-center shrink-0 ${hasActive ? "text-yellow-400" : "text-gray-600"}`}>
+                    {entry.icon}
+                  </span>
+                  <span className="flex-1 truncate">{entry.label}</span>
+                  <span className={`text-gray-600 text-[10px] transition-transform duration-200 shrink-0 ${isOpen ? "rotate-90" : ""}`}>
+                    ▶
+                  </span>
                 </button>
 
                 {isOpen && (
-                  <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gray-700 pl-3">
-                    {entry.children.map(child => (
-                      <button
-                        key={child.href}
-                        onClick={() => navigate(child.href)}
-                        className={`w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded transition-colors text-left ${
-                          isActive(child.href)
-                            ? "bg-yellow-400/10 text-yellow-400"
-                            : "text-gray-400 hover:text-white hover:bg-gray-800"
-                        }`}
-                      >
-                        <span className="text-xs">{child.icon}</span>
-                        <span>{child.label}</span>
-                      </button>
-                    ))}
+                  <div className="ml-5 mt-0.5 mb-1 space-y-0.5 border-l border-white/5 pl-3">
+                    {entry.children.map(child => {
+                      const childActive = isActive(child.href);
+                      return (
+                        <button
+                          key={child.href}
+                          onClick={() => navigate(child.href)}
+                          className={`
+                            w-full flex items-center gap-2 text-sm px-2.5 py-2 rounded-lg transition-all duration-150 text-left
+                            ${childActive
+                              ? "bg-yellow-500/10 text-yellow-400 font-medium"
+                              : "text-gray-500 hover:text-white hover:bg-white/5"
+                            }
+                          `}
+                        >
+                          <span className="text-xs text-gray-600 shrink-0">{child.icon}</span>
+                          <span className="truncate">{child.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -166,13 +174,28 @@ export default function AdminSidebar({ open, onClose }: Props) {
           })}
         </nav>
 
-        {/* Abmelden */}
-        <button
-          onClick={() => { clearSession(); router.push("/"); }}
-          className="flex items-center gap-3 text-sm text-gray-500 hover:text-red-400 px-3 py-2 rounded transition-colors mt-2"
-        >
-          <span>🚪</span><span>Abmelden</span>
-        </button>
+        {/* ── Footer: User + Logout ── */}
+        <div className="px-3 py-4 border-t border-white/5 space-y-1">
+          {/* User-Info */}
+          {user && (
+            <div className="flex items-center gap-3 px-3 py-2.5 mb-1">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-yellow-500/30 to-amber-500/20 border border-yellow-500/20 flex items-center justify-center text-xs font-bold text-yellow-400 shrink-0">
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-gray-300 truncate">{user.name}</p>
+                <p className="text-[10px] text-gray-600 truncate">{user.email}</p>
+              </div>
+            </div>
+          )}
+          <button
+            onClick={() => { clearSession(); router.push("/"); }}
+            className="w-full flex items-center gap-3 text-sm text-gray-500 hover:text-red-400 px-3 py-2.5 rounded-xl hover:bg-red-500/5 transition-all duration-150"
+          >
+            <span className="w-5 text-center text-base shrink-0">⎋</span>
+            <span>Abmelden</span>
+          </button>
+        </div>
       </aside>
     </>
   );
