@@ -45,6 +45,7 @@ class AiBuddy(Base):
 
     customer: Mapped["Customer"] = relationship(back_populates="buddies")
     threads: Mapped[list["ConversationThread"]] = relationship(back_populates="buddy")
+    tools: Mapped[list["BuddyTool"]] = relationship(back_populates="buddy", cascade="all, delete-orphan")
 
 
 class ConversationThread(Base):

@@ -128,6 +128,7 @@ async def list_customers(
 
 @router.post("", response_model=CustomerOut, status_code=201)
 async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy.exc import IntegrityError
     customer = Customer(
         name=data.name,
         email=data.email,
@@ -135,7 +136,11 @@ async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_d
         hashed_password=data.password,
     )
     db.add(customer)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail="Email already registered")
     await db.refresh(customer)
     return customer
 
