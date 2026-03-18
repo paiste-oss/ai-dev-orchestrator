@@ -7,7 +7,6 @@ langchain-openai
 python-dotenv
 requests
 anthropic
-websockets
 httpx
 langdetect
 pydantic-settings

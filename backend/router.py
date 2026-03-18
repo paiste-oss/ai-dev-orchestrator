@@ -4,7 +4,6 @@ from agents import (
     execute_ollama_direct,
     execute_agent_with_tools,
     execute_claude_task,
-    execute_openclaw_task,
 )
 from core.config import settings
 
@@ -79,9 +78,7 @@ def route_prompt(prompt_text: str, forced_model: str = None, system_prompt_overr
     system_prompt_override: Persona-System-Prompt von einem AI Buddy.
     """
     if forced_model:
-        if forced_model == "openclaw":
-            return execute_openclaw_task(prompt_text), "openclaw"
-        elif forced_model.startswith("claude"):
+        if forced_model.startswith("claude"):
             return execute_claude_task(prompt_text, forced_model), forced_model
         else:
             return execute_ollama_direct(prompt_text, forced_model, system_prompt=system_prompt_override), forced_model

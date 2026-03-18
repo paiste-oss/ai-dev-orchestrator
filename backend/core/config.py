@@ -38,10 +38,6 @@ class Settings(BaseSettings):
     n8n_webhook_secret: str = ""  # Shared Secret für POST /v1/agent/event
     n8n_encryption_key: str = ""  # AES-Key aus /n8n_data/config (für Credential-Entschlüsselung)
 
-    # OpenClaw
-    openclaw_token: str = ""
-    openclaw_gateway_url: str = "ws://127.0.0.1:18789"
-
     # Credentials-Verschlüsselung (Fernet Key — einmalig generieren mit: Fernet.generate_key())
     credentials_encryption_key: str
 
