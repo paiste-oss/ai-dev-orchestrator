@@ -6,6 +6,13 @@ import { getSession, apiFetch } from "@/lib/auth";
 import { BACKEND_URL, N8N_URL } from "@/lib/config";
 import AdminSidebar from "@/components/AdminSidebar";
 
+interface CredentialDetail {
+  id: string;
+  name: string;
+  type: string;
+  data: Record<string, string | number | boolean>;
+}
+
 interface N8nWorkflow {
   id: string;
   name: string;
@@ -13,6 +20,7 @@ interface N8nWorkflow {
   createdAt?: string;
   updatedAt?: string;
   tags?: { name: string }[];
+  credentialDetails?: CredentialDetail[];
 }
 
 interface WorkflowMeta {
@@ -298,6 +306,28 @@ export default function N8nWorkflowsPage() {
                       <span className="text-xs text-gray-400 leading-relaxed block">{meta.returns}</span>
                     </div>
                   </div>
+
+                  {/* Konfigurierte Zugangsdaten aus n8n */}
+                  {wf.credentialDetails && wf.credentialDetails.length > 0 && (
+                    <div className="border-t border-gray-700/50 pt-3 space-y-2">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Konfiguration in n8n</p>
+                      {wf.credentialDetails.map(cred => (
+                        <div key={cred.id} className="bg-gray-800/40 rounded-xl p-3">
+                          <p className="text-xs text-yellow-400 font-medium mb-2">
+                            {cred.name} <span className="text-gray-600 font-normal">({cred.type})</span>
+                          </p>
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                            {Object.entries(cred.data).map(([k, v]) => (
+                              <div key={k} className="flex flex-col">
+                                <span className="text-xs text-gray-500">{k}</span>
+                                <span className="text-xs text-gray-300 font-mono">{String(v)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                 </div>
               );

@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     n8n_base_url: str
     n8n_api_key: str = ""
     n8n_webhook_secret: str = ""  # Shared Secret für POST /v1/agent/event
+    n8n_encryption_key: str = ""  # AES-Key aus /n8n_data/config (für Credential-Entschlüsselung)
 
     # OpenClaw
     openclaw_token: str = ""

@@ -7,6 +7,7 @@ services:
     volumes:
       - ./backend:/app
       - ./:/project          # Dev Orchestrator: ganzes Projekt für Claude lesbar/schreibbar
+      - n8n_data:/n8n_data:ro  # n8n DB read-only für Credential-Entschlüsselung
     env_file:
       - .env
     extra_hosts:
