@@ -1,11 +1,9 @@
-import BuddiesSegmentPage from "@/components/BuddiesSegmentPage";
+"use client";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function FunktionenBuddies() {
-  return (
-    <BuddiesSegmentPage
-      segment="funktionen"
-      title="Baddis — Funktionen"
-      description="Spezialisierte KI-Funktionen als eigenständige Baddis"
-    />
-  );
+export default function FunktionenRedirect() {
+  const router = useRouter();
+  useEffect(() => { router.replace("/admin/buddies/menschen"); }, []);
+  return null;
 }
