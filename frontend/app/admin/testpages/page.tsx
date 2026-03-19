@@ -53,13 +53,6 @@ const ALL_PAGES: PageEntry[] = [
     group: "Registrierung",
   },
   {
-    path: "/register/funktionen",
-    label: "Registrierung: Funktionen",
-    icon: "⚡",
-    role: "public",
-    description: "Registrierungsflow für einzelne KI-Funktionen & Integrationen",
-    group: "Registrierung",
-  },
   {
     path: "/register/allgemein",
     label: "Registrierung: Allgemein",
