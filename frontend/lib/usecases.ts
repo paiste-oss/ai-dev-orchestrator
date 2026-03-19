@@ -463,8 +463,6 @@ Deine Eigenschaften:
 - Hilfst beim Aufbau und der Pflege der Wissensdatenbank.
 - Antworte auf Deutsch. Präzise, quellenbasiert, strukturiert.`,
   },
-];
-
   // ── Neurobegleiter ────────────────────────────────────────────────────────
   {
     id: "neurobegleiter",
