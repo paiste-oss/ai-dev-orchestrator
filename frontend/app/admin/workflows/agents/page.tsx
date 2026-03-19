@@ -4,271 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AdminSidebar from "@/components/AdminSidebar";
-
-// ─── Typen ────────────────────────────────────────────────────────────────────
-
-type WorkflowPattern = "react" | "plan-execute" | "multi-agent";
-type AgentStatus = "active" | "beta" | "planned";
-
-interface AgentSkill {
-  label: string;
-  icon: string;
-  area: "reasoning" | "memory" | "tools" | "guardrails";
-}
-
-interface Agent {
-  id: string;
-  icon: string;
-  name: string;
-  description: string;
-  pattern: WorkflowPattern;
-  status: AgentStatus;
-  skills: AgentSkill[];
-  useCases: string[];
-  color: string;
-  bgColor: string;
-  borderColor: string;
-}
-
-// ─── Daten ────────────────────────────────────────────────────────────────────
-
-const AGENTS: Agent[] = [
-  {
-    id: "research",
-    icon: "🔍",
-    name: "Forschungs-Agent",
-    description: "Durchsucht das Web, extrahiert Informationen und erstellt fundierte Berichte aus Echtzeit-Quellen.",
-    pattern: "react",
-    status: "active",
-    color: "text-blue-300",
-    bgColor: "bg-blue-900/20",
-    borderColor: "border-blue-700/50",
-    skills: [
-      { label: "Web Browsing", icon: "🌐", area: "tools" },
-      { label: "RAG / Vektorsuche", icon: "🧠", area: "memory" },
-      { label: "Quellen-Validierung", icon: "✅", area: "reasoning" },
-      { label: "Zusammenfassung", icon: "📝", area: "reasoning" },
-    ],
-    useCases: ["Marktanalysen", "Fact-Checking", "Wettbewerbsbeobachtung", "Nachrichten-Monitoring"],
-  },
-  {
-    id: "code",
-    icon: "💻",
-    name: "Code-Agent",
-    description: "Schreibt, reviewed und führt Code aus. Integriert sich in Git und kann CI-Pipelines steuern.",
-    pattern: "plan-execute",
-    status: "active",
-    color: "text-green-300",
-    bgColor: "bg-green-900/20",
-    borderColor: "border-green-700/50",
-    skills: [
-      { label: "Code Execution", icon: "⚡", area: "tools" },
-      { label: "Git Integration", icon: "🔀", area: "tools" },
-      { label: "Self-Reflection", icon: "🪞", area: "reasoning" },
-      { label: "Task Decomposition", icon: "🗂️", area: "reasoning" },
-    ],
-    useCases: ["Feature-Entwicklung", "Bug-Fixing", "Code-Review", "Refactoring"],
-  },
-  {
-    id: "planning",
-    icon: "🗺️",
-    name: "Planungs-Agent",
-    description: "Zerlegt komplexe Ziele in Teilaufgaben, priorisiert und koordiniert andere Agenten.",
-    pattern: "plan-execute",
-    status: "active",
-    color: "text-yellow-300",
-    bgColor: "bg-yellow-900/20",
-    borderColor: "border-yellow-700/50",
-    skills: [
-      { label: "Task Decomposition", icon: "🗂️", area: "reasoning" },
-      { label: "Self-Reflection", icon: "🪞", area: "reasoning" },
-      { label: "Langzeitgedächtnis", icon: "💾", area: "memory" },
-      { label: "Agenten-Koordination", icon: "🤝", area: "tools" },
-    ],
-    useCases: ["Projektplanung", "Sprint-Planung", "Roadmap-Erstellung", "Ressourcenplanung"],
-  },
-  {
-    id: "document",
-    icon: "📄",
-    name: "Dokument-Analyse-Agent",
-    description: "Analysiert, fasst zusammen und extrahiert strukturierte Daten aus PDFs, Word-Dateien und Texten. Beantwortet Fragen zum Inhalt und erkennt Risiken in Dokumenten.",
-    pattern: "react",
-    status: "active",
-    color: "text-orange-300",
-    bgColor: "bg-orange-900/20",
-    borderColor: "border-orange-700/50",
-    skills: [
-      { label: "PDF / Word Parsing", icon: "📑", area: "tools" },
-      { label: "RAG / Vektorsuche", icon: "🧠", area: "memory" },
-      { label: "Daten-Extraktion", icon: "🔎", area: "reasoning" },
-      { label: "Zusammenfassung", icon: "📝", area: "reasoning" },
-      { label: "Datenschutz-Filter", icon: "🛡️", area: "guardrails" },
-    ],
-    useCases: ["Vertrags-Analyse", "Rechnungs-Verarbeitung", "Protokoll-Auswertung", "Due Diligence", "Forschungsarbeiten"],
-  },
-  {
-    id: "ki-chat",
-    icon: "💬",
-    name: "KI-Chat-Agent",
-    description: "Vielseitiger Gesprächs- und Beratungsagent für Fragen, Texterstellung, Brainstorming und Entscheidungshilfe zu beliebigen Themen.",
-    pattern: "react",
-    status: "active",
-    color: "text-purple-300",
-    bgColor: "bg-purple-900/20",
-    borderColor: "border-purple-700/50",
-    skills: [
-      { label: "Konversationsgedächtnis", icon: "💬", area: "memory" },
-      { label: "Kontextverständnis", icon: "🧩", area: "reasoning" },
-      { label: "Texterstellung", icon: "✍️", area: "tools" },
-      { label: "Ton-Anpassung", icon: "🎭", area: "guardrails" },
-    ],
-    useCases: ["Beratungsgespräche", "Textentwürfe", "Brainstorming", "Entscheidungshilfe", "Q&A"],
-  },
-  {
-    id: "speech",
-    icon: "🎙️",
-    name: "Sprach-Agent",
-    description: "Verarbeitet Spracheingaben, transkribiert Gespräche und unterstützt beim Diktieren von Texten. Verbindet Voice-to-Text mit nachgelagerter KI-Verarbeitung.",
-    pattern: "react",
-    status: "beta",
-    color: "text-pink-300",
-    bgColor: "bg-pink-900/20",
-    borderColor: "border-pink-700/50",
-    skills: [
-      { label: "Voice-to-Text", icon: "🎤", area: "tools" },
-      { label: "Sprach-Erkennung", icon: "👂", area: "tools" },
-      { label: "Text-Strukturierung", icon: "📋", area: "reasoning" },
-      { label: "Sprach-Filter", icon: "🛡️", area: "guardrails" },
-    ],
-    useCases: ["Diktat & Transkription", "Meeting-Protokolle", "Sprachbefehle", "Barrierefreiheit"],
-  },
-  {
-    id: "automation",
-    icon: "♾️",
-    name: "Automatisierungs-Agent",
-    description: "Plant, dokumentiert und optimiert n8n-Workflows und Prozessautomatisierungen. Analysiert manuelle Abläufe und schlägt Automatisierungsschritte vor.",
-    pattern: "plan-execute",
-    status: "active",
-    color: "text-lime-300",
-    bgColor: "bg-lime-900/20",
-    borderColor: "border-lime-700/50",
-    skills: [
-      { label: "n8n Workflow-Steuerung", icon: "⚡", area: "tools" },
-      { label: "API-Interaktion", icon: "🔌", area: "tools" },
-      { label: "Prozess-Analyse", icon: "🗂️", area: "reasoning" },
-      { label: "Task Decomposition", icon: "🧩", area: "reasoning" },
-    ],
-    useCases: ["Workflow-Erstellung", "Prozessoptimierung", "API-Integrationen", "Trigger-Automatisierungen", "Daten-Pipelines"],
-  },
-  {
-    id: "translation",
-    icon: "🌐",
-    name: "Übersetzungs-Agent",
-    description: "Übersetzt Texte in alle grossen Sprachen mit Fokus auf Natürlichkeit, Kontext und kulturelle Angemessenheit. Unterstützt verschiedene Stile und Fachgebiete.",
-    pattern: "react",
-    status: "active",
-    color: "text-cyan-300",
-    bgColor: "bg-cyan-900/20",
-    borderColor: "border-cyan-700/50",
-    skills: [
-      { label: "Mehrsprachige LLMs", icon: "🗣️", area: "tools" },
-      { label: "Kontextverständnis", icon: "🧩", area: "reasoning" },
-      { label: "Stil-Anpassung", icon: "🎭", area: "reasoning" },
-      { label: "Qualitäts-Check", icon: "✅", area: "guardrails" },
-    ],
-    useCases: ["Dokument-Übersetzung", "Website-Lokalisierung", "Kundenkommunikation", "Fachtext-Übersetzung"],
-  },
-  {
-    id: "knowledge-base",
-    icon: "🧠",
-    name: "Wissensdatenbank-Agent",
-    description: "Durchsucht und beantwortet Fragen aus einer persönlichen oder organisationalen Wissensdatenbank, gespeist durch hochgeladene Dokumente und Texte.",
-    pattern: "react",
-    status: "active",
-    color: "text-indigo-300",
-    bgColor: "bg-indigo-900/20",
-    borderColor: "border-indigo-700/50",
-    skills: [
-      { label: "RAG / Vektorsuche", icon: "🔍", area: "memory" },
-      { label: "Langzeitgedächtnis", icon: "💾", area: "memory" },
-      { label: "Quellen-Belegung", icon: "📌", area: "reasoning" },
-      { label: "Lücken-Erkennung", icon: "🔎", area: "reasoning" },
-    ],
-    useCases: ["Interne Wissensbasis", "FAQ-Systeme", "Onboarding-Wissen", "Produktdokumentation", "Compliance-Wissen"],
-  },
-  {
-    id: "communication",
-    icon: "📧",
-    name: "Kommunikations-Agent",
-    description: "Verwaltet E-Mails, Kalender und CRM-Einträge. Antwortet kontextuell und plant Termine autonom.",
-    pattern: "react",
-    status: "beta",
-    color: "text-purple-300",
-    bgColor: "bg-purple-900/20",
-    borderColor: "border-purple-700/50",
-    skills: [
-      { label: "E-Mail API", icon: "📬", area: "tools" },
-      { label: "Kalender-Integration", icon: "📅", area: "tools" },
-      { label: "CRM-Zugriff", icon: "👥", area: "tools" },
-      { label: "Ton-Anpassung", icon: "🎭", area: "guardrails" },
-    ],
-    useCases: ["E-Mail-Triage", "Meeting-Planung", "Follow-up-Automatisierung", "Kundenkorrespondenz"],
-  },
-  {
-    id: "data-analysis",
-    icon: "📊",
-    name: "Daten-Analyse-Agent",
-    description: "Führt statistische Analysen durch, erstellt Visualisierungen und leitet Handlungsempfehlungen ab.",
-    pattern: "react",
-    status: "beta",
-    color: "text-cyan-300",
-    bgColor: "bg-cyan-900/20",
-    borderColor: "border-cyan-700/50",
-    skills: [
-      { label: "Python Execution", icon: "🐍", area: "tools" },
-      { label: "Datenbank-Abfragen", icon: "🗄️", area: "tools" },
-      { label: "Statistik-Reasoning", icon: "📐", area: "reasoning" },
-      { label: "Budget-Limits", icon: "💰", area: "guardrails" },
-    ],
-    useCases: ["KPI-Berichte", "Umsatzprognosen", "Nutzungsanalysen", "A/B-Test-Auswertung"],
-  },
-  {
-    id: "devops",
-    icon: "⚙️",
-    name: "DevOps-Agent",
-    description: "Testet Code in Sandbox-Umgebungen, überwacht Deployments und reagiert auf Alerts.",
-    pattern: "multi-agent",
-    status: "planned",
-    color: "text-red-300",
-    bgColor: "bg-red-900/20",
-    borderColor: "border-red-700/50",
-    skills: [
-      { label: "Bash / Shell", icon: "🖥️", area: "tools" },
-      { label: "Docker-Kontrolle", icon: "🐳", area: "tools" },
-      { label: "Test-Execution", icon: "🧪", area: "tools" },
-      { label: "Rollback-Logik", icon: "↩️", area: "guardrails" },
-    ],
-    useCases: ["CI/CD-Pipelines", "Deployment-Überwachung", "Incident Response", "Performance-Tests"],
-  },
-  {
-    id: "support",
-    icon: "🎧",
-    name: "Support-Agent",
-    description: "Beantwortet Kundenfragen kontextuell, eskaliert bei Bedarf und lernt aus jeder Interaktion.",
-    pattern: "react",
-    status: "planned",
-    color: "text-pink-300",
-    bgColor: "bg-pink-900/20",
-    borderColor: "border-pink-700/50",
-    skills: [
-      { label: "RAG / Wissensbasis", icon: "🧠", area: "memory" },
-      { label: "Konversationsgedächtnis", icon: "💬", area: "memory" },
-      { label: "Eskalations-Routing", icon: "📢", area: "tools" },
-      { label: "Datenschutz-Filter", icon: "🛡️", area: "guardrails" },
-    ],
-    useCases: ["First-Level-Support", "FAQ-Automation", "Onboarding", "Feedback-Verarbeitung"],
-  },
-];
+import { AGENTS, Agent, WorkflowPattern, AgentStatus } from "@/lib/agents";
 
 const PATTERNS: Record<WorkflowPattern, { label: string; icon: string; color: string; short: string }> = {
   "react":          { label: "ReAct-Loop",       icon: "🔄", color: "text-blue-400",   short: "Reason → Act → Observe → Repeat" },
@@ -290,8 +26,6 @@ const STATUS_LABELS: Record<AgentStatus, { label: string; color: string }> = {
 };
 
 type FilterKey = "alle" | WorkflowPattern | AgentStatus;
-
-// ─── Kern-Skills Karten ───────────────────────────────────────────────────────
 
 const CORE_SKILLS = [
   {
@@ -344,8 +78,6 @@ const WORKFLOW_PATTERNS = [
   },
 ];
 
-// ─── Hauptkomponente ──────────────────────────────────────────────────────────
-
 export default function AgentsPage() {
   const router = useRouter();
   const user = getSession();
@@ -380,15 +112,12 @@ export default function AgentsPage() {
       <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <main className="flex-1 p-4 md:p-8 overflow-y-auto min-w-0">
-        {/* Mobile Header */}
         <div className="flex items-center gap-3 md:hidden mb-4">
           <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white text-2xl">☰</button>
           <h1 className="text-lg font-bold text-yellow-400">Agenten</h1>
         </div>
 
         <div className="max-w-6xl mx-auto space-y-8">
-
-          {/* Page Header */}
           <div>
             <h2 className="text-2xl font-bold hidden md:block">🤖 Spezialisierte Agenten</h2>
             <p className="text-gray-400 text-sm mt-1">
@@ -398,7 +127,6 @@ export default function AgentsPage() {
             </p>
           </div>
 
-          {/* Kern-Skills */}
           <section className="space-y-3">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Kern-Skills eines KI-Agenten</h3>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -418,7 +146,6 @@ export default function AgentsPage() {
             </div>
           </section>
 
-          {/* Workflow-Muster */}
           <section className="space-y-3">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Agentische Workflow-Muster</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -444,7 +171,6 @@ export default function AgentsPage() {
             </div>
           </section>
 
-          {/* Filter */}
           <div className="flex gap-2 flex-wrap">
             {FILTERS.map(f => (
               <button
@@ -461,7 +187,6 @@ export default function AgentsPage() {
             ))}
           </div>
 
-          {/* Agenten-Grid */}
           <section className="space-y-3">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
               Agenten ({visible.length})
@@ -497,7 +222,6 @@ export default function AgentsPage() {
             </div>
           </section>
 
-          {/* Detail-Panel */}
           {selected && (
             <section className="bg-gray-800 border border-gray-700 rounded-2xl p-6 space-y-5">
               <div className="flex items-start justify-between">
@@ -512,7 +236,6 @@ export default function AgentsPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {/* Skills */}
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Skills</p>
                   <div className="space-y-1.5">
@@ -526,7 +249,6 @@ export default function AgentsPage() {
                   </div>
                 </div>
 
-                {/* Workflow Pattern */}
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Workflow-Muster</p>
                   <div className="bg-gray-900 rounded-xl p-4 space-y-2">
@@ -542,7 +264,6 @@ export default function AgentsPage() {
                   </div>
                 </div>
 
-                {/* Use Cases */}
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Anwendungsfälle</p>
                   <div className="flex flex-wrap gap-1.5">
@@ -572,7 +293,6 @@ export default function AgentsPage() {
               )}
             </section>
           )}
-
         </div>
       </main>
     </div>

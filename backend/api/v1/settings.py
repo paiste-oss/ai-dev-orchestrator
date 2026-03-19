@@ -71,6 +71,7 @@ class BaddiConfig(BaseModel):
     memory_enabled: bool = True
     context_window: int = 10
     n8n_workflow_id: str = ""
+    agents: list[str] = []  # IDs der zugewiesenen Agenten, z.B. ["ki-chat", "document"]
 
 
 @router.get("/baddi/{baddi_id}")

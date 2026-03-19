@@ -6,6 +6,7 @@ import { getSession, apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import AdminSidebar from "@/components/AdminSidebar";
 import { getUseCase } from "@/lib/usecases";
+import { AGENTS } from "@/lib/agents";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ interface BaddiConfig {
   memory_enabled: boolean;
   context_window: number;
   capabilities: string[];
+  agents: string[];
 }
 
 const DEFAULT_CONFIG: BaddiConfig = {
@@ -33,6 +35,7 @@ const DEFAULT_CONFIG: BaddiConfig = {
   memory_enabled: true,
   context_window: 10,
   capabilities: ["conversation"],
+  agents: [],
 };
 
 const ALL_SKILLS = [
@@ -83,7 +86,7 @@ export default function BaddiDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState<"prompt" | "skills" | "model" | "workflows">("prompt");
+  const [activeTab, setActiveTab] = useState<"prompt" | "agents" | "skills" | "model" | "workflows">("prompt");
 
   useEffect(() => {
     if (!user || user.role !== "admin") { router.replace("/login"); return; }
@@ -128,8 +131,14 @@ export default function BaddiDetailPage() {
     setSaving(false);
   };
 
+  const toggleAgent = (agentId: string) =>
+    set("agents", config.agents.includes(agentId)
+      ? config.agents.filter(a => a !== agentId)
+      : [...config.agents, agentId]);
+
   const TABS = [
     { id: "prompt",    label: "System-Prompt", icon: "📝" },
+    { id: "agents",    label: "Agenten",       icon: "🤖" },
     { id: "skills",    label: "Skills",        icon: "⚡" },
     { id: "model",     label: "Modell",        icon: "🧠" },
     { id: "workflows", label: "Workflows",     icon: "⚙️" },
@@ -232,6 +241,73 @@ export default function BaddiDetailPage() {
                         <option value="en">🇬🇧 English</option>
                       </select>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Agenten ── */}
+              {activeTab === "agents" && (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-300">Agenten zuweisen</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Aktive Agenten erweitern die Fähigkeiten dieses Baddis. Der System-Prompt wird automatisch um die Agent-Capabilities ergänzt.
+                    </p>
+                  </div>
+
+                  {config.agents.length > 0 && (
+                    <div className="flex flex-wrap gap-2 p-3 bg-gray-900 border border-yellow-500/20 rounded-xl">
+                      <p className="w-full text-xs text-yellow-400 font-medium mb-1">Zugewiesen ({config.agents.length})</p>
+                      {config.agents.map(id => {
+                        const a = AGENTS.find(x => x.id === id);
+                        return a ? (
+                          <span key={id} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-xs text-yellow-300">
+                            {a.icon} {a.name}
+                            <button onClick={() => toggleAgent(id)} className="text-yellow-600 hover:text-red-400 ml-1">✕</button>
+                          </span>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {AGENTS.map(agent => {
+                      const isAssigned = config.agents.includes(agent.id);
+                      const isPlanned = agent.status === "planned";
+                      return (
+                        <button
+                          key={agent.id}
+                          type="button"
+                          disabled={isPlanned}
+                          onClick={() => !isPlanned && toggleAgent(agent.id)}
+                          className={`flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${
+                            isAssigned
+                              ? "border-yellow-500 bg-yellow-950/30"
+                              : isPlanned
+                              ? "border-gray-800 bg-gray-900/50 opacity-40 cursor-not-allowed"
+                              : "border-gray-700 bg-gray-900 hover:border-gray-500"
+                          }`}
+                        >
+                          <span className={`text-2xl shrink-0 ${isPlanned ? "grayscale" : ""}`}>{agent.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className={`text-sm font-semibold ${isAssigned ? "text-yellow-200" : "text-gray-200"}`}>
+                                {agent.name}
+                              </p>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium shrink-0 ${
+                                agent.status === "active" ? "bg-green-500/20 text-green-300 border-green-500/30" :
+                                agent.status === "beta"   ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30" :
+                                "bg-gray-500/20 text-gray-400 border-gray-500/30"
+                              }`}>
+                                {agent.status === "active" ? "Aktiv" : agent.status === "beta" ? "Beta" : "In Planung"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{agent.capability}</p>
+                          </div>
+                          {isAssigned && <span className="text-yellow-400 text-sm shrink-0">✓</span>}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
