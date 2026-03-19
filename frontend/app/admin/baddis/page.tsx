@@ -7,10 +7,9 @@ import AdminSidebar from "@/components/AdminSidebar";
 import { USE_CASES, UseCaseSegment } from "@/lib/usecases";
 
 const FILTERS: { key: "alle" | UseCaseSegment; label: string; icon: string }[] = [
-  { key: "alle",       label: "Alle",       icon: "🔍" },
-  { key: "menschen",   label: "Menschen",   icon: "🧑" },
-  { key: "firmen",     label: "Firmen",     icon: "🏢" },
-  { key: "funktionen", label: "Funktionen", icon: "⚡" },
+  { key: "alle",     label: "Alle",     icon: "🔍" },
+  { key: "menschen", label: "Menschen", icon: "🧑" },
+  { key: "firmen",   label: "Firmen",   icon: "🏢" },
 ];
 
 export default function BaddisPage() {
