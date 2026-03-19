@@ -25,6 +25,18 @@ async def init_db():
             "ALTER TABLE cost_entries ADD COLUMN IF NOT EXISTS balance_chf FLOAT",
             "ALTER TABLE cost_entries ADD COLUMN IF NOT EXISTS balance_updated_at TIMESTAMP",
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS birth_year INTEGER",
+            # Profil-Erweiterungen
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone VARCHAR(50)",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone_secondary VARCHAR(50)",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS address_street VARCHAR(200)",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS address_zip VARCHAR(20)",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS address_city VARCHAR(100)",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS address_country VARCHAR(100) DEFAULT 'Schweiz'",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS workplace VARCHAR(200)",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS job_title VARCHAR(100)",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS language VARCHAR(10) DEFAULT 'de'",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS notes TEXT",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS interests JSONB DEFAULT '[]'",
             "CREATE SEQUENCE IF NOT EXISTS baddi_number_seq START 0 MINVALUE 0",
             "ALTER TABLE ai_buddies ADD COLUMN IF NOT EXISTS baddi_number INTEGER UNIQUE DEFAULT nextval('baddi_number_seq')",
             # Backfill: bestehende Buddies ohne Nummer nachrüsten

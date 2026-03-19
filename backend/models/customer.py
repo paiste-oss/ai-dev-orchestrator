@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, date
-from sqlalchemy import String, Boolean, DateTime, Date, Numeric, Integer, ForeignKey
+from sqlalchemy import String, Boolean, DateTime, Date, Numeric, Integer, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.database import Base
@@ -33,8 +33,28 @@ class Customer(Base):
     birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     subscription_plan_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("subscription_plans.id"), nullable=True)
 
+    # Kontakt
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    phone_secondary: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    # Adresse
+    address_street: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    address_zip: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    address_city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    address_country: Mapped[str | None] = mapped_column(String(100), nullable=True, default="Schweiz")
+
+    # Beruf & Umfeld
+    workplace: Mapped[str | None] = mapped_column(String(200), nullable=True)   # Arbeitgeber / Firma
+    job_title: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    language: Mapped[str | None] = mapped_column(String(10), nullable=True, default="de")  # ISO 639-1
+
+    # Freitext-Notiz (für den Admin / Baddi als Kontext)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Interessen & Hobbys (JSON-Array von Strings)
+    interests: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
+
     subscription_plan: Mapped["SubscriptionPlan | None"] = relationship(back_populates="customers")
     buddies: Mapped[list["AiBuddy"]] = relationship(back_populates="customer")  # type: ignore
     credentials: Mapped[list["CustomerCredential"]] = relationship(back_populates="customer", cascade="all, delete-orphan")  # type: ignore
-    # Dokumente: alle hochgeladenen Files dieses Kunden
     documents: Mapped[list["CustomerDocument"]] = relationship(back_populates="customer", cascade="all, delete-orphan")  # type: ignore

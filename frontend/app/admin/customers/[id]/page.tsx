@@ -19,6 +19,17 @@ interface CustomerDetail {
   created_at: string;
   birth_year: number | null;
   primary_usecase_id: string | null;
+  phone: string | null;
+  phone_secondary: string | null;
+  address_street: string | null;
+  address_zip: string | null;
+  address_city: string | null;
+  address_country: string | null;
+  workplace: string | null;
+  job_title: string | null;
+  language: string | null;
+  notes: string | null;
+  interests: string[] | null;
 }
 
 interface BaddiRecord {
@@ -36,7 +47,20 @@ interface CustomerStats {
   by_model: Record<string, { messages: number; tokens: number }>;
 }
 
-type Tab = "profil" | "baddis" | "finanzen";
+interface ServiceField {
+  key: string;
+  label: string;
+  placeholder: string;
+  type: string;
+}
+
+interface ServiceSchema {
+  label: string;
+  icon: string;
+  fields: ServiceField[];
+}
+
+type Tab = "profil" | "baddis" | "zugangsdaten" | "finanzen";
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
 
@@ -50,6 +74,13 @@ const SEGMENT_ORDER: { key: string; label: string }[] = [
   { key: "menschen",   label: "Menschen"   },
   { key: "firmen",     label: "Firmen"     },
   { key: "funktionen", label: "Funktionen" },
+];
+
+const LANGUAGE_OPTIONS = [
+  { value: "de", label: "Deutsch" },
+  { value: "en", label: "English" },
+  { value: "fr", label: "Français" },
+  { value: "it", label: "Italiano" },
 ];
 
 function formatDate(iso: string) {
@@ -66,6 +97,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+
+const inputCls = "w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-400 transition-colors";
+const readCls = "bg-gray-700/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300";
 
 // ─── Baddis Tab ───────────────────────────────────────────────────────────────
 
@@ -121,7 +155,6 @@ function BaddisTab({ customer }: { customer: CustomerDetail }) {
 
   return (
     <div className="space-y-6">
-      {/* Zugewiesene Baddis */}
       <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-3">
         <h3 className="text-sm font-semibold text-gray-300">Zugewiesene Baddis</h3>
         {loading ? (
@@ -155,7 +188,6 @@ function BaddisTab({ customer }: { customer: CustomerDetail }) {
         )}
       </div>
 
-      {/* Baddi hinzufügen */}
       <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
         <h3 className="text-sm font-semibold text-gray-300">Baddi hinzufügen</h3>
         <div className="flex gap-1 bg-gray-900 rounded-lg p-1 w-fit">
@@ -203,12 +235,184 @@ function BaddisTab({ customer }: { customer: CustomerDetail }) {
   );
 }
 
+// ─── Zugangsdaten Tab ─────────────────────────────────────────────────────────
+
+function ZugangsdatenTab({ customerId }: { customerId: string }) {
+  const [schemas, setSchemas] = useState<Record<string, ServiceSchema>>({});
+  const [configured, setConfigured] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [activeService, setActiveService] = useState<string | null>(null);
+  const [formValues, setFormValues] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/customers/${customerId}/credentials`);
+      if (res.ok) {
+        const d = await res.json();
+        setSchemas(d.services ?? {});
+        setConfigured(d.configured ?? {});
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [customerId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openService = (key: string) => {
+    setActiveService(key);
+    setFormValues({});
+    setMsg(null);
+  };
+
+  const save = async () => {
+    if (!activeService) return;
+    setSaving(true);
+    setMsg(null);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/customers/${customerId}/credentials/${activeService}`, {
+        method: "PUT",
+        body: JSON.stringify({ data: formValues }),
+      });
+      if (res.ok) {
+        setMsg({ text: "Gespeichert ✓", ok: true });
+        await load();
+        setActiveService(null);
+      } else {
+        setMsg({ text: "Fehler beim Speichern", ok: false });
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (service: string) => {
+    setDeleting(service);
+    try {
+      await apiFetch(`${BACKEND_URL}/v1/customers/${customerId}/credentials/${service}`, { method: "DELETE" });
+      await load();
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  if (loading) return <p className="text-sm text-gray-500">Wird geladen…</p>;
+
+  return (
+    <div className="space-y-5">
+      {msg && !activeService && (
+        <div className={`text-sm px-4 py-2 rounded-lg ${msg.ok ? "bg-green-500/20 text-green-300 border border-green-500/30" : "bg-red-500/20 text-red-300 border border-red-500/30"}`}>
+          {msg.text}
+        </div>
+      )}
+
+      <p className="text-sm text-gray-400">
+        Zugangsdaten werden verschlüsselt gespeichert und nie im Klartext angezeigt.
+        Der Baddi verwendet diese Daten automatisch, wenn er die entsprechenden Tools nutzt.
+      </p>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {Object.entries(schemas).map(([key, svc]) => {
+          const isConfigured = key in configured;
+          return (
+            <div
+              key={key}
+              className={`rounded-xl border p-4 space-y-2 ${
+                isConfigured ? "bg-green-500/10 border-green-500/30" : "bg-gray-800 border-gray-700"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-2xl">{svc.icon}</span>
+                {isConfigured && (
+                  <button
+                    onClick={() => remove(key)}
+                    disabled={deleting === key}
+                    className="text-xs text-gray-500 hover:text-red-400 transition-colors disabled:opacity-50"
+                  >
+                    {deleting === key ? "…" : "Entfernen"}
+                  </button>
+                )}
+              </div>
+              <p className="text-sm font-medium text-white leading-tight">{svc.label}</p>
+              {isConfigured
+                ? <p className="text-xs text-green-400">Konfiguriert</p>
+                : <p className="text-xs text-gray-500">Nicht eingerichtet</p>
+              }
+              <button
+                onClick={() => openService(key)}
+                className={`w-full text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                  isConfigured
+                    ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                    : "bg-yellow-400 hover:bg-yellow-300 text-gray-900"
+                }`}
+              >
+                {isConfigured ? "Bearbeiten" : "Einrichten"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Modal */}
+      {activeService && schemas[activeService] && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-md space-y-5 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">{schemas[activeService].icon}</span>
+              <div>
+                <h3 className="text-base font-bold text-white">{schemas[activeService].label}</h3>
+                <p className="text-xs text-gray-400">Wird verschlüsselt gespeichert — nie im Klartext einsehbar</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {schemas[activeService].fields.map(f => (
+                <Field key={f.key} label={f.label}>
+                  <input
+                    type={f.type === "password" ? "password" : "text"}
+                    placeholder={f.placeholder || "—"}
+                    value={formValues[f.key] ?? ""}
+                    onChange={e => setFormValues(v => ({ ...v, [f.key]: e.target.value }))}
+                    className={inputCls}
+                  />
+                </Field>
+              ))}
+            </div>
+
+            {msg && (
+              <p className={`text-sm ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.text}</p>
+            )}
+
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={save}
+                disabled={saving}
+                className="flex-1 py-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold text-sm transition-colors disabled:opacity-50"
+              >
+                {saving ? "Speichern…" : "Speichern"}
+              </button>
+              <button
+                onClick={() => { setActiveService(null); setMsg(null); }}
+                className="flex-1 py-2 rounded-xl bg-gray-700 hover:bg-gray-600 text-white text-sm transition-colors"
+              >
+                Abbrechen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Finanzen Tab ─────────────────────────────────────────────────────────────
 
-function FinanzenTab({ customer, stats }: { customer: CustomerDetail; stats: CustomerStats | null }) {
-  if (!stats) {
-    return <p className="text-sm text-gray-500">Statistiken werden geladen…</p>;
-  }
+function FinanzenTab({ stats }: { stats: CustomerStats | null }) {
+  if (!stats) return <p className="text-sm text-gray-500">Statistiken werden geladen…</p>;
 
   const modelNames: Record<string, string> = {
     "gemini-2.0-flash": "Gemini 2.0 Flash",
@@ -220,7 +424,6 @@ function FinanzenTab({ customer, stats }: { customer: CustomerDetail; stats: Cus
 
   return (
     <div className="space-y-5">
-      {/* KPI-Karten */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "Konversationen", value: stats.threads, icon: "💬" },
@@ -236,7 +439,6 @@ function FinanzenTab({ customer, stats }: { customer: CustomerDetail; stats: Cus
         ))}
       </div>
 
-      {/* Token-Aufschlüsselung nach Modell */}
       <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-3">
         <h3 className="text-sm font-semibold text-gray-300">Token-Nutzung nach Modell</h3>
         {Object.keys(stats.by_model).length === 0 ? (
@@ -287,10 +489,30 @@ export default function CustomerDetailPage() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
-  // Editable profil fields
+  // Stammdaten
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [segment, setSegment] = useState("");
+  const [language, setLanguage] = useState("de");
+
+  // Kontakt
+  const [phone, setPhone] = useState("");
+  const [phoneSecondary, setPhoneSecondary] = useState("");
+
+  // Adresse
+  const [street, setStreet] = useState("");
+  const [zip, setZip] = useState("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("Schweiz");
+
+  // Beruf
+  const [workplace, setWorkplace] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+
+  // Interessen & Notizen
+  const [notes, setNotes] = useState("");
+  const [interestInput, setInterestInput] = useState("");
+  const [interests, setInterests] = useState<string[]>([]);
 
   useEffect(() => {
     const u = getSession();
@@ -306,9 +528,20 @@ export default function CustomerDetailPage() {
         if (cRes.ok) {
           const c: CustomerDetail = await cRes.json();
           setCustomer(c);
-          setName(c.name);
-          setEmail(c.email);
-          setSegment(c.segment);
+          setName(c.name ?? "");
+          setEmail(c.email ?? "");
+          setSegment(c.segment ?? "personal");
+          setLanguage(c.language ?? "de");
+          setPhone(c.phone ?? "");
+          setPhoneSecondary(c.phone_secondary ?? "");
+          setStreet(c.address_street ?? "");
+          setZip(c.address_zip ?? "");
+          setCity(c.address_city ?? "");
+          setCountry(c.address_country ?? "Schweiz");
+          setWorkplace(c.workplace ?? "");
+          setJobTitle(c.job_title ?? "");
+          setNotes(c.notes ?? "");
+          setInterests(c.interests ?? []);
         }
         if (sRes.ok) setStats(await sRes.json());
       } finally {
@@ -324,11 +557,22 @@ export default function CustomerDetailPage() {
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/customers/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({ name, email, segment }),
+        body: JSON.stringify({
+          name, email, segment, language,
+          phone: phone || null,
+          phone_secondary: phoneSecondary || null,
+          address_street: street || null,
+          address_zip: zip || null,
+          address_city: city || null,
+          address_country: country || null,
+          workplace: workplace || null,
+          job_title: jobTitle || null,
+          notes: notes || null,
+          interests,
+        }),
       });
       if (res.ok) {
-        const updated: CustomerDetail = await res.json();
-        setCustomer(updated);
+        setCustomer(await res.json());
         setSaveMsg("Gespeichert ✓");
         setTimeout(() => setSaveMsg(null), 3000);
       } else {
@@ -343,6 +587,12 @@ export default function CustomerDetailPage() {
     if (!customer) return;
     const res = await apiFetch(`${BACKEND_URL}/v1/customers/${id}/toggle-active`, { method: "PATCH" });
     if (res.ok) setCustomer(await res.json());
+  };
+
+  const addInterest = () => {
+    const v = interestInput.trim();
+    if (v && !interests.includes(v)) setInterests(prev => [...prev, v]);
+    setInterestInput("");
   };
 
   if (loading) {
@@ -362,9 +612,10 @@ export default function CustomerDetailPage() {
   }
 
   const TABS: { key: Tab; label: string; icon: string }[] = [
-    { key: "profil",   label: "Profil",   icon: "👤" },
-    { key: "baddis",   label: "Baddis",   icon: "🤖" },
-    { key: "finanzen", label: "Finanzen", icon: "💰" },
+    { key: "profil",       label: "Profil",       icon: "👤" },
+    { key: "baddis",       label: "Baddis",       icon: "🤖" },
+    { key: "zugangsdaten", label: "Zugangsdaten", icon: "🔑" },
+    { key: "finanzen",     label: "Finanzen",     icon: "💰" },
   ];
 
   return (
@@ -372,7 +623,6 @@ export default function CustomerDetailPage() {
       <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <main className="flex-1 p-4 md:p-8 overflow-y-auto min-w-0">
-        {/* Breadcrumb */}
         <div className="flex items-center gap-3 mb-6">
           <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white text-2xl md:hidden">☰</button>
           <button onClick={() => router.push("/admin/customers")} className="text-gray-400 hover:text-white text-sm transition-colors">
@@ -418,7 +668,7 @@ export default function CustomerDetailPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 bg-gray-900 rounded-xl p-1 w-fit">
+          <div className="flex flex-wrap gap-1 bg-gray-900 rounded-xl p-1 w-fit">
             {TABS.map(t => (
               <button
                 key={t.key}
@@ -432,79 +682,167 @@ export default function CustomerDetailPage() {
             ))}
           </div>
 
-          {/* Profil Tab */}
+          {/* ── Profil Tab ── */}
           {tab === "profil" && (
             <div className="space-y-5">
-              {/* Bearbeitbare Felder */}
+
+              {/* Stammdaten */}
               <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-300">Angaben</h3>
+                <h3 className="text-sm font-semibold text-gray-300">Stammdaten</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label="Name">
-                    <input
-                      value={name}
-                      onChange={e => setName(e.target.value)}
-                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-400 transition-colors"
-                    />
+                    <input value={name} onChange={e => setName(e.target.value)} className={inputCls} />
                   </Field>
                   <Field label="E-Mail">
-                    <input
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      type="email"
-                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-400 transition-colors"
-                    />
+                    <input value={email} onChange={e => setEmail(e.target.value)} type="email" className={inputCls} />
                   </Field>
                   <Field label="Segment">
-                    <select
-                      value={segment}
-                      onChange={e => setSegment(e.target.value)}
-                      className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-400 transition-colors"
-                    >
+                    <select value={segment} onChange={e => setSegment(e.target.value)} className={inputCls}>
                       {SEGMENT_OPTIONS.map(s => (
                         <option key={s.value} value={s.value}>{s.label}</option>
                       ))}
                     </select>
                   </Field>
-                  {customer.birth_year && (
-                    <Field label="Geburtsjahr">
-                      <p className="bg-gray-700/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300">{customer.birth_year}</p>
-                    </Field>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 pt-1">
-                  <button
-                    onClick={saveProfile}
-                    disabled={saving}
-                    className="px-5 py-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold text-sm transition-colors disabled:opacity-50"
-                  >
-                    {saving ? "Speichern…" : "Speichern"}
-                  </button>
-                  {saveMsg && (
-                    <span className={`text-sm ${saveMsg.includes("Fehler") ? "text-red-400" : "text-green-400"}`}>
-                      {saveMsg}
-                    </span>
-                  )}
+                  <Field label="Bevorzugte Sprache">
+                    <select value={language} onChange={e => setLanguage(e.target.value)} className={inputCls}>
+                      {LANGUAGE_OPTIONS.map(l => (
+                        <option key={l.value} value={l.value}>{l.label}</option>
+                      ))}
+                    </select>
+                  </Field>
                 </div>
               </div>
 
-              {/* Nur-Lesen Felder */}
+              {/* Kontakt */}
+              <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
+                <h3 className="text-sm font-semibold text-gray-300">Kontakt</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Telefon (Mobil / Haupt)">
+                    <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+41 79 000 00 00" className={inputCls} />
+                  </Field>
+                  <Field label="Telefon 2 (Festnetz / Arbeit)">
+                    <input value={phoneSecondary} onChange={e => setPhoneSecondary(e.target.value)} placeholder="+41 44 000 00 00" className={inputCls} />
+                  </Field>
+                </div>
+              </div>
+
+              {/* Adresse */}
+              <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
+                <h3 className="text-sm font-semibold text-gray-300">Adresse</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Strasse & Hausnummer">
+                    <input value={street} onChange={e => setStreet(e.target.value)} placeholder="Musterstrasse 1" className={inputCls} />
+                  </Field>
+                  <Field label="Land">
+                    <input value={country} onChange={e => setCountry(e.target.value)} placeholder="Schweiz" className={inputCls} />
+                  </Field>
+                  <Field label="PLZ">
+                    <input value={zip} onChange={e => setZip(e.target.value)} placeholder="8001" className={inputCls} />
+                  </Field>
+                  <Field label="Ort">
+                    <input value={city} onChange={e => setCity(e.target.value)} placeholder="Zürich" className={inputCls} />
+                  </Field>
+                </div>
+              </div>
+
+              {/* Beruf */}
+              <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
+                <h3 className="text-sm font-semibold text-gray-300">Beruf & Unternehmen</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Arbeitgeber / Firma">
+                    <input value={workplace} onChange={e => setWorkplace(e.target.value)} placeholder="Muster AG" className={inputCls} />
+                  </Field>
+                  <Field label="Berufsbezeichnung">
+                    <input value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="Software Engineer" className={inputCls} />
+                  </Field>
+                </div>
+              </div>
+
+              {/* Interessen */}
+              <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
+                <h3 className="text-sm font-semibold text-gray-300">Interessen & Hobbys</h3>
+                <div className="flex gap-2">
+                  <input
+                    value={interestInput}
+                    onChange={e => setInterestInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addInterest(); } }}
+                    placeholder="Interesse eingeben + Enter"
+                    className={`${inputCls} flex-1`}
+                  />
+                  <button
+                    onClick={addInterest}
+                    className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
+                {interests.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {interests.map(tag => (
+                      <span
+                        key={tag}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-400/15 border border-yellow-400/30 text-yellow-300 text-xs font-medium"
+                      >
+                        {tag}
+                        <button
+                          onClick={() => setInterests(prev => prev.filter(t => t !== tag))}
+                          className="text-yellow-400/60 hover:text-red-400 transition-colors leading-none"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Notizen */}
+              <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
+                <h3 className="text-sm font-semibold text-gray-300">Notizen (intern)</h3>
+                <p className="text-xs text-gray-500">Werden dem Baddi als Kontext mitgegeben — nicht sichtbar für den Kunden.</p>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  rows={4}
+                  placeholder="Besonderheiten, Präferenzen, wichtige Hinweise…"
+                  className={`${inputCls} resize-y`}
+                />
+              </div>
+
+              {/* Speichern */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={saveProfile}
+                  disabled={saving}
+                  className="px-5 py-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold text-sm transition-colors disabled:opacity-50"
+                >
+                  {saving ? "Speichern…" : "Speichern"}
+                </button>
+                {saveMsg && (
+                  <span className={`text-sm ${saveMsg.includes("Fehler") ? "text-red-400" : "text-green-400"}`}>
+                    {saveMsg}
+                  </span>
+                )}
+              </div>
+
+              {/* Systeminfo */}
               <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
                 <h3 className="text-sm font-semibold text-gray-300">Systeminfo</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label="ID">
-                    <p className="font-mono text-xs text-gray-400 bg-gray-700/50 border border-gray-700 rounded-lg px-3 py-2 select-all break-all">{customer.id}</p>
+                    <p className={`font-mono text-xs ${readCls} select-all break-all`}>{customer.id}</p>
                   </Field>
                   <Field label="Rolle">
-                    <p className="bg-gray-700/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300">{customer.role}</p>
+                    <p className={readCls}>{customer.role}</p>
                   </Field>
                   <Field label="Registriert am">
-                    <p className="bg-gray-700/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300">{formatDate(customer.created_at)}</p>
+                    <p className={readCls}>{formatDate(customer.created_at)}</p>
                   </Field>
                   {customer.primary_usecase_id && (() => {
                     const uc = USE_CASES.find(u => u.id === customer.primary_usecase_id);
                     return uc ? (
                       <Field label="Primärer Baddi">
-                        <p className="flex items-center gap-2 bg-gray-700/50 border border-gray-700 rounded-lg px-3 py-2 text-sm">
+                        <p className={`flex items-center gap-2 ${readCls}`}>
                           <span>{uc.icon}</span>
                           <span className="text-gray-300">{uc.buddyName}</span>
                           <span className="font-mono text-xs text-yellow-500 ml-auto">{uc.baddiD}</span>
@@ -517,11 +855,9 @@ export default function CustomerDetailPage() {
             </div>
           )}
 
-          {/* Baddis Tab */}
           {tab === "baddis" && <BaddisTab customer={customer} />}
-
-          {/* Finanzen Tab */}
-          {tab === "finanzen" && <FinanzenTab customer={customer} stats={stats} />}
+          {tab === "zugangsdaten" && <ZugangsdatenTab customerId={customer.id} />}
+          {tab === "finanzen" && <FinanzenTab stats={stats} />}
         </div>
       </main>
     </div>

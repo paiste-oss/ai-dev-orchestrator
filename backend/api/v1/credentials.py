@@ -56,7 +56,7 @@ async def upsert_credential(
     db: AsyncSession = Depends(get_db),
 ):
     """Speichert Credentials verschlüsselt in der DB."""
-    allowed = ["smtp", "slack", "twilio", "google"]
+    allowed = ["smtp", "slack", "twilio", "google", "twitter_x", "facebook", "whatsapp", "instagram"]
     if service not in allowed:
         raise HTTPException(status_code=400, detail=f"Unbekannter Service. Erlaubt: {allowed}")
 

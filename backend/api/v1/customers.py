@@ -34,7 +34,24 @@ class CustomerOut(BaseModel):
     created_at: datetime
     birth_year: int | None = None
     birth_date: date | None = None
-    primary_usecase_id: str | None = None   # usecase_id des ersten aktiven Buddys
+    primary_usecase_id: str | None = None
+
+    # Kontakt
+    phone: str | None = None
+    phone_secondary: str | None = None
+
+    # Adresse
+    address_street: str | None = None
+    address_zip: str | None = None
+    address_city: str | None = None
+    address_country: str | None = None
+
+    # Beruf & Umfeld
+    workplace: str | None = None
+    job_title: str | None = None
+    language: str | None = None
+    notes: str | None = None
+    interests: list | None = None
 
     class Config:
         from_attributes = True
@@ -46,6 +63,23 @@ class CustomerUpdate(BaseModel):
     segment: str | None = None
     is_active: bool | None = None
 
+    # Kontakt
+    phone: str | None = None
+    phone_secondary: str | None = None
+
+    # Adresse
+    address_street: str | None = None
+    address_zip: str | None = None
+    address_city: str | None = None
+    address_country: str | None = None
+
+    # Beruf & Umfeld
+    workplace: str | None = None
+    job_title: str | None = None
+    language: str | None = None
+    notes: str | None = None
+    interests: list | None = None
+
 
 class CustomerListResponse(BaseModel):
     items: list[CustomerOut]
@@ -53,6 +87,84 @@ class CustomerListResponse(BaseModel):
     page: int
     page_size: int
 
+
+# ─── Credential-Schemas (für den Kunden-Kontext) ──────────────────────────────
+
+# Welche Services unterstützt werden und welche Felder sie brauchen
+SERVICE_SCHEMAS: dict[str, dict] = {
+    "smtp": {
+        "label": "E-Mail (SMTP)",
+        "icon": "📧",
+        "fields": [
+            {"key": "host",     "label": "SMTP-Server",    "placeholder": "smtp.gmail.com",    "type": "text"},
+            {"key": "port",     "label": "Port",           "placeholder": "587",               "type": "number"},
+            {"key": "username", "label": "Benutzername",   "placeholder": "deine@email.ch",    "type": "text"},
+            {"key": "password", "label": "Passwort",       "placeholder": "",                  "type": "password"},
+        ],
+    },
+    "google": {
+        "label": "Google (OAuth)",
+        "icon": "🔵",
+        "fields": [
+            {"key": "client_id",     "label": "Client ID",     "placeholder": "", "type": "text"},
+            {"key": "client_secret", "label": "Client Secret", "placeholder": "", "type": "password"},
+            {"key": "refresh_token", "label": "Refresh Token", "placeholder": "", "type": "password"},
+        ],
+    },
+    "twitter_x": {
+        "label": "X / Twitter",
+        "icon": "🐦",
+        "fields": [
+            {"key": "api_key",         "label": "API Key",         "placeholder": "", "type": "text"},
+            {"key": "api_secret",      "label": "API Secret",      "placeholder": "", "type": "password"},
+            {"key": "access_token",    "label": "Access Token",    "placeholder": "", "type": "password"},
+            {"key": "access_secret",   "label": "Access Secret",   "placeholder": "", "type": "password"},
+        ],
+    },
+    "facebook": {
+        "label": "Facebook / Meta",
+        "icon": "👤",
+        "fields": [
+            {"key": "page_id",      "label": "Seiten-ID",     "placeholder": "", "type": "text"},
+            {"key": "access_token", "label": "Access Token",  "placeholder": "", "type": "password"},
+        ],
+    },
+    "whatsapp": {
+        "label": "WhatsApp Business",
+        "icon": "💬",
+        "fields": [
+            {"key": "phone_number_id", "label": "Telefonnummer-ID", "placeholder": "", "type": "text"},
+            {"key": "access_token",    "label": "Access Token",     "placeholder": "", "type": "password"},
+        ],
+    },
+    "slack": {
+        "label": "Slack",
+        "icon": "💼",
+        "fields": [
+            {"key": "webhook_url", "label": "Webhook URL", "placeholder": "https://hooks.slack.com/…", "type": "text"},
+        ],
+    },
+    "twilio": {
+        "label": "Twilio (SMS/Anrufe)",
+        "icon": "📞",
+        "fields": [
+            {"key": "account_sid", "label": "Account SID", "placeholder": "", "type": "text"},
+            {"key": "auth_token",  "label": "Auth Token",  "placeholder": "", "type": "password"},
+            {"key": "from_number", "label": "Absender-Nr.", "placeholder": "+41…", "type": "text"},
+        ],
+    },
+    "instagram": {
+        "label": "Instagram",
+        "icon": "📸",
+        "fields": [
+            {"key": "access_token", "label": "Access Token", "placeholder": "", "type": "password"},
+            {"key": "account_id",   "label": "Konto-ID",     "placeholder": "", "type": "text"},
+        ],
+    },
+}
+
+
+# ─── Kunden-Liste ──────────────────────────────────────────────────────────────
 
 @router.get("", response_model=CustomerListResponse)
 async def list_customers(
@@ -64,10 +176,8 @@ async def list_customers(
     page_size: int = Query(20, ge=1, le=100, description="Einträge pro Seite"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Gibt alle Kunden mit optionalen Filtern und Paginierung zurück."""
     query = select(Customer)
 
-    # Suchfilter über Name und E-Mail
     if search:
         term = f"%{search.lower()}%"
         query = query.where(
@@ -76,32 +186,21 @@ async def list_customers(
                 func.lower(Customer.email).like(term),
             )
         )
-
-    # Segment-Filter
     if segment:
         query = query.where(Customer.segment == segment)
-
-    # Rollen-Filter
     if role:
         query = query.where(Customer.role == role)
-
-    # Aktiv-Filter
     if is_active is not None:
         query = query.where(Customer.is_active == is_active)
 
-    # Gesamtanzahl für Paginierung
     count_query = select(func.count()).select_from(query.subquery())
-    total_result = await db.execute(count_query)
-    total = total_result.scalar_one()
+    total = (await db.execute(count_query)).scalar_one()
 
-    # Sortierung und Paginierung
     query = query.order_by(Customer.created_at.desc())
     query = query.offset((page - 1) * page_size).limit(page_size)
 
-    result = await db.execute(query)
-    customers = result.scalars().all()
+    customers = (await db.execute(query)).scalars().all()
 
-    # Primary BaddiD pro Kunde laden (erster aktiver Buddy mit Nummer)
     customer_ids = [c.id for c in customers]
     buddy_result = await db.execute(
         select(AiBuddy)
@@ -122,12 +221,7 @@ async def list_customers(
         for c in customers
     ]
 
-    return CustomerListResponse(
-        items=items,
-        total=total,
-        page=page,
-        page_size=page_size,
-    )
+    return CustomerListResponse(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.post("", response_model=CustomerOut, status_code=201)
@@ -151,7 +245,6 @@ async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_d
 
 @router.get("/lookup", response_model=CustomerOut)
 async def lookup_customer_by_email(email: str, db: AsyncSession = Depends(get_db)):
-    """Findet einen Kunden anhand seiner E-Mail-Adresse (für SSE-Subscription)."""
     result = await db.execute(select(Customer).where(Customer.email == email))
     customer = result.scalar_one_or_none()
     if not customer:
@@ -174,7 +267,6 @@ async def update_customer(
     db: AsyncSession = Depends(get_db),
     _: Customer = Depends(require_admin),
 ):
-    """Aktualisiert Felder eines Kunden (Admin)."""
     customer = await db.get(Customer, customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
@@ -190,9 +282,6 @@ async def get_customer_stats(
     customer_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """Token-Nutzung und Konversations-Statistiken eines Kunden."""
-
-
     buddy_result = await db.execute(
         select(AiBuddy.id).where(AiBuddy.customer_id == customer_id)
     )
@@ -236,7 +325,6 @@ async def get_customer_stats(
 
 @router.patch("/{customer_id}/toggle-active", response_model=CustomerOut)
 async def toggle_customer_active(customer_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    """Aktiviert oder deaktiviert einen Kunden."""
     customer = await db.get(Customer, customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
@@ -246,19 +334,78 @@ async def toggle_customer_active(customer_id: uuid.UUID, db: AsyncSession = Depe
     return customer
 
 
+# ─── Zugangsdaten (Credentials) pro Kunde ─────────────────────────────────────
+
+@router.get("/{customer_id}/credentials")
+async def list_customer_credentials(
+    customer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: Customer = Depends(require_admin),
+):
+    """Gibt zurück welche Services konfiguriert sind (nie Klartextdaten)."""
+    result = await db.execute(
+        select(CustomerCredential.service, CustomerCredential.updated_at)
+        .where(CustomerCredential.customer_id == customer_id)
+    )
+    rows = result.all()
+    configured = {row.service: str(row.updated_at) for row in rows}
+    return {
+        "customer_id": str(customer_id),
+        "services": SERVICE_SCHEMAS,
+        "configured": configured,
+    }
+
+
+class CredentialSave(BaseModel):
+    data: dict
+
+
+@router.put("/{customer_id}/credentials/{service}")
+async def save_customer_credential(
+    customer_id: uuid.UUID,
+    service: str,
+    body: CredentialSave,
+    db: AsyncSession = Depends(get_db),
+    _: Customer = Depends(require_admin),
+):
+    if service not in SERVICE_SCHEMAS:
+        raise HTTPException(status_code=400, detail=f"Unbekannter Service: {service}")
+    from services import credential_service
+    await credential_service.save_credential(db, customer_id, service, body.data)
+    return {"status": "saved", "service": service}
+
+
+@router.delete("/{customer_id}/credentials/{service}", status_code=204)
+async def delete_customer_credential(
+    customer_id: uuid.UUID,
+    service: str,
+    db: AsyncSession = Depends(get_db),
+    _: Customer = Depends(require_admin),
+):
+    result = await db.execute(
+        select(CustomerCredential)
+        .where(CustomerCredential.customer_id == customer_id, CustomerCredential.service == service)
+    )
+    cred = result.scalar_one_or_none()
+    if not cred:
+        raise HTTPException(status_code=404, detail="Credential nicht gefunden")
+    await db.delete(cred)
+    await db.commit()
+    return Response(status_code=204)
+
+
+# ─── Kunden löschen ───────────────────────────────────────────────────────────
+
 @router.delete("/{customer_id}", status_code=204)
 async def delete_customer(
     customer_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     _: Customer = Depends(require_admin),
 ):
-    """Löscht einen Kunden permanent (nur Admin)."""
     customer = await db.get(Customer, customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    # Delete all child records to satisfy FK constraints
-    # 1. Buddy-related: messages → threads → buddies
     buddy_result = await db.execute(select(AiBuddy.id).where(AiBuddy.customer_id == customer_id))
     buddy_ids = [row[0] for row in buddy_result.all()]
     if buddy_ids:
@@ -267,17 +414,10 @@ async def delete_customer(
         )
         thread_ids = [row[0] for row in thread_result.all()]
         if thread_ids:
-            await db.execute(
-                Message.__table__.delete().where(Message.thread_id.in_(thread_ids))
-            )
-        await db.execute(
-            ConversationThread.__table__.delete().where(ConversationThread.buddy_id.in_(buddy_ids))
-        )
-        await db.execute(
-            AiBuddy.__table__.delete().where(AiBuddy.customer_id == customer_id)
-        )
+            await db.execute(Message.__table__.delete().where(Message.thread_id.in_(thread_ids)))
+        await db.execute(ConversationThread.__table__.delete().where(ConversationThread.buddy_id.in_(buddy_ids)))
+        await db.execute(AiBuddy.__table__.delete().where(AiBuddy.customer_id == customer_id))
 
-    # 2. Other customer-linked tables
     await db.execute(CustomerCredential.__table__.delete().where(CustomerCredential.customer_id == customer_id))
     await db.execute(CustomerDocument.__table__.delete().where(CustomerDocument.customer_id == customer_id))
     await db.execute(BuddyEvent.__table__.delete().where(BuddyEvent.customer_id == customer_id))
