@@ -47,7 +47,7 @@ async def chat_with_claude(
 async def chat_with_gemini(
     messages: list[dict],
     system_prompt: str | None = None,
-    model: str = "gemini-2.0-flash",
+    model: str = "gemini-2.5-flash",
 ) -> str:
     """Send a conversation to Google Gemini and return the response text."""
     if not settings.gemini_api_key:
