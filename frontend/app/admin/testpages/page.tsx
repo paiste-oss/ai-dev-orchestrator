@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -52,7 +53,6 @@ const ALL_PAGES: PageEntry[] = [
     description: "Registrierungsflow für Unternehmen",
     group: "Registrierung",
   },
-  {
   {
     path: "/register/allgemein",
     label: "Registrierung: Allgemein",
