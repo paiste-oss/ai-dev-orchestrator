@@ -243,7 +243,7 @@ export default function ChatPage() {
                   {msg.content}
                   {msg.role === "assistant" && msg.provider && (
                     <p className="text-xs mt-2 opacity-40">
-                      {msg.provider === "claude" ? "Claude" : msg.provider === "gemini" ? "Gemini" : "ChatGPT"} · {msg.model}
+                      {msg.provider === "claude" ? "Claude" : msg.provider === "gemini" ? "Gemini" : msg.provider === "openai" ? "ChatGPT" : msg.provider ?? "AI"} · {msg.model}
                     </p>
                   )}
                 </div>
