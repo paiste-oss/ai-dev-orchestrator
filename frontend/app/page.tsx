@@ -29,24 +29,12 @@ const SEGMENTS = [
     bg: "bg-blue-950/20",
     glow: "group-hover:shadow-blue-500/10",
   },
-  {
-    key: "show_register_funktionen" as const,
-    icon: "⚡",
-    label: "Funktionen",
-    desc: "Einzelne KI-Funktionen & Integrationen",
-    href: "/register/funktionen",
-    color: "text-violet-300",
-    border: "border-violet-800/60",
-    bg: "bg-violet-950/20",
-    glow: "group-hover:shadow-violet-500/10",
-  },
 ];
 
 interface PortalSettings {
   show_login: boolean;
   show_register_menschen: boolean;
   show_register_firmen: boolean;
-  show_register_funktionen: boolean;
   show_tagline: boolean;
 }
 
@@ -54,7 +42,6 @@ const DEFAULTS: PortalSettings = {
   show_login: true,
   show_register_menschen: true,
   show_register_firmen: true,
-  show_register_funktionen: true,
   show_tagline: true,
 };
 

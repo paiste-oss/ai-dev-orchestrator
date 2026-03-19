@@ -105,7 +105,6 @@ function DeleteDialog({ customer, onConfirm, onCancel, loading }: {
 const SEGMENT_ORDER: { key: string; label: string }[] = [
   { key: "menschen", label: "Menschen" },
   { key: "firmen",   label: "Firmen"   },
-  { key: "funktionen", label: "Funktionen" },
 ];
 
 function BaddiModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {

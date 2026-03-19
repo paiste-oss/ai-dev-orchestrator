@@ -10,7 +10,6 @@ interface PortalSettings {
   show_login: boolean;
   show_register_menschen: boolean;
   show_register_firmen: boolean;
-  show_register_funktionen: boolean;
   show_tagline: boolean;
 }
 
@@ -76,7 +75,6 @@ export default function AdminSettings() {
     show_login: true,
     show_register_menschen: true,
     show_register_firmen: true,
-    show_register_funktionen: true,
     show_tagline: true,
   });
   const [impressum, setImpressum] = useState<ImpressumSettings>(IMPRESSUM_DEFAULTS);
@@ -211,12 +209,6 @@ export default function AdminSettings() {
                     description="Karte «Firmen» → /register/firma"
                     checked={settings.show_register_firmen}
                     onChange={v => set("show_register_firmen", v)}
-                  />
-                  <Toggle
-                    label="Registrierung: Funktionen"
-                    description="Karte «Funktionen» → /register/funktionen"
-                    checked={settings.show_register_funktionen}
-                    onChange={v => set("show_register_funktionen", v)}
                   />
                 </div>
                 <div className="pt-4">

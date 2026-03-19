@@ -76,9 +76,8 @@ const SEGMENT_OPTIONS = [
 ];
 
 const SEGMENT_ORDER: { key: string; label: string }[] = [
-  { key: "menschen",   label: "Menschen"   },
-  { key: "firmen",     label: "Firmen"     },
-  { key: "funktionen", label: "Funktionen" },
+  { key: "menschen", label: "Menschen" },
+  { key: "firmen",   label: "Firmen"   },
 ];
 
 const LANGUAGE_OPTIONS = [
