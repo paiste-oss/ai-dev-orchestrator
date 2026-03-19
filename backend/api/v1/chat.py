@@ -1,23 +1,29 @@
 """
-Chat API — persistent memory chat with Gemini or OpenAI.
+Chat API — persistent memory chat mit Claude / Gemini / OpenAI.
 
 Flow per request:
-  1. Load last 20 messages from DB (conversation history)
-  2. Ask Ollama which stored memories are relevant (local, private)
-  3. Build system prompt with selected context
-  4. Send to Gemini or OpenAI
-  5. Save both turns to DB
-  6. Fire-and-forget: Ollama extracts new memory facts in background
+  1. Conversation history laden
+  2. Baddi-Konfiguration + zugewiesene Agenten aus Redis lesen (falls buddy_id gesetzt)
+  3. Relevante Memories auswählen (Ollama, lokal)
+  4. System-Prompt aufbauen: Baddi-Prompt + Agent-Capabilities + Memory-Kontext
+  5. LLM aufrufen: Claude → Gemini → OpenAI
+  6. Beide Turns in DB speichern
+  7. Memory-Extraktion im Hintergrund starten
 """
+import json
+import uuid as uuid_mod
 from datetime import datetime
 
+import redis as redis_lib
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config import settings
 from core.database import get_db
 from core.dependencies import get_current_user
+from models.buddy import AiBuddy
 from models.chat import ChatMessage, MemoryItem
 from models.customer import Customer
 from services.llm_gateway import chat_with_claude, chat_with_gemini, chat_with_openai
@@ -25,11 +31,38 @@ from services.memory_service import select_relevant_context, schedule_memory_ext
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
-_HISTORY_WINDOW = 20   # messages loaded from DB
-_CONTEXT_WINDOW = 10   # messages sent to external LLM
+_HISTORY_WINDOW = 20
+_CONTEXT_WINDOW = 10
+
+# Agent-Capabilities (spiegelt frontend/lib/agents.ts)
+_AGENT_CAPABILITIES: dict[str, str] = {
+    "ki-chat":        "Intelligente Konversation, Texterstellung und Beratung",
+    "document":       "Analyse und Zusammenfassung von PDFs, Word- und Textdokumenten",
+    "speech":         "Voice-to-Text, Transkription und Sprachsteuerung",
+    "automation":     "n8n-Workflows planen, optimieren und auslösen",
+    "translation":    "Mehrsprachige Übersetzung mit kulturellem Kontext",
+    "knowledge-base": "Suche und Beantwortung aus eigener Wissensdatenbank (RAG)",
+    "research":       "Web-Recherche und Faktenprüfung in Echtzeit",
+    "code":           "Code schreiben, reviewen und ausführen",
+    "planning":       "Komplexe Ziele planen, priorisieren und koordinieren",
+    "communication":  "E-Mails verfassen, Termine planen und CRM-Einträge verwalten",
+    "data-analysis":  "Statistische Analysen, Visualisierungen und Handlungsempfehlungen",
+    "devops":         "Deployments überwachen, Tests ausführen und Incidents beheben",
+    "support":        "Kundenanfragen beantworten und bei Bedarf eskalieren",
+}
 
 
-# ── Schemas ──────────────────────────────────────────────────────────────────
+def _load_baddi_config(usecase_id: str) -> dict:
+    """Lädt Baddi-Konfiguration (System-Prompt + Agenten) aus Redis."""
+    try:
+        r = redis_lib.from_url(settings.redis_url, decode_responses=True)
+        raw = r.get(f"baddi:config:{usecase_id}")
+        return json.loads(raw) if raw else {}
+    except Exception:
+        return {}
+
+
+# ── Schemas ───────────────────────────────────────────────────────────────────
 
 class ChatRequest(BaseModel):
     message: str
@@ -78,25 +111,45 @@ async def send_message(
     )
     history = list(reversed(result.scalars().all()))
 
-    # 2. Relevant memory context (selected by local Ollama)
+    # 2. Baddi-Konfiguration + zugewiesene Agenten laden
+    baddi_config: dict = {}
+    if req.buddy_id:
+        try:
+            buddy = await db.get(AiBuddy, uuid_mod.UUID(req.buddy_id))
+            if buddy and buddy.usecase_id:
+                baddi_config = _load_baddi_config(buddy.usecase_id)
+        except Exception:
+            pass
+
+    # 3. Relevante Memories (lokal, Ollama)
     relevant = await select_relevant_context(customer_id, req.message, db)
 
-    # 3. System prompt
-    system_parts = ["Du bist ein hilfreicher, persönlicher AI-Assistent."]
+    # 4. System-Prompt aufbauen
+    base_prompt = (baddi_config.get("system_prompt") or "").strip()
+    system_parts = [base_prompt if base_prompt else "Du bist ein hilfreicher, persönlicher AI-Assistent."]
+
+    # Agent-Capabilities anhängen
+    agent_ids: list[str] = baddi_config.get("agents", [])
+    caps = [_AGENT_CAPABILITIES[aid] for aid in agent_ids if aid in _AGENT_CAPABILITIES]
+    if caps:
+        caps_text = "\n".join(f"- {c}" for c in caps)
+        system_parts.append(f"\nDeine Fähigkeiten (aktive Agenten):\n{caps_text}")
+
     if relevant:
         facts = "\n".join(f"- {m}" for m in relevant)
         system_parts.append(f"\nWas du über diesen User weißt:\n{facts}")
+
     system_prompt = "\n".join(system_parts)
 
-    # 4. Build message list for external LLM (last N turns + new message)
+    # 5. Build message list
     messages = [{"role": m.role, "content": m.content} for m in history[-_CONTEXT_WINDOW:]]
     messages.append({"role": "user", "content": req.message})
 
-    # 5. Claude primary → Gemini → OpenAI fallback
+    # 6. Claude → Gemini → OpenAI
     provider = "claude"
     model_name = "claude-haiku-4-5-20251001"
-    errors = []
-    response_text = None
+    errors: list[str] = []
+    response_text: str | None = None
 
     try:
         response_text = await chat_with_claude(messages, system_prompt)
@@ -106,7 +159,7 @@ async def send_message(
     if response_text is None and settings.gemini_api_key:
         try:
             provider = "gemini"
-            model_name = "gemini-2.0-flash"
+            model_name = "gemini-2.5-flash"
             response_text = await chat_with_gemini(messages, system_prompt)
         except Exception as e:
             errors.append(f"Gemini: {e}")
@@ -122,7 +175,7 @@ async def send_message(
     if response_text is None:
         raise HTTPException(status_code=502, detail=" | ".join(errors))
 
-    # 6. Persist both turns
+    # 7. Beide Turns persistieren
     user_msg = ChatMessage(
         customer_id=customer_id,
         buddy_id=req.buddy_id,
@@ -144,7 +197,7 @@ async def send_message(
     await db.commit()
     await db.refresh(assistant_msg)
 
-    # 7. Extract memories in background (does not block the response)
+    # 8. Memory-Extraktion im Hintergrund
     schedule_memory_extraction(customer_id, req.message, response_text)
 
     return ChatResponse(
