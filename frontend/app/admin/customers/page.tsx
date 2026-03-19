@@ -499,7 +499,11 @@ export default function CustomersPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-700/50">
                   {data.items.map((customer) => (
-                    <tr key={customer.id} className="hover:bg-gray-700/30 transition-colors">
+                    <tr
+                      key={customer.id}
+                      onClick={() => router.push(`/admin/customers/${customer.id}`)}
+                      className="hover:bg-gray-700/30 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-3 hidden lg:table-cell">
                         <span className="font-mono text-xs text-gray-500 select-all" title={customer.id}>
                           {customer.id.slice(0, 8)}…
@@ -511,12 +515,9 @@ export default function CustomersPage() {
                             {customer.name.charAt(0).toUpperCase()}
                           </div>
                           <div className="flex flex-col">
-                            <button
-                              onClick={() => router.push(`/admin/customers/${customer.id}`)}
-                              className="font-medium text-white whitespace-nowrap hover:text-yellow-400 transition-colors text-left"
-                            >
+                            <span className="font-medium text-white whitespace-nowrap">
                               {customer.name}
-                            </button>
+                            </span>
                             {customer.role !== "admin" && customer.primary_usecase_id && (() => {
                               const uc = USE_CASES.find(u => u.id === customer.primary_usecase_id);
                               return uc ? <span className="font-mono text-xs text-yellow-500">{uc.baddiD}</span> : null;
@@ -524,7 +525,7 @@ export default function CustomersPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-300 whitespace-nowrap">
+                      <td className="px-4 py-3 text-gray-300 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         <a href={`mailto:${customer.email}`} className="hover:text-yellow-400 transition-colors">{customer.email}</a>
                       </td>
                       <td className="px-4 py-3"><Badge value={customer.segment} map={SEGMENT_LABELS} /></td>
@@ -540,7 +541,7 @@ export default function CustomersPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-400 whitespace-nowrap text-xs">{formatDate(customer.created_at)}</td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => setBaddiModal(customer)}
