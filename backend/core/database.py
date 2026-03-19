@@ -22,6 +22,7 @@ async def init_db():
         # Neue Spalten sicher hinzufügen (idempotent)
         migrations = [
             "ALTER TABLE ai_buddies ADD COLUMN IF NOT EXISTS usecase_id VARCHAR",
+            "ALTER TABLE ai_buddies ADD COLUMN IF NOT EXISTS avatar_url VARCHAR",
             "ALTER TABLE cost_entries ADD COLUMN IF NOT EXISTS balance_chf FLOAT",
             "ALTER TABLE cost_entries ADD COLUMN IF NOT EXISTS balance_updated_at TIMESTAMP",
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS birth_year INTEGER",

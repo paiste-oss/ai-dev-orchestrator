@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { apiFetch, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
+
+const BuddyAvatar = dynamic(() => import("@/components/BuddyAvatar"), { ssr: false });
 
 interface Message {
   id: string;
@@ -20,6 +23,12 @@ interface MemoryItem {
   importance: number;
 }
 
+interface BuddyInfo {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+}
+
 export default function ChatPage() {
   const { buddyId } = useParams<{ buddyId: string }>();
   const router = useRouter();
@@ -27,9 +36,11 @@ export default function ChatPage() {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [memories, setMemories] = useState<MemoryItem[]>([]);
+  const [buddy, setBuddy] = useState<BuddyInfo | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showMemory, setShowMemory] = useState(false);
+  const [showAvatar, setShowAvatar] = useState(true);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [lastProvider, setLastProvider] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -37,6 +48,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!user) { router.replace("/login"); return; }
+    loadBuddy();
     loadHistory();
     loadMemories();
   }, [buddyId]);
@@ -44,6 +56,13 @@ export default function ChatPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  async function loadBuddy() {
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/buddies/${buddyId}`);
+      if (res.ok) setBuddy(await res.json());
+    } catch { /* ignore */ }
+  }
 
   async function loadHistory() {
     try {
@@ -98,7 +117,6 @@ export default function ChatPage() {
       setLastProvider(data.provider);
       setMessages((prev) => [...prev, assistantMsg]);
 
-      // Refresh memories after 4s (Ollama extracts in background)
       setTimeout(loadMemories, 4000);
     } catch (err: unknown) {
       setMessages((prev) => [
@@ -141,13 +159,25 @@ export default function ChatPage() {
         <div className="flex items-center gap-3">
           <button onClick={() => router.back()} className="text-gray-400 hover:text-white text-xl leading-none">←</button>
           <div>
-            <h1 className="font-bold text-sm">KI-Chat</h1>
+            <h1 className="font-bold text-sm">{buddy?.name ?? "KI-Chat"}</h1>
             <p className={`text-xs ${providerColor}`}>{providerLabel}</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Memory panel toggle */}
+          {buddy?.avatar_url && (
+            <button
+              onClick={() => setShowAvatar(!showAvatar)}
+              title={showAvatar ? "Avatar ausblenden" : "Avatar anzeigen"}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                showAvatar
+                  ? "bg-yellow-400/20 border-yellow-500/40 text-yellow-300"
+                  : "border-gray-700 text-gray-400 hover:text-white hover:border-gray-600"
+              }`}
+            >
+              🧍
+            </button>
+          )}
           <button
             onClick={() => setShowMemory(!showMemory)}
             title="Gedächtnis"
@@ -164,8 +194,24 @@ export default function ChatPage() {
 
       <div className="flex flex-1 overflow-hidden">
 
+        {/* ── Avatar Panel (links, wenn vorhanden) ── */}
+        {buddy?.avatar_url && showAvatar && (
+          <aside className="w-56 shrink-0 border-r border-gray-800 bg-gray-950 flex flex-col items-center justify-start pt-6 gap-3 hidden md:flex">
+            <BuddyAvatar avatarUrl={buddy.avatar_url} height={320} cameraDistance={2.4} />
+            <p className="text-xs text-gray-500 px-3 text-center">{buddy.name}</p>
+          </aside>
+        )}
+
         {/* ── Messages ── */}
         <div className="flex-1 flex flex-col overflow-hidden">
+
+          {/* Avatar mobile (oben, klein) */}
+          {buddy?.avatar_url && showAvatar && (
+            <div className="md:hidden shrink-0 border-b border-gray-800">
+              <BuddyAvatar avatarUrl={buddy.avatar_url} height={180} cameraDistance={2.0} />
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
             {!historyLoaded && (
               <p className="text-center text-gray-600 text-sm pt-10">Lade Verlauf…</p>
@@ -175,10 +221,7 @@ export default function ChatPage() {
               <div className="flex flex-col items-center justify-center h-full gap-3 text-center py-20">
                 <p className="text-5xl">💬</p>
                 <p className="text-gray-400 text-sm">
-                  Starte ein Gespräch mit <span className={`font-semibold ${providerColor}`}>{providerLabel}</span>.
-                </p>
-                <p className="text-gray-600 text-xs max-w-sm">
-                  Alle Nachrichten werden dauerhaft gespeichert. Ollama merkt sich lokal was wichtig ist und gibt es als Kontext mit.
+                  Starte ein Gespräch{buddy?.name ? ` mit ${buddy.name}` : ""}.
                 </p>
               </div>
             )}
@@ -246,7 +289,7 @@ export default function ChatPage() {
           <aside className="w-72 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden shrink-0">
             <div className="px-4 py-3 border-b border-gray-800">
               <h2 className="font-bold text-sm">🧠 Gedächtnis</h2>
-              <p className="text-xs text-gray-500 mt-0.5">Lokal von Ollama extrahierte Fakten. Werden als Kontext mitgegeben.</p>
+              <p className="text-xs text-gray-500 mt-0.5">Von Ollama extrahierte Fakten. Werden als Kontext mitgegeben.</p>
             </div>
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
               {memories.length === 0 && (

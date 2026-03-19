@@ -34,6 +34,7 @@ class AiBuddy(Base):
     usecase_id: Mapped[str | None] = mapped_column(String, nullable=True)   # z.B. "silberperlen", "firma", "funktion-dokumente"
     n8n_workflow_id: Mapped[str | None] = mapped_column(String, nullable=True)
     qdrant_collection: Mapped[str | None] = mapped_column(String, nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)   # Ready Player Me .glb URL
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 

@@ -28,9 +28,14 @@ class BuddyOut(BaseModel):
     segment: str
     persona_config: dict
     is_active: bool
+    avatar_url: str | None = None
 
     class Config:
         from_attributes = True
+
+
+class AvatarUpdate(BaseModel):
+    avatar_url: str | None = None
 
 
 class ChatRequest(BaseModel):
@@ -107,6 +112,23 @@ async def remove_buddy(
         raise HTTPException(status_code=404, detail="Buddy not found")
     buddy.is_active = False
     await db.commit()
+
+
+@router.patch("/{buddy_id}/avatar", response_model=BuddyOut)
+async def update_buddy_avatar(
+    buddy_id: uuid.UUID,
+    data: AvatarUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: Customer = Depends(require_admin),
+):
+    """Setzt oder entfernt die Ready Player Me Avatar-URL eines Buddys."""
+    buddy = await db.get(AiBuddy, buddy_id)
+    if not buddy:
+        raise HTTPException(status_code=404, detail="Buddy not found")
+    buddy.avatar_url = data.avatar_url
+    await db.commit()
+    await db.refresh(buddy)
+    return buddy
 
 
 @router.get("/{buddy_id}", response_model=BuddyOut)
