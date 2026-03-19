@@ -9,6 +9,10 @@ from core.database import get_db
 from core.dependencies import require_admin
 from models.customer import Customer
 from models.buddy import AiBuddy, ConversationThread, Message
+from models.credential import CustomerCredential
+from models.document import CustomerDocument
+from models.buddy_event import BuddyEvent
+from models.chat import ChatMessage, MemoryItem
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
@@ -253,7 +257,8 @@ async def delete_customer(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    # Delete messages → threads → buddies first to satisfy FK constraints
+    # Delete all child records to satisfy FK constraints
+    # 1. Buddy-related: messages → threads → buddies
     buddy_result = await db.execute(select(AiBuddy.id).where(AiBuddy.customer_id == customer_id))
     buddy_ids = [row[0] for row in buddy_result.all()]
     if buddy_ids:
@@ -271,6 +276,13 @@ async def delete_customer(
         await db.execute(
             AiBuddy.__table__.delete().where(AiBuddy.customer_id == customer_id)
         )
+
+    # 2. Other customer-linked tables
+    await db.execute(CustomerCredential.__table__.delete().where(CustomerCredential.customer_id == customer_id))
+    await db.execute(CustomerDocument.__table__.delete().where(CustomerDocument.customer_id == customer_id))
+    await db.execute(BuddyEvent.__table__.delete().where(BuddyEvent.customer_id == customer_id))
+    await db.execute(ChatMessage.__table__.delete().where(ChatMessage.customer_id == customer_id))
+    await db.execute(MemoryItem.__table__.delete().where(MemoryItem.customer_id == customer_id))
 
     await db.delete(customer)
     await db.commit()
