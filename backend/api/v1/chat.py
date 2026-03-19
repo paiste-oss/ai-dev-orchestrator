@@ -20,7 +20,7 @@ from core.database import get_db
 from core.dependencies import get_current_user
 from models.chat import ChatMessage, MemoryItem
 from models.customer import Customer
-from services.llm_gateway import chat_with_gemini, chat_with_openai
+from services.llm_gateway import chat_with_claude, chat_with_gemini, chat_with_openai
 from services.memory_service import select_relevant_context, schedule_memory_extraction
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -92,21 +92,35 @@ async def send_message(
     messages = [{"role": m.role, "content": m.content} for m in history[-_CONTEXT_WINDOW:]]
     messages.append({"role": "user", "content": req.message})
 
-    # 5. Gemini primary → ChatGPT fallback
-    provider = "gemini"
-    model_name = "gemini-2.0-flash"
+    # 5. Claude primary → Gemini → OpenAI fallback
+    provider = "claude"
+    model_name = "claude-haiku-4-5-20251001"
+    errors = []
+    response_text = None
+
     try:
-        response_text = await chat_with_gemini(messages, system_prompt)
-    except Exception as gemini_exc:
-        provider = "openai"
-        model_name = "gpt-4o-mini"
+        response_text = await chat_with_claude(messages, system_prompt)
+    except Exception as e:
+        errors.append(f"Claude: {e}")
+
+    if response_text is None and settings.gemini_api_key:
         try:
+            provider = "gemini"
+            model_name = "gemini-2.0-flash"
+            response_text = await chat_with_gemini(messages, system_prompt)
+        except Exception as e:
+            errors.append(f"Gemini: {e}")
+
+    if response_text is None and settings.openai_api_key:
+        try:
+            provider = "openai"
+            model_name = "gpt-4o-mini"
             response_text = await chat_with_openai(messages, system_prompt)
-        except Exception as openai_exc:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Gemini: {gemini_exc} | ChatGPT: {openai_exc}",
-            )
+        except Exception as e:
+            errors.append(f"ChatGPT: {e}")
+
+    if response_text is None:
+        raise HTTPException(status_code=502, detail=" | ".join(errors))
 
     # 6. Persist both turns
     user_msg = ChatMessage(

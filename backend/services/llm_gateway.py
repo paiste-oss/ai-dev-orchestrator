@@ -1,9 +1,47 @@
 """
-LLM Gateway — routes chat requests to Gemini or OpenAI.
-Both use direct REST (httpx) to avoid heavy SDK dependencies.
+LLM Gateway — routes chat requests to Claude, Gemini oder OpenAI.
+Priorität: Claude (Anthropic) → Gemini → OpenAI
 """
 import httpx
 from core.config import settings
+
+
+async def chat_with_claude(
+    messages: list[dict],
+    system_prompt: str | None = None,
+    model: str = "claude-haiku-4-5-20251001",
+) -> str:
+    """Send a conversation to Anthropic Claude and return the response text."""
+    if not settings.anthropic_api_key:
+        raise ValueError("ANTHROPIC_API_KEY is not configured in the environment.")
+
+    all_messages = [m for m in messages if m["role"] in ("user", "assistant")]
+
+    payload: dict = {
+        "model": model,
+        "max_tokens": 2048,
+        "messages": all_messages,
+    }
+    if system_prompt:
+        payload["system"] = system_prompt
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": settings.anthropic_api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json=payload,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+    try:
+        return data["content"][0]["text"]
+    except (KeyError, IndexError) as exc:
+        raise ValueError(f"Unexpected Claude response structure: {data}") from exc
 
 
 async def chat_with_gemini(
@@ -15,7 +53,6 @@ async def chat_with_gemini(
     if not settings.gemini_api_key:
         raise ValueError("GEMINI_API_KEY is not configured in the environment.")
 
-    # Gemini uses role "model" instead of "assistant"
     contents = [
         {"role": "user" if m["role"] == "user" else "model", "parts": [{"text": m["content"]}]}
         for m in messages

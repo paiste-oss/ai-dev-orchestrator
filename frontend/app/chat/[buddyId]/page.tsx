@@ -148,8 +148,13 @@ export default function ChatPage() {
     }
   }
 
-  const providerLabel = lastProvider === "openai" ? "ChatGPT (Fallback)" : "Gemini";
-  const providerColor = lastProvider === "openai" ? "text-green-400" : "text-blue-400";
+  const providerLabel =
+    lastProvider === "claude" ? "Claude (Anthropic)" :
+    lastProvider === "gemini" ? "Gemini" :
+    lastProvider === "openai" ? "ChatGPT (Fallback)" : "AI";
+  const providerColor =
+    lastProvider === "claude" ? "text-orange-400" :
+    lastProvider === "gemini" ? "text-blue-400" : "text-green-400";
 
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-white">
@@ -238,7 +243,7 @@ export default function ChatPage() {
                   {msg.content}
                   {msg.role === "assistant" && msg.provider && (
                     <p className="text-xs mt-2 opacity-40">
-                      {msg.provider === "gemini" ? "Gemini" : "ChatGPT"} · {msg.model}
+                      {msg.provider === "claude" ? "Claude" : msg.provider === "gemini" ? "Gemini" : "ChatGPT"} · {msg.model}
                     </p>
                   )}
                 </div>
