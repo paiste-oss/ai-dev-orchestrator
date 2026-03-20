@@ -7,7 +7,7 @@ import { apiFetch } from "@/lib/auth";
 import { API_ROUTES } from "@/lib/config";
 import { BACKEND_URL } from "@/lib/config";
 import AdminSidebar from "@/components/AdminSidebar";
-import { USE_CASES, UseCase } from "@/lib/usecases";
+import { USE_CASES } from "@/lib/usecases";
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
 
@@ -29,13 +29,6 @@ interface CustomerListResponse {
   page_size: number;
 }
 
-interface BaddiRecord {
-  id: string;
-  usecase_id: string | null;
-  name: string;
-  segment: string;
-  is_active: boolean;
-}
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
 
@@ -107,173 +100,6 @@ const SEGMENT_ORDER: { key: string; label: string }[] = [
   { key: "firmen",   label: "Firmen"   },
 ];
 
-function BaddiModal({ customer, onClose }: { customer: Customer; onClose: () => void }) {
-  const [buddies, setBuddies] = useState<BaddiRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [assigning, setAssigning] = useState<string | null>(null);
-  const [removing, setRemoving] = useState<string | null>(null);
-  const [activeSegment, setActiveSegment] = useState("menschen");
-
-  const loadBuddies = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/buddies/customer/${customer.id}`);
-      if (res.ok) setBuddies(await res.json());
-    } finally {
-      setLoading(false);
-    }
-  }, [customer.id]);
-
-  useEffect(() => { loadBuddies(); }, [loadBuddies]);
-
-  const assignedIds = new Set(buddies.map(b => b.usecase_id).filter(Boolean));
-
-  const assign = async (uc: UseCase) => {
-    setAssigning(uc.id);
-    try {
-      await apiFetch(`${BACKEND_URL}/v1/buddies`, {
-        method: "POST",
-        body: JSON.stringify({
-          customer_id: customer.id,
-          usecase_id: uc.id,
-          name: uc.buddyName,
-          segment: uc.segment,
-          persona_config: {
-            system_prompt_template: uc.systemPrompt,
-            preferred_model: "mistral",
-          },
-        }),
-      });
-      await loadBuddies();
-    } catch {
-      alert("Fehler beim Zuweisen");
-    } finally {
-      setAssigning(null);
-    }
-  };
-
-  const remove = async (buddyId: string) => {
-    setRemoving(buddyId);
-    try {
-      await apiFetch(`${BACKEND_URL}/v1/buddies/${buddyId}`, { method: "DELETE" });
-      await loadBuddies();
-    } catch {
-      alert("Fehler beim Entfernen");
-    } finally {
-      setRemoving(null);
-    }
-  };
-
-  const visibleUseCases = USE_CASES.filter(uc => uc.segment === activeSegment && uc.status === "active");
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="relative bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[85vh]">
-
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-          <div>
-            <h2 className="font-bold text-white">🤖 Baddis — {customer.name}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{customer.email}</p>
-          </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white text-xl">✕</button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-
-          {/* Aktuelle Baddis */}
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Zugewiesene Baddis</p>
-            {loading ? (
-              <p className="text-sm text-gray-500">Wird geladen…</p>
-            ) : buddies.length === 0 ? (
-              <p className="text-sm text-gray-500">Noch keine Baddis zugewiesen.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {buddies.map(b => {
-                  const uc = USE_CASES.find(u => u.id === b.usecase_id);
-                  return (
-                    <div key={b.id} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm ${
-                      uc ? `${uc.bgColor} ${uc.borderColor}` : "bg-gray-800 border-gray-600"
-                    }`}>
-                      <span>{uc?.icon ?? "🤖"}</span>
-                      <div className="flex flex-col">
-                        <span className={`font-medium text-xs ${uc?.color ?? "text-white"}`}>{b.name}</span>
-                        <span className="font-mono text-xs text-yellow-500">{uc?.baddiD ?? "—"}</span>
-                      </div>
-                      <button
-                        onClick={() => remove(b.id)}
-                        disabled={removing === b.id}
-                        className="ml-1 text-gray-500 hover:text-red-400 transition-colors disabled:opacity-50 text-xs"
-                      >
-                        {removing === b.id ? "…" : "✕"}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Baddis hinzufügen */}
-          <div className="space-y-3">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Baddi hinzufügen</p>
-
-            {/* Segment-Tabs */}
-            <div className="flex gap-1 bg-gray-800 rounded-lg p-1 w-fit">
-              {SEGMENT_ORDER.map(s => (
-                <button
-                  key={s.key}
-                  onClick={() => setActiveSegment(s.key)}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                    activeSegment === s.key ? "bg-yellow-400 text-gray-900" : "text-gray-400 hover:text-white"
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {visibleUseCases.map(uc => {
-                const isAssigned = assignedIds.has(uc.id);
-                return (
-                  <button
-                    key={uc.id}
-                    onClick={() => !isAssigned && assign(uc)}
-                    disabled={isAssigned || assigning === uc.id}
-                    className={`text-left p-3 rounded-xl border transition-colors flex items-center gap-3 ${
-                      isAssigned
-                        ? `${uc.bgColor} ${uc.borderColor} opacity-60 cursor-default`
-                        : `bg-gray-800 border-gray-700 hover:border-gray-500 hover:bg-gray-700`
-                    }`}
-                  >
-                    <span className="text-xl shrink-0">{uc.icon}</span>
-                    <div className="min-w-0">
-                      <p className={`text-sm font-semibold ${isAssigned ? uc.color : "text-white"}`}>
-                        {uc.buddyName} <span className="font-normal text-gray-400">({uc.name})</span>
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">{uc.tagline}</p>
-                    </div>
-                    {isAssigned && <span className="ml-auto text-xs text-green-400 shrink-0">✓</span>}
-                    {assigning === uc.id && <span className="ml-auto text-xs text-gray-400 shrink-0">…</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="px-6 py-3 border-t border-gray-700">
-          <button onClick={onClose} className="w-full py-2 rounded-xl bg-gray-700 hover:bg-gray-600 text-sm transition-colors">
-            Schliessen
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Hauptkomponente ──────────────────────────────────────────────────────────
 
@@ -295,7 +121,6 @@ export default function CustomersPage() {
 
   const [deleteConfirm, setDeleteConfirm] = useState<Customer | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [baddiModal, setBaddiModal] = useState<Customer | null>(null);
 
   const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
@@ -372,9 +197,6 @@ export default function CustomersPage() {
           onCancel={() => setDeleteConfirm(null)} loading={deleting} />
       )}
 
-      {baddiModal && (
-        <BaddiModal customer={baddiModal} onClose={() => setBaddiModal(null)} />
-      )}
 
       <main className="flex-1 p-4 md:p-8 space-y-6 overflow-y-auto min-w-0">
 
@@ -542,13 +364,6 @@ export default function CustomersPage() {
                       <td className="px-4 py-3 text-gray-400 whitespace-nowrap text-xs">{formatDate(customer.created_at)}</td>
                       <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => setBaddiModal(customer)}
-                            title="Baddis verwalten"
-                            className="text-xs px-2 py-1 rounded transition-colors border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
-                          >
-                            🤖
-                          </button>
                           <button
                             onClick={() => toggleActive(customer)}
                             title={customer.is_active ? "Deaktivieren" : "Aktivieren"}
