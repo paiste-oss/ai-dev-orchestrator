@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSession, getToken } from "@/lib/auth";
 
@@ -164,7 +164,7 @@ function PlanCard({
 
 // ── Hauptseite ────────────────────────────────────────────────────────────────
 
-export default function BillingPage() {
+function BillingPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -499,5 +499,13 @@ export default function BillingPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-950" />}>
+      <BillingPageInner />
+    </Suspense>
   );
 }
