@@ -108,7 +108,6 @@ PLAN_DEFAULTS = [
 
 async def seed_plans(db: AsyncSession) -> None:
     """Legt die drei Standardpläne an falls noch keine existieren."""
-    count = await db.scalar(select(SubscriptionPlan).with_only_columns())  # type: ignore
     from sqlalchemy import func
     count = await db.scalar(select(func.count()).select_from(SubscriptionPlan))
     if count and count > 0:
