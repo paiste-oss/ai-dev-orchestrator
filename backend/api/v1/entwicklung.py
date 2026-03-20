@@ -144,7 +144,7 @@ async def admin_dialog_message(
     db: AsyncSession = Depends(get_db),
     _: Customer = Depends(require_admin),
 ):
-    """Admin sendet eine Nachricht in den Dialog (z.B. API-Key, Dokumentation)."""
+    """Admin sendet eine Nachricht — Uhrwerk antwortet mit echtem Claude-Response."""
     r = await db.get(CapabilityRequest, uuid.UUID(request_id))
     if not r:
         raise HTTPException(status_code=404, detail="Nicht gefunden")
@@ -155,21 +155,19 @@ async def admin_dialog_message(
         "content": msg.content,
         "created_at": datetime.utcnow().isoformat(),
     })
-    r.dialog = dialog
-    r.updated_at = datetime.utcnow()
 
-    # Status: wenn vorher needs_input → zurück zu building
     if r.status == "needs_input":
         r.status = "building"
-        dialog.append({
-            "role": "uhrwerk",
-            "content": "Danke! Ich verarbeite die Information und arbeite weiter an der Entwicklung.",
-            "created_at": datetime.utcnow().isoformat(),
-        })
-        r.dialog = dialog
 
+    r.dialog = dialog
+    r.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(r)
+
+    # Uhrwerk antwortet im Hintergrund mit echtem Claude-Response
+    from services.entwicklung_engine import schedule_uhrwerk_reply
+    schedule_uhrwerk_reply(str(r.id))
+
     return _to_out(r)
 
 

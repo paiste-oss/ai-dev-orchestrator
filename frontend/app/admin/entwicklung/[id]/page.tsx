@@ -81,6 +81,8 @@ export default function EntwicklungDetailPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [waitingReply, setWaitingReply] = useState(false);
   const [deployKey, setDeployKey] = useState("");
   const [showDeploy, setShowDeploy] = useState(false);
   const [statusChanging, setStatusChanging] = useState(false);
@@ -107,15 +109,29 @@ export default function EntwicklungDetailPage() {
   const sendMessage = async () => {
     if (!message.trim()) return;
     setSending(true);
-    const res = await apiFetch(`${BACKEND_URL}/v1/entwicklung/${id}/dialog`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: message.trim() }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setReq(data);
-      setMessage("");
+    setError(null);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/entwicklung/${id}/dialog`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: message.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReq(data);
+        setMessage("");
+        // Uhrwerk antwortet im Hintergrund — nach 3s neu laden
+        setWaitingReply(true);
+        setTimeout(async () => {
+          await load();
+          setWaitingReply(false);
+        }, 4000);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setError(`Fehler ${res.status}: ${err.detail ?? "Unbekannter Fehler"}`);
+      }
+    } catch (e) {
+      setError("Verbindungsfehler — Backend erreichbar?");
     }
     setSending(false);
   };
@@ -341,8 +357,30 @@ export default function EntwicklungDetailPage() {
                   </div>
                 </div>
               ))}
+              {/* Uhrwerk tippt... */}
+              {waitingReply && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-800/80 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-gray-400 flex items-center gap-2">
+                    <span className="flex gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </span>
+                    Uhrwerk analysiert...
+                  </div>
+                </div>
+              )}
+
               <div ref={dialogEndRef} />
             </div>
+
+            {/* Fehler */}
+            {error && (
+              <div className="mx-4 mb-2 px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-400 flex items-center justify-between">
+                <span>{error}</span>
+                <button onClick={() => setError(null)} className="text-red-600 hover:text-red-400 ml-3">✕</button>
+              </div>
+            )}
 
             {/* Eingabe */}
             {req.status !== "deployed" && req.status !== "rejected" && (

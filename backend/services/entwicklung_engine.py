@@ -147,10 +147,87 @@ async def analyse_capability_request(request_id: str) -> None:
 
 
 def schedule_capability_analysis(request_id: str, db=None) -> None:
-    """Startet die Analyse als Background-Task (non-blocking). db wird ignoriert."""
+    """Startet die Erstanalyse als Background-Task (non-blocking)."""
     async def _run():
         try:
             await analyse_capability_request(request_id)
+        except Exception:
+            pass
+
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(_run())
+    except Exception:
+        pass
+
+
+async def uhrwerk_reply(request_id: str) -> None:
+    """
+    Uhrwerk liest den gesamten Dialog-Kontext und antwortet auf die Admin-Nachricht.
+    Wird aufgerufen nachdem der Admin eine Nachricht geschickt hat.
+    """
+    import uuid as uuid_mod
+    from services.llm_gateway import chat_with_claude
+    from core.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        req = await db.get(CapabilityRequest, uuid_mod.UUID(request_id))
+        if not req:
+            return
+
+        dialog = list(req.dialog or [])
+
+        # Dialog-Kontext als Nachrichten aufbauen
+        messages = []
+        for entry in dialog:
+            role = "assistant" if entry["role"] == "uhrwerk" else "user"
+            messages.append({"role": role, "content": entry["content"]})
+
+        system_prompt = (
+            "Du bist das Uhrwerk — ein Software-Architekt der neue Tools und API-Integrationen "
+            "für das Baddi-System entwickelt. Du analysierst Anfragen, planst Implementierungen "
+            "und arbeitest mit dem Admin zusammen um fehlende Fähigkeiten zu entwickeln.\n\n"
+            f"Aktuelle Anfrage: \"{req.original_message}\"\n"
+            f"Intent: {req.detected_intent or 'unbekannt'}\n"
+            f"Status: {req.status}\n\n"
+            "Antworte präzise und technisch. Wenn du alle nötigen Informationen hast, "
+            "beschreibe den nächsten konkreten Entwicklungsschritt. "
+            "Wenn du noch etwas brauchst, frag gezielt danach."
+        )
+
+        try:
+            response = await chat_with_claude(
+                messages=messages,
+                system_prompt=system_prompt,
+                model="claude-haiku-4-5-20251001",
+            )
+
+            dialog.append({
+                "role": "uhrwerk",
+                "content": response,
+                "created_at": datetime.utcnow().isoformat(),
+            })
+            req.dialog = dialog
+            req.updated_at = datetime.utcnow()
+            await db.commit()
+
+        except Exception as e:
+            dialog.append({
+                "role": "uhrwerk",
+                "content": f"Fehler beim Verarbeiten: {str(e)[:200]}",
+                "created_at": datetime.utcnow().isoformat(),
+            })
+            req.dialog = dialog
+            req.updated_at = datetime.utcnow()
+            await db.commit()
+
+
+def schedule_uhrwerk_reply(request_id: str) -> None:
+    """Startet die Uhrwerk-Antwort als Background-Task (non-blocking)."""
+    async def _run():
+        try:
+            await uhrwerk_reply(request_id)
         except Exception:
             pass
 
