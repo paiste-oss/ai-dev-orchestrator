@@ -83,6 +83,7 @@ export default function EntwicklungDetailPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [waitingReply, setWaitingReply] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [deployKey, setDeployKey] = useState("");
   const [showDeploy, setShowDeploy] = useState(false);
   const [statusChanging, setStatusChanging] = useState(false);
@@ -96,11 +97,41 @@ export default function EntwicklungDetailPage() {
       if (data.tool_proposal?.tool_name) {
         setDeployKey(String(data.tool_proposal.tool_name));
       }
+      return data;
     }
     setLoading(false);
+    return null;
   };
 
-  useEffect(() => { load(); }, [id]);
+  // Polling starten: alle 2s prüfen ob Uhrwerk geantwortet hat
+  const startPolling = (prevDialogLength: number) => {
+    setWaitingReply(true);
+    let attempts = 0;
+    const MAX = 20; // max 40s
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      const data = await load();
+      const newLength = data?.dialog?.length ?? 0;
+      const lastRole = data?.dialog?.[newLength - 1]?.role;
+      // Stoppen wenn Uhrwerk geantwortet hat oder Timeout
+      if ((newLength > prevDialogLength && lastRole === "uhrwerk") || attempts >= MAX) {
+        clearInterval(pollRef.current!);
+        pollRef.current = null;
+        setWaitingReply(false);
+      }
+    }, 2000);
+  };
+
+  useEffect(() => {
+    load().then((data) => {
+      setLoading(false);
+      // Wenn Uhrwerk gerade analysiert → automatisch pollen
+      if (data?.status === "analyzing") {
+        startPolling(data.dialog?.length ?? 0);
+      }
+    });
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [id]);
 
   useEffect(() => {
     dialogEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -120,12 +151,8 @@ export default function EntwicklungDetailPage() {
         const data = await res.json();
         setReq(data);
         setMessage("");
-        // Uhrwerk antwortet im Hintergrund — nach 3s neu laden
-        setWaitingReply(true);
-        setTimeout(async () => {
-          await load();
-          setWaitingReply(false);
-        }, 4000);
+        // Polling starten bis Uhrwerk antwortet
+        startPolling(data.dialog?.length ?? 0);
       } else {
         const err = await res.json().catch(() => ({}));
         setError(`Fehler ${res.status}: ${err.detail ?? "Unbekannter Fehler"}`);

@@ -7,7 +7,7 @@ Der Admin und das Uhrwerk arbeiten gemeinsam daran, das Tool zu entwickeln.
 import uuid
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
@@ -141,6 +141,7 @@ async def get_request(
 async def admin_dialog_message(
     request_id: str,
     msg: DialogMessage,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _: Customer = Depends(require_admin),
 ):
@@ -164,9 +165,9 @@ async def admin_dialog_message(
     await db.commit()
     await db.refresh(r)
 
-    # Uhrwerk antwortet im Hintergrund mit echtem Claude-Response
-    from services.entwicklung_engine import schedule_uhrwerk_reply
-    schedule_uhrwerk_reply(str(r.id))
+    # Uhrwerk antwortet via FastAPI BackgroundTasks (zuverlässiger als asyncio.create_task)
+    from services.entwicklung_engine import uhrwerk_reply
+    background_tasks.add_task(uhrwerk_reply, str(r.id))
 
     return _to_out(r)
 
