@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { getUseCaseByBirthYear, getUseCase } from "@/lib/usecases";
 
 export default function RegisterAllgemein() {
   const router = useRouter();
@@ -22,10 +21,6 @@ export default function RegisterAllgemein() {
     e.preventDefault();
     setSubmitted(true);
   };
-
-  const assignedUseCase = form.geburtsjahr
-    ? getUseCase(getUseCaseByBirthYear(Number(form.geburtsjahr)))
-    : null;
 
   if (submitted) {
     return (
@@ -82,16 +77,6 @@ export default function RegisterAllgemein() {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-green-500" />
           </div>
 
-          {/* Vorschau des zugewiesenen Baddis */}
-          {assignedUseCase && (
-            <div className={`${assignedUseCase.bgColor} border ${assignedUseCase.borderColor} rounded-xl p-4 flex items-center gap-3`}>
-              <span className="text-3xl">{assignedUseCase.icon}</span>
-              <div>
-                <p className={`font-bold text-sm ${assignedUseCase.color}`}>Dein Baddi: {assignedUseCase.buddyName}</p>
-                <p className="text-xs text-gray-400">{assignedUseCase.name} · {assignedUseCase.tagline}</p>
-              </div>
-            </div>
-          )}
 
           <div className="space-y-1">
             <label className="text-sm text-gray-400">E-Mail</label>

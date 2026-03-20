@@ -17,7 +17,7 @@ const NAV: NavEntry[] = [
   { label: "Baddis",           href: "/admin/baddis",       icon: "◈" },
   { label: "Dokumente",        href: "/admin/documents",    icon: "▦" },
   {
-    label: "Workflows", icon: "⇆",
+    label: "Uhrwerk", icon: "⚙",
     children: [
       { label: "n8n Workflows", href: "/admin/workflows",        icon: "⇆" },
       { label: "Backend Tasks", href: "/admin/workflows/celery", icon: "⏱" },

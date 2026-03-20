@@ -28,6 +28,8 @@ from models.chat import ChatMessage, MemoryItem
 from models.customer import Customer
 from services.llm_gateway import chat_with_claude, chat_with_gemini, chat_with_openai
 from services.memory_service import select_relevant_context, schedule_memory_extraction
+from services.agent_router import route as agent_route, get_intent_label
+from services.buddy_agent import run_buddy_chat
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -111,24 +113,41 @@ async def send_message(
     )
     history = list(reversed(result.scalars().all()))
 
-    # 2. Baddi-Konfiguration + zugewiesene Agenten laden
+    # 2. Kunden-Baddi laden (1:1) + Konfiguration
+    buddy: AiBuddy | None = None
     baddi_config: dict = {}
     if req.buddy_id:
         try:
             buddy = await db.get(AiBuddy, uuid_mod.UUID(req.buddy_id))
-            if buddy and buddy.usecase_id:
-                baddi_config = _load_baddi_config(buddy.usecase_id)
         except Exception:
             pass
+    if buddy is None:
+        r2 = await db.execute(
+            select(AiBuddy)
+            .where(AiBuddy.customer_id == customer.id, AiBuddy.is_active == True)
+            .limit(1)
+        )
+        buddy = r2.scalar_one_or_none()
+    if buddy:
+        if buddy.usecase_id:
+            baddi_config = _load_baddi_config(buddy.usecase_id)
+        if not baddi_config and buddy.persona_config:
+            baddi_config = buddy.persona_config
 
-    # 3. Relevante Memories (lokal, Ollama)
+    # 3. Agent Router — welche Tools braucht diese Anfrage?
+    routing = agent_route(req.message)
+
+    # 4. Relevante Memories
     relevant = await select_relevant_context(customer_id, req.message, db)
 
-    # 4. System-Prompt aufbauen
-    base_prompt = (baddi_config.get("system_prompt") or "").strip()
-    system_parts = [base_prompt if base_prompt else "Du bist ein hilfreicher, persönlicher AI-Assistent."]
+    # 5. System-Prompt aufbauen
+    base_prompt = (
+        baddi_config.get("system_prompt")
+        or baddi_config.get("system_prompt_template")
+        or "Du bist ein hilfreicher, persönlicher KI-Begleiter."
+    ).strip()
+    system_parts = [base_prompt]
 
-    # Agent-Capabilities anhängen
     agent_ids: list[str] = baddi_config.get("agents", [])
     caps = [_AGENT_CAPABILITIES[aid] for aid in agent_ids if aid in _AGENT_CAPABILITIES]
     if caps:
@@ -141,20 +160,35 @@ async def send_message(
 
     system_prompt = "\n".join(system_parts)
 
-    # 5. Build message list
+    # 6. Uhrwerk (Tool Use) oder LLM-Gateway
     messages = [{"role": m.role, "content": m.content} for m in history[-_CONTEXT_WINDOW:]]
     messages.append({"role": "user", "content": req.message})
 
-    # 6. Claude → Gemini → OpenAI
     provider = "claude"
     model_name = "claude-haiku-4-5-20251001"
     errors: list[str] = []
     response_text: str | None = None
 
-    try:
-        response_text = await chat_with_claude(messages, system_prompt)
-    except Exception as e:
-        errors.append(f"Claude: {e}")
+    # 6a. Uhrwerk — wenn Agent Router Tools identifiziert hat
+    if routing.needs_tools and routing.tool_keys:
+        try:
+            uhrwerk_result = await run_buddy_chat(
+                message=req.message,
+                buddy_name=buddy.name if buddy else "Baddi",
+                system_prompt=system_prompt,
+                tool_keys=routing.tool_keys,
+            )
+            response_text = uhrwerk_result["output"]
+            model_name = uhrwerk_result.get("model_used", model_name)
+        except Exception as e:
+            errors.append(f"Uhrwerk: {e}")
+
+    # 6b. LLM-Gateway (kein Tool Use oder Uhrwerk versagt)
+    if response_text is None:
+        try:
+            response_text = await chat_with_claude(messages, system_prompt)
+        except Exception as e:
+            errors.append(f"Claude: {e}")
 
     if response_text is None and settings.gemini_api_key:
         try:

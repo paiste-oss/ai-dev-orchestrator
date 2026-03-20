@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { getUseCaseByBirthYear, getUseCase } from "@/lib/usecases";
 import { BACKEND_URL } from "@/lib/config";
 import { saveSession, saveToken } from "@/lib/auth";
 
@@ -39,10 +38,6 @@ export default function RegisterMenschen() {
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  const assignedUseCase = form.geburtsjahr
-    ? getUseCase(getUseCaseByBirthYear(Number(form.geburtsjahr)))
-    : null;
-
   const birthDateString = form.geburtstag && form.geburtsmonat && form.geburtsjahr
     ? `${form.geburtsjahr}-${String(Number(form.geburtsmonat)).padStart(2, "0")}-${String(Number(form.geburtstag)).padStart(2, "0")}`
     : null;
@@ -71,7 +66,6 @@ export default function RegisterMenschen() {
     }
 
     const birth = Number(form.geburtsjahr);
-    const usecaseId = getUseCaseByBirthYear(birth);
 
     setLoading(true);
     try {
@@ -85,7 +79,6 @@ export default function RegisterMenschen() {
           segment: "menschen",
           birth_year: birth || null,
           birth_date: birthDateString,
-          usecase_id: usecaseId,
         }),
       });
 
@@ -111,11 +104,9 @@ export default function RegisterMenschen() {
         <div className="max-w-md w-full text-center space-y-6">
           <div className="text-6xl">🧑</div>
           <h2 className="text-2xl font-bold text-rose-300">Willkommen, {form.vorname}!</h2>
-          {assignedUseCase && (
-            <p className="text-gray-300">
-              Dein Baddi <strong>{assignedUseCase.buddyName}</strong> wartet auf dich.
-            </p>
-          )}
+          <p className="text-gray-300">
+            Dein persönlicher Baddi wird gerade für dich eingerichtet ✨
+          </p>
           <button onClick={() => router.push("/chat")}
             className="w-full bg-rose-700 hover:bg-rose-600 py-3 rounded-xl font-bold transition-colors">
             Los geht&apos;s →
