@@ -34,7 +34,8 @@ const NAV: NavEntry[] = [
   {
     label: "Konfigurieren", icon: "⊙",
     children: [
-      { label: "Portal", href: "/admin/settings", icon: "◉" },
+      { label: "Portal",  href: "/admin/settings", icon: "◉" },
+      { label: "Design",  href: "/admin/design",   icon: "◐" },
     ],
   },
   { label: "Testseiten", href: "/admin/testpages", icon: "⌘" },
