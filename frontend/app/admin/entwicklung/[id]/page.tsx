@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
+import { BACKEND_URL } from "@/lib/config";
 import AdminSidebar from "@/components/AdminSidebar";
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
@@ -86,7 +87,7 @@ export default function EntwicklungDetailPage() {
   const dialogEndRef = useRef<HTMLDivElement>(null);
 
   const load = async () => {
-    const res = await apiFetch(`/v1/entwicklung/${id}`);
+    const res = await apiFetch(`${BACKEND_URL}/v1/entwicklung/${id}`);
     if (res.ok) {
       const data = await res.json();
       setReq(data);
@@ -106,7 +107,7 @@ export default function EntwicklungDetailPage() {
   const sendMessage = async () => {
     if (!message.trim()) return;
     setSending(true);
-    const res = await apiFetch(`/v1/entwicklung/${id}/dialog`, {
+    const res = await apiFetch(`${BACKEND_URL}/v1/entwicklung/${id}/dialog`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: message.trim() }),
@@ -121,7 +122,7 @@ export default function EntwicklungDetailPage() {
 
   const changeStatus = async (newStatus: string) => {
     setStatusChanging(true);
-    const res = await apiFetch(`/v1/entwicklung/${id}/status`, {
+    const res = await apiFetch(`${BACKEND_URL}/v1/entwicklung/${id}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
@@ -136,7 +137,7 @@ export default function EntwicklungDetailPage() {
   const deployTool = async () => {
     if (!deployKey.trim() || !req?.tool_proposal) return;
     setSending(true);
-    const res = await apiFetch(`/v1/entwicklung/${id}/deploy`, {
+    const res = await apiFetch(`${BACKEND_URL}/v1/entwicklung/${id}/deploy`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tool_key: deployKey.trim(), tool_proposal: req.tool_proposal }),

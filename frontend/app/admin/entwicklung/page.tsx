@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
+import { BACKEND_URL } from "@/lib/config";
 import AdminSidebar from "@/components/AdminSidebar";
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
@@ -91,7 +92,7 @@ export default function EntwicklungPage() {
     try {
       const params = new URLSearchParams({ page: String(page), page_size: "20" });
       if (filterStatus) params.set("status", filterStatus);
-      const res = await apiFetch(`/v1/entwicklung?${params}`);
+      const res = await apiFetch(`${BACKEND_URL}/v1/entwicklung?${params}`);
       if (res.ok) {
         const data: ListResponse = await res.json();
         setItems(data.items);
