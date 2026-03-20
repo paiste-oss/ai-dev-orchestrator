@@ -262,7 +262,7 @@ export default function EntwicklungDetailPage() {
                   ))}
                 </div>
 
-                {req.tool_proposal.implementation_notes && (
+                {req.tool_proposal.implementation_notes != null && (
                   <p className="text-xs text-gray-400 border-t border-white/5 pt-3 mt-2">
                     {String(req.tool_proposal.implementation_notes)}
                   </p>
