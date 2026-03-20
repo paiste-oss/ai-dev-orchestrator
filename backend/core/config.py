@@ -49,6 +49,16 @@ class Settings(BaseSettings):
     # Frontend URL (für OAuth-Redirect nach Google-Login)
     frontend_url: str = "http://localhost:3000"
 
+    # Stripe Billing
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_price_basis_monthly: str = ""      # z.B. price_xxx
+    stripe_price_basis_yearly: str = ""
+    stripe_price_komfort_monthly: str = ""
+    stripe_price_komfort_yearly: str = ""
+    stripe_price_premium_monthly: str = ""
+    stripe_price_premium_yearly: str = ""
+
     # Dev Orchestrator — Projekt-Root im Container
     project_root: str = "/project"
 

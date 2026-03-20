@@ -1,0 +1,495 @@
+"""
+Billing Service — Stripe-Integration für Abo-Management.
+
+Verantwortlich für:
+- Stripe Customer anlegen / abrufen
+- Checkout-Session erstellen (Abo + Topup)
+- Webhook-Events verarbeiten
+- Token-Quota prüfen + Overage vom Prepaid-Guthaben abziehen
+- Fortlaufende Rechnungsnummern vergeben (gesetzlich CH)
+- MwSt-Berechnung (8.1% Schweiz)
+
+Preisstruktur (CHF):
+  Basis   CHF 19/Mo | CHF 180/Jahr (−21%)  | 500k Tokens/Mo  | CHF 2.00/100k Overage
+  Komfort CHF 49/Mo | CHF 468/Jahr (−20%)  | 2M   Tokens/Mo  | CHF 1.50/100k Overage
+  Premium CHF 99/Mo | CHF 948/Jahr (−20%)  | 10M  Tokens/Mo  | CHF 1.00/100k Overage
+"""
+from __future__ import annotations
+import logging
+import uuid as uuid_mod
+from datetime import datetime, timezone
+from decimal import Decimal
+
+import stripe
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from core.config import settings
+from models.customer import Customer, SubscriptionPlan
+from models.payment import Payment, InvoiceCounter
+
+_log = logging.getLogger(__name__)
+
+# Schweizer MwSt-Satz
+_VAT_RATE = Decimal("0.081")
+
+# ── Stripe-Client konfigurieren ───────────────────────────────────────────────
+
+def _stripe():
+    if not settings.stripe_secret_key:
+        raise ValueError("STRIPE_SECRET_KEY ist nicht konfiguriert.")
+    stripe.api_key = settings.stripe_secret_key
+    return stripe
+
+
+# ── Plan-Konfiguration ────────────────────────────────────────────────────────
+# Seed-Daten — werden beim Start in die DB geschrieben falls leer
+
+PLAN_DEFAULTS = [
+    {
+        "name": "Basis",
+        "slug": "basis",
+        "max_buddies": 1,
+        "monthly_price": 19.00,
+        "yearly_price": 180.00,        # ~CHF 15/Mo — 21% Rabatt
+        "included_tokens": 500_000,
+        "token_overage_chf_per_1k": 0.002,  # CHF 2 / 100k = 0.002 / 1k
+        "sort_order": 1,
+        "features": {
+            "allowed_services": ["smtp"],
+            "highlights": [
+                "1 Baddi",
+                "500'000 Tokens/Monat",
+                "E-Mail-Support",
+            ],
+        },
+    },
+    {
+        "name": "Komfort",
+        "slug": "komfort",
+        "max_buddies": 3,
+        "monthly_price": 49.00,
+        "yearly_price": 468.00,        # ~CHF 39/Mo — 20% Rabatt
+        "included_tokens": 2_000_000,
+        "token_overage_chf_per_1k": 0.0015,
+        "sort_order": 2,
+        "features": {
+            "allowed_services": ["smtp", "twilio", "slack"],
+            "highlights": [
+                "3 Baddis",
+                "2'000'000 Tokens/Monat",
+                "SMS & Slack-Integration",
+                "Prioritäts-Support",
+            ],
+        },
+    },
+    {
+        "name": "Premium",
+        "slug": "premium",
+        "max_buddies": 10,
+        "monthly_price": 99.00,
+        "yearly_price": 948.00,        # ~CHF 79/Mo — 20% Rabatt
+        "included_tokens": 10_000_000,
+        "token_overage_chf_per_1k": 0.001,
+        "sort_order": 3,
+        "features": {
+            "allowed_services": ["smtp", "twilio", "slack", "google_sheets", "google_docs", "google_calendar"],
+            "highlights": [
+                "10 Baddis",
+                "10'000'000 Tokens/Monat",
+                "Alle Integrationen",
+                "Dedizierter Support",
+                "API-Zugang",
+            ],
+        },
+    },
+]
+
+
+async def seed_plans(db: AsyncSession) -> None:
+    """Legt die drei Standardpläne an falls noch keine existieren."""
+    count = await db.scalar(select(SubscriptionPlan).with_only_columns())  # type: ignore
+    from sqlalchemy import func
+    count = await db.scalar(select(func.count()).select_from(SubscriptionPlan))
+    if count and count > 0:
+        return
+    for p in PLAN_DEFAULTS:
+        plan = SubscriptionPlan(
+            id=uuid_mod.uuid4(),
+            name=p["name"],
+            slug=p["slug"],
+            max_buddies=p["max_buddies"],
+            monthly_price=p["monthly_price"],
+            yearly_price=p["yearly_price"],
+            included_tokens=p["included_tokens"],
+            token_overage_chf_per_1k=p["token_overage_chf_per_1k"],
+            sort_order=p["sort_order"],
+            features=p["features"],
+        )
+        db.add(plan)
+    await db.commit()
+    _log.info("Billing: 3 Standardpläne angelegt (Basis / Komfort / Premium)")
+
+
+# ── Rechnungsnummer ───────────────────────────────────────────────────────────
+
+async def next_invoice_number(db: AsyncSession) -> str:
+    """
+    Vergibt die nächste fortlaufende Rechnungsnummer.
+    Format: BAD-YYYY-NNNNNN  (z.B. BAD-2026-000001)
+    Gesetzlich vorgeschrieben gem. MWSTG Art. 26 Abs. 2 lit. b.
+    """
+    year = datetime.now(timezone.utc).year
+    row = await db.get(InvoiceCounter, year)
+    if row is None:
+        row = InvoiceCounter(year=year, last_number=0)
+        db.add(row)
+    row.last_number += 1
+    await db.flush()
+    return f"BAD-{year}-{row.last_number:06d}"
+
+
+# ── MwSt ──────────────────────────────────────────────────────────────────────
+
+def calc_vat(gross_chf: float) -> tuple[float, float]:
+    """Gibt (netto, mwst) zurück. Schweiz 8.1% inkl. MwSt."""
+    gross = Decimal(str(gross_chf))
+    net = (gross / (1 + _VAT_RATE)).quantize(Decimal("0.01"))
+    vat = (gross - net).quantize(Decimal("0.01"))
+    return float(net), float(vat)
+
+
+# ── Stripe Customer ───────────────────────────────────────────────────────────
+
+async def get_or_create_stripe_customer(customer: Customer, db: AsyncSession) -> str:
+    """Gibt die Stripe-Customer-ID zurück — erstellt sie falls nötig."""
+    if customer.stripe_customer_id:
+        return customer.stripe_customer_id
+    s = _stripe()
+    sc = s.Customer.create(
+        email=customer.email,
+        name=customer.name,
+        metadata={"customer_id": str(customer.id)},
+    )
+    customer.stripe_customer_id = sc.id
+    await db.commit()
+    return sc.id
+
+
+# ── Checkout Session ──────────────────────────────────────────────────────────
+
+async def create_subscription_checkout(
+    customer: Customer,
+    plan_slug: str,
+    billing_cycle: str,
+    db: AsyncSession,
+) -> str:
+    """
+    Erstellt eine Stripe Checkout Session für ein Abo.
+    Gibt die checkout_url zurück.
+    """
+    result = await db.execute(
+        select(SubscriptionPlan).where(SubscriptionPlan.slug == plan_slug)
+    )
+    plan = result.scalar_one_or_none()
+    if not plan:
+        raise ValueError(f"Plan '{plan_slug}' nicht gefunden.")
+
+    price_id = plan.stripe_price_id_yearly if billing_cycle == "yearly" else plan.stripe_price_id_monthly
+    if not price_id:
+        raise ValueError(
+            f"Stripe Price ID für {plan_slug}/{billing_cycle} nicht konfiguriert. "
+            "Bitte in Stripe erstellen und in den Einstellungen hinterlegen."
+        )
+
+    s = _stripe()
+    stripe_customer_id = await get_or_create_stripe_customer(customer, db)
+
+    session = s.checkout.Session.create(
+        customer=stripe_customer_id,
+        mode="subscription",
+        line_items=[{"price": price_id, "quantity": 1}],
+        success_url=f"{settings.frontend_url}/user/billing?status=success&session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{settings.frontend_url}/user/billing?status=canceled",
+        metadata={
+            "customer_id": str(customer.id),
+            "plan_slug": plan_slug,
+            "billing_cycle": billing_cycle,
+        },
+        subscription_data={
+            "metadata": {
+                "customer_id": str(customer.id),
+                "plan_slug": plan_slug,
+            }
+        },
+        allow_promotion_codes=True,
+    )
+    return session.url
+
+
+async def create_topup_checkout(
+    customer: Customer,
+    amount_chf: float,
+    db: AsyncSession,
+) -> str:
+    """
+    Erstellt eine einmalige Checkout Session um Prepaid-Guthaben aufzuladen.
+    Minimalbetrag CHF 5, Maximum CHF 500.
+    """
+    if amount_chf < 5 or amount_chf > 500:
+        raise ValueError("Aufladebetrag muss zwischen CHF 5 und CHF 500 liegen.")
+
+    s = _stripe()
+    stripe_customer_id = await get_or_create_stripe_customer(customer, db)
+    amount_rappen = int(round(amount_chf * 100))
+
+    session = s.checkout.Session.create(
+        customer=stripe_customer_id,
+        mode="payment",
+        line_items=[{
+            "price_data": {
+                "currency": "chf",
+                "product_data": {"name": f"Baddi Guthaben-Aufladung CHF {amount_chf:.2f}"},
+                "unit_amount": amount_rappen,
+            },
+            "quantity": 1,
+        }],
+        success_url=f"{settings.frontend_url}/user/billing?status=topup_success",
+        cancel_url=f"{settings.frontend_url}/user/billing?status=canceled",
+        metadata={
+            "customer_id": str(customer.id),
+            "topup_amount_chf": str(amount_chf),
+        },
+    )
+    return session.url
+
+
+# ── Billing Portal ────────────────────────────────────────────────────────────
+
+async def create_billing_portal_session(customer: Customer, db: AsyncSession) -> str:
+    """Stripe Billing Portal — Kunde kann Karte, Abo, Rechnungen selbst verwalten."""
+    stripe_customer_id = await get_or_create_stripe_customer(customer, db)
+    s = _stripe()
+    session = s.billing_portal.Session.create(
+        customer=stripe_customer_id,
+        return_url=f"{settings.frontend_url}/user/billing",
+    )
+    return session.url
+
+
+# ── Webhook Handler ───────────────────────────────────────────────────────────
+
+async def handle_webhook(payload: bytes, sig_header: str, db: AsyncSession) -> None:
+    """
+    Verarbeitet Stripe-Webhook-Events.
+    Alle Events werden mit Signatur-Verifikation geprüft.
+    """
+    s = _stripe()
+    try:
+        event = s.Webhook.construct_event(payload, sig_header, settings.stripe_webhook_secret)
+    except stripe.error.SignatureVerificationError:
+        _log.warning("Stripe Webhook: ungültige Signatur")
+        raise ValueError("Invalid webhook signature")
+
+    etype = event["type"]
+    _log.info("Stripe Webhook: %s", etype)
+
+    if etype == "checkout.session.completed":
+        await _on_checkout_completed(event["data"]["object"], db)
+
+    elif etype in ("customer.subscription.updated", "customer.subscription.created"):
+        await _on_subscription_updated(event["data"]["object"], db)
+
+    elif etype == "customer.subscription.deleted":
+        await _on_subscription_deleted(event["data"]["object"], db)
+
+    elif etype == "invoice.payment_succeeded":
+        await _on_invoice_paid(event["data"]["object"], db)
+
+    elif etype == "invoice.payment_failed":
+        await _on_invoice_failed(event["data"]["object"], db)
+
+
+async def _on_checkout_completed(session: dict, db: AsyncSession) -> None:
+    meta = session.get("metadata", {})
+    customer_id = meta.get("customer_id")
+    if not customer_id:
+        return
+
+    customer = await db.get(Customer, uuid_mod.UUID(customer_id))
+    if not customer:
+        return
+
+    topup = meta.get("topup_amount_chf")
+    if topup:
+        # Prepaid-Aufladung
+        amount = float(topup)
+        customer.token_balance_chf = float(customer.token_balance_chf or 0) + amount
+        net, vat = calc_vat(amount)
+        inv_no = await next_invoice_number(db)
+        payment = Payment(
+            invoice_number=inv_no,
+            customer_id=str(customer.id),
+            stripe_payment_intent_id=session.get("payment_intent"),
+            amount_chf=amount,
+            vat_chf=vat,
+            amount_net_chf=net,
+            description=f"Baddi Guthaben-Aufladung CHF {amount:.2f}",
+            payment_type="topup",
+            status="succeeded",
+            paid_at=datetime.utcnow(),
+        )
+        db.add(payment)
+        await db.commit()
+        _log.info("Topup %s CHF für customer %s", amount, customer_id)
+    else:
+        # Abo-Checkout
+        plan_slug = meta.get("plan_slug", "")
+        billing_cycle = meta.get("billing_cycle", "monthly")
+        customer.billing_cycle = billing_cycle
+
+        # Plan zuweisen
+        if plan_slug:
+            r = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.slug == plan_slug))
+            plan = r.scalar_one_or_none()
+            if plan:
+                customer.subscription_plan_id = plan.id
+
+        # subscription_id wird über subscription.updated gesetzt
+        await db.commit()
+
+
+async def _on_subscription_updated(sub: dict, db: AsyncSession) -> None:
+    meta = sub.get("metadata", {})
+    customer_id = meta.get("customer_id")
+    if not customer_id:
+        # via stripe_customer_id suchen
+        stripe_cid = sub.get("customer")
+        if stripe_cid:
+            r = await db.execute(select(Customer).where(Customer.stripe_customer_id == stripe_cid))
+            customer = r.scalar_one_or_none()
+            if customer:
+                customer_id = str(customer.id)
+
+    if not customer_id:
+        return
+    customer = await db.get(Customer, uuid_mod.UUID(customer_id))
+    if not customer:
+        return
+
+    customer.stripe_subscription_id = sub["id"]
+    customer.subscription_status = sub["status"]  # active | past_due | canceled | ...
+
+    period_end = sub.get("current_period_end")
+    if period_end:
+        customer.subscription_period_end = datetime.fromtimestamp(period_end, tz=timezone.utc).replace(tzinfo=None)
+
+    # Items auslesen (für Metered Billing / zukünftige Nutzung)
+    items = sub.get("items", {}).get("data", [])
+    if items:
+        customer.stripe_subscription_item_id = items[0]["id"]
+
+    await db.commit()
+    _log.info("Subscription updated: customer=%s status=%s", customer_id, sub["status"])
+
+
+async def _on_subscription_deleted(sub: dict, db: AsyncSession) -> None:
+    stripe_cid = sub.get("customer")
+    r = await db.execute(select(Customer).where(Customer.stripe_customer_id == stripe_cid))
+    customer = r.scalar_one_or_none()
+    if customer:
+        customer.subscription_status = "canceled"
+        customer.subscription_plan_id = None
+        await db.commit()
+        _log.info("Subscription canceled: customer=%s", customer.id)
+
+
+async def _on_invoice_paid(invoice: dict, db: AsyncSession) -> None:
+    stripe_cid = invoice.get("customer")
+    r = await db.execute(select(Customer).where(Customer.stripe_customer_id == stripe_cid))
+    customer = r.scalar_one_or_none()
+    if not customer:
+        return
+
+    amount_chf = invoice.get("amount_paid", 0) / 100
+    net, vat = calc_vat(amount_chf)
+    inv_no = await next_invoice_number(db)
+
+    # Token-Kontingent zurücksetzen
+    customer.tokens_used_this_period = 0
+
+    payment = Payment(
+        invoice_number=inv_no,
+        customer_id=str(customer.id),
+        stripe_invoice_id=invoice.get("id"),
+        stripe_payment_intent_id=invoice.get("payment_intent"),
+        amount_chf=amount_chf,
+        vat_chf=vat,
+        amount_net_chf=net,
+        description=invoice.get("description") or f"Baddi Abo — {datetime.utcnow().strftime('%B %Y')}",
+        payment_type="subscription",
+        status="succeeded",
+        paid_at=datetime.utcnow(),
+    )
+    db.add(payment)
+    await db.commit()
+    _log.info("Invoice paid: %s CHF für customer %s", amount_chf, customer.id)
+
+
+async def _on_invoice_failed(invoice: dict, db: AsyncSession) -> None:
+    stripe_cid = invoice.get("customer")
+    r = await db.execute(select(Customer).where(Customer.stripe_customer_id == stripe_cid))
+    customer = r.scalar_one_or_none()
+    if not customer:
+        return
+    customer.subscription_status = "past_due"
+    await db.commit()
+    _log.warning("Invoice payment FAILED für customer %s", customer.id)
+
+
+# ── Token-Quota ───────────────────────────────────────────────────────────────
+
+async def check_and_bill_tokens(
+    customer: Customer,
+    tokens_used: int,
+    db: AsyncSession,
+) -> None:
+    """
+    Wird nach jedem Chat-Turn aufgerufen.
+    - Addiert tokens_used_this_period
+    - Wenn über Kontingent: berechnet Overage-Kosten
+    - Zieht CHF vom Prepaid-Guthaben ab
+    - Wenn Guthaben leer: subscription_status → 'quota_exceeded' (noch kein Block, nur Warnung)
+    """
+    if tokens_used <= 0:
+        return
+
+    # Token-Zähler erhöhen
+    customer.tokens_used_this_period = (customer.tokens_used_this_period or 0) + tokens_used
+
+    plan: SubscriptionPlan | None = None
+    if customer.subscription_plan_id:
+        plan = await db.get(SubscriptionPlan, customer.subscription_plan_id)
+
+    included = plan.included_tokens if plan else 0
+    overage_tokens = max(0, customer.tokens_used_this_period - included)
+
+    if overage_tokens > 0 and plan:
+        # CHF pro 1k Token
+        rate = float(plan.token_overage_chf_per_1k or 0.002)
+        overage_chf = round((overage_tokens / 1000) * rate, 4)
+
+        balance = float(customer.token_balance_chf or 0)
+        if balance >= overage_chf:
+            customer.token_balance_chf = Decimal(str(balance)) - Decimal(str(overage_chf))
+            _log.debug(
+                "Overage %d tokens = CHF %.4f abgezogen (Guthaben: CHF %.4f → CHF %.4f)",
+                overage_tokens, overage_chf, balance, float(customer.token_balance_chf),
+            )
+        else:
+            _log.warning(
+                "Kunde %s hat ungenügendes Guthaben für Overage (%.4f CHF fehlen)",
+                customer.id, overage_chf - balance,
+            )
+
+    await db.commit()

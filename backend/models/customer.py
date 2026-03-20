@@ -10,10 +10,17 @@ class SubscriptionPlan(Base):
     __tablename__ = "subscription_plans"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)            # "Basis" | "Komfort" | "Premium"
+    slug: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)  # "basis" | "komfort" | "premium"
     max_buddies: Mapped[int] = mapped_column(Integer, default=1)
     features: Mapped[dict] = mapped_column(JSONB, default=dict)
-    monthly_price: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0)
+    monthly_price: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0)   # CHF pro Monat
+    yearly_price: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0)    # CHF pro Jahr (mit Rabatt)
+    included_tokens: Mapped[int] = mapped_column(Integer, default=500_000)       # Tokens pro Monat inklusive
+    token_overage_chf_per_1k: Mapped[float] = mapped_column(Numeric(8, 4), default=0.002)  # CHF / 1k Tokens über Limit
+    stripe_price_id_monthly: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    stripe_price_id_yearly: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
     customers: Mapped[list["Customer"]] = relationship(back_populates="subscription_plan")
 
@@ -53,6 +60,17 @@ class Customer(Base):
 
     # Interessen & Hobbys (JSON-Array von Strings)
     interests: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
+
+    # Billing
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    stripe_subscription_item_id: Mapped[str | None] = mapped_column(String(100), nullable=True)  # für Metered billing
+    subscription_status: Mapped[str] = mapped_column(String(30), default="inactive")  # active | past_due | canceled | trialing | inactive
+    billing_cycle: Mapped[str] = mapped_column(String(10), default="monthly")  # monthly | yearly
+    subscription_period_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    token_balance_chf: Mapped[float] = mapped_column(Numeric(10, 4), default=0.0)  # Prepaid-Guthaben
+    tokens_used_this_period: Mapped[int] = mapped_column(Integer, default=0)
+    tos_accepted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # ToS-Akzeptanz-Zeitstempel
 
     subscription_plan: Mapped["SubscriptionPlan | None"] = relationship(back_populates="customers")
     buddies: Mapped[list["AiBuddy"]] = relationship(back_populates="customer")  # type: ignore

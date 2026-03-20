@@ -37,6 +37,7 @@ from services.memory_service import select_relevant_context, schedule_memory_ext
 from services.agent_router import route as agent_route, assess_response, get_intent_label
 from services.buddy_agent import run_buddy_chat
 from services.router_memory import record_success, record_failure, should_create_gap
+from services.billing_service import check_and_bill_tokens
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -322,7 +323,14 @@ async def send_message(
     await db.commit()
     await db.refresh(assistant_msg)
 
-    # ── 11. Memory-Extraktion im Hintergrund ──────────────────────────────────
+    # ── 11. Token-Quota abrechnen ─────────────────────────────────────────────
+    if tokens_used > 0:
+        try:
+            await check_and_bill_tokens(customer, tokens_used, db)
+        except Exception as e:
+            _log.warning("Token-Billing fehlgeschlagen: %s", e)
+
+    # ── 12. Memory-Extraktion im Hintergrund ──────────────────────────────────
     schedule_memory_extraction(customer_id, req.message, response_text)
 
     return ChatResponse(
