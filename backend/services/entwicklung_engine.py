@@ -3,14 +3,14 @@ Entwicklungs-Engine — Das Uhrwerk analysiert Capability Gaps automatisch.
 
 Wird im Hintergrund aufgerufen wenn ein neuer CapabilityRequest angelegt wird.
 Claude analysiert die Anfrage und erstellt einen Tool-Vorschlag.
+
+WICHTIG: Die Analyse läuft in einer eigenen DB-Session.
+Die Request-Session des Aufrufers ist zu diesem Zeitpunkt bereits geschlossen.
 """
 import asyncio
 import json
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from core.config import settings
 from models.capability_request import CapabilityRequest
 
 
@@ -44,106 +44,113 @@ Analysiere die Anfrage und erstelle einen konkreten Tool-Vorschlag im folgenden 
 Antworte NUR mit dem JSON, keine Erklärungen davor oder danach."""
 
 
-async def analyse_capability_request(request_id: str, db: AsyncSession) -> None:
+async def analyse_capability_request(request_id: str) -> None:
     """
     Analysiert einen CapabilityRequest im Hintergrund.
-    Wird nach dem Erstellen des Requests als Background-Task aufgerufen.
+    Erstellt eine eigene DB-Session — komplett unabhängig vom aufrufenden Request.
     """
     import uuid as uuid_mod
     from services.llm_gateway import chat_with_claude
+    from core.database import AsyncSessionLocal
 
-    req = await db.get(CapabilityRequest, uuid_mod.UUID(request_id))
-    if not req or req.status != "pending":
-        return
+    async with AsyncSessionLocal() as db:
+        req = await db.get(CapabilityRequest, uuid_mod.UUID(request_id))
+        if not req or req.status != "pending":
+            return
 
-    req.status = "analyzing"
-    req.updated_at = datetime.utcnow()
-    await db.commit()
+        # Status auf "analyzing" setzen
+        req.status = "analyzing"
+        req.updated_at = datetime.utcnow()
+        await db.commit()
 
-    try:
-        prompt = _ANALYSE_PROMPT.format(
-            message=req.original_message,
-            intent=req.detected_intent or "unbekannt",
-        )
-
-        response = await chat_with_claude(
-            messages=[{"role": "user", "content": prompt}],
-            system_prompt="Du bist ein präziser Software-Architekt. Antworte ausschliesslich mit validem JSON.",
-            model="claude-haiku-4-5-20251001",
-        )
-
-        # JSON extrahieren
-        proposal = None
         try:
-            # Manchmal gibt Claude Markdown zurück, JSON extrahieren
-            text = response.strip()
-            if text.startswith("```"):
-                lines = text.split("\n")
-                text = "\n".join(lines[1:-1])
-            proposal = json.loads(text)
-        except Exception:
-            proposal = {"raw_response": response, "parse_error": True}
-
-        dialog = list(req.dialog or [])
-
-        if proposal and not proposal.get("parse_error"):
-            needs_input = proposal.get("needs_admin_input", [])
-            req.tool_proposal = proposal
-            req.status = "needs_input" if needs_input else "building"
-
-            summary = (
-                f"**Analyse abgeschlossen** ✅\n\n"
-                f"Tool: **{proposal.get('display_name', proposal.get('tool_name', '?'))}**\n"
-                f"Typ: {proposal.get('api_type', '?').upper()} API\n"
-                f"Komplexität: {proposal.get('estimated_complexity', '?')}\n"
-                f"Auth: {'Ja — ' + proposal.get('auth_type', '') if proposal.get('auth_required') else 'Keine'}\n\n"
+            prompt = _ANALYSE_PROMPT.format(
+                message=req.original_message,
+                intent=req.detected_intent or "unbekannt",
             )
 
-            if needs_input:
-                fields = "\n".join(f"• **{f['label']}**: {f['description']}" for f in needs_input)
-                summary += f"**Benötigte Eingaben vom Admin:**\n{fields}\n\nBitte stell diese Informationen zur Verfügung damit ich weitermachen kann."
+            response = await chat_with_claude(
+                messages=[{"role": "user", "content": prompt}],
+                system_prompt="Du bist ein präziser Software-Architekt. Antworte ausschliesslich mit validem JSON.",
+                model="claude-haiku-4-5-20251001",
+            )
+
+            # JSON extrahieren (Claude gibt manchmal Markdown zurück)
+            proposal = None
+            try:
+                text = response.strip()
+                if text.startswith("```"):
+                    lines = text.split("\n")
+                    text = "\n".join(lines[1:-1])
+                proposal = json.loads(text)
+            except Exception:
+                proposal = {"raw_response": response, "parse_error": True}
+
+            dialog = list(req.dialog or [])
+
+            if proposal and not proposal.get("parse_error"):
+                needs_input = proposal.get("needs_admin_input", [])
+                req.tool_proposal = proposal
+                req.status = "needs_input" if needs_input else "building"
+
+                summary = (
+                    f"**Analyse abgeschlossen** ✅\n\n"
+                    f"Tool: **{proposal.get('display_name', proposal.get('tool_name', '?'))}**\n"
+                    f"Typ: {proposal.get('api_type', '?').upper()} API\n"
+                    f"Komplexität: {proposal.get('estimated_complexity', '?')}\n"
+                    f"Auth: {'Ja — ' + proposal.get('auth_type', '') if proposal.get('auth_required') else 'Keine'}\n\n"
+                )
+
+                if needs_input:
+                    fields = "\n".join(
+                        f"• **{f['label']}**: {f['description']}" for f in needs_input
+                    )
+                    summary += (
+                        f"**Benötigte Eingaben vom Admin:**\n{fields}\n\n"
+                        f"Bitte stell diese Informationen zur Verfügung damit ich weitermachen kann."
+                    )
+                else:
+                    summary += "Ich kann dieses Tool ohne weiteren Input entwickeln. Ich arbeite daran..."
+
+                dialog.append({
+                    "role": "uhrwerk",
+                    "content": summary,
+                    "created_at": datetime.utcnow().isoformat(),
+                })
             else:
-                summary += "Ich kann dieses Tool ohne weiteren Input entwickeln. Ich arbeite daran..."
+                req.status = "needs_input"
+                dialog.append({
+                    "role": "uhrwerk",
+                    "content": (
+                        f"Ich habe die Anfrage analysiert, benötige aber Hilfe vom Admin "
+                        f"um den richtigen Ansatz zu bestimmen.\n\n"
+                        f"Rohantwort: {response[:500]}"
+                    ),
+                    "created_at": datetime.utcnow().isoformat(),
+                })
 
-            dialog.append({
-                "role": "uhrwerk",
-                "content": summary,
-                "created_at": datetime.utcnow().isoformat(),
-            })
-        else:
+            req.dialog = dialog
+            req.updated_at = datetime.utcnow()
+            await db.commit()
+
+        except Exception as e:
             req.status = "needs_input"
+            dialog = list(req.dialog or [])
             dialog.append({
                 "role": "uhrwerk",
-                "content": (
-                    f"Ich habe die Anfrage analysiert, benötige aber Hilfe vom Admin "
-                    f"um den richtigen Ansatz zu bestimmen.\n\n"
-                    f"Rohantwort: {response[:500]}"
-                ),
+                "content": f"Analyse fehlgeschlagen: {str(e)[:200]}. Admin-Input benötigt.",
                 "created_at": datetime.utcnow().isoformat(),
             })
-
-        req.dialog = dialog
-        req.updated_at = datetime.utcnow()
-        await db.commit()
-
-    except Exception as e:
-        req.status = "needs_input"
-        dialog = list(req.dialog or [])
-        dialog.append({
-            "role": "uhrwerk",
-            "content": f"Analyse fehlgeschlagen: {str(e)[:200]}. Admin-Input benötigt.",
-            "created_at": datetime.utcnow().isoformat(),
-        })
-        req.dialog = dialog
-        req.updated_at = datetime.utcnow()
-        await db.commit()
+            req.dialog = dialog
+            req.updated_at = datetime.utcnow()
+            await db.commit()
 
 
-def schedule_capability_analysis(request_id: str, db: AsyncSession) -> None:
-    """Startet die Analyse als Background-Task (non-blocking)."""
+def schedule_capability_analysis(request_id: str, db=None) -> None:
+    """Startet die Analyse als Background-Task (non-blocking). db wird ignoriert."""
     async def _run():
         try:
-            await analyse_capability_request(request_id, db)
+            await analyse_capability_request(request_id)
         except Exception:
             pass
 
