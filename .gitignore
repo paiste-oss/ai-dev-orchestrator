@@ -1,10 +1,14 @@
 # ========================
 # SECRETS & ENVIRONMENT
 # ========================
+# .env wird nicht mehr verwendet — Secrets kommen aus Infisical (./start.sh)
+# Nur .env.example wird committed (enthält keine echten Werte)
 .env
 *.env
 .env.local
 .env.*.local
+# Infisical: Token-Cache (lokale Session nach "infisical login")
+.infisical-token
 
 # ========================
 # DATENBANK

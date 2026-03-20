@@ -8,8 +8,47 @@ services:
       - ./backend:/app
       - ./:/project          # Dev Orchestrator: ganzes Projekt für Claude lesbar/schreibbar
       - n8n_data:/n8n_data:ro  # n8n DB read-only für Credential-Entschlüsselung
-    env_file:
-      - .env
+    environment:
+      # Datenbank
+      - DATABASE_URL=${DATABASE_URL}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # Redis / Celery
+      - REDIS_URL=${REDIS_URL}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      # Qdrant
+      - QDRANT_HOST=${QDRANT_HOST:-qdrant}
+      - QDRANT_PORT=${QDRANT_PORT:-6333}
+      # Ollama
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
+      - OLLAMA_ROUTER_MODEL=${OLLAMA_ROUTER_MODEL:-phi3}
+      - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL:-mistral}
+      - OLLAMA_CODE_MODEL=${OLLAMA_CODE_MODEL:-llama3.2}
+      # KI APIs
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # GitHub
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPO=${GITHUB_REPO:-paiste-oss/ai-dev-orchestrator}
+      # n8n
+      - N8N_BASE_URL=${N8N_BASE_URL}
+      - N8N_API_KEY=${N8N_API_KEY}
+      - N8N_WEBHOOK_SECRET=${N8N_WEBHOOK_SECRET}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_DEFAULT_CUSTOMER_ID=${N8N_DEFAULT_CUSTOMER_ID}
+      - N8N_DEFAULT_BUDDY_ID=${N8N_DEFAULT_BUDDY_ID}
+      # Credentials-Verschlüsselung
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
+      # Google OAuth2
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+      # URLs
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - PROJECT_ROOT=/project
+      # JWT
+      - SECRET_KEY=${SECRET_KEY}
     extra_hosts:
       - "host.docker.internal:host-gateway"   # Ollama auf dem Host erreichbar
     depends_on:
@@ -20,8 +59,8 @@ services:
       qdrant:
         condition: service_started
     networks:
-      - ai_local      # Erreicht Ollama (Host) + alle internen Services
-      - ai_internal   # Erreicht Daten-Services (Postgres, Redis, Qdrant)
+      - ai_local
+      - ai_internal
 
   celery_worker:
     build: ./backend
@@ -30,8 +69,36 @@ services:
     volumes:
       - ./backend:/app
       - ./:/project
-    env_file:
-      - .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - REDIS_URL=${REDIS_URL}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - QDRANT_HOST=${QDRANT_HOST:-qdrant}
+      - QDRANT_PORT=${QDRANT_PORT:-6333}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
+      - OLLAMA_ROUTER_MODEL=${OLLAMA_ROUTER_MODEL:-phi3}
+      - OLLAMA_CHAT_MODEL=${OLLAMA_CHAT_MODEL:-mistral}
+      - OLLAMA_CODE_MODEL=${OLLAMA_CODE_MODEL:-llama3.2}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_REPO=${GITHUB_REPO:-paiste-oss/ai-dev-orchestrator}
+      - N8N_BASE_URL=${N8N_BASE_URL}
+      - N8N_API_KEY=${N8N_API_KEY}
+      - N8N_WEBHOOK_SECRET=${N8N_WEBHOOK_SECRET}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - N8N_DEFAULT_CUSTOMER_ID=${N8N_DEFAULT_CUSTOMER_ID}
+      - N8N_DEFAULT_BUDDY_ID=${N8N_DEFAULT_BUDDY_ID}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - PROJECT_ROOT=/project
+      - SECRET_KEY=${SECRET_KEY}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -47,8 +114,17 @@ services:
     command: celery -A tasks.celery_app beat --loglevel=info --schedule=/app/celerybeat-schedule
     volumes:
       - ./backend:/app
-    env_file:
-      - .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
+      - N8N_BASE_URL=${N8N_BASE_URL}
+      - N8N_API_KEY=${N8N_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - SECRET_KEY=${SECRET_KEY}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
     depends_on:
       - redis
     networks:
@@ -63,11 +139,14 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    environment:
+      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+      - NEXT_PUBLIC_METABASE_URL=${NEXT_PUBLIC_METABASE_URL}
     depends_on:
       - backend
     networks:
-      - ai_local      # SSR-Aufrufe zum Backend
-      - ai_external   # Browser-Zugang
+      - ai_local
+      - ai_external
 
   n8n:
     image: n8nio/n8n:latest
@@ -83,7 +162,6 @@ services:
       - N8N_PROTOCOL=http
       - NODE_ENV=production
       - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
-      # Buddy-Sinne: Diese Werte sind in n8n-Workflows via $env.VARIABLE zugänglich
       - BACKEND_WEBHOOK_SECRET=${N8N_WEBHOOK_SECRET}
       - CUSTOMER_ID=${N8N_DEFAULT_CUSTOMER_ID}
       - BUDDY_ID=${N8N_DEFAULT_BUDDY_ID}
@@ -91,8 +169,8 @@ services:
       - WEATHER_CITY=${WEATHER_CITY:-Bern}
       - CUSTOMER_REGION=${CUSTOMER_REGION:-Schweiz}
     networks:
-      - ai_local      # Kann Backend und interne Services erreichen
-      - ai_external   # Hat Internetzugang (Email, News, Wetter, APIs)
+      - ai_local
+      - ai_external
 
   postgres:
     image: postgres:16-alpine
@@ -107,7 +185,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - ai_internal   # Nur für interne Services erreichbar
+      - ai_internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U aibuddy"]
       interval: 10s
@@ -155,8 +233,8 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - ai_internal   # Postgres-Zugang
-      - ai_external   # Browser-Zugang
+      - ai_internal
+      - ai_external
 
   tunnel:
     image: cloudflare/cloudflared:latest
@@ -164,8 +242,8 @@ services:
     restart: always
     command: "tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}"
     networks:
-      - ai_local      # Leitet Traffic ans Backend weiter
-      - ai_external   # Verbindung zu Cloudflare-Servern
+      - ai_local
+      - ai_external
 
 volumes:
   n8n_data:
@@ -175,9 +253,9 @@ volumes:
 
 networks:
   ai_local:
-    driver: bridge   # Backend + n8n: Host (Ollama) erreichbar, kein Internet aus Code
+    driver: bridge
   ai_internal:
     driver: bridge
-    internal: true   # Daten-Services (DB, Redis, Qdrant): absolut isoliert
+    internal: true
   ai_external:
-    driver: bridge   # n8n + Frontend: Internetzugang für externe APIs
+    driver: bridge
