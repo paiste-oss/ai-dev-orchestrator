@@ -17,6 +17,7 @@ const NAV: NavEntry[] = [
   { label: "Baddis",           href: "/admin/baddis",       icon: "◈" },
   { label: "Dokumente",        href: "/admin/documents",    icon: "▦" },
   { label: "Entwicklung",      href: "/admin/entwicklung",  icon: "⚗" },
+  { label: "Design",           href: "/admin/design",       icon: "◐" },
   {
     label: "Uhrwerk", icon: "⚙",
     children: [
@@ -35,7 +36,6 @@ const NAV: NavEntry[] = [
     label: "Konfigurieren", icon: "⊙",
     children: [
       { label: "Portal",  href: "/admin/settings", icon: "◉" },
-      { label: "Design",  href: "/admin/design",   icon: "◐" },
     ],
   },
   { label: "Testseiten", href: "/admin/testpages", icon: "⌘" },
