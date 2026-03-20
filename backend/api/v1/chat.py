@@ -160,6 +160,52 @@ async def send_message(
 
     system_prompt = "\n".join(system_parts)
 
+    # 6. Capability Gap — Uhrwerk kann es noch nicht → Entwicklung anstoßen
+    if routing.capability_gap:
+        from models.capability_request import CapabilityRequest
+        import asyncio
+        cap_req = CapabilityRequest(
+            customer_id=customer_id,
+            buddy_id=req.buddy_id or (str(buddy.id) if buddy else None),
+            original_message=req.message,
+            detected_intent=routing.intent,
+            status="pending",
+            dialog=[{
+                "role": "uhrwerk",
+                "content": (
+                    f"Neue Anfrage: \"{req.message[:120]}{'...' if len(req.message) > 120 else ''}\""
+                    f"\nIntent: {routing.intent} — Diese Fähigkeit ist noch nicht im Uhrwerk. "
+                    f"Analyse gestartet..."
+                ),
+                "created_at": __import__('datetime').datetime.utcnow().isoformat(),
+            }],
+        )
+        db.add(cap_req)
+        await db.commit()
+        await db.refresh(cap_req)
+
+        # Analyse im Hintergrund starten
+        from services.entwicklung_engine import schedule_capability_analysis
+        schedule_capability_analysis(str(cap_req.id), db)
+
+        gap_response = (
+            f"Das ist eine tolle Anfrage! 🚀\n\n"
+            f"Ich kann '{routing.intent}' noch nicht direkt ausführen, aber ich arbeite daran. "
+            f"Mein Team entwickelt diese Fähigkeit gerade für dich — "
+            f"ich melde mich sobald ich dir dabei helfen kann."
+        )
+        user_msg = ChatMessage(customer_id=customer_id, buddy_id=req.buddy_id,
+                               role="user", content=req.message, provider="system", model="gap-detection")
+        assistant_msg = ChatMessage(customer_id=customer_id, buddy_id=req.buddy_id,
+                                    role="assistant", content=gap_response, provider="system", model="gap-detection")
+        db.add(user_msg)
+        db.add(assistant_msg)
+        await db.commit()
+        await db.refresh(assistant_msg)
+        schedule_memory_extraction(customer_id, req.message, gap_response)
+        return ChatResponse(message_id=str(assistant_msg.id), response=gap_response,
+                            provider="system", model="entwicklung")
+
     # 6. Uhrwerk (Tool Use) oder LLM-Gateway
     messages = [{"role": m.role, "content": m.content} for m in history[-_CONTEXT_WINDOW:]]
     messages.append({"role": "user", "content": req.message})

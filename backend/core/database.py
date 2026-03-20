@@ -42,6 +42,23 @@ async def init_db():
             "ALTER TABLE ai_buddies ADD COLUMN IF NOT EXISTS baddi_number INTEGER UNIQUE DEFAULT nextval('baddi_number_seq')",
             # Backfill: bestehende Buddies ohne Nummer nachrüsten
             "UPDATE ai_buddies SET baddi_number = nextval('baddi_number_seq') WHERE baddi_number IS NULL",
+            # Capability Requests (selbstentwickelndes Uhrwerk)
+            """CREATE TABLE IF NOT EXISTS capability_requests (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                customer_id VARCHAR NOT NULL,
+                buddy_id VARCHAR,
+                original_message TEXT NOT NULL,
+                detected_intent VARCHAR(100),
+                status VARCHAR(50) NOT NULL DEFAULT 'pending',
+                tool_proposal JSONB,
+                dialog JSONB DEFAULT '[]',
+                admin_notes TEXT,
+                deployed_tool_key VARCHAR(100),
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_capability_requests_status ON capability_requests(status)",
+            "CREATE INDEX IF NOT EXISTS idx_capability_requests_customer ON capability_requests(customer_id)",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

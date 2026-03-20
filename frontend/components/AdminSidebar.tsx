@@ -16,6 +16,7 @@ const NAV: NavEntry[] = [
   { label: "Kunden",           href: "/admin/customers",    icon: "◎" },
   { label: "Baddis",           href: "/admin/baddis",       icon: "◈" },
   { label: "Dokumente",        href: "/admin/documents",    icon: "▦" },
+  { label: "Entwicklung",      href: "/admin/entwicklung",  icon: "⚗" },
   {
     label: "Uhrwerk", icon: "⚙",
     children: [

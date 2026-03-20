@@ -21,6 +21,7 @@ class RoutingResult:
     needs_tools: bool                # True → Uhrwerk aktivieren
     tool_keys: list[str] = field(default_factory=list)   # z.B. ["sbb_transport"]
     confidence: float = 1.0          # 0-1, bei regelbasiert immer 1.0
+    capability_gap: bool = False     # True → Uhrwerk kann es noch nicht, Entwicklung nötig
 
 
 # ── Regelbasierte Keyword-Maps ────────────────────────────────────────────────
@@ -81,28 +82,31 @@ def route(message: str) -> RoutingResult:
             tool_keys=[],
         )
 
-    # Web-Suche
+    # Web-Suche — noch kein Tool, Capability Gap
     if _WEB_SEARCH_KEYWORDS.search(msg):
         return RoutingResult(
             intent="web_search",
-            needs_tools=False,   # Web-Search-Tool noch nicht in tool_registry
+            needs_tools=False,
             tool_keys=[],
+            capability_gap=True,
         )
 
-    # E-Mail
+    # E-Mail — Gap wenn keine SMTP-Credentials
     if _EMAIL_KEYWORDS.search(msg):
         return RoutingResult(
             intent="email",
-            needs_tools=False,   # Aktiviert wenn Kunde SMTP-Credentials hinterlegt hat
+            needs_tools=False,
             tool_keys=[],
+            capability_gap=True,
         )
 
-    # Kalender
+    # Kalender — Gap
     if _CALENDAR_KEYWORDS.search(msg):
         return RoutingResult(
             intent="calendar",
             needs_tools=False,
             tool_keys=[],
+            capability_gap=True,
         )
 
     # Standard: normales Gespräch

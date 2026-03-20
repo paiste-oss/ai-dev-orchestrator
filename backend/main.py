@@ -4,11 +4,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.database import init_db
-from api.v1 import agent, customers, buddies, workflows, credentials, oauth, dev_tasks, documents, events, auth, chat, finance, transport, buddy_tools
+from api.v1 import agent, customers, buddies, workflows, credentials, oauth, dev_tasks, documents, events, auth, chat, finance, transport, buddy_tools, entwicklung
 from api.v1 import settings as portal_settings
 import models.chat      # noqa: F401 — register ChatMessage & MemoryItem with Base.metadata
 import models.finance   # noqa: F401 — register CostEntry with Base.metadata
 import models.buddy_tool  # noqa: F401 — register BuddyTool with Base.metadata
+import models.capability_request  # noqa: F401 — register CapabilityRequest with Base.metadata
 
 # Ollama als OpenAI-kompatibler Endpunkt für CrewAI/LangChain
 os.environ["OPENAI_API_KEY"] = "NA"
@@ -54,6 +55,7 @@ app.include_router(chat.router, prefix="/v1")
 app.include_router(finance.router, prefix="/v1")
 app.include_router(transport.router, prefix="/v1")
 app.include_router(buddy_tools.router, prefix="/v1")
+app.include_router(entwicklung.router, prefix="/v1")
 
 
 @app.get("/")
