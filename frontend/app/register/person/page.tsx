@@ -176,15 +176,7 @@ export default function RegisterMenschen() {
             </div>
           </div>
 
-          {assignedUseCase && (
-            <div className={`${assignedUseCase.bgColor} border ${assignedUseCase.borderColor} rounded-xl p-4 flex items-center gap-3`}>
-              <span className="text-3xl">{assignedUseCase.icon}</span>
-              <div>
-                <p className={`font-bold text-sm ${assignedUseCase.color}`}>Dein Baddi: {assignedUseCase.buddyName}</p>
-                <p className="text-xs text-gray-400">{assignedUseCase.name} · {assignedUseCase.tagline}</p>
-              </div>
-            </div>
-          )}
+
 
           <div className="space-y-1">
             <label className="text-sm text-gray-400">E-Mail</label>
