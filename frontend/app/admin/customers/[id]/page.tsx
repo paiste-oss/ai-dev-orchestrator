@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { getSession, apiFetch } from "@/lib/auth";
 import AdminSidebar from "@/components/AdminSidebar";
 import AvatarCreatorModal from "@/components/AvatarCreatorModal";
-import { USE_CASES, UseCase } from "@/lib/usecases";
+import { USE_CASES } from "@/lib/usecases";
 import { BACKEND_URL } from "@/lib/config";
 
 const BuddyAvatar = dynamic(() => import("@/components/BuddyAvatar"), { ssr: false });
@@ -75,10 +75,6 @@ const SEGMENT_OPTIONS = [
   { value: "corporate", label: "Firma"    },
 ];
 
-const SEGMENT_ORDER: { key: string; label: string }[] = [
-  { key: "menschen", label: "Menschen" },
-  { key: "firmen",   label: "Firmen"   },
-];
 
 const LANGUAGE_OPTIONS = [
   { value: "de", label: "Deutsch" },
@@ -110,9 +106,6 @@ const readCls = "bg-gray-700/50 border border-gray-700 rounded-lg px-3 py-2 text
 function BaddisTab({ customer }: { customer: CustomerDetail }) {
   const [buddies, setBuddies] = useState<BaddiRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [assigning, setAssigning] = useState<string | null>(null);
-  const [removing, setRemoving] = useState<string | null>(null);
-  const [activeSegment, setActiveSegment] = useState("menschen");
   const [avatarCreatorFor, setAvatarCreatorFor] = useState<BaddiRecord | null>(null);
   const [previewAvatarFor, setPreviewAvatarFor] = useState<string | null>(null);
   const [savingAvatar, setSavingAvatar] = useState<string | null>(null);
@@ -128,35 +121,6 @@ function BaddisTab({ customer }: { customer: CustomerDetail }) {
   }, [customer.id]);
 
   useEffect(() => { loadBuddies(); }, [loadBuddies]);
-
-  const assignedIds = new Set(buddies.map(b => b.usecase_id).filter(Boolean));
-
-  const assign = async (uc: UseCase) => {
-    setAssigning(uc.id);
-    try {
-      await apiFetch(`${BACKEND_URL}/v1/buddies`, {
-        method: "POST",
-        body: JSON.stringify({
-          customer_id: customer.id,
-          usecase_id: uc.id,
-          name: uc.buddyName,
-          segment: uc.segment,
-          persona_config: { system_prompt_template: uc.systemPrompt, preferred_model: "gemini-2.0-flash" },
-        }),
-      });
-      await loadBuddies();
-    } catch { alert("Fehler beim Zuweisen"); }
-    finally { setAssigning(null); }
-  };
-
-  const remove = async (buddyId: string) => {
-    setRemoving(buddyId);
-    try {
-      await apiFetch(`${BACKEND_URL}/v1/buddies/${buddyId}`, { method: "DELETE" });
-      await loadBuddies();
-    } catch { alert("Fehler beim Entfernen"); }
-    finally { setRemoving(null); }
-  };
 
   const saveAvatar = async (buddy: BaddiRecord, avatarUrl: string) => {
     setSavingAvatar(buddy.id);
@@ -185,14 +149,13 @@ function BaddisTab({ customer }: { customer: CustomerDetail }) {
     }
   };
 
-  const visibleUseCases = USE_CASES.filter(uc => uc.segment === activeSegment && uc.status === "active");
 
   return (
     <div className="space-y-6">
 
       {/* Zugewiesene Baddis mit Avatar */}
       <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-gray-300">Zugewiesene Baddis</h3>
+        <h3 className="text-sm font-semibold text-gray-300">{customer.name.split(" ")[0]}s Baddi</h3>
         {loading ? (
           <p className="text-sm text-gray-500">Wird geladen…</p>
         ) : buddies.length === 0 ? (
@@ -239,13 +202,6 @@ function BaddisTab({ customer }: { customer: CustomerDetail }) {
                         <p className={`font-semibold text-sm ${uc?.color ?? "text-white"}`}>{b.name}</p>
                         <p className="font-mono text-xs text-yellow-500">{uc?.baddiD ?? "—"}</p>
                       </div>
-                      <button
-                        onClick={() => remove(b.id)}
-                        disabled={removing === b.id}
-                        className="text-gray-500 hover:text-red-400 transition-colors disabled:opacity-50 text-sm"
-                      >
-                        {removing === b.id ? "…" : "✕"}
-                      </button>
                     </div>
 
                     <div className="flex gap-2">
@@ -274,50 +230,6 @@ function BaddisTab({ customer }: { customer: CustomerDetail }) {
         )}
       </div>
 
-      {/* Baddi hinzufügen */}
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-gray-300">Baddi hinzufügen</h3>
-        <div className="flex gap-1 bg-gray-900 rounded-lg p-1 w-fit">
-          {SEGMENT_ORDER.map(s => (
-            <button
-              key={s.key}
-              onClick={() => setActiveSegment(s.key)}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                activeSegment === s.key ? "bg-yellow-400 text-gray-900" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-          {visibleUseCases.map(uc => {
-            const isAssigned = assignedIds.has(uc.id);
-            return (
-              <button
-                key={uc.id}
-                onClick={() => !isAssigned && assign(uc)}
-                disabled={isAssigned || assigning === uc.id}
-                className={`text-left p-3 rounded-xl border transition-colors flex items-center gap-3 ${
-                  isAssigned
-                    ? `${uc.bgColor} ${uc.borderColor} opacity-60 cursor-default`
-                    : "bg-gray-700 border-gray-600 hover:border-gray-400"
-                }`}
-              >
-                <span className="text-xl shrink-0">{uc.icon}</span>
-                <div className="min-w-0">
-                  <p className={`text-sm font-semibold truncate ${isAssigned ? uc.color : "text-white"}`}>
-                    {uc.buddyName}
-                  </p>
-                  <p className="text-xs text-gray-400 truncate">{uc.name}</p>
-                </div>
-                {isAssigned && <span className="ml-auto text-xs text-green-400 shrink-0">✓</span>}
-                {assigning === uc.id && <span className="ml-auto text-xs text-gray-400 shrink-0">…</span>}
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       {/* Avatar Creator Modal */}
       {avatarCreatorFor && (
