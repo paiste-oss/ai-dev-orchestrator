@@ -7,6 +7,8 @@
 *.env
 .env.local
 .env.*.local
+# Infisical Bootstrap-Secrets (enthält ENCRYPTION_KEY, AUTH_SECRET, TOKEN)
+.env.infisical
 # Infisical: Token-Cache (lokale Session nach "infisical login")
 .infisical-token
 

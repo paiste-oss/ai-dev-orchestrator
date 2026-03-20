@@ -172,6 +172,53 @@ services:
       - ai_local
       - ai_external
 
+  # ── Infisical — On-Premise Secrets Manager ──────────────────────────────────
+  infisical_db:
+    image: postgres:16-alpine
+    container_name: infisical_db
+    restart: always
+    env_file:
+      - .env.infisical
+    environment:
+      POSTGRES_DB: infisical
+      POSTGRES_USER: infisical
+      POSTGRES_PASSWORD: ${INFISICAL_DB_PASSWORD}
+    volumes:
+      - infisical_db_data:/var/lib/postgresql/data
+    networks:
+      - ai_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U infisical"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  infisical:
+    image: infisical/infisical:latest-postgres
+    container_name: infisical
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env.infisical
+    environment:
+      NODE_ENV: production
+      ENCRYPTION_KEY: ${INFISICAL_ENCRYPTION_KEY}
+      AUTH_SECRET: ${INFISICAL_AUTH_SECRET}
+      DB_CONNECTION_URI: postgresql://infisical:${INFISICAL_DB_PASSWORD}@infisical_db:5432/infisical
+      REDIS_URL: redis://redis:6379/3
+      SITE_URL: ${INFISICAL_SITE_URL:-http://localhost:8080}
+      TELEMETRY_ENABLED: "false"
+    depends_on:
+      infisical_db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - ai_internal
+      - ai_external
+
+  # ── App-Services ─────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: ai_postgres
@@ -250,6 +297,7 @@ volumes:
   postgres_data:
   redis_data:
   qdrant_data:
+  infisical_db_data:
 
 networks:
   ai_local:
