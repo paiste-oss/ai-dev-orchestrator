@@ -44,7 +44,7 @@ const ALL_PAGES: PageEntry[] = [
     role: "public",
     description: "Einheitliches Registrierungsformular für neue Kunden",
     group: "Registrierung",
-  }, ────────────────────────────────────────────────────────────
+  },
   // ── Admin ────────────────────────────────────────────────────────────────────
   {
     path: "/admin",
