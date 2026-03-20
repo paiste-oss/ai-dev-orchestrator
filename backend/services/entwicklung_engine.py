@@ -13,6 +13,34 @@ from datetime import datetime
 
 from models.capability_request import CapabilityRequest
 
+_UHRWERK_CONFIG_KEY = "uhrwerk:config"
+_UHRWERK_DEFAULTS = {
+    "name": "Uhrwerk",
+    "identity": (
+        "Du bist das Uhrwerk — der interne Entwicklungs-Assistent von Baddi. "
+        "Du analysierst Anfragen von Kunden, planst neue Tool-Integrationen und "
+        "arbeitest eng mit dem Admin zusammen um neue Fähigkeiten zu entwickeln. "
+        "Du antwortest präzise, technisch kompetent und auf Deutsch."
+    ),
+    "analyse_model": "claude-haiku-4-5-20251001",
+    "reply_model": "claude-haiku-4-5-20251001",
+    "language": "de",
+}
+
+
+def _load_uhrwerk_config() -> dict:
+    """Lädt die Uhrwerk-Konfiguration aus Redis (mit Fallback auf Defaults)."""
+    try:
+        import redis as redis_lib
+        from core.config import settings
+        r = redis_lib.from_url(settings.redis_url, decode_responses=True)
+        raw = r.get(_UHRWERK_CONFIG_KEY)
+        if raw:
+            return {**_UHRWERK_DEFAULTS, **json.loads(raw)}
+    except Exception:
+        pass
+    return _UHRWERK_DEFAULTS
+
 
 _ANALYSE_PROMPT = """Du bist ein Software-Architekt und API-Experte.
 Ein Kunde hat folgende Anfrage gestellt, die das System noch nicht erfüllen kann:
@@ -63,6 +91,8 @@ async def analyse_capability_request(request_id: str) -> None:
         req.updated_at = datetime.utcnow()
         await db.commit()
 
+        cfg = _load_uhrwerk_config()
+
         try:
             prompt = _ANALYSE_PROMPT.format(
                 message=req.original_message,
@@ -71,8 +101,11 @@ async def analyse_capability_request(request_id: str) -> None:
 
             response = await chat_with_claude(
                 messages=[{"role": "user", "content": prompt}],
-                system_prompt="Du bist ein präziser Software-Architekt. Antworte ausschliesslich mit validem JSON.",
-                model="claude-haiku-4-5-20251001",
+                system_prompt=(
+                    f"{cfg['identity']}\n\n"
+                    "Antworte ausschliesslich mit validem JSON, keine Erklärungen."
+                ),
+                model=cfg["analyse_model"],
             )
 
             # JSON extrahieren (Claude gibt manchmal Markdown zurück)
@@ -184,14 +217,13 @@ async def uhrwerk_reply(request_id: str) -> None:
             role = "assistant" if entry["role"] == "uhrwerk" else "user"
             messages.append({"role": role, "content": entry["content"]})
 
+        cfg = _load_uhrwerk_config()
         system_prompt = (
-            "Du bist das Uhrwerk — ein Software-Architekt der neue Tools und API-Integrationen "
-            "für das Baddi-System entwickelt. Du analysierst Anfragen, planst Implementierungen "
-            "und arbeitest mit dem Admin zusammen um fehlende Fähigkeiten zu entwickeln.\n\n"
+            f"{cfg['identity']}\n\n"
             f"Aktuelle Anfrage: \"{req.original_message}\"\n"
             f"Intent: {req.detected_intent or 'unbekannt'}\n"
             f"Status: {req.status}\n\n"
-            "Antworte präzise und technisch. Wenn du alle nötigen Informationen hast, "
+            "Antworte präzise. Wenn du alle nötigen Informationen hast, "
             "beschreibe den nächsten konkreten Entwicklungsschritt. "
             "Wenn du noch etwas brauchst, frag gezielt danach."
         )
@@ -200,7 +232,7 @@ async def uhrwerk_reply(request_id: str) -> None:
             response = await chat_with_claude(
                 messages=messages,
                 system_prompt=system_prompt,
-                model="claude-haiku-4-5-20251001",
+                model=cfg["reply_model"],
             )
 
             dialog.append({

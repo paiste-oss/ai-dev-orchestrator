@@ -92,6 +92,46 @@ async def update_baddi_config(
     return data
 
 
+_UHRWERK_KEY = "uhrwerk:config"
+
+_UHRWERK_DEFAULTS = {
+    "name": "Uhrwerk",
+    "identity": (
+        "Du bist das Uhrwerk — der interne Entwicklungs-Assistent von Baddi. "
+        "Du analysierst Anfragen von Kunden, planst neue Tool-Integrationen und "
+        "arbeitest eng mit dem Admin zusammen um neue Fähigkeiten zu entwickeln. "
+        "Du antwortest präzise, technisch kompetent und auf Deutsch."
+    ),
+    "analyse_model": "claude-haiku-4-5-20251001",
+    "reply_model": "claude-haiku-4-5-20251001",
+    "language": "de",
+}
+
+
+class UhrwerkConfig(BaseModel):
+    name: str = "Uhrwerk"
+    identity: str = _UHRWERK_DEFAULTS["identity"]
+    analyse_model: str = "claude-haiku-4-5-20251001"
+    reply_model: str = "claude-haiku-4-5-20251001"
+    language: str = "de"
+
+
+@router.get("/uhrwerk")
+async def get_uhrwerk_config(_: Customer = Depends(require_admin)):
+    raw = _redis.get(_UHRWERK_KEY)
+    return json.loads(raw) if raw else _UHRWERK_DEFAULTS
+
+
+@router.put("/uhrwerk")
+async def update_uhrwerk_config(
+    body: UhrwerkConfig,
+    _: Customer = Depends(require_admin),
+):
+    data = body.model_dump()
+    _redis.set(_UHRWERK_KEY, json.dumps(data))
+    return data
+
+
 @router.get("/portal")
 async def get_portal_settings():
     """Öffentlich — wird von der Startseite gelesen."""
