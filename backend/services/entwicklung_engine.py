@@ -9,7 +9,10 @@ Die Request-Session des Aufrufers ist zu diesem Zeitpunkt bereits geschlossen.
 """
 import asyncio
 import json
+import logging
 from datetime import datetime
+
+_log = logging.getLogger(__name__)
 
 from models.capability_request import CapabilityRequest
 
@@ -37,8 +40,8 @@ def _load_uhrwerk_config() -> dict:
         raw = r.get(_UHRWERK_CONFIG_KEY)
         if raw:
             return {**_UHRWERK_DEFAULTS, **json.loads(raw)}
-    except Exception:
-        pass
+    except Exception as e:
+        _log.warning("Uhrwerk-Config konnte nicht geladen werden: %s", e)
     return _UHRWERK_DEFAULTS
 
 
@@ -179,20 +182,20 @@ async def analyse_capability_request(request_id: str) -> None:
             await db.commit()
 
 
-def schedule_capability_analysis(request_id: str, db=None) -> None:
+def schedule_capability_analysis(request_id: str) -> None:
     """Startet die Erstanalyse als Background-Task (non-blocking)."""
     async def _run():
         try:
             await analyse_capability_request(request_id)
-        except Exception:
-            pass
+        except Exception as e:
+            _log.error("Capability-Analyse fehlgeschlagen (%s): %s", request_id, e)
 
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
             loop.create_task(_run())
-    except Exception:
-        pass
+    except Exception as e:
+        _log.error("Konnte Analyse-Task nicht starten (%s): %s", request_id, e)
 
 
 async def uhrwerk_reply(request_id: str) -> None:
@@ -260,12 +263,12 @@ def schedule_uhrwerk_reply(request_id: str) -> None:
     async def _run():
         try:
             await uhrwerk_reply(request_id)
-        except Exception:
-            pass
+        except Exception as e:
+            _log.error("Uhrwerk-Reply fehlgeschlagen (%s): %s", request_id, e)
 
     try:
         loop = asyncio.get_event_loop()
         if loop.is_running():
             loop.create_task(_run())
-    except Exception:
-        pass
+    except Exception as e:
+        _log.error("Konnte Uhrwerk-Reply-Task nicht starten (%s): %s", request_id, e)

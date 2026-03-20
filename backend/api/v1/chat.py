@@ -61,13 +61,25 @@ _AGENT_CAPABILITIES: dict[str, str] = {
 }
 
 
+import logging as _logging
+_log = _logging.getLogger(__name__)
+
+_redis_client: "redis_lib.Redis | None" = None
+
+def _get_redis() -> "redis_lib.Redis":
+    global _redis_client
+    if _redis_client is None:
+        _redis_client = redis_lib.from_url(settings.redis_url, decode_responses=True)
+    return _redis_client
+
+
 def _load_baddi_config(usecase_id: str) -> dict:
     """Lädt Baddi-Konfiguration (System-Prompt + Agenten) aus Redis."""
     try:
-        r = redis_lib.from_url(settings.redis_url, decode_responses=True)
-        raw = r.get(f"baddi:config:{usecase_id}")
+        raw = _get_redis().get(f"baddi:config:{usecase_id}")
         return json.loads(raw) if raw else {}
-    except Exception:
+    except Exception as e:
+        _log.warning("Baddi-Config konnte nicht geladen werden (%s): %s", usecase_id, e)
         return {}
 
 
@@ -351,7 +363,7 @@ async def _handle_gap(
         db.add(cap_req)
         await db.commit()
         await db.refresh(cap_req)
-        schedule_capability_analysis(str(cap_req.id), db)
+        schedule_capability_analysis(str(cap_req.id))
 
     user_msg = ChatMessage(
         customer_id=customer_id, buddy_id=buddy_id,

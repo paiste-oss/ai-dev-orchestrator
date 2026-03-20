@@ -15,18 +15,24 @@ Schema in Redis:
 """
 from __future__ import annotations
 import json
+import logging
 import time
 from typing import Optional
 
+_log = logging.getLogger(__name__)
 
 _LEARNED_TTL = 30 * 24 * 3600   # 30 Tage
 _GAP_TTL     =  7 * 24 * 3600   # 7 Tage Cooldown für gleichen Gap
 
+_redis_client = None
 
 def _r():
-    import redis as redis_lib
-    from core.config import settings
-    return redis_lib.from_url(settings.redis_url, decode_responses=True)
+    global _redis_client
+    if _redis_client is None:
+        import redis as redis_lib
+        from core.config import settings
+        _redis_client = redis_lib.from_url(settings.redis_url, decode_responses=True)
+    return _redis_client
 
 
 # ── Erfolg / Misserfolg melden ────────────────────────────────────────────────
@@ -42,8 +48,8 @@ def record_success(intent: str, route_key: str) -> None:
         entry["last_used"] = int(time.time())
         data[route_key] = entry
         r.setex(key, _LEARNED_TTL, json.dumps(data))
-    except Exception:
-        pass
+    except Exception as e:
+        _log.warning("record_success fehlgeschlagen (%s/%s): %s", intent, route_key, e)
 
 
 def record_failure(intent: str, route_key: str) -> None:
@@ -57,8 +63,8 @@ def record_failure(intent: str, route_key: str) -> None:
         entry["last_used"] = int(time.time())
         data[route_key] = entry
         r.setex(key, _LEARNED_TTL, json.dumps(data))
-    except Exception:
-        pass
+    except Exception as e:
+        _log.warning("record_failure fehlgeschlagen (%s/%s): %s", intent, route_key, e)
 
 
 # ── Beste Route abfragen ──────────────────────────────────────────────────────
