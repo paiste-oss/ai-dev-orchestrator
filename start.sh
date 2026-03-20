@@ -67,6 +67,7 @@ run_with_secrets() {
   check_infisical_cli
   echo "🔐 Lade App-Secrets aus Infisical (${INFISICAL_DOMAIN})..."
   infisical run \
+    --silent \
     --token="$INFISICAL_TOKEN" \
     --domain="$INFISICAL_DOMAIN" \
     -- "$@"
