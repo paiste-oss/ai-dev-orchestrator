@@ -21,7 +21,7 @@ const MONTHS = [
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: currentYear - 1920 - 5 }, (_, i) => currentYear - 6 - i);
 
-export default function RegisterMenschen() {
+export default function RegisterPage() {
   const router = useRouter();
   const captcha = useMathCaptcha();
 
@@ -29,7 +29,7 @@ export default function RegisterMenschen() {
     vorname: "", nachname: "",
     geburtstag: "", geburtsmonat: "", geburtsjahr: "",
     email: "", passwort: "", passwortBestaetigung: "",
-    website: "", // honeypot
+    website: "",
   });
   const [captchaInput, setCaptchaInput] = useState("");
   const [error, setError] = useState("");
@@ -46,7 +46,7 @@ export default function RegisterMenschen() {
     e.preventDefault();
     setError("");
 
-    if (form.website) return; // honeypot triggered
+    if (form.website) return;
 
     if (parseInt(captchaInput) !== captcha.answer) {
       setError("Sicherheitsfrage falsch. Bitte nochmals versuchen.");
@@ -65,8 +65,6 @@ export default function RegisterMenschen() {
       return;
     }
 
-    const birth = Number(form.geburtsjahr);
-
     setLoading(true);
     try {
       const res = await fetch(`${BACKEND_URL}/v1/auth/register`, {
@@ -76,8 +74,8 @@ export default function RegisterMenschen() {
           name: `${form.vorname} ${form.nachname}`.trim(),
           email: form.email,
           password: form.passwort,
-          segment: "menschen",
-          birth_year: birth || null,
+          segment: "personal",
+          birth_year: Number(form.geburtsjahr) || null,
           birth_date: birthDateString,
         }),
       });
@@ -100,15 +98,19 @@ export default function RegisterMenschen() {
 
   if (success) {
     return (
-      <main className="min-h-screen bg-rose-950 text-white flex items-center justify-center p-6">
+      <main className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-6">
         <div className="max-w-md w-full text-center space-y-6">
-          <div className="text-6xl">🧑</div>
-          <h2 className="text-2xl font-bold text-rose-300">Willkommen, {form.vorname}!</h2>
-          <p className="text-gray-300">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-2xl mx-auto shadow-xl">
+            🤖
+          </div>
+          <h2 className="text-2xl font-bold text-white">Willkommen, {form.vorname}!</h2>
+          <p className="text-gray-400">
             Dein persönlicher Baddi wird gerade für dich eingerichtet ✨
           </p>
-          <button onClick={() => router.push("/chat")}
-            className="w-full bg-rose-700 hover:bg-rose-600 py-3 rounded-xl font-bold transition-colors">
+          <button
+            onClick={() => router.push("/chat")}
+            className="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold transition-colors"
+          >
             Los geht&apos;s →
           </button>
         </div>
@@ -119,17 +121,17 @@ export default function RegisterMenschen() {
   return (
     <main className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-lg space-y-6">
+
         <div className="flex items-center gap-3">
           <button onClick={() => router.push("/")} className="text-gray-500 hover:text-white text-xl">←</button>
           <div>
-            <h1 className="text-2xl font-bold text-rose-300">🧑 Registrierung Menschen</h1>
+            <h1 className="text-2xl font-bold text-white">Kundenregistrierung</h1>
             <p className="text-xs text-gray-500">Dein persönlicher KI-Begleiter</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-gray-900 rounded-2xl border border-gray-800 p-6 space-y-5">
 
-          {/* Honeypot — invisible to humans */}
           <input type="text" name="website" value={form.website}
             onChange={(e) => set("website", e.target.value)}
             style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
@@ -139,13 +141,13 @@ export default function RegisterMenschen() {
               <label className="text-sm text-gray-400">Vorname</label>
               <input required value={form.vorname} onChange={(e) => set("vorname", e.target.value)}
                 placeholder="Anna"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500" />
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
             </div>
             <div className="space-y-1">
               <label className="text-sm text-gray-400">Nachname</label>
               <input required value={form.nachname} onChange={(e) => set("nachname", e.target.value)}
                 placeholder="Müller"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500" />
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
             </div>
           </div>
 
@@ -153,43 +155,35 @@ export default function RegisterMenschen() {
             <label className="text-sm text-gray-400">Geburtsdatum</label>
             <div className="grid grid-cols-3 gap-2">
               <select required value={form.geburtstag} onChange={(e) => set("geburtstag", e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500">
+                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500">
                 <option value="">Tag</option>
-                {DAYS.map((d) => (
-                  <option key={d} value={String(d)}>{d}</option>
-                ))}
+                {DAYS.map((d) => <option key={d} value={String(d)}>{d}</option>)}
               </select>
               <select required value={form.geburtsmonat} onChange={(e) => set("geburtsmonat", e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500">
+                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500">
                 <option value="">Monat</option>
-                {MONTHS.map((m, i) => (
-                  <option key={i} value={String(i + 1)}>{m}</option>
-                ))}
+                {MONTHS.map((m, i) => <option key={i} value={String(i + 1)}>{m}</option>)}
               </select>
               <select required value={form.geburtsjahr} onChange={(e) => set("geburtsjahr", e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500">
+                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500">
                 <option value="">Jahr</option>
-                {YEARS.map((y) => (
-                  <option key={y} value={String(y)}>{y}</option>
-                ))}
+                {YEARS.map((y) => <option key={y} value={String(y)}>{y}</option>)}
               </select>
             </div>
           </div>
-
-
 
           <div className="space-y-1">
             <label className="text-sm text-gray-400">E-Mail</label>
             <input required type="email" value={form.email} onChange={(e) => set("email", e.target.value)}
               placeholder="anna@beispiel.ch"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500" />
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
           </div>
 
           <div className="space-y-1">
             <label className="text-sm text-gray-400">Passwort <span className="text-gray-600">(min. 8 Zeichen)</span></label>
             <input required type="password" value={form.passwort} minLength={8}
               onChange={(e) => set("passwort", e.target.value)} placeholder="••••••••"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500" />
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
           </div>
 
           <div className="space-y-1">
@@ -198,7 +192,7 @@ export default function RegisterMenschen() {
               onChange={(e) => set("passwortBestaetigung", e.target.value)} placeholder="••••••••"
               className={`w-full bg-gray-800 border rounded-lg p-3 text-white focus:outline-none ${
                 form.passwortBestaetigung && form.passwort !== form.passwortBestaetigung
-                  ? "border-red-500" : "border-gray-700 focus:border-rose-500"
+                  ? "border-red-500" : "border-gray-700 focus:border-indigo-500"
               }`} />
             {form.passwortBestaetigung && form.passwort !== form.passwortBestaetigung && (
               <p className="text-xs text-red-400">Passwörter stimmen nicht überein</p>
@@ -211,7 +205,7 @@ export default function RegisterMenschen() {
             </label>
             <input required type="number" value={captchaInput}
               onChange={(e) => setCaptchaInput(e.target.value)} placeholder="Antwort"
-              className="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-rose-500" />
+              className="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
           </div>
 
           {error && (
@@ -219,14 +213,14 @@ export default function RegisterMenschen() {
           )}
 
           <button type="submit" disabled={loading}
-            className="w-full bg-rose-700 hover:bg-rose-600 py-3 rounded-xl font-bold transition-colors disabled:opacity-50">
+            className="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold transition-colors disabled:opacity-50">
             {loading ? "Wird registriert…" : "Konto erstellen →"}
           </button>
         </form>
 
         <p className="text-center text-sm text-gray-600">
           Bereits registriert?{" "}
-          <button onClick={() => router.push("/login")} className="text-rose-400 hover:text-rose-300">Anmelden</button>
+          <button onClick={() => router.push("/login")} className="text-indigo-400 hover:text-indigo-300">Anmelden</button>
         </p>
       </div>
     </main>

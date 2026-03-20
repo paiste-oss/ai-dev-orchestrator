@@ -36,32 +36,15 @@ const ALL_PAGES: PageEntry[] = [
     group: "Public",
   },
 
-  // ── Registrierung ────────────────────────────────────────────────────────────
+  // ── Registrierung
   {
-    path: "/register/person",
-    label: "Registrierung: Menschen",
-    icon: "🧑",
-    role: "public",
-    description: "Registrierungsflow für Privatpersonen",
-    group: "Registrierung",
-  },
-  {
-    path: "/register/firma",
-    label: "Registrierung: Firmen",
-    icon: "🏢",
-    role: "public",
-    description: "Registrierungsflow für Unternehmen",
-    group: "Registrierung",
-  },
-  {
-    path: "/register/allgemein",
-    label: "Registrierung: Allgemein",
+    path: "/register",
+    label: "Kundenregistrierung",
     icon: "📝",
     role: "public",
-    description: "Allgemeiner Registrierungsschritt (Basisdaten)",
+    description: "Einheitliches Registrierungsformular für neue Kunden",
     group: "Registrierung",
-  },
-
+  }, ────────────────────────────────────────────────────────────
   // ── Admin ────────────────────────────────────────────────────────────────────
   {
     path: "/admin",
