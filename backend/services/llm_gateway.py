@@ -1,17 +1,31 @@
 """
 LLM Gateway — routes chat requests to Claude, Gemini oder OpenAI.
 Priorität: Claude (Anthropic) → Gemini → OpenAI
+
+Gibt ChatResult zurück mit response-Text + Token-Counts.
 """
 import httpx
+from dataclasses import dataclass
 from core.config import settings
+
+
+@dataclass
+class ChatResult:
+    text: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+    @property
+    def total_tokens(self) -> int:
+        return self.input_tokens + self.output_tokens
 
 
 async def chat_with_claude(
     messages: list[dict],
     system_prompt: str | None = None,
     model: str = "claude-haiku-4-5-20251001",
-) -> str:
-    """Send a conversation to Anthropic Claude and return the response text."""
+) -> ChatResult:
+    """Send a conversation to Anthropic Claude and return ChatResult."""
     if not settings.anthropic_api_key:
         raise ValueError("ANTHROPIC_API_KEY is not configured in the environment.")
 
@@ -39,7 +53,13 @@ async def chat_with_claude(
         data = resp.json()
 
     try:
-        return data["content"][0]["text"]
+        text = data["content"][0]["text"]
+        usage = data.get("usage", {})
+        return ChatResult(
+            text=text,
+            input_tokens=usage.get("input_tokens", 0),
+            output_tokens=usage.get("output_tokens", 0),
+        )
     except (KeyError, IndexError) as exc:
         raise ValueError(f"Unexpected Claude response structure: {data}") from exc
 
@@ -48,8 +68,8 @@ async def chat_with_gemini(
     messages: list[dict],
     system_prompt: str | None = None,
     model: str = "gemini-2.5-flash",
-) -> str:
-    """Send a conversation to Google Gemini and return the response text."""
+) -> ChatResult:
+    """Send a conversation to Google Gemini and return ChatResult."""
     if not settings.gemini_api_key:
         raise ValueError("GEMINI_API_KEY is not configured in the environment.")
 
@@ -76,7 +96,13 @@ async def chat_with_gemini(
         data = resp.json()
 
     try:
-        return data["candidates"][0]["content"]["parts"][0]["text"]
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+        meta = data.get("usageMetadata", {})
+        return ChatResult(
+            text=text,
+            input_tokens=meta.get("promptTokenCount", 0),
+            output_tokens=meta.get("candidatesTokenCount", 0),
+        )
     except (KeyError, IndexError) as exc:
         raise ValueError(f"Unexpected Gemini response structure: {data}") from exc
 
@@ -85,8 +111,8 @@ async def chat_with_openai(
     messages: list[dict],
     system_prompt: str | None = None,
     model: str = "gpt-4o-mini",
-) -> str:
-    """Send a conversation to OpenAI ChatGPT and return the response text."""
+) -> ChatResult:
+    """Send a conversation to OpenAI ChatGPT and return ChatResult."""
     if not settings.openai_api_key:
         raise ValueError("OPENAI_API_KEY is not configured in the environment.")
 
@@ -105,6 +131,12 @@ async def chat_with_openai(
         data = resp.json()
 
     try:
-        return data["choices"][0]["message"]["content"]
+        text = data["choices"][0]["message"]["content"]
+        usage = data.get("usage", {})
+        return ChatResult(
+            text=text,
+            input_tokens=usage.get("prompt_tokens", 0),
+            output_tokens=usage.get("completion_tokens", 0),
+        )
     except (KeyError, IndexError) as exc:
         raise ValueError(f"Unexpected OpenAI response structure: {data}") from exc

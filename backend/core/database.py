@@ -60,6 +60,8 @@ async def init_db():
             "CREATE INDEX IF NOT EXISTS idx_capability_requests_status ON capability_requests(status)",
             "CREATE INDEX IF NOT EXISTS idx_capability_requests_customer ON capability_requests(customer_id)",
             "ALTER TABLE capability_requests ADD COLUMN IF NOT EXISTS dev_task_id VARCHAR(36)",
+            # Token-Accounting
+            "ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS tokens_used INTEGER DEFAULT 0",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

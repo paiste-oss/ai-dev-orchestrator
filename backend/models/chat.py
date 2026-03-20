@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import Text, Float, Boolean, DateTime, ForeignKey
+from sqlalchemy import Text, Float, Boolean, DateTime, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from core.database import Base
 
@@ -16,6 +16,7 @@ class ChatMessage(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     provider: Mapped[str | None] = mapped_column(Text, nullable=True)  # gemini | openai | ollama
     model: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tokens_used: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

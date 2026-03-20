@@ -155,8 +155,12 @@ async def send_message(
 
     # ── 3. ROUTER (zwingend lokal) ────────────────────────────────────────────
     # Jede Nachricht geht zuerst durch den Router.
-    # Der Router prüft: Keyword-Intent → gelernter Endpunkt → dynamische Tools
-    routing = agent_route(req.message)
+    # Der Router prüft: Content Guard → Keyword-Intent → gelernter Endpunkt → dynamische Tools
+    routing = agent_route(req.message, customer_id=customer_id)
+
+    # Stage 0: Content Guard — sofort ablehnen ohne LLM-Aufruf
+    if routing.blocked:
+        raise HTTPException(status_code=400, detail="Anfrage abgelehnt.")
 
     # ── 4. Relevante Memories ─────────────────────────────────────────────────
     relevant = await select_relevant_context(customer_id, req.message, db)
@@ -201,6 +205,7 @@ async def send_message(
     errors: list[str] = []
     response_text: str | None = None
     used_tool_key: str | None = None
+    tokens_used: int = 0
 
     if routing.needs_tools and routing.tool_keys:
         for tool_key in routing.tool_keys:
@@ -230,15 +235,17 @@ async def send_message(
     # ── 8. LLM-Fallback (kein Tool oder alle Tools gescheitert) ──────────────
     if response_text is None:
         try:
-            candidate = await chat_with_claude(messages, system_prompt)
-            if assess_response(candidate):
-                response_text = candidate
+            result = await chat_with_claude(messages, system_prompt)
+            if assess_response(result.text):
+                response_text = result.text
+                tokens_used = result.total_tokens
                 record_success(routing.intent, "llm_claude")
             else:
                 record_failure(routing.intent, "llm_claude")
                 errors.append("Claude: Gap erkannt in LLM-Antwort")
                 # Rohantwort trotzdem behalten für Gap-Analyse
-                response_text = candidate
+                response_text = result.text
+                tokens_used = result.total_tokens
         except Exception as e:
             errors.append(f"Claude: {e}")
 
@@ -246,13 +253,15 @@ async def send_message(
         try:
             provider = "gemini"
             model_name = "gemini-2.5-flash"
-            candidate = await chat_with_gemini(messages, system_prompt)
-            if assess_response(candidate):
-                response_text = candidate
+            result = await chat_with_gemini(messages, system_prompt)
+            if assess_response(result.text):
+                response_text = result.text
+                tokens_used = result.total_tokens
                 record_success(routing.intent, "llm_gemini")
             else:
                 record_failure(routing.intent, "llm_gemini")
-                response_text = candidate
+                response_text = result.text
+                tokens_used = result.total_tokens
         except Exception as e:
             errors.append(f"Gemini: {e}")
 
@@ -260,13 +269,15 @@ async def send_message(
         try:
             provider = "openai"
             model_name = "gpt-4o-mini"
-            candidate = await chat_with_openai(messages, system_prompt)
-            if assess_response(candidate):
-                response_text = candidate
+            result = await chat_with_openai(messages, system_prompt)
+            if assess_response(result.text):
+                response_text = result.text
+                tokens_used = result.total_tokens
                 record_success(routing.intent, "llm_openai")
             else:
                 record_failure(routing.intent, "llm_openai")
-                response_text = candidate
+                response_text = result.text
+                tokens_used = result.total_tokens
         except Exception as e:
             errors.append(f"ChatGPT: {e}")
 
@@ -304,6 +315,7 @@ async def send_message(
         content=response_text,
         provider=provider,
         model=model_name,
+        tokens_used=tokens_used,
     )
     db.add(user_msg)
     db.add(assistant_msg)

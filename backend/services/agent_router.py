@@ -18,8 +18,53 @@ Stufe 4 — Antwort-Bewertung (nach Uhrwerk-Verarbeitung):
   → Negativ: Wird an Entwicklung weitergereicht
 """
 from __future__ import annotations
+import logging
 import re
 from dataclasses import dataclass, field
+
+_log = logging.getLogger(__name__)
+
+# ── Stage 0: Content Guard ─────────────────────────────────────────────────
+# Lehnt Anfragen ab die eindeutig illegale oder schwer schädliche Inhalte
+# betreffen. Bewusst eng gefasst — nur kristallklare Fälle.
+
+_CONTENT_GUARD_PATTERNS = re.compile(
+    r"("
+    # CSAM — jede Form
+    r"kinderpornograph|child.*porn|csam|sexuelle.*bilder.*kind|kinder.*sexuell|"
+    r"nackt.*kinder?foto|minderj[äa]hrige.*sexuell|"
+    # Terrorismus / Anschlagsplanung
+    r"bombenanleitung|sprengstoff.*bauen|anschlag.*planen|terroranschlag|"
+    r"how.*to.*make.*bomb|build.*explosive|"
+    # Extremgewalt-Anleitungen
+    r"anleitung.*folter|menschen.*foltern.*wie|torture.*instructions|"
+    r"massenerschie[sß]ung.*planen|"
+    # Tierquälerei-Anleitungen
+    r"tiere.*qual.*anleitung|anleitung.*tiere.*t[öo]ten|animal.*torture.*how"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _content_guard(message: str, customer_id: str | None = None) -> "RoutingResult | None":
+    """
+    Stage 0 — Content Guard.
+    Gibt ein geblockte RoutingResult zurück wenn verbotener Inhalt erkannt wird,
+    sonst None.
+    """
+    if _CONTENT_GUARD_PATTERNS.search(message):
+        _log.warning(
+            "Content Guard ausgelöst | customer=%s | msg_preview=%.80r",
+            customer_id or "unknown",
+            message,
+        )
+        return RoutingResult(
+            intent="blocked",
+            needs_tools=False,
+            blocked=True,
+            block_reason="content_guard",
+        )
+    return None
 
 # ── Intent-Definitionen ───────────────────────────────────────────────────────
 
@@ -32,6 +77,8 @@ class RoutingResult:
     capability_gap: bool = False                   # True → bekannt nicht möglich
     learned_route: str | None = None               # aus Router-Gedächtnis
     dynamic_tools: list[str] = field(default_factory=list)  # aus Entwicklung deployed
+    blocked: bool = False                          # True → Anfrage abgelehnt
+    block_reason: str | None = None                # interne Kategorie (für Audit-Log)
 
 
 # ── Keyword-Pattern ───────────────────────────────────────────────────────────
@@ -124,15 +171,21 @@ def _load_dynamic_tool_keys() -> list[str]:
 
 # ── Haupt-Router ─────────────────────────────────────────────────────────────
 
-def route(message: str) -> RoutingResult:
+def route(message: str, customer_id: str | None = None) -> RoutingResult:
     """
     Pflicht-Einstiegspunkt für jede Kunden-Nachricht.
 
+    Stufe 0: Content Guard (verbotene Inhalte sofort ablehnen)
     Stufe 1: Keyword-Matching (regelbasiert, lokal, <1ms)
     Stufe 2: Router-Gedächtnis (gelernte Routen aus Redis)
     Stufe 3: Dynamische Tools (via Entwicklung deployed)
     """
     from services.router_memory import get_best_route
+
+    # ── Stufe 0: Content Guard ─────────────────────────────────────────────
+    guard = _content_guard(message, customer_id)
+    if guard:
+        return guard
 
     msg = message.lower()
 

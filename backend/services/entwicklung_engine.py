@@ -102,7 +102,7 @@ async def analyse_capability_request(request_id: str) -> None:
                 intent=req.detected_intent or "unbekannt",
             )
 
-            response = await chat_with_claude(
+            result = await chat_with_claude(
                 messages=[{"role": "user", "content": prompt}],
                 system_prompt=(
                     f"{cfg['identity']}\n\n"
@@ -110,6 +110,7 @@ async def analyse_capability_request(request_id: str) -> None:
                 ),
                 model=cfg["analyse_model"],
             )
+            response = result.text
 
             # JSON extrahieren (Claude gibt manchmal Markdown zurück)
             proposal = None
@@ -232,7 +233,7 @@ async def uhrwerk_reply(request_id: str) -> None:
         )
 
         try:
-            response = await chat_with_claude(
+            result = await chat_with_claude(
                 messages=messages,
                 system_prompt=system_prompt,
                 model=cfg["reply_model"],
@@ -240,7 +241,7 @@ async def uhrwerk_reply(request_id: str) -> None:
 
             dialog.append({
                 "role": "uhrwerk",
-                "content": response,
+                "content": result.text,
                 "created_at": datetime.utcnow().isoformat(),
             })
             req.dialog = dialog
