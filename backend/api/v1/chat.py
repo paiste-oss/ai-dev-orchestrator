@@ -1,14 +1,20 @@
 """
-Chat API — persistent memory chat mit Claude / Gemini / OpenAI.
+Chat API — vollständige Routing-Pipeline.
 
-Flow per request:
-  1. Conversation history laden
-  2. Baddi-Konfiguration + zugewiesene Agenten aus Redis lesen (falls buddy_id gesetzt)
-  3. Relevante Memories auswählen (Ollama, lokal)
-  4. System-Prompt aufbauen: Baddi-Prompt + Agent-Capabilities + Memory-Kontext
-  5. LLM aufrufen: Claude → Gemini → OpenAI
-  6. Beide Turns in DB speichern
-  7. Memory-Extraktion im Hintergrund starten
+Flow pro Request:
+  1.  Conversation history laden
+  2.  Baddi laden + Konfiguration aus Redis
+  3.  Relevante Memories auswählen
+  4.  System-Prompt aufbauen
+  5.  ROUTER (zwingend lokal, <1ms) — klassifiziert Intent
+  6.  Router-Gedächtnis prüfen — gelernte Routen bevorzugen
+  7.  Uhrwerk aufrufen (Tool / Agent / Workflow) wenn Tools verfügbar
+  8.  ROUTER bewertet Antwort:
+        → Positiv: Antwort an Baddi/Kunden weiterleiten
+        → Negativ: Capability Gap erkannt → an Entwicklung weiterreichen
+  9.  Router lernt: Erfolg/Misserfolg in Redis speichern
+  10. Beide Turns persistieren
+  11. Memory-Extraktion im Hintergrund
 """
 import json
 import uuid as uuid_mod
@@ -28,8 +34,9 @@ from models.chat import ChatMessage, MemoryItem
 from models.customer import Customer
 from services.llm_gateway import chat_with_claude, chat_with_gemini, chat_with_openai
 from services.memory_service import select_relevant_context, schedule_memory_extraction
-from services.agent_router import route as agent_route, get_intent_label
+from services.agent_router import route as agent_route, assess_response, get_intent_label
 from services.buddy_agent import run_buddy_chat
+from services.router_memory import record_success, record_failure, should_create_gap
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -134,13 +141,15 @@ async def send_message(
         if not baddi_config and buddy.persona_config:
             baddi_config = buddy.persona_config
 
-    # 3. Agent Router — welche Tools braucht diese Anfrage?
+    # ── 3. ROUTER (zwingend lokal) ────────────────────────────────────────────
+    # Jede Nachricht geht zuerst durch den Router.
+    # Der Router prüft: Keyword-Intent → gelernter Endpunkt → dynamische Tools
     routing = agent_route(req.message)
 
-    # 4. Relevante Memories
+    # ── 4. Relevante Memories ─────────────────────────────────────────────────
     relevant = await select_relevant_context(customer_id, req.message, db)
 
-    # 5. System-Prompt aufbauen
+    # ── 5. System-Prompt aufbauen ─────────────────────────────────────────────
     base_prompt = (
         baddi_config.get("system_prompt")
         or baddi_config.get("system_prompt_template")
@@ -160,53 +169,18 @@ async def send_message(
 
     system_prompt = "\n".join(system_parts)
 
-    # 6. Capability Gap — Uhrwerk kann es noch nicht → Entwicklung anstoßen
-    if routing.capability_gap:
-        from models.capability_request import CapabilityRequest
-        import asyncio
-        cap_req = CapabilityRequest(
+    # ── 6. Bekannter Gap (kein Tool vorhanden, Router weiss es) ──────────────
+    # Nur wenn: gap=True UND keine gelernten/dynamischen Tools den Gap schliessen
+    if routing.capability_gap and not routing.needs_tools:
+        return await _handle_gap(
+            message=req.message,
+            intent=routing.intent,
             customer_id=customer_id,
             buddy_id=req.buddy_id or (str(buddy.id) if buddy else None),
-            original_message=req.message,
-            detected_intent=routing.intent,
-            status="pending",
-            dialog=[{
-                "role": "uhrwerk",
-                "content": (
-                    f"Neue Anfrage: \"{req.message[:120]}{'...' if len(req.message) > 120 else ''}\""
-                    f"\nIntent: {routing.intent} — Diese Fähigkeit ist noch nicht im Uhrwerk. "
-                    f"Analyse gestartet..."
-                ),
-                "created_at": __import__('datetime').datetime.utcnow().isoformat(),
-            }],
+            db=db,
         )
-        db.add(cap_req)
-        await db.commit()
-        await db.refresh(cap_req)
 
-        # Analyse im Hintergrund starten
-        from services.entwicklung_engine import schedule_capability_analysis
-        schedule_capability_analysis(str(cap_req.id), db)
-
-        gap_response = (
-            f"Das ist eine tolle Anfrage! 🚀\n\n"
-            f"Ich kann '{routing.intent}' noch nicht direkt ausführen, aber ich arbeite daran. "
-            f"Mein Team entwickelt diese Fähigkeit gerade für dich — "
-            f"ich melde mich sobald ich dir dabei helfen kann."
-        )
-        user_msg = ChatMessage(customer_id=customer_id, buddy_id=req.buddy_id,
-                               role="user", content=req.message, provider="system", model="gap-detection")
-        assistant_msg = ChatMessage(customer_id=customer_id, buddy_id=req.buddy_id,
-                                    role="assistant", content=gap_response, provider="system", model="gap-detection")
-        db.add(user_msg)
-        db.add(assistant_msg)
-        await db.commit()
-        await db.refresh(assistant_msg)
-        schedule_memory_extraction(customer_id, req.message, gap_response)
-        return ChatResponse(message_id=str(assistant_msg.id), response=gap_response,
-                            provider="system", model="entwicklung")
-
-    # 6. Uhrwerk (Tool Use) oder LLM-Gateway
+    # ── 7. Uhrwerk aufrufen ───────────────────────────────────────────────────
     messages = [{"role": m.role, "content": m.content} for m in history[-_CONTEXT_WINDOW:]]
     messages.append({"role": "user", "content": req.message})
 
@@ -214,25 +188,45 @@ async def send_message(
     model_name = "claude-haiku-4-5-20251001"
     errors: list[str] = []
     response_text: str | None = None
+    used_tool_key: str | None = None
 
-    # 6a. Uhrwerk — wenn Agent Router Tools identifiziert hat
     if routing.needs_tools and routing.tool_keys:
-        try:
-            uhrwerk_result = await run_buddy_chat(
-                message=req.message,
-                buddy_name=buddy.name if buddy else "Baddi",
-                system_prompt=system_prompt,
-                tool_keys=routing.tool_keys,
-            )
-            response_text = uhrwerk_result["output"]
-            model_name = uhrwerk_result.get("model_used", model_name)
-        except Exception as e:
-            errors.append(f"Uhrwerk: {e}")
+        for tool_key in routing.tool_keys:
+            try:
+                uhrwerk_result = await run_buddy_chat(
+                    message=req.message,
+                    buddy_name=buddy.name if buddy else "Baddi",
+                    system_prompt=system_prompt,
+                    tool_keys=[tool_key],
+                )
+                candidate = uhrwerk_result["output"]
+                model_name = uhrwerk_result.get("model_used", model_name)
 
-    # 6b. LLM-Gateway (kein Tool Use oder Uhrwerk versagt)
+                # Router bewertet die Uhrwerk-Antwort
+                if assess_response(candidate):
+                    response_text = candidate
+                    used_tool_key = tool_key
+                    record_success(routing.intent, tool_key)
+                    break
+                else:
+                    record_failure(routing.intent, tool_key)
+                    errors.append(f"Uhrwerk/{tool_key}: Capability-Gap in Antwort erkannt")
+            except Exception as e:
+                record_failure(routing.intent, tool_key)
+                errors.append(f"Uhrwerk/{tool_key}: {e}")
+
+    # ── 8. LLM-Fallback (kein Tool oder alle Tools gescheitert) ──────────────
     if response_text is None:
         try:
-            response_text = await chat_with_claude(messages, system_prompt)
+            candidate = await chat_with_claude(messages, system_prompt)
+            if assess_response(candidate):
+                response_text = candidate
+                record_success(routing.intent, "llm_claude")
+            else:
+                record_failure(routing.intent, "llm_claude")
+                errors.append("Claude: Gap erkannt in LLM-Antwort")
+                # Rohantwort trotzdem behalten für Gap-Analyse
+                response_text = candidate
         except Exception as e:
             errors.append(f"Claude: {e}")
 
@@ -240,7 +234,13 @@ async def send_message(
         try:
             provider = "gemini"
             model_name = "gemini-2.5-flash"
-            response_text = await chat_with_gemini(messages, system_prompt)
+            candidate = await chat_with_gemini(messages, system_prompt)
+            if assess_response(candidate):
+                response_text = candidate
+                record_success(routing.intent, "llm_gemini")
+            else:
+                record_failure(routing.intent, "llm_gemini")
+                response_text = candidate
         except Exception as e:
             errors.append(f"Gemini: {e}")
 
@@ -248,14 +248,35 @@ async def send_message(
         try:
             provider = "openai"
             model_name = "gpt-4o-mini"
-            response_text = await chat_with_openai(messages, system_prompt)
+            candidate = await chat_with_openai(messages, system_prompt)
+            if assess_response(candidate):
+                response_text = candidate
+                record_success(routing.intent, "llm_openai")
+            else:
+                record_failure(routing.intent, "llm_openai")
+                response_text = candidate
         except Exception as e:
             errors.append(f"ChatGPT: {e}")
 
     if response_text is None:
         raise HTTPException(status_code=502, detail=" | ".join(errors))
 
-    # 7. Beide Turns persistieren
+    # ── 9. Router-Nachbewertung: War die finale Antwort ein Gap? ─────────────
+    # Selbst wenn LLM geantwortet hat — erkennt der Router ob es wirklich
+    # eine Fähigkeit fehlt (z.B. "Leider habe ich keinen Internetzugang").
+    if not assess_response(response_text):
+        gap_response = await _handle_gap(
+            message=req.message,
+            intent=routing.intent,
+            customer_id=customer_id,
+            buddy_id=req.buddy_id or (str(buddy.id) if buddy else None),
+            db=db,
+        )
+        # Memory trotzdem extrahieren
+        schedule_memory_extraction(customer_id, req.message, gap_response.response)
+        return gap_response
+
+    # ── 10. Beide Turns persistieren ─────────────────────────────────────────
     user_msg = ChatMessage(
         customer_id=customer_id,
         buddy_id=req.buddy_id,
@@ -277,7 +298,7 @@ async def send_message(
     await db.commit()
     await db.refresh(assistant_msg)
 
-    # 8. Memory-Extraktion im Hintergrund
+    # ── 11. Memory-Extraktion im Hintergrund ──────────────────────────────────
     schedule_memory_extraction(customer_id, req.message, response_text)
 
     return ChatResponse(
@@ -285,6 +306,71 @@ async def send_message(
         response=response_text,
         provider=provider,
         model=model_name,
+    )
+
+
+async def _handle_gap(
+    message: str,
+    intent: str,
+    customer_id: str,
+    buddy_id: str | None,
+    db: AsyncSession,
+) -> "ChatResponse":
+    """
+    Erstellt einen Capability Request und gibt eine freundliche Antwort zurück.
+    Nutzt Gap-Deduplication um Spam zu verhindern.
+    """
+    from models.capability_request import CapabilityRequest
+    from services.entwicklung_engine import schedule_capability_analysis
+
+    gap_response = (
+        f"Das ist eine interessante Anfrage! 🚀\n\n"
+        f"Diese Fähigkeit ist noch nicht in meinem Uhrwerk verfügbar, aber ich habe "
+        f"das Entwicklungsteam bereits informiert. Sie arbeiten daran — "
+        f"ich melde mich sobald ich dir dabei helfen kann."
+    )
+
+    # Gap-Deduplication: nicht für jeden Kunden einen neuen Request erstellen
+    if should_create_gap(intent, message):
+        cap_req = CapabilityRequest(
+            customer_id=customer_id,
+            buddy_id=buddy_id,
+            original_message=message,
+            detected_intent=intent,
+            status="pending",
+            dialog=[{
+                "role": "uhrwerk",
+                "content": (
+                    f"Neue Anfrage erkannt: \"{message[:120]}{'...' if len(message) > 120 else ''}\"\n"
+                    f"Intent: {intent}\n"
+                    f"Gap erkannt durch Router-Nachbewertung — Analyse gestartet..."
+                ),
+                "created_at": datetime.utcnow().isoformat(),
+            }],
+        )
+        db.add(cap_req)
+        await db.commit()
+        await db.refresh(cap_req)
+        schedule_capability_analysis(str(cap_req.id), db)
+
+    user_msg = ChatMessage(
+        customer_id=customer_id, buddy_id=buddy_id,
+        role="user", content=message, provider="system", model="gap-detection",
+    )
+    assistant_msg = ChatMessage(
+        customer_id=customer_id, buddy_id=buddy_id,
+        role="assistant", content=gap_response, provider="system", model="gap-detection",
+    )
+    db.add(user_msg)
+    db.add(assistant_msg)
+    await db.commit()
+    await db.refresh(assistant_msg)
+
+    return ChatResponse(
+        message_id=str(assistant_msg.id),
+        response=gap_response,
+        provider="system",
+        model="entwicklung",
     )
 
 
