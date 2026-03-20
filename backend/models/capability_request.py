@@ -48,5 +48,8 @@ class CapabilityRequest(Base):
     # Key des deployed Tools (nach Deployment)
     deployed_tool_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
+    # Verknüpfter Dev Orchestrator Task (wenn Implementierung gestartet wurde)
+    dev_task_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

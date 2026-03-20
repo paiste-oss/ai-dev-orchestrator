@@ -20,6 +20,7 @@ interface CapabilityRequest {
   dialog: DialogMessage[];
   admin_notes: string | null;
   deployed_tool_key: string | null;
+  dev_task_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -87,6 +88,7 @@ export default function EntwicklungDetailPage() {
   const [deployKey, setDeployKey] = useState("");
   const [showDeploy, setShowDeploy] = useState(false);
   const [statusChanging, setStatusChanging] = useState(false);
+  const [implementing, setImplementing] = useState(false);
   const dialogEndRef = useRef<HTMLDivElement>(null);
 
   const load = async () => {
@@ -175,6 +177,26 @@ export default function EntwicklungDetailPage() {
       setReq(data);
     }
     setStatusChanging(false);
+  };
+
+  const startImplementation = async () => {
+    setImplementing(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/entwicklung/${id}/implement`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReq(data);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setError(`Fehler ${res.status}: ${err.detail ?? "Unbekannter Fehler"}`);
+      }
+    } catch {
+      setError("Verbindungsfehler");
+    }
+    setImplementing(false);
   };
 
   const deployTool = async () => {
@@ -312,8 +334,45 @@ export default function EntwicklungDetailPage() {
                   </p>
                 )}
 
-                {(req.status === "ready" || req.status === "building") && (
+                {/* Implementieren-Button */}
+                {!req.dev_task_id && (req.status === "building" || req.status === "needs_input" || req.status === "ready") && (
                   <div className="border-t border-white/5 pt-3">
+                    <button
+                      onClick={startImplementation}
+                      disabled={implementing}
+                      className="w-full py-2.5 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-sm font-semibold hover:bg-indigo-500/30 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {implementing ? (
+                        <><span className="animate-spin">⟳</span> Starte...</>
+                      ) : (
+                        <><span>⚡</span> Claude implementiert dieses Tool</>
+                      )}
+                    </button>
+                    <p className="text-xs text-gray-600 mt-1.5 text-center">Erstellt einen Dev Orchestrator Task</p>
+                  </div>
+                )}
+
+                {/* Laufender Dev-Task Link */}
+                {req.dev_task_id && (
+                  <div className="border-t border-white/5 pt-3 space-y-2">
+                    <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
+                      <span className="text-indigo-400 text-base">⚡</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-indigo-300">Implementierung läuft</p>
+                        <p className="text-[10px] text-indigo-500 truncate font-mono">{req.dev_task_id}</p>
+                      </div>
+                      <a
+                        href="/admin/devtool"
+                        className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2 shrink-0"
+                      >
+                        Fortschritt →
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {(req.status === "ready" || req.status === "building") && (
+                  <div className={req.dev_task_id ? "" : "border-t border-white/5 pt-3"}>
                     {!showDeploy ? (
                       <button
                         onClick={() => setShowDeploy(true)}

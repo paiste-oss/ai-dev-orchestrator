@@ -59,6 +59,7 @@ async def init_db():
             )""",
             "CREATE INDEX IF NOT EXISTS idx_capability_requests_status ON capability_requests(status)",
             "CREATE INDEX IF NOT EXISTS idx_capability_requests_customer ON capability_requests(customer_id)",
+            "ALTER TABLE capability_requests ADD COLUMN IF NOT EXISTS dev_task_id VARCHAR(36)",
         ]
         for sql in migrations:
             await conn.execute(text(sql))
