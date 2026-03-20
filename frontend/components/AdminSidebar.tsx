@@ -37,7 +37,6 @@ const NAV: NavEntry[] = [
     ],
   },
   { label: "Testseiten", href: "/admin/testpages", icon: "⌘" },
-  { label: "Dev-Portal",  href: "/portal",         icon: "◬" },
 ];
 
 interface Props { open: boolean; onClose: () => void; }

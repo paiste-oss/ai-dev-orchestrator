@@ -172,15 +172,6 @@ const ALL_PAGES: PageEntry[] = [
     group: "User",
   },
 
-  // ── Dev ──────────────────────────────────────────────────────────────────────
-  {
-    path: "/portal",
-    label: "Dev Portal",
-    icon: "🔬",
-    role: "dev",
-    description: "Entwickler-Portal zum direkten Testen von AI-Modellen",
-    group: "Dev",
-  },
 ];
 
 // ─── Viewport-Presets für die iFrame-Vorschau ──────────────────────────────────
