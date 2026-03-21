@@ -15,6 +15,66 @@ import os
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
+# ---------------------------------------------------------------------------
+# Backend-Tasks (Celery Beat) — MUSS vor /{n8n_id} stehen (Route-Konflikt)
+# ---------------------------------------------------------------------------
+
+CELERY_TASKS = [
+    {
+        "name": "tasks.memory_manager.process_memory",
+        "label": "Memory Manager",
+        "description": "Extrahiert dauerhaft Fakten über Kunden aus Gesprächen und speichert sie in Qdrant + PostgreSQL.",
+        "schedule": "Nach jeder Chat-Antwort (event-gesteuert)",
+        "type": "event",
+        "cost": "lokal",
+        "cost_detail": "~0.007 Rappen/Aufruf (nur Strom, gemma3:12b lokal)",
+    },
+    {
+        "name": "tasks.dev_task_processor.process_dev_tasks",
+        "label": "Dev-Task Prozessor",
+        "description": "Verarbeitet ausstehende Entwickler-Aufgaben (Dev Orchestrator). Pollt alle 30s.",
+        "schedule": "Alle 30 Sekunden",
+        "type": "scheduled",
+        "cost": "api",
+        "cost_detail": "Polling: ~0 / Echter Task: 3–25 Rappen (Claude Sonnet 4.6)",
+    },
+    {
+        "name": "tasks.summaries.daily_summary",
+        "label": "Tägliche Zusammenfassung",
+        "description": "Erstellt eine KI-Zusammenfassung des aktuellen Projektstands.",
+        "schedule": "Täglich um 20:00 Uhr",
+        "type": "scheduled",
+        "cost": "api",
+        "cost_detail": "~0.01 Rappen/Tag (Claude Haiku)",
+    },
+    {
+        "name": "tasks.reminders.send_reminder",
+        "label": "Erinnerung senden",
+        "description": "Sendet eine proaktive Erinnerung über einen Buddy. (Platzhalter — noch nicht aktiv implementiert)",
+        "schedule": "Manuell",
+        "type": "manual",
+        "cost": "lokal",
+        "cost_detail": "~0 (noch kein aktiver Code)",
+    },
+]
+
+
+@router.get("/celery")
+async def list_celery_tasks(_: Customer = Depends(require_admin)):
+    """Gibt alle bekannten Celery-Tasks zurück."""
+    return CELERY_TASKS
+
+
+@router.post("/celery/{task_name}/trigger")
+async def trigger_celery_task(task_name: str, _: Customer = Depends(require_admin)):
+    """Löst einen Celery-Task manuell aus."""
+    from tasks.celery_app import celery_app
+    known = {t["name"] for t in CELERY_TASKS}
+    if task_name not in known:
+        raise HTTPException(status_code=404, detail="Task nicht gefunden")
+    celery_app.send_task(task_name)
+    return {"triggered": task_name}
+
 N8N_HEADERS = {"X-N8N-API-KEY": settings.n8n_api_key, "Content-Type": "application/json"}
 N8N_SQLITE_PATH = "/n8n_data/database.sqlite"
 N8N_ENCRYPTION_KEY = settings.n8n_encryption_key  # aus .env
@@ -153,62 +213,3 @@ async def trigger_service(service_name: str, body: ServicePayload):
     return {"service": service_name, "result": result}
 
 
-# ---------------------------------------------------------------------------
-# Backend-Tasks (Celery Beat)
-# ---------------------------------------------------------------------------
-
-CELERY_TASKS = [
-    {
-        "name": "tasks.memory_manager.process_memory",
-        "label": "Memory Manager",
-        "description": "Extrahiert dauerhaft Fakten über Kunden aus Gesprächen und speichert sie in Qdrant + PostgreSQL.",
-        "schedule": "Nach jeder Chat-Antwort (event-gesteuert)",
-        "type": "event",
-        "cost": "lokal",
-        "cost_detail": "~0.007 Rappen/Aufruf (nur Strom, gemma3:12b lokal)",
-    },
-    {
-        "name": "tasks.dev_task_processor.process_dev_tasks",
-        "label": "Dev-Task Prozessor",
-        "description": "Verarbeitet ausstehende Entwickler-Aufgaben (Dev Orchestrator). Pollt alle 30s.",
-        "schedule": "Alle 30 Sekunden",
-        "type": "scheduled",
-        "cost": "api",
-        "cost_detail": "Polling: ~0 / Echter Task: 3–25 Rappen (Claude Sonnet 4.6)",
-    },
-    {
-        "name": "tasks.summaries.daily_summary",
-        "label": "Tägliche Zusammenfassung",
-        "description": "Erstellt eine KI-Zusammenfassung des aktuellen Projektstands.",
-        "schedule": "Täglich um 20:00 Uhr",
-        "type": "scheduled",
-        "cost": "api",
-        "cost_detail": "~0.01 Rappen/Tag (Claude Haiku)",
-    },
-    {
-        "name": "tasks.reminders.send_reminder",
-        "label": "Erinnerung senden",
-        "description": "Sendet eine proaktive Erinnerung über einen Buddy. (Platzhalter — noch nicht aktiv implementiert)",
-        "schedule": "Manuell",
-        "type": "manual",
-        "cost": "lokal",
-        "cost_detail": "~0 (noch kein aktiver Code)",
-    },
-]
-
-
-@router.get("/celery")
-async def list_celery_tasks(_: Customer = Depends(require_admin)):
-    """Gibt alle bekannten Celery-Tasks zurück."""
-    return CELERY_TASKS
-
-
-@router.post("/celery/{task_name}/trigger")
-async def trigger_celery_task(task_name: str, _: Customer = Depends(require_admin)):
-    """Löst einen Celery-Task manuell aus."""
-    from tasks.celery_app import celery_app
-    known = {t["name"] for t in CELERY_TASKS}
-    if task_name not in known:
-        raise HTTPException(status_code=404, detail="Task nicht gefunden")
-    celery_app.send_task(task_name)
-    return {"triggered": task_name}
