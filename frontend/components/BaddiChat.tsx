@@ -36,6 +36,7 @@ export default function BaddiChat({ useCase }: Props) {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOverChat, setIsDragOverChat] = useState(false);
   const [customerId, setCustomerId] = useState<string | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -215,12 +216,6 @@ export default function BaddiChat({ useCase }: Props) {
       {/* Header */}
       <header className={`bg-black/30 border-b ${useCase.borderColor} px-5 py-4 flex justify-between items-center`}>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/user")}
-            className="text-gray-400 hover:text-white transition-colors text-xl"
-          >
-            ←
-          </button>
           <div>
             <div className="flex items-center gap-2">
               <span className="text-2xl">{useCase.icon}</span>
@@ -229,16 +224,68 @@ export default function BaddiChat({ useCase }: Props) {
             <p className="text-xs text-gray-400">{useCase.buddyName} · {useCase.ageRange}</p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {user && <span className="text-sm text-gray-400 hidden sm:block">{user.name}</span>}
           <button
+            onClick={() => setSetupOpen(true)}
+            className="text-gray-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10"
+            title="Einstellungen"
+          >
+            ⚙
+          </button>
+          <button
             onClick={() => { clearSession(); router.push("/"); }}
-            className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+            className="text-xs text-gray-500 hover:text-red-400 bg-white/5 hover:bg-red-500/5 border border-white/5 hover:border-red-500/20 px-3 py-1.5 rounded-lg transition-all"
           >
             Abmelden
           </button>
         </div>
       </header>
+
+      {/* Setup Modal */}
+      {setupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setSetupOpen(false)} />
+          <div className="relative bg-gray-900 border border-white/10 rounded-2xl p-6 w-full max-w-sm space-y-2 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-bold text-white">Konto & Einstellungen</h2>
+              <button onClick={() => setSetupOpen(false)} className="text-gray-500 hover:text-white text-lg leading-none">✕</button>
+            </div>
+
+            {[
+              { icon: "💳", label: "Wallet & Guthaben",     desc: "Guthaben aufladen, Limits, Auto-Topup",  href: "/user/wallet" },
+              { icon: "📋", label: "Abonnement",            desc: "Plan wechseln, Rechnungen ansehen",       href: "/user/billing" },
+              { icon: "⚙",  label: "Einstellungen",         desc: "Profil, Sprache, Benachrichtigungen",    href: "/user/settings" },
+            ].map(item => (
+              <button
+                key={item.href}
+                onClick={() => { setSetupOpen(false); router.push(item.href); }}
+                className="w-full flex items-center gap-4 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15 transition-all text-left"
+              >
+                <span className="text-2xl">{item.icon}</span>
+                <div>
+                  <p className="text-sm font-semibold text-white">{item.label}</p>
+                  <p className="text-xs text-gray-500">{item.desc}</p>
+                </div>
+                <span className="ml-auto text-gray-600 text-sm">→</span>
+              </button>
+            ))}
+
+            <div className="pt-2 border-t border-white/5">
+              <button
+                onClick={() => { clearSession(); router.push("/"); }}
+                className="w-full flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all text-left"
+              >
+                <span className="text-2xl">🚪</span>
+                <div>
+                  <p className="text-sm font-semibold text-red-400">Abmelden</p>
+                  <p className="text-xs text-gray-600">Von Baddi abmelden</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Echtzeit-Event-Banner (n8n → Baddi → Frontend) */}
       {notifications.length > 0 && (
