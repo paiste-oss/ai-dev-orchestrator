@@ -26,50 +26,28 @@ async def select_relevant_context(
     db: AsyncSession,
 ) -> list[str]:
     """
-    Ask Ollama which stored memories are relevant to the current question.
-    Returns a list of memory content strings to inject as context.
+    Gibt relevante Erinnerungen zurück:
+    1. Primär: Vektor-Suche in Qdrant (customer_memories)
+    2. Fallback: Top-5 MemoryItems aus PostgreSQL nach Wichtigkeit
     """
+    # 1. Qdrant Vektor-Suche (schnell, semantisch)
+    try:
+        from services.memory_vector_store import search_memories
+        qdrant_hits = search_memories(customer_id, question, top_k=_MAX_CONTEXT)
+        if qdrant_hits:
+            return qdrant_hits
+    except Exception as exc:
+        logger.warning("Qdrant memory search failed, falling back to DB: %s", exc)
+
+    # 2. Fallback: PostgreSQL MemoryItems
     result = await db.execute(
         select(MemoryItem)
         .where(MemoryItem.customer_id == customer_id, MemoryItem.is_active.is_(True))
         .order_by(MemoryItem.importance.desc())
-        .limit(_MAX_MEMORIES)
+        .limit(5)
     )
     memories = result.scalars().all()
-
-    if not memories:
-        return []
-
-    # Build a numbered list so Ollama can refer to them by index
-    mem_lines = "\n".join(f"{i}: {m.content}" for i, m in enumerate(memories))
-
-    prompt = (
-        "You are a context selector. "
-        "Given the user's question and a list of stored memory facts, "
-        f"pick up to {_MAX_CONTEXT} facts that are most relevant.\n\n"
-        f"User question: {question}\n\n"
-        f"Stored facts:\n{mem_lines}\n\n"
-        "Reply with ONLY a JSON array of the relevant fact indices (integers). "
-        f"Example: [0, 3, 7]. If nothing is relevant reply with: []"
-    )
-
-    try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            resp = await client.post(
-                f"{settings.ollama_base_url}/api/generate",
-                json={"model": settings.ollama_chat_model, "prompt": prompt, "stream": False},
-            )
-            resp.raise_for_status()
-            raw = resp.json().get("response", "[]")
-            start, end = raw.find("["), raw.rfind("]") + 1
-            if start >= 0 and end > start:
-                indices: list[int] = json.loads(raw[start:end])
-                return [memories[i].content for i in indices if isinstance(i, int) and 0 <= i < len(memories)]
-    except Exception as exc:
-        logger.warning("memory select_relevant_context failed: %s", exc)
-
-    # Fallback: return top memories by importance
-    return [m.content for m in memories[:5]]
+    return [m.content for m in memories]
 
 
 async def _extract_and_save(customer_id: str, user_message: str, ai_response: str) -> None:

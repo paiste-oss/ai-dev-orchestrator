@@ -6,7 +6,7 @@ celery_app = Celery(
     "aibuddy",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["tasks.summaries", "tasks.reminders", "tasks.dev_task_processor"],
+    include=["tasks.summaries", "tasks.reminders", "tasks.dev_task_processor", "tasks.memory_manager"],
 )
 
 celery_app.conf.beat_schedule = {

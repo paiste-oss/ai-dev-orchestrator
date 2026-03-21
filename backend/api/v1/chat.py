@@ -33,7 +33,7 @@ from models.buddy import AiBuddy
 from models.chat import ChatMessage, MemoryItem
 from models.customer import Customer
 from services.llm_gateway import chat_with_claude, chat_with_gemini, chat_with_openai
-from services.memory_service import select_relevant_context, schedule_memory_extraction
+from services.memory_service import select_relevant_context
 from services.agent_router import route as agent_route, assess_response, get_intent_label
 from services.buddy_agent import run_buddy_chat
 from services.router_memory import record_success, record_failure, should_create_gap
@@ -72,6 +72,17 @@ def _get_redis() -> "redis_lib.Redis":
     if _redis_client is None:
         _redis_client = redis_lib.from_url(settings.redis_url, decode_responses=True)
     return _redis_client
+
+
+def _push_short_term_memory(customer_id: str, user_msg: str, assistant_msg: str) -> None:
+    """Speichert letzte Nachrichten in Redis (Kurzzeitgedächtnis für Memory Manager)."""
+    import time
+    r = _get_redis()
+    key = f"chat:recent:{customer_id}"
+    r.lpush(key, json.dumps({"role": "user",      "content": user_msg,      "ts": time.time()}))
+    r.lpush(key, json.dumps({"role": "assistant", "content": assistant_msg, "ts": time.time()}))
+    r.ltrim(key, 0, 11)   # Max 12 Einträge = 6 Turns
+    r.expire(key, 86400)  # 24h TTL
 
 
 def _load_baddi_config(usecase_id: str) -> dict:
@@ -297,7 +308,12 @@ async def send_message(
             db=db,
         )
         # Memory trotzdem extrahieren
-        schedule_memory_extraction(customer_id, req.message, gap_response.response)
+        _push_short_term_memory(customer_id, req.message, gap_response.response)
+        try:
+            from tasks.memory_manager import process_memory
+            process_memory.delay(customer_id)
+        except Exception as e:
+            _log.warning("Memory Manager konnte nicht gestartet werden: %s", e)
         return gap_response
 
     # ── 10. Beide Turns persistieren ─────────────────────────────────────────
@@ -330,8 +346,13 @@ async def send_message(
         except Exception as e:
             _log.warning("Token-Billing fehlgeschlagen: %s", e)
 
-    # ── 12. Memory-Extraktion im Hintergrund ──────────────────────────────────
-    schedule_memory_extraction(customer_id, req.message, response_text)
+    # ── 12. Memory-Extraktion im Hintergrund (Memory Manager via Celery) ────────
+    _push_short_term_memory(customer_id, req.message, response_text)
+    try:
+        from tasks.memory_manager import process_memory
+        process_memory.delay(customer_id)
+    except Exception as e:
+        _log.warning("Memory Manager konnte nicht gestartet werden: %s", e)
 
     return ChatResponse(
         message_id=str(assistant_msg.id),
