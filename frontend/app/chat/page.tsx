@@ -451,8 +451,12 @@ export default function ChatPage() {
           {/* TTS Toggle */}
           <button
             onClick={() => {
-              if (ttsEnabled && audioRef.current) {
-                audioRef.current.pause();
+              if (ttsEnabled) {
+                if (audioRef.current) audioRef.current.pause();
+              } else {
+                // Autoplay-Sperre des Browsers aufheben durch sofortigen Play-Aufruf im Click-Handler
+                const unlock = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+                unlock.play().catch(() => {});
               }
               setTtsEnabled(v => !v);
             }}
