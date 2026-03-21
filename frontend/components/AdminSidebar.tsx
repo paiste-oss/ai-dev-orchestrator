@@ -28,6 +28,7 @@ const NAV: NavEntry[] = [
     label: "Uhrwerk", icon: "⚙",
     children: [
       { label: "Konfiguration", href: "/admin/uhrwerk",          icon: "⚙" },
+      { label: "Router",        href: "/admin/router",           icon: "⚡" },
       { label: "n8n Workflows", href: "/admin/workflows",        icon: "⇆" },
       { label: "Backend Tasks", href: "/admin/workflows/celery", icon: "⏱" },
       { label: "Agenten",       href: "/admin/workflows/agents", icon: "◈" },
