@@ -7,10 +7,6 @@ import AdminSidebar from "@/components/AdminSidebar";
 
 interface Tool {
   key: string;
-  name: string;
-  description: string;
-  category: string;
-  tier: string;
 }
 
 interface Intent {
@@ -60,21 +56,6 @@ const STATUS_LABEL: Record<string, string> = {
   blocked: "Blockiert",
 };
 
-const CATEGORY_COLOR: Record<string, string> = {
-  transport:    "text-sky-400",
-  data:         "text-teal-400",
-  productivity: "text-violet-400",
-  communication:"text-pink-400",
-  system:       "text-gray-400",
-};
-
-const TIER_STYLE: Record<string, string> = {
-  free:       "bg-gray-700 text-gray-300",
-  starter:    "bg-blue-900 text-blue-300",
-  pro:        "bg-violet-900 text-violet-300",
-  enterprise: "bg-amber-900 text-amber-300",
-};
-
 export default function RouterAdminPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tools, setTools]       = useState<Tool[]>([]);
@@ -83,7 +64,7 @@ export default function RouterAdminPage() {
   const [scores, setScores]     = useState<RouteScore[]>([]);
   const [engine, setEngine]     = useState<EngineInfo | null>(null);
   const [loading, setLoading]   = useState(true);
-  const [tab, setTab]           = useState<"tools" | "intents" | "scores" | "engine">("tools");
+  const [tab, setTab]           = useState<"intents" | "scores" | "engine">("intents");
 
   useEffect(() => {
     load();
@@ -116,7 +97,6 @@ export default function RouterAdminPage() {
   }
 
   const TABS = [
-    { key: "tools",   label: `Tools (${tools.length})`,     icon: "🔧" },
     { key: "intents", label: `Intents (${intents.length})`, icon: "⚡" },
     { key: "scores",  label: `Route-Scores (${scores.length})`, icon: "📊" },
     { key: "engine",  label: "Routing-Engine",              icon: "🔀" },
@@ -153,9 +133,8 @@ export default function RouterAdminPage() {
           </div>
 
           {/* KPI Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             {[
-              { label: "Aktive Tools",     value: tools.length,                                    color: "text-emerald-400" },
               { label: "Intents",          value: intents.length,                                  color: "text-blue-400" },
               { label: "Gaps (kein Tool)", value: intents.filter(i => i.status === "gap").length,  color: "text-amber-400" },
               { label: "Feedback-Scores",  value: scores.length,                                   color: "text-violet-400" },
@@ -166,6 +145,24 @@ export default function RouterAdminPage() {
               </div>
             ))}
           </div>
+
+          {/* Link zu Tool-Katalog */}
+          <a
+            href="/admin/uhrwerk/tools"
+            className="flex items-center justify-between bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl px-5 py-3.5 transition-colors group"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-lg">🔧</span>
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  Tool-Katalog
+                  {!loading && <span className="ml-2 text-xs text-emerald-400 font-normal">{tools.length} Tools registriert</span>}
+                </p>
+                <p className="text-xs text-gray-500">Details, API-Status und Anthropic Tool-Definitionen</p>
+              </div>
+            </div>
+            <span className="text-gray-600 group-hover:text-gray-400 text-sm">→</span>
+          </a>
 
           {/* Dynamic tools notice */}
           {dynTools.length > 0 && (
@@ -194,33 +191,6 @@ export default function RouterAdminPage() {
               </button>
             ))}
           </div>
-
-          {/* ── Tab: Tools ── */}
-          {tab === "tools" && (
-            <div className="grid md:grid-cols-2 gap-4">
-              {tools.map(tool => (
-                <div key={tool.key} className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-white">{tool.name}</p>
-                      <p className={`text-xs font-medium mt-0.5 ${CATEGORY_COLOR[tool.category] ?? "text-gray-400"}`}>
-                        {tool.category}
-                      </p>
-                    </div>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${TIER_STYLE[tool.tier] ?? ""}`}>
-                      {tool.tier}
-                    </span>
-                  </div>
-
-                  <p className="text-sm text-gray-400 leading-relaxed">{tool.description}</p>
-
-                  <div className="flex items-center gap-2 pt-1">
-                    <code className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded">{tool.key}</code>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
 
           {/* ── Tab: Intents ── */}
           {tab === "intents" && (
