@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 from services import sbb_client
+from services import jina_client
 
 
 # ---------------------------------------------------------------------------
@@ -118,6 +119,42 @@ SBB_TOOL_DEFS = [
 
 
 # ---------------------------------------------------------------------------
+# Web Fetch (Jina Reader)
+# ---------------------------------------------------------------------------
+
+WEB_FETCH_TOOL_DEFS = [
+    {
+        "name": "web_fetch",
+        "description": (
+            "Ruft eine Webseite ab und gibt den Inhalt als lesbaren Text zurück. "
+            "Nutze dieses Tool wenn du aktuelle Informationen von einer Website brauchst, "
+            "eine URL nachschlagen sollst, oder der Nutzer dich bittet eine Seite zu lesen. "
+            "Gibt sauberes Markdown zurück — keine Werbung, kein HTML."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "Die vollständige URL der Webseite, z.B. 'https://example.com/artikel'",
+                },
+            },
+            "required": ["url"],
+        },
+    },
+]
+
+
+async def _handle_web_fetch(tool_name: str, tool_input: dict) -> Any:
+    if tool_name == "web_fetch":
+        try:
+            return await jina_client.fetch_url(tool_input["url"])
+        except Exception as e:
+            return {"error": f"Seite konnte nicht abgerufen werden: {e}"}
+    return {"error": f"Unbekanntes Web-Tool: {tool_name}"}
+
+
+# ---------------------------------------------------------------------------
 # Tool-Handler (Async)
 # ---------------------------------------------------------------------------
 
@@ -196,6 +233,16 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_defs": SBB_TOOL_DEFS,
         "tool_names": {"sbb_locations", "sbb_stationboard", "sbb_connections"},
         "handler": _handle_sbb,
+    },
+    "web_fetch": {
+        "key": "web_fetch",
+        "name": "Web-Zugriff (Jina Reader)",
+        "description": "Ruft beliebige Webseiten ab und gibt den Inhalt als lesbaren Text zurück. Kein API-Key nötig.",
+        "category": "data",
+        "tier": "free",
+        "tool_defs": WEB_FETCH_TOOL_DEFS,
+        "tool_names": {"web_fetch"},
+        "handler": _handle_web_fetch,
     },
     # Weitere Tools können hier ergänzt werden:
     # "google_calendar": { ... }
