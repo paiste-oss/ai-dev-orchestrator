@@ -140,16 +140,17 @@ def search_memories(customer_id: str, query: str, top_k: int = 8, score_threshol
         return []
 
     try:
-        results = client.search(
+        response = client.query_points(
             collection_name=COLLECTION,
-            query_vector=vec,
+            query=vec,
             query_filter=Filter(
                 must=[FieldCondition(key="customer_id", match=MatchValue(value=customer_id))]
             ),
             limit=top_k,
             score_threshold=score_threshold,
+            with_payload=True,
         )
-        return [r.payload["fact"] for r in results if "fact" in r.payload]
+        return [r.payload["fact"] for r in response.points if "fact" in r.payload]
     except Exception as exc:
         _log.warning("Qdrant memory search failed: %s", exc)
         return []

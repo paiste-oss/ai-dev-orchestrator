@@ -181,9 +181,9 @@ def search_customer_documents(
     if collection_name not in existing:
         return []
 
-    results = client.search(
+    response = client.query_points(
         collection_name=collection_name,
-        query_vector=query_vec,
+        query=query_vec,
         query_filter=Filter(
             must=[FieldCondition(key="customer_id", match=MatchValue(value=customer_id))]
         ),
@@ -199,7 +199,7 @@ def search_customer_documents(
             "chunk_index": hit.payload.get("chunk_index", 0),
             "document_id": hit.payload.get("document_id", ""),
         }
-        for hit in results
+        for hit in response.points
     ]
 
 
