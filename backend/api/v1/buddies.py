@@ -258,14 +258,19 @@ async def chat_with_buddy(buddy_id: uuid.UUID, request: ChatRequest, db: AsyncSe
                 "tools_used": result["tool_calls"],
             }
         else:
-            # Kein Tool → Ollama (bestehende Route)
-            from router import route_prompt
-            model = request.model if request.model != "auto" else persona.get("preferred_model", "mistral")
-            output, model_used = route_prompt(
-                request.message,
-                forced_model=model,
-                system_prompt_override=system_prompt,
+            # Kein Tool → Ollama direkt
+            import httpx
+            from core.config import settings as app_settings
+            model = request.model if request.model != "auto" else persona.get("preferred_model", app_settings.ollama_chat_model)
+            resp = httpx.post(
+                f"{app_settings.ollama_base_url}/api/chat",
+                json={"model": model, "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": request.message},
+                ], "stream": False},
+                timeout=60.0,
             )
-            return {"status": "success", "output": output, "model_used": model_used, "buddy": buddy.name, "tools_used": []}
+            output = resp.json().get("message", {}).get("content", "")
+            return {"status": "success", "output": output, "model_used": model, "buddy": buddy.name, "tools_used": []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

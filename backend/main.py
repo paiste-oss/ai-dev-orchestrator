@@ -12,10 +12,8 @@ import models.buddy_tool  # noqa: F401 — register BuddyTool with Base.metadata
 import models.capability_request  # noqa: F401 — register CapabilityRequest with Base.metadata
 import models.payment             # noqa: F401 — register Payment & InvoiceCounter with Base.metadata
 
-# Ollama als OpenAI-kompatibler Endpunkt für CrewAI/LangChain
-os.environ["OPENAI_API_KEY"] = "NA"
-os.environ["OPENAI_API_BASE"] = f"{settings.ollama_base_url}/v1"
-os.environ["OPENAI_BASE_URL"] = f"{settings.ollama_base_url}/v1"
+# OpenAI-kompatibler Endpunkt für DALL-E (openai SDK)
+os.environ["OPENAI_API_KEY"] = settings.openai_api_key or "NA"
 
 
 @asynccontextmanager

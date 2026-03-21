@@ -7,7 +7,7 @@ GET  /agent/history       → Letzte Nachrichten
 import uuid
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
-from router import route_prompt
+from services.llm_gateway import chat_with_claude
 from services.file_parser import parse_file, is_supported, get_file_extension, SUPPORTED_EXTENSIONS
 from services.vector_store import search_customer_documents
 
@@ -42,13 +42,13 @@ async def run_agent(request: AIRequest):
                     f"Nutzer-Frage: {request.prompt}"
                 )
 
-        forced = None if request.model == "auto" else request.model
-        output, model_used = route_prompt(
-            prompt_with_context,
-            forced_model=forced,
-            system_prompt_override=request.system_prompt,
+        model = "claude-haiku-4-5-20251001" if request.model == "auto" else request.model
+        result = await chat_with_claude(
+            messages=[{"role": "user", "content": prompt_with_context}],
+            system_prompt=request.system_prompt or "Du bist ein hilfreicher Assistent.",
+            model=model,
         )
-        return {"status": "success", "output": output, "model_used": model_used}
+        return {"status": "success", "output": result.text, "model_used": model}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -126,15 +126,15 @@ async def run_agent_with_file(
             forced = None
 
     try:
-        output, model_used = route_prompt(
-            enriched_prompt,
-            forced_model=forced,
-            system_prompt_override=system_prompt or None,
+        result = await chat_with_claude(
+            messages=[{"role": "user", "content": enriched_prompt}],
+            system_prompt=system_prompt or "Du bist ein hilfreicher Assistent. Analysiere das Dokument.",
+            model=forced or "claude-sonnet-4-6",
         )
         return {
             "status": "success",
-            "output": output,
-            "model_used": model_used,
+            "output": result.text,
+            "model_used": forced or "claude-sonnet-4-6",
             "file": {
                 "name": filename,
                 "type": get_file_extension(filename),

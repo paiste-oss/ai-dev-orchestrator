@@ -16,7 +16,7 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agents import execute_ollama_direct
+import httpx as _httpx
 from models.buddy import AiBuddy
 from models.buddy_event import BuddyEvent
 from models.customer import Customer
@@ -104,10 +104,19 @@ async def process_event(payload: dict, db: AsyncSession) -> dict:
     score = 0.0
 
     try:
-        model = buddy.persona_config.get("preferred_model", None) if buddy and buddy.persona_config else None
-        raw = await asyncio.get_event_loop().run_in_executor(
-            None, execute_ollama_direct, prompt, model
-        )
+        from core.config import settings as _cfg
+        model = (buddy.persona_config.get("preferred_model") if buddy and buddy.persona_config else None) or _cfg.ollama_chat_model
+
+        def _call_ollama() -> str:
+            r = _httpx.post(
+                f"{_cfg.ollama_base_url}/api/chat",
+                json={"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False},
+                timeout=60.0,
+            )
+            r.raise_for_status()
+            return r.json().get("message", {}).get("content", "")
+
+        raw = await asyncio.get_event_loop().run_in_executor(None, _call_ollama)
         # JSON aus Antwort extrahieren
         start = raw.find("{")
         end = raw.rfind("}") + 1
