@@ -101,8 +101,8 @@ _WEB_FETCH_KEYWORDS = re.compile(
     r"https?://\S+|"                                        # https://... oder http://...
     r"\bwww\.\S+|"                                          # www.irgendwas
     r"\b\w{2,20}\.(ch|com|de|at|org|net|io|ai|app)\b|"    # domain.tld  z.B. nzz.ch, srf.ch
-    r"\b(öffne|ruf.*auf|lies|lese|schau.*auf|"
-    r"zeig|zeige|zeigen|zeig mir|zeig.*seite|"
+    r"\b(öffne|ruf.*auf|schau.*auf|"
+    r"zeig.*seite|zeig.*webseite|zeig.*link|zeig.*url|"   # zeig nur mit Web-Kontext
     r"besuche|geh auf|fetch|abruf|seite.*lesen|lese.*seite|"
     r"inhalt.*webseite|webseite.*inhalt|was steht auf|"
     r"artikel.*lesen|lese.*artikel|ruf.*auf|öffne.*seite)\b"
@@ -130,15 +130,21 @@ _CALENDAR_KEYWORDS = re.compile(
 
 _IMAGE_GEN_KEYWORDS = re.compile(
     r"("
-    r"\bestell.*bild|\bbild.*bestell|"      # bestell ein Bild
-    r"\berstell.*bild|\bbild.*erstell|"     # erstelle ein Bild / Bild erstellen
-    r"\bgeneriere?.*bild|\bbild.*generier|" # generiere ein Bild
+    r"\bestell.*bild|\bbild.*bestell|"          # bestell ein Bild
+    r"\berstell.*bild|\bbild.*erstell|"          # erstelle ein Bild / Bild erstellen
+    r"\bgeneriere?.*bild|\bbild.*generier|"      # generiere ein Bild
+    r"\bzeig.*bild|\bbild.*zeig|"               # zeige mir ein Bild / zeig ein Bild
+    r"\bzeig.*foto|\bfoto.*zeig|"               # zeige mir ein Foto
+    r"\bschick.*bild|\bbild.*schick|"           # schick mir ein Bild
+    r"\bmach.*bild|\bbild.*mach|"               # mach ein Bild
+    r"\bein bild (von|eines|einer|vom)\b|"      # ein Bild von / eines / einer
+    r"\bein foto (von|eines|einer|vom)\b|"      # ein Foto von
     r"\bzeichne\b|\bzeichn.*mir\b|"
     r"\bmal.*bild\b|\bbild.*mal\b|"
     r"\billustriere?\b|\bvisualisiere?\b|"
     r"\bcreate.*image|\bmake.*image|"
     r"\bdraw\b|\bgenerate.*image|"
-    r"\bfoto.*erstell|\berstell.*foto|"     # erstelle ein Foto
+    r"\bfoto.*erstell|\berstell.*foto|"          # erstelle ein Foto
     r"\bbild.*von.*erstell"
     r")",
     re.IGNORECASE,
@@ -230,6 +236,13 @@ def route(message: str, customer_id: str | None = None) -> RoutingResult:
             tool_keys=["sbb_transport"],
         )
 
+    elif _IMAGE_GEN_KEYWORDS.search(msg):
+        base_result = RoutingResult(
+            intent="image_generation",
+            needs_tools=True,
+            tool_keys=["image_generation"],
+        )
+
     elif _DOCUMENT_KEYWORDS.search(msg):
         base_result = RoutingResult(
             intent="document",
@@ -265,13 +278,6 @@ def route(message: str, customer_id: str | None = None) -> RoutingResult:
             needs_tools=False,
             tool_keys=[],
             capability_gap=True,
-        )
-
-    elif _IMAGE_GEN_KEYWORDS.search(msg):
-        base_result = RoutingResult(
-            intent="image_generation",
-            needs_tools=True,
-            tool_keys=["image_generation"],
         )
 
     else:
