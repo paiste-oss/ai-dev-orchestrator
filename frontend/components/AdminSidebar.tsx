@@ -74,9 +74,18 @@ export default function AdminSidebar({ open, onClose }: Props) {
     return init;
   });
 
-  const navigate  = (href: string) => { router.push(href); onClose(); };
-  const isActive  = (href: string) =>
-    pathname === href || (href !== "/admin" && pathname?.startsWith(href));
+  const navigate = (href: string) => { router.push(href); onClose(); };
+
+  // Alle hrefs aus der Nav sammeln für "most-specific wins" Logik
+  const allHrefs = NAV.flatMap(e => isGroup(e) ? e.children.map(c => c.href) : [e.href]);
+
+  const isActive = (href: string) => {
+    if (pathname === href) return true;
+    if (href === "/admin") return false;
+    if (!pathname?.startsWith(href)) return false;
+    // Nur aktiv wenn kein längerer (spezifischerer) href ebenfalls matcht
+    return !allHrefs.some(h => h !== href && h.length > href.length && pathname.startsWith(h));
+  };
 
   return (
     <>
