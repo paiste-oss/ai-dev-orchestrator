@@ -18,11 +18,17 @@ interface Plan {
   daily_token_limit: number | null;
   requests_per_hour: number | null;
   token_overage_chf_per_1k: number;
+  storage_limit_bytes: number;
   max_buddies: number;
   features: { highlights?: string[]; allowed_services?: string[] };
   sort_order: number;
   stripe_price_id_monthly: string | null;
   stripe_price_id_yearly: string | null;
+}
+
+function fmtStorage(bytes: number) {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(0)} GB`;
+  return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
 }
 
 interface StripeStatus {
@@ -79,6 +85,7 @@ function EditModal({ plan, onSave, onClose }: EditModalProps) {
     daily_token_limit:        String(plan.daily_token_limit ?? ""),
     requests_per_hour:        String(plan.requests_per_hour ?? ""),
     token_overage_chf_per_1k: String(plan.token_overage_chf_per_1k),
+    storage_limit_gb:         String(Math.round(plan.storage_limit_bytes / (1024 * 1024 * 1024)) || 0),
     stripe_price_id_monthly:  plan.stripe_price_id_monthly ?? "",
     stripe_price_id_yearly:   plan.stripe_price_id_yearly ?? "",
     highlights:               (plan.features.highlights ?? []).join("\n"),
@@ -100,6 +107,7 @@ function EditModal({ plan, onSave, onClose }: EditModalProps) {
         daily_token_limit:        form.daily_token_limit ? parseInt(form.daily_token_limit) : null,
         requests_per_hour:        form.requests_per_hour ? parseInt(form.requests_per_hour) : null,
         token_overage_chf_per_1k: parseFloat(form.token_overage_chf_per_1k),
+        storage_limit_bytes: Math.round(parseFloat(form.storage_limit_gb) * 1024 * 1024 * 1024),
         stripe_price_id_monthly:  form.stripe_price_id_monthly || null,
         stripe_price_id_yearly:   form.stripe_price_id_yearly || null,
         features: {
@@ -160,6 +168,10 @@ function EditModal({ plan, onSave, onClose }: EditModalProps) {
           <div className="space-y-1">
             <label className={labelCls}>Overage CHF / 1k Token</label>
             <input type="number" step="0.0001" value={form.token_overage_chf_per_1k} onChange={e => set("token_overage_chf_per_1k", e.target.value)} className={inputCls} />
+          </div>
+          <div className="space-y-1">
+            <label className={labelCls}>Speicher (GB)</label>
+            <input type="number" step="1" min="0" value={form.storage_limit_gb} onChange={e => set("storage_limit_gb", e.target.value)} className={inputCls} placeholder="z.B. 5" />
           </div>
         </div>
 
@@ -370,7 +382,7 @@ export default function AboModellPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 text-xs">
                     <div>
                       <p className="text-gray-500">Monatlich</p>
                       <p className="text-white font-semibold">CHF {plan.monthly_price.toFixed(2)}</p>
@@ -390,6 +402,10 @@ export default function AboModellPage() {
                     <div>
                       <p className="text-gray-500">Anf./Std.</p>
                       <p className="text-white font-semibold">{plan.requests_per_hour ?? "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Speicher</p>
+                      <p className="text-white font-semibold">{fmtStorage(plan.storage_limit_bytes)}</p>
                     </div>
                   </div>
 

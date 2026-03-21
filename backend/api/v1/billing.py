@@ -342,6 +342,7 @@ class PlanAdminOut(BaseModel):
     daily_token_limit: Optional[int]
     requests_per_hour: Optional[int]
     token_overage_chf_per_1k: float
+    storage_limit_bytes: int
     max_buddies: int
     features: dict
     sort_order: int
@@ -357,6 +358,7 @@ class PlanAdminUpdate(BaseModel):
     daily_token_limit: Optional[int] = None
     requests_per_hour: Optional[int] = None
     token_overage_chf_per_1k: Optional[float] = None
+    storage_limit_bytes: Optional[int] = None
     max_buddies: Optional[int] = None
     features: Optional[dict] = None
     stripe_price_id_monthly: Optional[str] = None
@@ -383,6 +385,7 @@ async def admin_list_plans(
             daily_token_limit=p.daily_token_limit,
             requests_per_hour=p.requests_per_hour,
             token_overage_chf_per_1k=float(p.token_overage_chf_per_1k or 0),
+            storage_limit_bytes=p.storage_limit_bytes or 524_288_000,
             max_buddies=p.max_buddies or 1,
             features=p.features or {},
             sort_order=p.sort_order or 0,
@@ -419,6 +422,7 @@ async def admin_update_plan(
         daily_token_limit=plan.daily_token_limit,
         requests_per_hour=plan.requests_per_hour,
         token_overage_chf_per_1k=float(plan.token_overage_chf_per_1k or 0),
+        storage_limit_bytes=plan.storage_limit_bytes or 524_288_000,
         max_buddies=plan.max_buddies or 1,
         features=plan.features or {},
         sort_order=plan.sort_order or 0,
