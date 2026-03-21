@@ -255,10 +255,22 @@ async def send_message(
     if routing.needs_tools and routing.tool_keys:
         for tool_key in routing.tool_keys:
             try:
+                # Für Bildgenerierung: Claude explizit sagen wie es mit dem Tool-Ergebnis umgehen soll
+                tool_system_prompt = system_prompt
+                if tool_key == "image_generation":
+                    tool_system_prompt = (
+                        system_prompt
+                        + "\n\nWICHTIG FÜR BILDGENERIERUNG: Wenn das generate_image Tool ein Bild erstellt hat, "
+                        "sage dem Nutzer freudig dass das Bild fertig ist und gleich erscheint. "
+                        "Sage NIEMALS dass du keine Bilder anzeigen oder einbetten kannst — "
+                        "das Frontend zeigt das Bild automatisch unterhalb deiner Antwort an. "
+                        "Kurze freudige Antwort genügt, z.B. 'Hier ist dein Bild! 🎨'"
+                    )
+
                 uhrwerk_result = await run_buddy_chat(
                     message=req.message,
                     buddy_name="Baddi",
-                    system_prompt=system_prompt,
+                    system_prompt=tool_system_prompt,
                     tool_keys=[tool_key],
                 )
                 candidate = uhrwerk_result["output"]
@@ -270,6 +282,13 @@ async def send_message(
                         url = tc["result"].get("image_url")
                         if url:
                             generated_image_urls.append(url)
+
+                # Wenn Bild generiert wurde → immer als Erfolg werten, unabhängig vom Text
+                if generated_image_urls and tool_key == "image_generation":
+                    response_text = candidate
+                    used_tool_key = tool_key
+                    record_success(routing.intent, tool_key)
+                    break
 
                 # Router bewertet die Uhrwerk-Antwort
                 if assess_response(candidate):
