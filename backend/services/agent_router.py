@@ -130,14 +130,16 @@ _CALENDAR_KEYWORDS = re.compile(
 
 _IMAGE_GEN_KEYWORDS = re.compile(
     r"("
-    r"\bestell.*bild\b|\bbild.*erstell\b|"
-    r"\bgeneriere?.*bild\b|\bbild.*generier\b|"
+    r"\bestell.*bild|\bbild.*bestell|"      # bestell ein Bild
+    r"\berstell.*bild|\bbild.*erstell|"     # erstelle ein Bild / Bild erstellen
+    r"\bgeneriere?.*bild|\bbild.*generier|" # generiere ein Bild
     r"\bzeichne\b|\bzeichn.*mir\b|"
     r"\bmal.*bild\b|\bbild.*mal\b|"
     r"\billustriere?\b|\bvisualisiere?\b|"
-    r"\bcreate.*image\b|\bmake.*image\b|"
-    r"\bdraw\b|\bgenerate.*image\b|"
-    r"\bbild.*von.*erstell\b"
+    r"\bcreate.*image|\bmake.*image|"
+    r"\bdraw\b|\bgenerate.*image|"
+    r"\bfoto.*erstell|\berstell.*foto|"     # erstelle ein Foto
+    r"\bbild.*von.*erstell"
     r")",
     re.IGNORECASE,
 )
