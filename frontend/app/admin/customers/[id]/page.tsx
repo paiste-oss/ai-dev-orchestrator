@@ -64,7 +64,7 @@ interface ServiceSchema {
   fields: ServiceField[];
 }
 
-type Tab = "profil" | "baddis" | "zugangsdaten" | "finanzen" | "wallet";
+type Tab = "profil" | "baddis" | "zugangsdaten" | "verbrauch" | "wallet";
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
 
@@ -618,27 +618,68 @@ function WalletTab({ customerId }: { customerId: string }) {
   );
 }
 
-// ─── Finanzen Tab ─────────────────────────────────────────────────────────────
+// ─── Verbrauch Tab ────────────────────────────────────────────────────────────
 
-function FinanzenTab({ stats }: { stats: CustomerStats | null }) {
-  if (!stats) return <p className="text-sm text-gray-500">Statistiken werden geladen…</p>;
+interface ModelUsage {
+  messages: number;
+  tokens: number;
+  cost_chf: number;
+  type: "api" | "lokal";
+  rate_per_1k: number;
+}
 
-  const modelNames: Record<string, string> = {
-    "gemini-2.0-flash": "Gemini 2.0 Flash",
-    "gpt-4o-mini": "GPT-4o Mini",
-    "claude-sonnet-4-6": "Claude Sonnet",
-    "mistral": "Mistral",
-    "unbekannt": "Unbekannt",
+interface CustomerUsage {
+  tokens: {
+    total: number;
+    this_period: number;
+    by_model: Record<string, ModelUsage>;
+    cost_chf_total: number;
   };
+  messages: { total: number; threads: number };
+  storage: {
+    used_bytes: number;
+    limit_bytes: number;
+    plan_bytes: number;
+    extra_bytes: number;
+    documents: number;
+  };
+  memory: { entries: number };
+  compute: { note: string; local_tokens: number; api_tokens: number };
+}
+
+const MODEL_DISPLAY: Record<string, string> = {
+  "claude-sonnet-4-6":         "Claude Sonnet 4.6",
+  "claude-opus-4-6":           "Claude Opus 4.6",
+  "claude-haiku-4-5-20251001": "Claude Haiku 4.5",
+  "claude-haiku-4-5":          "Claude Haiku 4.5",
+  "gemini-2.0-flash":          "Gemini 2.0 Flash",
+  "gemini-1.5-flash":          "Gemini 1.5 Flash",
+  "gemini-1.5-pro":            "Gemini 1.5 Pro",
+  "gpt-4o":                    "GPT-4o",
+  "gpt-4o-mini":               "GPT-4o Mini",
+  "gemma3:12b":                "Gemma 3 12B (lokal)",
+  "gemma3:4b":                 "Gemma 3 4B (lokal)",
+  "mistral":                   "Mistral (lokal)",
+  "llama3":                    "Llama 3 (lokal)",
+  "unbekannt":                 "Unbekannt",
+};
+
+function VerbrauchTab({ usage }: { usage: CustomerUsage | null }) {
+  if (!usage) return <p className="text-sm text-gray-500">Verbrauchsdaten werden geladen…</p>;
+
+  const storagePct = usage.storage.limit_bytes > 0
+    ? Math.min(100, (usage.storage.used_bytes / usage.storage.limit_bytes) * 100) : 0;
 
   return (
     <div className="space-y-5">
+
+      {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "Konversationen", value: stats.threads, icon: "💬" },
-          { label: "Nachrichten", value: stats.messages, icon: "✉️" },
-          { label: "Tokens gesamt", value: stats.total_tokens.toLocaleString("de-CH"), icon: "🪙" },
-          { label: "Abo-Plan", value: "—", icon: "📋" },
+          { label: "Tokens gesamt",    value: usage.tokens.total.toLocaleString("de-CH"),             icon: "🪙" },
+          { label: "Geschätzte Kosten", value: `CHF ${usage.tokens.cost_chf_total.toFixed(4)}`,       icon: "💸" },
+          { label: "Konversationen",   value: usage.messages.threads,                                  icon: "💬" },
+          { label: "Nachrichten",      value: usage.messages.total,                                    icon: "✉️" },
         ].map(kpi => (
           <div key={kpi.label} className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-1">
             <p className="text-xl">{kpi.icon}</p>
@@ -648,38 +689,107 @@ function FinanzenTab({ stats }: { stats: CustomerStats | null }) {
         ))}
       </div>
 
+      {/* Token-Verbrauch nach Modell */}
       <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-300">Token-Nutzung nach Modell</h3>
-        {Object.keys(stats.by_model).length === 0 ? (
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-300">Token-Verbrauch nach Modell</h3>
+          <span className="text-xs text-gray-500">Dieser Zeitraum: {usage.tokens.this_period.toLocaleString("de-CH")} Tokens</span>
+        </div>
+        {Object.keys(usage.tokens.by_model).length === 0 ? (
           <p className="text-sm text-gray-500">Noch keine Nutzung erfasst.</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-700">
                 <th className="text-left py-2 text-xs text-gray-400 font-semibold uppercase">Modell</th>
+                <th className="text-left py-2 text-xs text-gray-400 font-semibold uppercase">Typ</th>
                 <th className="text-right py-2 text-xs text-gray-400 font-semibold uppercase">Nachrichten</th>
                 <th className="text-right py-2 text-xs text-gray-400 font-semibold uppercase">Tokens</th>
+                <th className="text-right py-2 text-xs text-gray-400 font-semibold uppercase">Kosten CHF</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700/50">
-              {Object.entries(stats.by_model).map(([model, data]) => (
+              {Object.entries(usage.tokens.by_model).map(([model, d]) => (
                 <tr key={model}>
-                  <td className="py-2 text-gray-300">{modelNames[model] ?? model}</td>
-                  <td className="py-2 text-right text-gray-300">{data.messages}</td>
-                  <td className="py-2 text-right font-mono text-yellow-400">{data.tokens.toLocaleString("de-CH")}</td>
+                  <td className="py-2 text-gray-300 text-xs">{MODEL_DISPLAY[model] ?? model}</td>
+                  <td className="py-2">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
+                      d.type === "lokal"
+                        ? "bg-green-950/30 border-green-800/40 text-green-400"
+                        : "bg-blue-950/30 border-blue-800/40 text-blue-300"
+                    }`}>{d.type === "lokal" ? "Lokal" : "API"}</span>
+                  </td>
+                  <td className="py-2 text-right text-gray-400 text-xs">{d.messages}</td>
+                  <td className="py-2 text-right font-mono text-yellow-400 text-xs">{d.tokens.toLocaleString("de-CH")}</td>
+                  <td className="py-2 text-right font-mono text-xs text-gray-300">{d.cost_chf.toFixed(4)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="border-t border-gray-600">
-                <td className="py-2 font-semibold text-white">Total</td>
-                <td className="py-2 text-right font-semibold text-white">{stats.messages}</td>
-                <td className="py-2 text-right font-mono font-bold text-yellow-400">{stats.total_tokens.toLocaleString("de-CH")}</td>
+                <td colSpan={2} className="py-2 font-semibold text-white text-xs">Total</td>
+                <td className="py-2 text-right font-semibold text-white text-xs">{usage.messages.total}</td>
+                <td className="py-2 text-right font-mono font-bold text-yellow-400 text-xs">{usage.tokens.total.toLocaleString("de-CH")}</td>
+                <td className="py-2 text-right font-mono font-bold text-white text-xs">CHF {usage.tokens.cost_chf_total.toFixed(4)}</td>
               </tr>
             </tfoot>
           </table>
         )}
+        <p className="text-[10px] text-gray-600">{usage.compute.note}</p>
       </div>
+
+      {/* Speicher */}
+      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-300">Speicher</h3>
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>{fmtBytes(usage.storage.used_bytes)} belegt</span>
+          <span>{fmtBytes(usage.storage.limit_bytes)} gesamt</span>
+        </div>
+        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${storagePct > 90 ? "bg-red-500" : storagePct > 70 ? "bg-orange-500" : "bg-blue-500"}`}
+            style={{ width: `${storagePct}%` }}
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-3 text-xs">
+          <div className="bg-gray-700/50 rounded-lg p-3">
+            <p className="text-gray-500">Plan-Limit</p>
+            <p className="font-semibold text-white">{fmtBytes(usage.storage.plan_bytes)}</p>
+          </div>
+          <div className="bg-gray-700/50 rounded-lg p-3">
+            <p className="text-gray-500">Add-on</p>
+            <p className="font-semibold text-white">{fmtBytes(usage.storage.extra_bytes)}</p>
+          </div>
+          <div className="bg-gray-700/50 rounded-lg p-3">
+            <p className="text-gray-500">Dokumente</p>
+            <p className="font-semibold text-white">{usage.storage.documents}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Gedächtnis & Compute */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-1">
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Gedächtnis-Einträge</p>
+          <p className="text-2xl font-bold text-white">{usage.memory.entries}</p>
+          <p className="text-xs text-gray-500">Langzeit-Erinnerungen in Qdrant</p>
+        </div>
+        <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-1">
+          <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Rechenleistung</p>
+          <div className="flex gap-3 text-xs mt-1">
+            <div>
+              <p className="text-gray-500">API-Tokens</p>
+              <p className="font-semibold text-blue-300">{usage.compute.api_tokens.toLocaleString("de-CH")}</p>
+            </div>
+            <div>
+              <p className="text-gray-500">Lokal-Tokens</p>
+              <p className="font-semibold text-green-300">{usage.compute.local_tokens.toLocaleString("de-CH")}</p>
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-600 mt-1">Strom/CPU-Tracking bräuchte Server-Monitoring (Prometheus)</p>
+        </div>
+      </div>
+
     </div>
   );
 }
@@ -694,6 +804,7 @@ export default function CustomerDetailPage() {
 
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
   const [stats, setStats] = useState<CustomerStats | null>(null);
+  const [usage, setUsage] = useState<CustomerUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
@@ -732,9 +843,10 @@ export default function CustomerDetailPage() {
     (async () => {
       setLoading(true);
       try {
-        const [cRes, sRes] = await Promise.all([
+        const [cRes, sRes, uRes] = await Promise.all([
           apiFetch(`${BACKEND_URL}/v1/customers/${id}`),
           apiFetch(`${BACKEND_URL}/v1/customers/${id}/stats`),
+          apiFetch(`${BACKEND_URL}/v1/customers/${id}/usage`),
         ]);
         if (cRes.ok) {
           const c: CustomerDetail = await cRes.json();
@@ -754,6 +866,7 @@ export default function CustomerDetailPage() {
           setInterests(c.interests ?? []);
         }
         if (sRes.ok) setStats(await sRes.json());
+        if (uRes.ok) setUsage(await uRes.json());
       } finally {
         setLoading(false);
       }
@@ -847,7 +960,7 @@ export default function CustomerDetailPage() {
     { key: "profil",       label: "Profil",       icon: "👤" },
     { key: "baddis",       label: "Baddis",       icon: "🤖" },
     { key: "zugangsdaten", label: "Zugangsdaten", icon: "🔑" },
-    { key: "finanzen",     label: "Finanzen",     icon: "💰" },
+    { key: "verbrauch",    label: "Verbrauch",    icon: "📊" },
     { key: "wallet",       label: "Wallet",       icon: "💳" },
   ];
 
@@ -1102,7 +1215,7 @@ export default function CustomerDetailPage() {
 
           {tab === "baddis" && <BaddisTab customer={customer} />}
           {tab === "zugangsdaten" && <ZugangsdatenTab customerId={customer.id} />}
-          {tab === "finanzen" && <FinanzenTab stats={stats} />}
+          {tab === "verbrauch" && <VerbrauchTab usage={usage} />}
           {tab === "wallet" && <WalletTab customerId={customer.id.toString()} />}
         </div>
       </main>

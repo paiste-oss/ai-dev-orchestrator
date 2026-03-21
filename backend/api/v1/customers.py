@@ -360,6 +360,138 @@ async def get_customer_stats(
     }
 
 
+# ─── Verbrauch ────────────────────────────────────────────────────────────────
+#
+# Modellpreise CHF / 1k Tokens (Blended in+out, gerundet)
+# Quellen: Anthropic/Google/OpenAI Preislisten (Stand 2026-03)
+# Lokale Modelle: Schätzung auf Basis 200W GPU, 0.10 CHF/kWh, ~1M Tokens/h
+#
+_MODEL_CHF_PER_1K: dict[str, float] = {
+    # Anthropic
+    "claude-opus-4-6":              0.045,
+    "claude-sonnet-4-6":            0.009,
+    "claude-haiku-4-5-20251001":    0.0008,
+    "claude-haiku-4-5":             0.0008,
+    # Google
+    "gemini-2.0-flash":             0.0002,
+    "gemini-1.5-flash":             0.0002,
+    "gemini-1.5-pro":               0.002,
+    # OpenAI
+    "gpt-4o":                       0.005,
+    "gpt-4o-mini":                  0.0002,
+    # Lokal (Ollama)
+    "gemma3:12b":                   0.00002,
+    "gemma3:4b":                    0.00002,
+    "mistral":                      0.00002,
+    "llama3":                       0.00002,
+    "llama3.1":                     0.00002,
+}
+_MODEL_TYPE: dict[str, str] = {
+    "gemma3:12b": "lokal", "gemma3:4b": "lokal",
+    "mistral": "lokal", "llama3": "lokal", "llama3.1": "lokal",
+}
+
+
+@router.get("/{customer_id}/usage")
+async def get_customer_usage(
+    customer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """Vollständiger Ressourcenverbrauch eines Kunden."""
+    customer = await db.get(Customer, customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Kunde nicht gefunden")
+
+    # ── Tokens & Nachrichten ──────────────────────────────────────────────────
+    buddy_ids = [
+        row[0] for row in (await db.execute(
+            select(AiBuddy.id).where(AiBuddy.customer_id == customer_id)
+        )).all()
+    ]
+
+    by_model: dict = {}
+    total_tokens = 0
+    total_messages = 0
+    thread_count = 0
+    total_cost_chf = 0.0
+
+    if buddy_ids:
+        thread_count = (await db.scalar(
+            select(func.count(ConversationThread.id))
+            .where(ConversationThread.buddy_id.in_(buddy_ids))
+        )) or 0
+
+        rows = await db.execute(
+            select(
+                Message.model_used,
+                func.count().label("n"),
+                func.coalesce(func.sum(Message.tokens_used), 0).label("t"),
+            )
+            .join(ConversationThread, Message.thread_id == ConversationThread.id)
+            .where(ConversationThread.buddy_id.in_(buddy_ids))
+            .group_by(Message.model_used)
+        )
+        for model, n, t in rows.all():
+            key = model or "unbekannt"
+            tokens = int(t)
+            rate = _MODEL_CHF_PER_1K.get(key, 0.009)
+            cost = round(tokens / 1000 * rate, 4)
+            by_model[key] = {
+                "messages": n,
+                "tokens": tokens,
+                "cost_chf": cost,
+                "type": _MODEL_TYPE.get(key, "api"),
+                "rate_per_1k": rate,
+            }
+            total_tokens += tokens
+            total_messages += n
+            total_cost_chf += cost
+
+    # ── Speicher ──────────────────────────────────────────────────────────────
+    doc_count = (await db.scalar(
+        select(func.count(CustomerDocument.id))
+        .where(CustomerDocument.customer_id == customer_id, CustomerDocument.is_active == True)
+    )) or 0
+
+    # ── Memory-Einträge ───────────────────────────────────────────────────────
+    memory_count = 0
+    try:
+        memory_count = (await db.scalar(
+            select(func.count(MemoryItem.id))
+            .where(MemoryItem.customer_id == str(customer_id))
+        )) or 0
+    except Exception:
+        pass
+
+    return {
+        "tokens": {
+            "total": total_tokens,
+            "this_period": customer.tokens_used_this_period or 0,
+            "by_model": by_model,
+            "cost_chf_total": round(total_cost_chf, 4),
+        },
+        "messages": {
+            "total": total_messages,
+            "threads": thread_count,
+        },
+        "storage": {
+            "used_bytes": customer.storage_used_bytes or 0,
+            "limit_bytes": (customer.storage_limit_bytes or 0) + (customer.storage_extra_bytes or 0),
+            "plan_bytes": customer.storage_limit_bytes or 0,
+            "extra_bytes": customer.storage_extra_bytes or 0,
+            "documents": doc_count,
+        },
+        "memory": {
+            "entries": memory_count,
+        },
+        "compute": {
+            "note": "Lokale Modelle (Ollama): Schätzung ~0.02 CHF/1M Tokens (Strom+Hardware). API-Modelle: Marktpreis Anthropic/Google/OpenAI.",
+            "local_tokens": sum(v["tokens"] for v in by_model.values() if v["type"] == "lokal"),
+            "api_tokens": sum(v["tokens"] for v in by_model.values() if v["type"] == "api"),
+        },
+    }
+
+
 @router.patch("/{customer_id}/toggle-active", response_model=CustomerOut)
 async def toggle_customer_active(customer_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     customer = await db.get(Customer, customer_id)
