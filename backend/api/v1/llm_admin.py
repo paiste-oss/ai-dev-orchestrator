@@ -22,16 +22,11 @@ router = APIRouter(prefix="/admin/llm", tags=["admin-llm"])
 _OLLAMA_REGISTRY: dict[str, dict] = {
     "phi3":             {"latest": "phi4",              "description": "Microsoft Phi — Router / Klassifizierung (aktiv)"},
     "phi4":             {"latest": "phi4",              "description": "Microsoft Phi — Router / Klassifizierung"},
-    "mistral":          {"latest": "mistral-small3.1",  "description": "Mistral AI — veraltet, ersetzt durch gemma3:12b"},
     "mistral-small3.1": {"latest": "mistral-small3.1",  "description": "Mistral AI 24B — Reserve"},
-    "llama3.2":         {"latest": "llama3.3",          "description": "Meta LLaMA 3.2B — veraltet, ersetzt durch gemma3:12b"},
     "llama3.3":         {"latest": "llama3.3",          "description": "Meta LLaMA 70B — CPU-only (zu gross für VRAM)"},
-    "llama3.1":         {"latest": "llama3.3",          "description": "Meta LLaMA 8B — veraltet"},
-    "llama3":           {"latest": "llama3.3",          "description": "Meta LLaMA 8B — veraltet"},
     "gemma3":           {"latest": "gemma3:12b",        "description": "Google Gemma 3 — Memory-Extraktion / Code (aktiv, 7GB VRAM)"},
     "qwen2.5":          {"latest": "qwen2.5",           "description": "Alibaba Qwen — Multilingual / Reserve"},
     "deepseek-r1":      {"latest": "deepseek-r1",       "description": "DeepSeek R1 — Reasoning / Reserve"},
-    "codellama":        {"latest": "codellama",         "description": "Meta CodeLlama — schlechtere Code-Qualität als gemma3:12b"},
 }
 
 _ANTHROPIC_MODELS = [
