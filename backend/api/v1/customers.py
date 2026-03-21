@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from core.database import get_db
-from core.dependencies import require_admin
+from core.dependencies import require_admin, get_current_user
 from models.customer import Customer
 from models.buddy import AiBuddy, ConversationThread, Message
 from models.credential import CustomerCredential
@@ -77,6 +77,17 @@ class CustomerUpdate(BaseModel):
     language: str | None = None
     notes: str | None = None
     interests: list | None = None
+    memory_consent: bool | None = None
+
+
+class SelfUpdateRequest(BaseModel):
+    name: str | None = None
+    language: str | None = None
+    phone: str | None = None
+    address_street: str | None = None
+    address_zip: str | None = None
+    address_city: str | None = None
+    address_country: str | None = None
     memory_consent: bool | None = None
 
 
@@ -255,6 +266,20 @@ async def get_customer(customer_id: uuid.UUID, db: AsyncSession = Depends(get_db
     return customer
 
 
+@router.patch("/me", response_model=CustomerOut)
+async def update_self(
+    data: SelfUpdateRequest,
+    current_user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Eingeloggter Kunde aktualisiert sein eigenes Profil."""
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(current_user, field, value)
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+
 @router.patch("/{customer_id}", response_model=CustomerOut)
 async def update_customer(
     customer_id: uuid.UUID,
@@ -329,38 +354,41 @@ async def toggle_customer_active(customer_id: uuid.UUID, db: AsyncSession = Depe
     return customer
 
 
+async def _do_revoke_memory(customer: Customer, db: AsyncSession):
+    try:
+        from services.memory_vector_store import delete_customer_memories
+        delete_customer_memories(str(customer.id))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Qdrant delete failed: %s", e)
+    from models.chat import MemoryItem
+    from sqlalchemy import delete as sa_delete
+    await db.execute(sa_delete(MemoryItem).where(MemoryItem.customer_id == str(customer.id)))
+    customer.memory_consent = False
+    await db.commit()
+    await db.refresh(customer)
+    return customer
+
+
+@router.delete("/me/memory-consent", response_model=CustomerOut)
+async def revoke_my_memory_consent(
+    current_user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Eingeloggter Kunde widerruft eigenen Memory-Consent."""
+    return await _do_revoke_memory(current_user, db)
+
+
 @router.delete("/{customer_id}/memory-consent", response_model=CustomerOut)
 async def revoke_memory_consent(
     customer_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Widerruft Memory-Consent und löscht alle Qdrant-Vektoren des Kunden.
-    Kann vom Kunden selbst oder vom Admin aufgerufen werden.
-    """
+    """Admin: widerruft Memory-Consent eines Kunden."""
     customer = await db.get(Customer, customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Kunde nicht gefunden")
-
-    # Qdrant-Vektoren löschen
-    try:
-        from services.memory_vector_store import delete_customer_memories
-        delete_customer_memories(str(customer_id))
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("Qdrant delete failed: %s", e)
-
-    # Auch PostgreSQL memory_items löschen
-    from models.chat import MemoryItem
-    from sqlalchemy import delete as sa_delete
-    await db.execute(
-        sa_delete(MemoryItem).where(MemoryItem.customer_id == str(customer_id))
-    )
-
-    customer.memory_consent = False
-    await db.commit()
-    await db.refresh(customer)
-    return customer
+    return await _do_revoke_memory(customer, db)
 
 
 # ─── Zugangsdaten (Credentials) pro Kunde ─────────────────────────────────────

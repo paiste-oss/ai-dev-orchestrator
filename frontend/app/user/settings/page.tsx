@@ -91,7 +91,7 @@ export default function UserSettingsPage() {
     setSaving(true);
     setMsg(null);
     try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/customers/${me.id}`, {
+      const res = await apiFetch(`${BACKEND_URL}/v1/customers/me`, {
         method: "PATCH",
         body: JSON.stringify({
           name,
@@ -143,7 +143,7 @@ export default function UserSettingsPage() {
     if (!me || revokeInput !== "Lösche Langzeitdaten") return;
     setRevoking(true);
     try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/customers/${me.id}/memory-consent`, { method: "DELETE" });
+      const res = await apiFetch(`${BACKEND_URL}/v1/customers/me/memory-consent`, { method: "DELETE" });
       if (res.ok) setMe(m => m ? { ...m, memory_consent: false } : m);
     } finally {
       setRevoking(false);
@@ -154,7 +154,7 @@ export default function UserSettingsPage() {
 
   const enableMemory = async () => {
     if (!me) return;
-    const res = await apiFetch(`${BACKEND_URL}/v1/customers/${me.id}`, {
+    const res = await apiFetch(`${BACKEND_URL}/v1/customers/me`, {
       method: "PATCH",
       body: JSON.stringify({ memory_consent: true }),
     });
