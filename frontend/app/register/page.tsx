@@ -96,35 +96,13 @@ export default function RegisterPage() {
 
       saveToken(data.access_token);
       saveSession({ name: data.name, email: data.email, role: data.role });
-      setSuccess(true);
+      router.push(`/register/plan?name=${encodeURIComponent(form.vorname)}`);
     } catch {
       setError("Server nicht erreichbar. Bitte später nochmals versuchen.");
     } finally {
       setLoading(false);
     }
   };
-
-  if (success) {
-    return (
-      <main className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-6">
-        <div className="max-w-md w-full text-center space-y-6">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-2xl mx-auto shadow-xl">
-            🤖
-          </div>
-          <h2 className="text-2xl font-bold text-white">Willkommen, {form.vorname}!</h2>
-          <p className="text-gray-400">
-            Dein persönlicher Baddi wird gerade für dich eingerichtet ✨
-          </p>
-          <button
-            onClick={() => router.push("/chat")}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold transition-colors"
-          >
-            Los geht&apos;s →
-          </button>
-        </div>
-      </main>
-    );
-  }
 
   return (
     <main className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-6">
@@ -133,7 +111,7 @@ export default function RegisterPage() {
         <div className="flex items-center gap-3">
           <button onClick={() => router.push("/")} className="text-gray-500 hover:text-white text-xl">←</button>
           <div>
-            <h1 className="text-2xl font-bold text-white">Kundenregistrierung</h1>
+            <h1 className="text-2xl font-bold text-white">Registriere mich</h1>
             <p className="text-xs text-gray-500">Dein persönlicher KI-Begleiter</p>
           </div>
         </div>
