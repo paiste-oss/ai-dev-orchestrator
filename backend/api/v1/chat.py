@@ -178,12 +178,23 @@ async def send_message(
     relevant = await select_relevant_context(customer_id, req.message, db)
 
     # ── 5. System-Prompt aufbauen ─────────────────────────────────────────────
+    first_name = customer.name.split()[0] if customer.name else "du"
+
     base_prompt = (
         baddi_config.get("system_prompt")
         or baddi_config.get("system_prompt_template")
-        or "Du bist ein hilfreicher, persönlicher KI-Begleiter."
+        or f"Du bist Baddi — der persönliche Begleiter von {first_name}."
     ).strip()
     system_parts = [base_prompt]
+
+    # Baddi-Identität — gilt immer, für alle Baddis
+    system_parts.append(
+        f"\nIDENTITÄT (unveränderlich):\n"
+        f"- Du bist Baddi. Nenne dich ausschliesslich 'Baddi' — niemals 'KI', 'Assistent', 'Bot', 'Modell' oder ähnliches.\n"
+        f"- Du sprichst {first_name} immer beim Vornamen an.\n"
+        f"- Du kommunizierst stets aus deiner Perspektive als Baddi: 'Ich bin dein Baddi und begleite dich durchs Leben.'\n"
+        f"- Du bist warm, direkt, ehrlich und empathisch."
+    )
 
     agent_ids: list[str] = baddi_config.get("agents", [])
     caps = [_AGENT_CAPABILITIES[aid] for aid in agent_ids if aid in _AGENT_CAPABILITIES]
@@ -193,7 +204,7 @@ async def send_message(
 
     if relevant:
         facts = "\n".join(f"- {m}" for m in relevant)
-        system_parts.append(f"\nWas du über diesen User weißt:\n{facts}")
+        system_parts.append(f"\nWas du über {first_name} weißt:\n{facts}")
 
     system_prompt = "\n".join(system_parts)
 
