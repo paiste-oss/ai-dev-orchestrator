@@ -530,6 +530,28 @@ async def delete_memory(
     await db.commit()
 
 
+class TTSRequest(BaseModel):
+    text: str
+    voice_id: str | None = None
+
+
+@router.post("/tts")
+async def text_to_speech(
+    req: TTSRequest,
+    customer: Customer = Depends(get_current_user),
+):
+    """Konvertiert Text zu Sprache via ElevenLabs. Gibt audio/mpeg zurück."""
+    from services.elevenlabs_client import synthesize
+    from fastapi.responses import Response
+    try:
+        audio = await synthesize(req.text, req.voice_id)
+        return Response(content=audio, media_type="audio/mpeg")
+    except ValueError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"TTS Fehler: {e}")
+
+
 @router.post("/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(...),

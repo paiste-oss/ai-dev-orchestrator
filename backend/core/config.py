@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     openai_api_key: str = ""
 
+    # ElevenLabs TTS
+    elevenlabs_api_key: str = ""
+    elevenlabs_voice_id: str = "EXAVITQu4vr4xnSDxMaL"  # "Sarah" — Standard-Stimme
+
     # Exa Web Search
     exa_api_key: str = ""
 

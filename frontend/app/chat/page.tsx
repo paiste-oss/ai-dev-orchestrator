@@ -108,14 +108,53 @@ export default function ChatPage() {
     } catch { /* ignore */ }
   }
 
-  // ── TTS ──────────────────────────────────────────────────────────────────
-  function speak(text: string) {
-    if (!ttsEnabled || typeof window === "undefined" || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = "de-DE";
-    utt.rate = 1.05;
-    window.speechSynthesis.speak(utt);
+  // ── TTS (ElevenLabs) ──────────────────────────────────────────────────────
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  function stripMarkdown(text: string): string {
+    return text
+      // Tabellen-Zeilen entfernen (| ... | ... |)
+      .replace(/^\|.*\|$/gm, "")
+      // Tabellen-Trennzeilen (|---|---|)
+      .replace(/^\|[-| :]+\|$/gm, "")
+      // Bold/Italic (**text** / *text* / __text__ / _text_)
+      .replace(/(\*{1,2}|_{1,2})(.+?)\1/g, "$2")
+      // Emojis entfernen
+      .replace(/[\u{1F000}-\u{1FFFF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{FE00}-\u{FE0F}]/gu, "")
+      // Markdown-Links [text](url) → text
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      // Inline-Code `code`
+      .replace(/`([^`]+)`/g, "$1")
+      // Überschriften # ## ###
+      .replace(/^#{1,6}\s+/gm, "")
+      // Mehrere Leerzeilen → eine
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
+  async function speak(text: string) {
+    if (!ttsEnabled) return;
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const res = await fetch(`${BACKEND_URL}/v1/chat/tts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.play();
+    } catch { /* TTS Fehler still */ }
   }
 
   // ── Camera ────────────────────────────────────────────────────────────────
@@ -156,13 +195,56 @@ export default function ChatPage() {
     }, "image/jpeg", 0.9);
   }
 
+  // ── Video frame extraction ────────────────────────────────────────────────
+  function extractVideoFrames(file: File, count = 4): Promise<string[]> {
+    return new Promise((resolve) => {
+      const video = document.createElement("video");
+      const url = URL.createObjectURL(file);
+      video.src = url;
+      video.muted = true;
+      video.preload = "metadata";
+
+      video.onloadedmetadata = () => {
+        const duration = video.duration;
+        const frames: string[] = [];
+        const timestamps = Array.from({ length: count }, (_, i) =>
+          (duration / (count + 1)) * (i + 1)
+        );
+        let idx = 0;
+
+        function captureNext() {
+          if (idx >= timestamps.length) {
+            URL.revokeObjectURL(url);
+            resolve(frames);
+            return;
+          }
+          video.currentTime = timestamps[idx];
+        }
+
+        video.onseeked = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.min(video.videoWidth, 640);
+          canvas.height = Math.round(canvas.width * (video.videoHeight / video.videoWidth));
+          canvas.getContext("2d")!.drawImage(video, 0, 0, canvas.width, canvas.height);
+          frames.push(canvas.toDataURL("image/jpeg", 0.7).split(",")[1]);
+          idx++;
+          captureNext();
+        };
+
+        captureNext();
+      };
+
+      video.onerror = () => { URL.revokeObjectURL(url); resolve([]); };
+    });
+  }
+
   // ── File input handler (attach button) ───────────────────────────────────
   async function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files) return;
     const files = Array.from(e.target.files);
 
     for (const f of files) {
-      if (f.type.startsWith("audio/") || /\.(mp3|wav|m4a|ogg|webm|mpeg|mpga)$/i.test(f.name)) {
+      if (f.type.startsWith("audio/") || /\.(mp3|wav|m4a|ogg|mpeg|mpga)$/i.test(f.name)) {
         // Audio → Whisper transkribieren
         await transcribeAudio(f);
       } else {
@@ -211,7 +293,7 @@ export default function ChatPage() {
     setIsDragOver(false);
     const droppedFiles = Array.from(e.dataTransfer.files);
     for (const f of droppedFiles) {
-      if (f.type.startsWith("audio/") || /\.(mp3|wav|m4a|ogg|webm|mpeg|mpga)$/i.test(f.name)) {
+      if (f.type.startsWith("audio/") || /\.(mp3|wav|m4a|ogg|mpeg|mpga)$/i.test(f.name)) {
         await transcribeAudio(f);
       } else {
         setAttachedFiles(prev => [...prev, { file: f, id: `drop-${Date.now()}-${Math.random()}` }]);
@@ -225,11 +307,17 @@ export default function ChatPage() {
     if ((!text && attachedFiles.length === 0) || loading) return;
 
     const imageFiles = attachedFiles.filter(f => f.file.type.startsWith("image/"));
-    const docFiles   = attachedFiles.filter(f => !f.file.type.startsWith("image/"));
+    const videoFiles = attachedFiles.filter(f => f.file.type.startsWith("video/") || /\.(mp4|mov|webm)$/i.test(f.file.name));
+    const docFiles   = attachedFiles.filter(f =>
+      !f.file.type.startsWith("image/") &&
+      !f.file.type.startsWith("video/") &&
+      !/\.(mp4|mov|webm)$/i.test(f.file.name)
+    );
 
     // Build optimistic display
     const displayText = [
       text,
+      videoFiles.map(f => `📹 ${f.file.name}`).join("\n"),
       docFiles.map(f => `📎 ${f.file.name}`).join("\n"),
     ].filter(Boolean).join("\n");
 
@@ -257,9 +345,20 @@ export default function ChatPage() {
         }))
       );
 
-      // Append doc names to message text if present
+      // Extract video frames
+      for (const vf of videoFiles) {
+        const frames = await extractVideoFrames(vf.file, 4);
+        for (const frame of frames) {
+          imagesPayload.push({ data: frame, media_type: "image/jpeg" });
+        }
+      }
+
+      // Append doc/video names to message text if present
       const fullMessage = [
         text,
+        videoFiles.length > 0
+          ? `[Video analysieren: ${videoFiles.map(f => f.file.name).join(", ")} — ${videoFiles.length * 4} Frames extrahiert]`
+          : "",
         docFiles.length > 0
           ? `[Angehängte Dateien: ${docFiles.map(f => f.file.name).join(", ")}]`
           : "",
@@ -290,7 +389,7 @@ export default function ChatPage() {
       };
       setLastProvider(data.provider);
       setMessages(prev => [...prev, assistantMsg]);
-      speak(data.response);
+      speak(stripMarkdown(data.response));
       setTimeout(loadMemories, 4000);
     } catch (err: unknown) {
       setMessages(prev => [
@@ -357,7 +456,9 @@ export default function ChatPage() {
           {/* TTS Toggle */}
           <button
             onClick={() => {
-              if (ttsEnabled) window.speechSynthesis?.cancel();
+              if (ttsEnabled && audioRef.current) {
+                audioRef.current.pause();
+              }
               setTtsEnabled(v => !v);
             }}
             title={ttsEnabled ? "Baddi-Stimme aus" : "Baddi-Stimme ein"}
@@ -495,7 +596,7 @@ export default function ChatPage() {
               <div className="text-center">
                 <p className="text-4xl mb-2">📎</p>
                 <p className="text-indigo-200 font-semibold text-lg">Datei hier ablegen</p>
-                <p className="text-indigo-400 text-sm mt-1">Bilder, PDFs, Dokumente…</p>
+                <p className="text-indigo-400 text-sm mt-1">Bilder, Videos, PDFs, Dokumente…</p>
               </div>
             </div>
           )}
@@ -666,7 +767,7 @@ export default function ChatPage() {
               type="file"
               multiple
               className="hidden"
-              accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.mp3,.wav,.m4a,.ogg,.webm"
+              accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.mp3,.wav,.m4a,.ogg,.mp4,.mov,.webm"
               onChange={handleFileInputChange}
             />
           </div>
