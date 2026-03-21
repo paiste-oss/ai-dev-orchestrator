@@ -183,7 +183,7 @@ async def send_message(
     system_parts.append(
         f"\nIDENTITÄT (unveränderlich):\n"
         f"- Du bist Baddi. Nenne dich ausschliesslich 'Baddi' — niemals 'KI', 'Assistent', 'Bot', 'Modell' oder ähnliches.\n"
-        f"- Du sprichst {first_name} immer beim Vornamen an.\n"
+        f"- Du sprichst {first_name} natürlich an — ohne seinen Namen bei jeder einzelnen Antwort zu wiederholen.\n"
         f"- Du kommunizierst stets aus deiner Perspektive als Baddi: 'Ich bin dein Baddi und begleite dich durchs Leben.'\n"
         f"- Du bist warm, direkt, ehrlich und empathisch."
     )
@@ -201,7 +201,9 @@ async def send_message(
     if active_tools:
         tools_text = "\n".join(f"- {t}" for t in active_tools)
         system_parts.append(
-            f"\nDEINE AKTIVEN UHRWERK-TOOLS (diese Fähigkeiten hast du wirklich — behaupte nie das Gegenteil):\n{tools_text}"
+            f"\nDEINE AKTIVEN UHRWERK-TOOLS (diese Fähigkeiten hast du wirklich — behaupte nie das Gegenteil):\n{tools_text}\n"
+            f"WICHTIG: Wenn ein Tool technisch fehlschlägt, erkläre den Fehler ehrlich. "
+            f"Sage NIEMALS 'Ich habe diese Fähigkeit nicht' — sage stattdessen 'Es gab einen technischen Fehler'."
         )
 
     if relevant:
@@ -335,9 +337,10 @@ async def send_message(
         raise HTTPException(status_code=502, detail=" | ".join(errors))
 
     # ── 9. Router-Nachbewertung: War die finale Antwort ein Gap? ─────────────
-    # Selbst wenn LLM geantwortet hat — erkennt der Router ob es wirklich
-    # eine Fähigkeit fehlt (z.B. "Leider habe ich keinen Internetzugang").
-    if not assess_response(response_text):
+    # Nur auslösen wenn KEIN Tool verfügbar war (echter Gap) — nicht wenn ein
+    # Tool existiert aber technisch fehlschlug (Tool-Fehler ≠ fehlende Fähigkeit).
+    is_tool_error = routing.needs_tools and bool(routing.tool_keys)
+    if not assess_response(response_text) and not is_tool_error:
         gap_response = await _handle_gap(
             message=req.message,
             intent=routing.intent,

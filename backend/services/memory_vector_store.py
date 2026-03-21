@@ -113,6 +113,25 @@ def delete_customer_memories(customer_id: str) -> int:
         return 0
 
 
+def get_all_memories(customer_id: str, limit: int = 60) -> list[str]:
+    """Gibt alle gespeicherten Fakten eines Kunden zurück (für Deduplizierung)."""
+    client = _get_client()
+    try:
+        results, _ = client.scroll(
+            collection_name=COLLECTION,
+            scroll_filter=Filter(
+                must=[FieldCondition(key="customer_id", match=MatchValue(value=customer_id))]
+            ),
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [r.payload["fact"] for r in results if "fact" in r.payload]
+    except Exception as exc:
+        _log.warning("Qdrant get_all_memories failed: %s", exc)
+        return []
+
+
 def search_memories(customer_id: str, query: str, top_k: int = 8, score_threshold: float = 0.55) -> list[str]:
     """Search relevant memories for a customer by vector similarity."""
     client = _get_client()

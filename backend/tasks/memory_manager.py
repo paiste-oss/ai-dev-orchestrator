@@ -25,20 +25,20 @@ _CONFIG_KEY = "memory_manager:config"
 _DEFAULT_MODEL = settings.ollama_chat_model
 _DEFAULT_PROMPT = (
     "Du bist ein Memory-Extraktor für einen persönlichen KI-Assistenten.\n\n"
-    "Analysiere den folgenden Gesprächsausschnitt und extrahiere bis zu 5 wichtige, "
-    "dauerhafte Fakten über den NUTZER (nicht über den Assistenten).\n\n"
+    "Analysiere NUR die USER-Nachrichten und extrahiere dauerhafte, persönliche Fakten über den NUTZER.\n\n"
     "Extrahiere NUR:\n"
-    "- Namen, Beruf, Wohnort, Familie\n"
-    "- Vorlieben, Abneigungen, Gewohnheiten\n"
+    "- Name, Beruf, Wohnort, Familie, Beziehungen\n"
+    "- Persönliche Vorlieben, Abneigungen, Gewohnheiten\n"
     "- Wichtige Lebenssituationen, Ziele, Herausforderungen\n"
-    "- Wiederkehrende Präferenzen (z. B. Kommunikationsstil, Sprache)\n\n"
-    "Extrahiere NICHT:\n"
-    "- Einmalige Fragen oder Anfragen\n"
-    "- Allgemeine Themen ohne Bezug zum Nutzer\n"
-    "- Inhalte die der Assistent generiert hat\n\n"
-    "Antworte NUR mit einer JSON-Liste von kurzen Sätzen auf Deutsch.\n"
-    'Beispiel: ["Nutzer heißt Christoph", "Arbeitet als Architekt"]\n'
-    "Wenn keine relevanten Fakten vorhanden: []"
+    "- Kommunikationspräferenzen (z. B. Sprache, Anredeform)\n\n"
+    "Extrahiere NIEMALS:\n"
+    "- Fakten aus Suchergebnissen, Nachrichten oder Web-Inhalten (das sind nicht Nutzer-Fakten!)\n"
+    "- Einmalige Fragen oder Anfragen ohne persönlichen Bezug\n"
+    "- Fähigkeiten oder Eigenschaften des Assistenten\n"
+    "- Fakten die bereits im Abschnitt 'BEREITS BEKANNTE FAKTEN' stehen\n\n"
+    "Antworte NUR mit einer JSON-Liste auf Deutsch. Maximal 3 neue Fakten.\n"
+    'Beispiel: ["Nutzer heißt Christoph", "Lebt mit Partnerin Evelyn zusammen"]\n'
+    "Wenn keine NEUEN Fakten vorhanden: []"
 )
 
 
@@ -108,35 +108,54 @@ def _run(customer_id: str) -> None:
 
     # Älteste zuerst (Redis LPUSH = neueste zuerst)
     messages = [json.loads(m) for m in reversed(raw_msgs)]
-    conversation = "\n".join(
-        f"{m['role'].upper()}: {m['content']}" for m in messages
-    )
+
+    # NUR User-Nachrichten analysieren — Assistent-Antworten enthalten keine User-Fakten
+    # und können Nachrichten-Inhalte, Web-Suchergebnisse etc. enthalten.
+    user_messages = [m for m in messages if m.get("role") == "user"]
+    if not user_messages:
+        return
+    conversation = "\n".join(f"USER: {m['content']}" for m in user_messages)
 
     # 2. Konfiguration laden (Modell + Prompt aus Redis/Admin)
     model, system_prompt = _load_config(r)
 
-    # 3. Fakten extrahieren via Ollama
-    facts = _extract_facts(conversation, model, system_prompt)
+    # 3. Bereits bekannte Fakten laden — LLM soll nur NEUE extrahieren
+    try:
+        from services.memory_vector_store import get_all_memories
+        existing_facts = get_all_memories(customer_id, limit=60)
+    except Exception:
+        existing_facts = []
+
+    # 4. Fakten extrahieren via Ollama (mit bekannten Fakten zum Deduplizieren)
+    facts = _extract_facts(conversation, model, system_prompt, existing_facts)
     if not facts:
         return
 
     _log.info("Extracted %d facts for customer %s", len(facts), customer_id[:8])
 
-    # 4. In Qdrant speichern (Vektoren)
+    # 5. In Qdrant speichern (Vektoren)
     try:
         from services.memory_vector_store import store_memory_facts
         store_memory_facts(customer_id, facts)
     except Exception as exc:
         _log.warning("Qdrant store failed: %s", exc)
 
-    # 5. In PostgreSQL speichern (MemoryItems — Rückwärtskompatibilität)
+    # 6. In PostgreSQL speichern (MemoryItems — Rückwärtskompatibilität)
     try:
         _save_to_postgres(customer_id, facts)
     except Exception as exc:
         _log.warning("PostgreSQL memory store failed: %s", exc)
 
 
-def _extract_facts(conversation: str, model: str, system_prompt: str) -> list[str]:
+def _extract_facts(conversation: str, model: str, system_prompt: str, existing_facts: list[str] | None = None) -> list[str]:
+    # Bestehende Fakten an LLM übergeben, damit es nichts doppelt extrahiert
+    user_content = conversation
+    if existing_facts:
+        known = "\n".join(f"- {f}" for f in existing_facts[:40])
+        user_content = (
+            f"BEREITS BEKANNTE FAKTEN (diese NICHT nochmals extrahieren):\n{known}\n\n"
+            f"NEUE GESPRÄCH-AUSSCHNITTE:\n{conversation}"
+        )
     try:
         resp = httpx.post(
             f"{settings.ollama_base_url}/api/chat",
@@ -144,7 +163,7 @@ def _extract_facts(conversation: str, model: str, system_prompt: str) -> list[st
                 "model": model,
                 "messages": [
                     {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": conversation},
+                    {"role": "user", "content": user_content},
                 ],
                 "stream": False,
             },
