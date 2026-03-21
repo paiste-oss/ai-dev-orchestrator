@@ -32,6 +32,8 @@ export default function RegisterPage() {
     website: "",
   });
   const [captchaInput, setCaptchaInput] = useState("");
+  const [tosAccepted, setTosAccepted] = useState(false);
+  const [memoryConsent, setMemoryConsent] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -48,6 +50,10 @@ export default function RegisterPage() {
 
     if (form.website) return;
 
+    if (!tosAccepted) {
+      setError("Bitte AGB und Datenschutzerklärung akzeptieren.");
+      return;
+    }
     if (parseInt(captchaInput) !== captcha.answer) {
       setError("Sicherheitsfrage falsch. Bitte nochmals versuchen.");
       return;
@@ -77,6 +83,8 @@ export default function RegisterPage() {
           segment: "personal",
           birth_year: Number(form.geburtsjahr) || null,
           birth_date: birthDateString,
+          tos_accepted: tosAccepted,
+          memory_consent: memoryConsent,
         }),
       });
 
@@ -208,11 +216,52 @@ export default function RegisterPage() {
               className="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
           </div>
 
+          {/* Einwilligungen */}
+          <div className="space-y-3">
+            <label className={`flex items-start gap-3 cursor-pointer rounded-xl border p-4 transition-colors ${
+              tosAccepted ? "border-indigo-500/50 bg-indigo-950/20" : "border-gray-700 bg-gray-800/30"
+            }`}>
+              <input
+                type="checkbox"
+                checked={tosAccepted}
+                onChange={e => setTosAccepted(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-indigo-500 shrink-0"
+              />
+              <span className="text-sm text-gray-300 leading-relaxed">
+                Ich akzeptiere die{" "}
+                <button type="button" onClick={() => window.open("/datenschutz", "_blank")}
+                  className="text-indigo-400 hover:text-indigo-300 underline">
+                  AGB und Datenschutzerklärung
+                </button>
+                .{" "}
+                <span className="text-red-400 text-xs">*&nbsp;Pflichtfeld</span>
+              </span>
+            </label>
+
+            <label className={`flex items-start gap-3 cursor-pointer rounded-xl border p-4 transition-colors ${
+              memoryConsent ? "border-yellow-500/40 bg-yellow-950/10" : "border-gray-700 bg-gray-800/30"
+            }`}>
+              <input
+                type="checkbox"
+                checked={memoryConsent}
+                onChange={e => setMemoryConsent(e.target.checked)}
+                className="mt-0.5 w-4 h-4 accent-yellow-400 shrink-0"
+              />
+              <span className="text-sm text-gray-300 leading-relaxed">
+                <span className="text-yellow-400 font-medium">Langzeitgedächtnis</span>
+                {" — "}Damit Baddi dein Begleiter fürs Leben wird, merkt er sich wichtige Dinge über dich
+                (Vorlieben, Erlebnisse, Ziele). Stimmst du zu, dass Baddi sein Langzeitgedächtnis für
+                dich aufbaut?
+                {" "}<span className="text-gray-500 text-xs">Jederzeit widerrufbar.</span>
+              </span>
+            </label>
+          </div>
+
           {error && (
             <p className="text-red-400 text-sm bg-red-950/30 border border-red-800/50 rounded-lg px-4 py-3">{error}</p>
           )}
 
-          <button type="submit" disabled={loading}
+          <button type="submit" disabled={loading || !tosAccepted}
             className="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold transition-colors disabled:opacity-50">
             {loading ? "Wird registriert…" : "Konto erstellen →"}
           </button>

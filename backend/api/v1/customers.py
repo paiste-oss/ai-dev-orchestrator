@@ -52,6 +52,7 @@ class CustomerOut(BaseModel):
     language: str | None = None
     notes: str | None = None
     interests: list | None = None
+    memory_consent: bool = True
 
     class Config:
         from_attributes = True
@@ -79,6 +80,7 @@ class CustomerUpdate(BaseModel):
     language: str | None = None
     notes: str | None = None
     interests: list | None = None
+    memory_consent: bool | None = None
 
 
 class CustomerListResponse(BaseModel):

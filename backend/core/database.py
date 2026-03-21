@@ -80,6 +80,7 @@ async def init_db():
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS token_balance_chf NUMERIC(10,4) DEFAULT 0",
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS tokens_used_this_period INTEGER DEFAULT 0",
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS tos_accepted_at TIMESTAMP",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS memory_consent BOOLEAN DEFAULT true",
             # Zahlungshistorie
             """CREATE TABLE IF NOT EXISTS payments (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

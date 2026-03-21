@@ -71,6 +71,7 @@ class Customer(Base):
     token_balance_chf: Mapped[float] = mapped_column(Numeric(10, 4), default=0.0)  # Prepaid-Guthaben
     tokens_used_this_period: Mapped[int] = mapped_column(Integer, default=0)
     tos_accepted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # ToS-Akzeptanz-Zeitstempel
+    memory_consent: Mapped[bool] = mapped_column(Boolean, default=True)               # Einwilligung Langzeitgedächtnis (revDSG)
 
     subscription_plan: Mapped["SubscriptionPlan | None"] = relationship(back_populates="customers")
     buddies: Mapped[list["AiBuddy"]] = relationship(back_populates="customer")  # type: ignore

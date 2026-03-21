@@ -70,7 +70,36 @@ def process_memory(self, customer_id: str) -> None:
         raise self.retry(exc=exc)
 
 
+def _check_memory_consent(customer_id: str) -> bool:
+    """Prüft ob der Kunde dem Langzeitgedächtnis zugestimmt hat."""
+    import asyncio
+    return asyncio.run(_check_consent_async(customer_id))
+
+
+async def _check_consent_async(customer_id: str) -> bool:
+    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+    from sqlalchemy import select as sa_select
+    from models.customer import Customer
+
+    engine = create_async_engine(settings.database_url, pool_size=1, max_overflow=0)
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with Session() as db:
+            result = await db.execute(
+                sa_select(Customer.memory_consent).where(Customer.id == customer_id)
+            )
+            row = result.scalar_one_or_none()
+            return bool(row) if row is not None else True
+    finally:
+        await engine.dispose()
+
+
 def _run(customer_id: str) -> None:
+    # 0. Einwilligung prüfen (revDSG)
+    if not _check_memory_consent(customer_id):
+        _log.info("Memory Manager übersprungen — kein Consent für %s", customer_id[:8])
+        return
+
     # 1. Kurzzeitgedächtnis aus Redis lesen
     r = redis_lib.from_url(settings.redis_url, decode_responses=True)
     raw_msgs = r.lrange(_REDIS_KEY.format(customer_id=customer_id), 0, 11)

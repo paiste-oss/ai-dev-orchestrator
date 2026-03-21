@@ -20,6 +20,7 @@ interface CustomerDetail {
   segment: string;
   role: string;
   is_active: boolean;
+  memory_consent: boolean;
   created_at: string;
   birth_year: number | null;
   primary_usecase_id: string | null;
@@ -597,6 +598,15 @@ export default function CustomerDetailPage() {
     if (res.ok) setCustomer(await res.json());
   };
 
+  const toggleMemoryConsent = async () => {
+    if (!customer) return;
+    const res = await apiFetch(`${BACKEND_URL}/v1/customers/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ memory_consent: !customer.memory_consent }),
+    });
+    if (res.ok) setCustomer(await res.json());
+  };
+
   const addInterest = () => {
     const v = interestInput.trim();
     if (v && !interests.includes(v)) setInterests(prev => [...prev, v]);
@@ -660,9 +670,28 @@ export default function CustomerDetailPage() {
                     {customer.is_active ? "Aktiv" : "Inaktiv"}
                   </span>
                   <span className="text-xs text-gray-500 font-mono">{customer.id.slice(0, 8)}…</span>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                    customer.memory_consent
+                      ? "bg-yellow-500/15 text-yellow-300 border-yellow-500/30"
+                      : "bg-gray-500/20 text-gray-400 border-gray-500/30"
+                  }`}>
+                    🧠 {customer.memory_consent ? "Gedächtnis aktiv" : "Gedächtnis deaktiviert"}
+                  </span>
                 </div>
               </div>
             </div>
+            <div className="flex gap-2 shrink-0">
+            <button
+              onClick={toggleMemoryConsent}
+              className={`px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
+                customer.memory_consent
+                  ? "border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
+                  : "border-gray-500/40 text-gray-400 hover:bg-gray-500/10"
+              }`}
+              title="Langzeitgedächtnis ein-/ausschalten"
+            >
+              {customer.memory_consent ? "🧠 Deaktivieren" : "🧠 Aktivieren"}
+            </button>
             <button
               onClick={toggleActive}
               className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
@@ -673,6 +702,7 @@ export default function CustomerDetailPage() {
             >
               {customer.is_active ? "Deaktivieren" : "Aktivieren"}
             </button>
+            </div>
           </div>
 
           {/* Tabs */}

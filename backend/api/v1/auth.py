@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +25,8 @@ class RegisterRequest(BaseModel):
     birth_year: int | None = None
     birth_date: date | None = None
     usecase_id: str | None = None   # wird beim Registrieren mitgeschickt → default Buddy
+    tos_accepted: bool = False       # Pflicht: AGB & Datenschutz
+    memory_consent: bool = True      # Optional: Langzeitgedächtnis
 
 
 class TokenResponse(BaseModel):
@@ -51,6 +53,9 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 @router.post("/register", status_code=201, response_model=TokenResponse)
 async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    if not data.tos_accepted:
+        raise HTTPException(status_code=422, detail="AGB und Datenschutzerklärung müssen akzeptiert werden.")
+
     existing = await db.execute(select(Customer).where(Customer.email == data.email.lower()))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="E-Mail bereits registriert")
@@ -63,6 +68,8 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
         birth_date=data.birth_date,
         hashed_password=hash_password(data.password),
         role="customer",
+        tos_accepted_at=datetime.utcnow(),
+        memory_consent=data.memory_consent,
     )
     db.add(user)
     await db.commit()
