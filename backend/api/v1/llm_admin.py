@@ -20,16 +20,18 @@ router = APIRouter(prefix="/admin/llm", tags=["admin-llm"])
 # ---------------------------------------------------------------------------
 
 _OLLAMA_REGISTRY: dict[str, dict] = {
-    "phi3":             {"latest": "phi4",              "description": "Microsoft Phi — Router / Klassifizierung"},
+    "phi3":             {"latest": "phi4",              "description": "Microsoft Phi — Router / Klassifizierung (aktiv)"},
     "phi4":             {"latest": "phi4",              "description": "Microsoft Phi — Router / Klassifizierung"},
-    "mistral":          {"latest": "mistral-small3.1",  "description": "Mistral AI — Chat / Allgemein"},
-    "mistral-small3.1": {"latest": "mistral-small3.1",  "description": "Mistral AI — Chat / Allgemein"},
-    "llama3.2":         {"latest": "llama3.3",          "description": "Meta LLaMA — Code / Analyse"},
-    "llama3.3":         {"latest": "llama3.3",          "description": "Meta LLaMA — Code / Analyse"},
-    "gemma3":           {"latest": "gemma3",            "description": "Google Gemma — General Purpose"},
-    "qwen2.5":          {"latest": "qwen2.5",           "description": "Alibaba Qwen — Multilingual"},
-    "deepseek-r1":      {"latest": "deepseek-r1",       "description": "DeepSeek — Reasoning"},
-    "codellama":        {"latest": "codellama",         "description": "Meta CodeLlama — Code-Spezialist"},
+    "mistral":          {"latest": "mistral-small3.1",  "description": "Mistral AI — veraltet, ersetzt durch gemma3:12b"},
+    "mistral-small3.1": {"latest": "mistral-small3.1",  "description": "Mistral AI 24B — Reserve"},
+    "llama3.2":         {"latest": "llama3.3",          "description": "Meta LLaMA 3.2B — veraltet, ersetzt durch gemma3:12b"},
+    "llama3.3":         {"latest": "llama3.3",          "description": "Meta LLaMA 70B — CPU-only (zu gross für VRAM)"},
+    "llama3.1":         {"latest": "llama3.3",          "description": "Meta LLaMA 8B — veraltet"},
+    "llama3":           {"latest": "llama3.3",          "description": "Meta LLaMA 8B — veraltet"},
+    "gemma3":           {"latest": "gemma3:12b",        "description": "Google Gemma 3 — Memory-Extraktion / Code (aktiv, 7GB VRAM)"},
+    "qwen2.5":          {"latest": "qwen2.5",           "description": "Alibaba Qwen — Multilingual / Reserve"},
+    "deepseek-r1":      {"latest": "deepseek-r1",       "description": "DeepSeek R1 — Reasoning / Reserve"},
+    "codellama":        {"latest": "codellama",         "description": "Meta CodeLlama — schlechtere Code-Qualität als gemma3:12b"},
 }
 
 _ANTHROPIC_MODELS = [
@@ -77,15 +79,20 @@ async def get_llm_overview(_admin: Customer = Depends(require_admin)):
 
     installed_names: set[str] = set()
     local_models = []
-    role_map = {
-        settings.ollama_router_model: "Router",
-        settings.ollama_chat_model:   "Chat",
-        settings.ollama_code_model:   "Code",
-    }
+    # Vollname + Basis → Rolle (z.B. "gemma3:12b" und "gemma3" beide abdecken)
+    role_map: dict[str, str] = {}
+    for model_key, role_label in [
+        (settings.ollama_router_model, "Router"),
+        (settings.ollama_chat_model,   "Memory / Chat"),
+        (settings.ollama_code_model,   "Code"),
+    ]:
+        role_map[model_key] = role_label
+        role_map[model_key.split(":")[0]] = role_label
 
     for m in installed_raw:
         base = m["name"].split(":")[0]
         installed_names.add(base)
+        installed_names.add(m["name"])
         info = _OLLAMA_REGISTRY.get(base, {})
         latest = info.get("latest", base)
         local_models.append({
@@ -93,7 +100,7 @@ async def get_llm_overview(_admin: Customer = Depends(require_admin)):
             "base":        base,
             "size_bytes":  m.get("size", 0),
             "modified_at": m.get("modified_at", ""),
-            "role":        role_map.get(base) or role_map.get(m["name"]),
+            "role":        role_map.get(m["name"]) or role_map.get(base),
             "description": info.get("description", ""),
             "has_update":  latest != base and latest not in installed_names,
             "latest":      latest,
