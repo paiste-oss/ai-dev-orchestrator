@@ -43,7 +43,7 @@ subgraph FE["🖥️  Frontend  (Next.js)"]
   end
 
   subgraph FE_USER["Kundenbereich"]
-    FP_CHAT["/chat\nBaddi-Chat · Voice · Kamera\nDatei- & Bild-Upload · TTS"]
+    FP_CHAT["/chat\nBaddi-Chat · Voice · Kamera\nBild- & Video-Upload · ElevenLabs TTS\nstripMarkdown vor Sprachausgabe"]
     FP_BILLING["/user/billing\nAbos & Tokens"]
     FP_WALLET["/user/wallet\nPrepaid-Guthaben"]
     FP_SETTINGS["/user/settings\nProfil · Sprache · Passwort"]
@@ -55,15 +55,19 @@ subgraph FE["🖥️  Frontend  (Next.js)"]
     FP_ENTW["/admin/entwicklung + /[id]"]
     FP_DEVTOOL["/admin/devtool"]
     FP_FINANCE["/admin/finanzen"]
-    FP_UHRWERK["/admin/uhrwerk"]
+    FP_ROUTER["/admin/router\nTools · Intents · Gedächtnis\nSystem-Prompt Vorschau"]
     FP_WF["/admin/workflows"]
+    subgraph FP_UHRWERK_GRP["Uhrwerk"]
+      FP_LLM["/admin/uhrwerk/llm\nLokale & externe LLMs\nInstall · Update-Check"]
+      FP_SYSPROMPT["/admin/uhrwerk/system-prompts\n6 Agenten editierbar\nbaddi · uhrwerk · memory\nrouter · task_runner · entwicklung"]
+    end
   end
 
   subgraph FE_COMP["Komponenten"]
     C_VOICE["VoiceButton.tsx\nWeb Speech API"]
-    C_FILES["FileDropZone.tsx\nDrag & Drop · Bilder"]
+    C_FILES["FileDropZone.tsx\nDrag & Drop\nBilder · Videos · Dokumente"]
     C_AVATAR["BuddyAvatar.tsx"]
-    C_SIDEBAR["AdminSidebar.tsx"]
+    C_SIDEBAR["AdminSidebar.tsx\nRouter · LLM · System-Prompts"]
   end
 
   subgraph EXT_AVATAR["Externer Dienst"]
@@ -78,7 +82,7 @@ C_AVATAR --> E_RPM
 %% BACKEND ENTRY + SECRETS
 %% ════════════════════════════════════════════════════════════════
 
-BACKEND_ENTRY["⚙️ main.py\nFastAPI :8000\nCORS · Lifespan · Router"]
+BACKEND_ENTRY["⚙️ main.py\nFastAPI :8000 (no docs)\nCORS · Lifespan · Router"]
 
 subgraph EXT_SECRETS["Externer Dienst"]
   E_INFISICAL["🔐 Infisical :8080\nSecrets Manager\nalle API Keys"]
@@ -93,7 +97,7 @@ E_INFISICAL -.->|injects secrets| BACKEND_ENTRY
 subgraph API["🔌 API  (backend/api/v1/)"]
   direction LR
   A_AUTH["auth.py\nPOST /login · /register\nGET /me · POST /change-password"]
-  A_CHAT["chat.py\nPOST /message · /transcribe\nGET /history · /memories"]
+  A_CHAT["chat.py\nPOST /message · /transcribe · /tts\nGET /history · /memories\nDELETE /memories/{id}"]
   A_BILD["billing.py\nGET /plans · /wallet\nPOST /checkout · /topup · /webhook"]
   A_CUST["customers.py\nCRUD /{id}\nPATCH /me · DELETE /me/memory-consent"]
   A_BUDDY["buddies.py\nCRUD /buddies · PATCH /avatar"]
@@ -104,6 +108,9 @@ subgraph API["🔌 API  (backend/api/v1/)"]
   A_FIN["finance.py\nGET /costs · /revenue"]
   A_SET["settings.py\nGET/PUT /baddi/{id}"]
   A_CRED["credentials.py\nGET/PUT /credentials"]
+  A_RADMIN["router_admin.py\nGET /admin/router/overview\n/memory · /system-prompt"]
+  A_LLMADMIN["llm_admin.py\nGET /admin/llm/overview\nPOST /pull · /check-updates"]
+  A_SYSADMIN["system_prompts_admin.py\nGET /admin/system-prompts\nPUT /admin/system-prompts/{key}"]
 end
 
 BACKEND_ENTRY --> API
@@ -121,7 +128,7 @@ subgraph CHAT_FLOW["💬 Chat-Flow  (pro Nachricht)"]
   CF5["5. ROUTER\nagent_router.py"]
   CF6["6. Router-Gedächtnis\n(Redis: router:learned)"]
   CF7["7. Uhrwerk / Tools\n(Tool Registry)"]
-  CF8["8. assess_response()"]
+  CF8["8. assess_response()\nGap nur bei echten Fähigkeitslücken\n(nicht bei Tool-Fehlern)"]
   CF9["9. LLM-Aufruf\nllm_gateway.py"]
   CF10["10. Persistieren\n(PostgreSQL)"]
   CF11["11. Token-Billing\n(Wallet)"]
@@ -147,6 +154,7 @@ subgraph SVC_AI["⚡ KI & Routing"]
   S_GW["llm_gateway.py\nClaude → Gemini → OpenAI\nChatResult (text + tokens)"]
   S_BUDDY["buddy_agent.py\nAnthropic Tool Use\nTool-Loop (max 5 Runden)\nTool-Result Logging"]
   S_ENTW["entwicklung_engine.py\nCapability-Analyse · Tool-Planung"]
+  S_EL["elevenlabs_client.py\nText → audio/mpeg\neleven_multilingual_v2"]
 end
 
 subgraph EXT_LLM["Externer Dienst"]
@@ -161,6 +169,7 @@ CF9 --> S_GW
 S_GW --> E_CLAUDE
 S_GW --> E_GEMINI
 S_GW --> E_OPENAI_LLM
+A_CHAT -->|POST /tts| S_EL
 
 %% ════════════════════════════════════════════════════════════════
 %% GEDÄCHTNIS — mit Ollama direkt daneben
@@ -168,7 +177,7 @@ S_GW --> E_OPENAI_LLM
 
 subgraph SVC_MEM["🧠 Gedächtnis"]
   S_MEM["memory_service.py\nselect_relevant_context()\nQdrant → PG Fallback"]
-  S_MVEC["memory_vector_store.py\nQdrant: customer_memories\n768d · COSINE"]
+  S_MVEC["memory_vector_store.py\nQdrant: customer_memories\n768d · COSINE\nget_all_memories() für Dedup"]
   S_VDOC["vector_store.py\nQdrant: customer_documents\nnomic-embed-text 768d"]
   S_RMEM["router_memory.py\nRedis: router:learned\nErfolg / Misserfolg"]
 end
@@ -192,7 +201,7 @@ subgraph SVC_INT["🔧 Tools & Integrationen"]
   S_EXA["exa_client.py\nNeuronale Suche\nSnippets + Quellen"]
   S_N8N["n8n_client.py\nWorkflow-Trigger"]
   S_FILE["file_parser.py\nPDF · DOCX · XLSX"]
-  S_EVT["buddy_event_service.py\nSSE via Redis Pub/Sub"]
+  S_EVT["buddy_event_service.py\nSSE via Redis Pub/Sub\nOllama Relevanz-Check"]
   S_CRED["credential_service.py\nFernet-Verschlüsselung"]
 end
 
@@ -202,6 +211,7 @@ subgraph EXT_WEB["Externer Dienst"]
   E_JINA["Jina Reader\nr.jina.ai"]
   E_EXA["Exa Search\napi.exa.ai"]
   E_DALLE["OpenAI\nDALL-E 3 · Whisper"]
+  E_ELEVENLABS["ElevenLabs\nTTS API\neleven_multilingual_v2"]
 end
 
 S_ROUTER -->|tool_keys| S_TOOLS
@@ -212,6 +222,7 @@ S_SBB --> E_SBB
 S_JINA --> E_JINA
 S_EXA --> E_EXA
 S_BUDDY -->|image_generation · transcribe| E_DALLE
+S_EL --> E_ELEVENLABS
 
 %% ════════════════════════════════════════════════════════════════
 %% KOMMUNIKATION (n8n) — mit Brevo direkt daneben
@@ -256,9 +267,9 @@ S_BILL --> E_STRIPE
 
 subgraph TASKS["🔄 Celery Tasks  (background)"]
   direction LR
-  T_MM["memory_manager.py\n↳ nach jedem Chat\nOllama → Fakten\n→ Qdrant + PostgreSQL"]
+  T_MM["memory_manager.py\n↳ nach jedem Chat\nNur USER-Nachrichten\nDedup via get_all_memories()\nOllama → Fakten → Qdrant + PG"]
   T_DEV["dev_task_processor.py\n↳ alle 30s\nDevTask-Queue\n→ Claude implementiert Code"]
-  T_SUM["summaries.py\n↳ täglich 20:00"]
+  T_SUM["summaries.py\n↳ täglich 20:00\nClaude Haiku (httpx direkt)"]
   T_REM["reminders.py\n↳ on-demand"]
 end
 
@@ -290,7 +301,7 @@ subgraph DB["🗄️  Datenbanken  (lokal · Docker)"]
   end
 
   subgraph REDIS["Redis  :6379"]
-    R1["DB 0 — App\nbaddi:config\nchat:recent:{id}\nrouter:learned:{intent}"]
+    R1["DB 0 — App\nbaddi:config · uhrwerk:config\nmemory_manager:config\nagent:system_prompt:*\nchat:recent:{id}\nrouter:learned:{intent}"]
     R2["DB 1 — Celery Broker\nTask-Queue"]
     R3["DB 3 — Infisical Session-Store"]
   end
@@ -339,6 +350,11 @@ A_DOC --> S_FILE
 A_DOC --> S_VDOC
 A_ENTW --> S_ENTW
 A_EVT --> S_EVT
+A_RADMIN --> S_TOOLS
+A_RADMIN --> S_RMEM
+A_LLMADMIN --> E_OLLAMA
+A_LLMADMIN --> E_EXA
+A_SYSADMIN --> R1
 
 S_MEM --> PG3
 S_MVEC --> Q1
@@ -362,11 +378,11 @@ classDef task      fill:#1a2a3a,stroke:#38bdf8,color:#7dd3fc
 classDef infra     fill:#2a2a1a,stroke:#eab308,color:#fde047
 classDef billing   fill:#2a1a2a,stroke:#ec4899,color:#f9a8d4
 
-class FE_AUTH,FE_USER,FE_ADMIN,FE_COMP,FP_LOGIN,FP_REG,FP_CHAT,FP_BILLING,FP_WALLET,FP_SETTINGS,FP_CUST,FP_BADDIS,FP_ENTW,FP_DEVTOOL,FP_FINANCE,FP_UHRWERK,FP_WF frontend
-class BACKEND_ENTRY,API,A_AUTH,A_CHAT,A_BILD,A_CUST,A_BUDDY,A_DOC,A_ENTW,A_DEV,A_EVT,A_FIN,A_SET,A_CRED backend
-class SVC_AI,SVC_MEM,SVC_INT,S_ROUTER,S_GW,S_BUDDY,S_ENTW,S_MEM,S_MVEC,S_VDOC,S_RMEM,S_N8N,S_SBB,S_JINA,S_EXA,S_TOOLS,S_CRED,S_FILE,S_EVT service
+class FE_AUTH,FE_USER,FE_ADMIN,FE_COMP,FP_LOGIN,FP_REG,FP_CHAT,FP_BILLING,FP_WALLET,FP_SETTINGS,FP_CUST,FP_BADDIS,FP_ENTW,FP_DEVTOOL,FP_FINANCE,FP_ROUTER,FP_WF,FP_LLM,FP_SYSPROMPT,FP_UHRWERK_GRP frontend
+class BACKEND_ENTRY,API,A_AUTH,A_CHAT,A_BILD,A_CUST,A_BUDDY,A_DOC,A_ENTW,A_DEV,A_EVT,A_FIN,A_SET,A_CRED,A_RADMIN,A_LLMADMIN,A_SYSADMIN backend
+class SVC_AI,SVC_MEM,SVC_INT,S_ROUTER,S_GW,S_BUDDY,S_ENTW,S_EL,S_MEM,S_MVEC,S_VDOC,S_RMEM,S_N8N,S_SBB,S_JINA,S_EXA,S_TOOLS,S_CRED,S_FILE,S_EVT service
 class DB,PG,PG1,PG2,PG3,PG4,PG5,PG6,REDIS,R1,R2,R3,QDRANT,Q1,Q2 database
-class E_RPM,E_INFISICAL,E_CLAUDE,E_GEMINI,E_OPENAI_LLM,E_OLLAMA,E_SBB,E_JINA,E_EXA,E_DALLE,E_N8N,E_BREVO,E_STRIPE,E_METABASE,VERCEL external
+class E_RPM,E_INFISICAL,E_CLAUDE,E_GEMINI,E_OPENAI_LLM,E_OLLAMA,E_SBB,E_JINA,E_EXA,E_DALLE,E_ELEVENLABS,E_N8N,E_BREVO,E_STRIPE,E_METABASE,VERCEL external
 class TASKS,T_MM,T_DEV,T_SUM,T_REM task
 class CELERY_INFRA,CWORKER,CBEAT,CFTUNNEL infra
 class SVC_BILL,BILLING_MODEL,B_ABO,B_WALLET,B_BANK,B_OVERAGE billing
