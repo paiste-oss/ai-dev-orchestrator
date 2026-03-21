@@ -80,6 +80,14 @@ const ALL_PAGES: PageEntry[] = [
     group: "Admin",
   },
   {
+    path: "/admin/customers/abo-modell",
+    label: "Abo-Modell",
+    icon: "💳",
+    role: "admin",
+    description: "Abo-Setup: Stripe-Verbindung, Pläne konfigurieren, Price IDs hinterlegen",
+    group: "Admin",
+  },
+  {
     path: "/admin/baddis",
     label: "Baddis",
     icon: "◈",

@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config import settings as _cfg
 from core.database import get_db
 from core.dependencies import get_current_user, require_admin
 from models.customer import Customer, SubscriptionPlan
@@ -313,4 +314,110 @@ async def admin_billing_overview(
         "active_subscriptions": active_subs,
         "past_due": past_due,
         "by_plan": [{"plan": row[0], "count": row[1]} for row in plan_counts],
+    }
+
+
+# ── Admin: Abo-Modell Setup ────────────────────────────────────────────────────
+
+class PlanAdminOut(BaseModel):
+    id: str
+    name: str
+    slug: str
+    monthly_price: float
+    yearly_price: float
+    included_tokens: int
+    token_overage_chf_per_1k: float
+    max_buddies: int
+    features: dict
+    sort_order: int
+    stripe_price_id_monthly: Optional[str]
+    stripe_price_id_yearly: Optional[str]
+
+
+class PlanAdminUpdate(BaseModel):
+    name: Optional[str] = None
+    monthly_price: Optional[float] = None
+    yearly_price: Optional[float] = None
+    included_tokens: Optional[int] = None
+    token_overage_chf_per_1k: Optional[float] = None
+    max_buddies: Optional[int] = None
+    features: Optional[dict] = None
+    stripe_price_id_monthly: Optional[str] = None
+    stripe_price_id_yearly: Optional[str] = None
+
+
+@router.get("/admin/plans", response_model=list[PlanAdminOut])
+async def admin_list_plans(
+    _: Customer = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin: Alle Pläne inkl. Stripe Price IDs."""
+    await seed_plans(db)
+    result = await db.execute(select(SubscriptionPlan).order_by(SubscriptionPlan.sort_order))
+    plans = result.scalars().all()
+    return [
+        PlanAdminOut(
+            id=str(p.id),
+            name=p.name,
+            slug=p.slug or "",
+            monthly_price=float(p.monthly_price or 0),
+            yearly_price=float(p.yearly_price or 0),
+            included_tokens=p.included_tokens or 0,
+            token_overage_chf_per_1k=float(p.token_overage_chf_per_1k or 0),
+            max_buddies=p.max_buddies or 1,
+            features=p.features or {},
+            sort_order=p.sort_order or 0,
+            stripe_price_id_monthly=p.stripe_price_id_monthly,
+            stripe_price_id_yearly=p.stripe_price_id_yearly,
+        )
+        for p in plans
+    ]
+
+
+@router.put("/admin/plans/{plan_id}", response_model=PlanAdminOut)
+async def admin_update_plan(
+    plan_id: str,
+    data: PlanAdminUpdate,
+    _: Customer = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin: Plan-Details und Stripe Price IDs aktualisieren."""
+    import uuid as _uuid
+    plan = await db.get(SubscriptionPlan, _uuid.UUID(plan_id))
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan nicht gefunden")
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(plan, field, value)
+    await db.commit()
+    await db.refresh(plan)
+    return PlanAdminOut(
+        id=str(plan.id),
+        name=plan.name,
+        slug=plan.slug or "",
+        monthly_price=float(plan.monthly_price or 0),
+        yearly_price=float(plan.yearly_price or 0),
+        included_tokens=plan.included_tokens or 0,
+        token_overage_chf_per_1k=float(plan.token_overage_chf_per_1k or 0),
+        max_buddies=plan.max_buddies or 1,
+        features=plan.features or {},
+        sort_order=plan.sort_order or 0,
+        stripe_price_id_monthly=plan.stripe_price_id_monthly,
+        stripe_price_id_yearly=plan.stripe_price_id_yearly,
+    )
+
+
+@router.get("/admin/stripe-status")
+async def admin_stripe_status(_: Customer = Depends(require_admin)):
+    """Admin: Stripe-Konfigurationsstatus (Keys vorhanden, Webhook-URL)."""
+    return {
+        "secret_key_set": bool(_cfg.stripe_secret_key),
+        "webhook_secret_set": bool(_cfg.stripe_webhook_secret),
+        "price_ids": {
+            "basis_monthly":   _cfg.stripe_price_basis_monthly or None,
+            "basis_yearly":    _cfg.stripe_price_basis_yearly or None,
+            "komfort_monthly": _cfg.stripe_price_komfort_monthly or None,
+            "komfort_yearly":  _cfg.stripe_price_komfort_yearly or None,
+            "premium_monthly": _cfg.stripe_price_premium_monthly or None,
+            "premium_yearly":  _cfg.stripe_price_premium_yearly or None,
+        },
     }
