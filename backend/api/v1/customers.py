@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from core.database import get_db
 from core.dependencies import require_admin, get_current_user
-from models.customer import Customer
+from models.customer import Customer, SubscriptionPlan
 from models.buddy import AiBuddy, ConversationThread, Message
 from models.credential import CustomerCredential
 from models.document import CustomerDocument
@@ -51,6 +51,8 @@ class CustomerOut(BaseModel):
     notes: str | None = None
     interests: list | None = None
     memory_consent: bool = True
+    subscription_plan_name: str | None = None
+    subscription_status: str | None = None
 
     class Config:
         from_attributes = True
@@ -209,6 +211,8 @@ async def list_customers(
     customers = (await db.execute(query)).scalars().all()
 
     customer_ids = [c.id for c in customers]
+
+    # Baddis für primären Usecase
     buddy_result = await db.execute(
         select(AiBuddy)
         .where(AiBuddy.customer_id.in_(customer_ids), AiBuddy.is_active == True)
@@ -219,11 +223,21 @@ async def list_customers(
         if buddy.customer_id not in buddies_by_customer:
             buddies_by_customer[buddy.customer_id] = buddy.usecase_id
 
+    # Abo-Pläne laden
+    plan_ids = {c.subscription_plan_id for c in customers if c.subscription_plan_id}
+    plans_by_id: dict[uuid.UUID, str] = {}
+    if plan_ids:
+        plan_result = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.id.in_(plan_ids)))
+        for p in plan_result.scalars().all():
+            plans_by_id[p.id] = p.name
+
     items = [
         CustomerOut(
             id=c.id, name=c.name, email=c.email,
             role=c.role, is_active=c.is_active, created_at=c.created_at,
             primary_usecase_id=buddies_by_customer.get(c.id),
+            subscription_plan_name=plans_by_id.get(c.subscription_plan_id) if c.subscription_plan_id else None,
+            subscription_status=c.subscription_status,
         )
         for c in customers
     ]

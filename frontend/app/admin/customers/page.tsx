@@ -19,7 +19,17 @@ interface Customer {
   is_active: boolean;
   created_at: string;
   primary_usecase_id: string | null;
+  subscription_plan_name: string | null;
+  subscription_status: string | null;
 }
+
+const SUB_STATUS: Record<string, { label: string; color: string }> = {
+  active:   { label: "Aktiv",    color: "bg-green-500/20 text-green-300 border-green-500/30"   },
+  trialing: { label: "Probe",    color: "bg-blue-500/20 text-blue-300 border-blue-500/30"      },
+  past_due: { label: "Überfällig", color: "bg-red-500/20 text-red-300 border-red-500/30"       },
+  canceled: { label: "Gekündigt", color: "bg-gray-500/20 text-gray-400 border-gray-500/30"     },
+  inactive: { label: "Kein Abo", color: "bg-gray-700/40 text-gray-500 border-gray-600/30"     },
+};
 
 interface CustomerListResponse {
   items: Customer[];
@@ -285,6 +295,7 @@ export default function CustomersPage() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">E-Mail</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Rolle</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Status</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Abo</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Erstellt am</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Aktionen</th>
                   </tr>
@@ -330,6 +341,23 @@ export default function CustomersPage() {
                           <span className={`w-1.5 h-1.5 rounded-full ${customer.is_active ? "bg-green-400" : "bg-gray-500"}`} />
                           {customer.is_active ? "Aktiv" : "Inaktiv"}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        {customer.subscription_plan_name ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-xs font-medium text-white">{customer.subscription_plan_name}</span>
+                            {(() => {
+                              const s = SUB_STATUS[customer.subscription_status ?? "inactive"] ?? SUB_STATUS.inactive;
+                              return (
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border w-fit ${s.color}`}>
+                                  {s.label}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-600">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-gray-400 whitespace-nowrap text-xs">{formatDate(customer.created_at)}</td>
                       <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
