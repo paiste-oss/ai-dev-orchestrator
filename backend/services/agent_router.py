@@ -96,6 +96,18 @@ _DOCUMENT_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 
+_WEB_FETCH_KEYWORDS = re.compile(
+    r"("
+    r"https?://\S+|"                                        # Direkte URL im Text
+    r"\b(www\.\S+)|"                                        # www.irgendwas
+    r"\b(öffne|ruf.*auf|lies|lese|schau.*auf|zeig.*von|"
+    r"besuche|geh auf|fetch|abruf|seite.*lesen|lese.*seite|"
+    r"inhalt.*webseite|webseite.*inhalt|was steht auf|"
+    r"artikel.*lesen|lese.*artikel)\b"
+    r")",
+    re.IGNORECASE,
+)
+
 _WEB_SEARCH_KEYWORDS = re.compile(
     r"\b(suche|such|google|internet|online|aktuelle|news|nachrichten|wetter|"
     r"preis|aktienkurs|was.*koste|wie.*teuer|heute.*stand|recherchier)\b",
@@ -205,6 +217,13 @@ def route(message: str, customer_id: str | None = None) -> RoutingResult:
             intent="document",
             needs_tools=False,
             tool_keys=[],
+        )
+
+    elif _WEB_FETCH_KEYWORDS.search(message):  # Original-Case für URL-Erkennung
+        base_result = RoutingResult(
+            intent="web_fetch",
+            needs_tools=True,
+            tool_keys=["web_fetch"],
         )
 
     elif _WEB_SEARCH_KEYWORDS.search(msg):
