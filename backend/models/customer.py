@@ -10,14 +10,16 @@ class SubscriptionPlan(Base):
     __tablename__ = "subscription_plans"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name: Mapped[str] = mapped_column(String, nullable=False)            # "Basis" | "Komfort" | "Premium"
-    slug: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)  # "basis" | "komfort" | "premium"
-    max_buddies: Mapped[int] = mapped_column(Integer, default=1)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    slug: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    max_buddies: Mapped[int] = mapped_column(Integer, default=1)         # 1 für Mensch, N für Firma
     features: Mapped[dict] = mapped_column(JSONB, default=dict)
-    monthly_price: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0)   # CHF pro Monat
-    yearly_price: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0)    # CHF pro Jahr (mit Rabatt)
+    monthly_price: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0)
+    yearly_price: Mapped[float] = mapped_column(Numeric(10, 2), default=0.0)
     included_tokens: Mapped[int] = mapped_column(Integer, default=500_000)       # Tokens pro Monat inklusive
-    token_overage_chf_per_1k: Mapped[float] = mapped_column(Numeric(8, 4), default=0.002)  # CHF / 1k Tokens über Limit
+    daily_token_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Tokens pro Tag (0 = kein Limit)
+    requests_per_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Max Anfragen pro Stunde
+    token_overage_chf_per_1k: Mapped[float] = mapped_column(Numeric(8, 4), default=0.002)
     stripe_price_id_monthly: Mapped[str | None] = mapped_column(String(100), nullable=True)
     stripe_price_id_yearly: Mapped[str | None] = mapped_column(String(100), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)

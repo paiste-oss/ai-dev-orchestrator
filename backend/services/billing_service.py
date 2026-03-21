@@ -47,38 +47,43 @@ def _stripe():
 
 PLAN_DEFAULTS = [
     {
-        "name": "Basis",
-        "slug": "basis",
+        "name": "Personal",
+        "slug": "basis",                   # Slug bleibt für Stripe-Kompatibilität
         "max_buddies": 1,
         "monthly_price": 19.00,
-        "yearly_price": 180.00,        # ~CHF 15/Mo — 21% Rabatt
+        "yearly_price": 180.00,            # ~CHF 15/Mo — 21% Rabatt
         "included_tokens": 500_000,
-        "token_overage_chf_per_1k": 0.002,  # CHF 2 / 100k = 0.002 / 1k
+        "daily_token_limit": 20_000,
+        "requests_per_hour": 20,
+        "token_overage_chf_per_1k": 0.002,
         "sort_order": 1,
         "features": {
             "allowed_services": ["smtp"],
             "highlights": [
-                "1 Baddi",
                 "500'000 Tokens/Monat",
+                "20'000 Tokens/Tag",
+                "20 Anfragen/Stunde",
                 "E-Mail-Support",
             ],
         },
     },
     {
-        "name": "Komfort",
+        "name": "Intensiv",
         "slug": "komfort",
-        "max_buddies": 3,
+        "max_buddies": 1,
         "monthly_price": 49.00,
-        "yearly_price": 468.00,        # ~CHF 39/Mo — 20% Rabatt
+        "yearly_price": 468.00,            # ~CHF 39/Mo — 20% Rabatt
         "included_tokens": 2_000_000,
+        "daily_token_limit": 80_000,
+        "requests_per_hour": 60,
         "token_overage_chf_per_1k": 0.0015,
         "sort_order": 2,
         "features": {
             "allowed_services": ["smtp", "twilio", "slack"],
             "highlights": [
-                "3 Baddis",
                 "2'000'000 Tokens/Monat",
-                "SMS & Slack-Integration",
+                "80'000 Tokens/Tag",
+                "60 Anfragen/Stunde",
                 "Prioritäts-Support",
             ],
         },
@@ -86,20 +91,22 @@ PLAN_DEFAULTS = [
     {
         "name": "Premium",
         "slug": "premium",
-        "max_buddies": 10,
+        "max_buddies": 1,
         "monthly_price": 99.00,
-        "yearly_price": 948.00,        # ~CHF 79/Mo — 20% Rabatt
+        "yearly_price": 948.00,            # ~CHF 79/Mo — 20% Rabatt
         "included_tokens": 10_000_000,
+        "daily_token_limit": 400_000,
+        "requests_per_hour": 200,
         "token_overage_chf_per_1k": 0.001,
         "sort_order": 3,
         "features": {
             "allowed_services": ["smtp", "twilio", "slack", "google_sheets", "google_docs", "google_calendar"],
             "highlights": [
-                "10 Baddis",
                 "10'000'000 Tokens/Monat",
+                "400'000 Tokens/Tag",
+                "200 Anfragen/Stunde",
                 "Alle Integrationen",
                 "Dedizierter Support",
-                "API-Zugang",
             ],
         },
     },
@@ -107,27 +114,26 @@ PLAN_DEFAULTS = [
 
 
 async def seed_plans(db: AsyncSession) -> None:
-    """Legt die drei Standardpläne an falls noch keine existieren."""
-    from sqlalchemy import func
-    count = await db.scalar(select(func.count()).select_from(SubscriptionPlan))
-    if count and count > 0:
-        return
+    """Legt die Standardpläne an oder aktualisiert bestehende (idempotent via slug)."""
     for p in PLAN_DEFAULTS:
-        plan = SubscriptionPlan(
-            id=uuid_mod.uuid4(),
-            name=p["name"],
-            slug=p["slug"],
-            max_buddies=p["max_buddies"],
-            monthly_price=p["monthly_price"],
-            yearly_price=p["yearly_price"],
-            included_tokens=p["included_tokens"],
-            token_overage_chf_per_1k=p["token_overage_chf_per_1k"],
-            sort_order=p["sort_order"],
-            features=p["features"],
-        )
-        db.add(plan)
+        r = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.slug == p["slug"]))
+        plan = r.scalar_one_or_none()
+        if plan is None:
+            plan = SubscriptionPlan(id=uuid_mod.uuid4(), slug=p["slug"])
+            db.add(plan)
+        # Immer aktualisieren (Name, Preise, Rate Limits, Features)
+        plan.name = p["name"]
+        plan.max_buddies = p["max_buddies"]
+        plan.monthly_price = p["monthly_price"]
+        plan.yearly_price = p["yearly_price"]
+        plan.included_tokens = p["included_tokens"]
+        plan.daily_token_limit = p["daily_token_limit"]
+        plan.requests_per_hour = p["requests_per_hour"]
+        plan.token_overage_chf_per_1k = p["token_overage_chf_per_1k"]
+        plan.sort_order = p["sort_order"]
+        plan.features = p["features"]
     await db.commit()
-    _log.info("Billing: 3 Standardpläne angelegt (Basis / Komfort / Premium)")
+    _log.info("Billing: Pläne synchronisiert (Personal / Intensiv / Premium)")
 
 
 # ── Rechnungsnummer ───────────────────────────────────────────────────────────

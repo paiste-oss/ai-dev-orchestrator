@@ -105,6 +105,9 @@ async def init_db():
                 year INTEGER PRIMARY KEY,
                 last_number INTEGER DEFAULT 0
             )""",
+            # Rate Limits (Mensch-Usecase: 1 Baddi, Differenzierung über Token-Volumen)
+            "ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS daily_token_limit INTEGER",
+            "ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS requests_per_hour INTEGER",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

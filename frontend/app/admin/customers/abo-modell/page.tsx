@@ -15,6 +15,8 @@ interface Plan {
   monthly_price: number;
   yearly_price: number;
   included_tokens: number;
+  daily_token_limit: number | null;
+  requests_per_hour: number | null;
   token_overage_chf_per_1k: number;
   max_buddies: number;
   features: { highlights?: string[]; allowed_services?: string[] };
@@ -70,15 +72,16 @@ interface EditModalProps {
 
 function EditModal({ plan, onSave, onClose }: EditModalProps) {
   const [form, setForm] = useState({
-    name:                    plan.name,
-    monthly_price:           String(plan.monthly_price),
-    yearly_price:            String(plan.yearly_price),
-    included_tokens:         String(plan.included_tokens),
+    name:                     plan.name,
+    monthly_price:            String(plan.monthly_price),
+    yearly_price:             String(plan.yearly_price),
+    included_tokens:          String(plan.included_tokens),
+    daily_token_limit:        String(plan.daily_token_limit ?? ""),
+    requests_per_hour:        String(plan.requests_per_hour ?? ""),
     token_overage_chf_per_1k: String(plan.token_overage_chf_per_1k),
-    max_buddies:             String(plan.max_buddies),
-    stripe_price_id_monthly: plan.stripe_price_id_monthly ?? "",
-    stripe_price_id_yearly:  plan.stripe_price_id_yearly ?? "",
-    highlights:              (plan.features.highlights ?? []).join("\n"),
+    stripe_price_id_monthly:  plan.stripe_price_id_monthly ?? "",
+    stripe_price_id_yearly:   plan.stripe_price_id_yearly ?? "",
+    highlights:               (plan.features.highlights ?? []).join("\n"),
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -94,8 +97,9 @@ function EditModal({ plan, onSave, onClose }: EditModalProps) {
         monthly_price:            parseFloat(form.monthly_price),
         yearly_price:             parseFloat(form.yearly_price),
         included_tokens:          parseInt(form.included_tokens),
+        daily_token_limit:        form.daily_token_limit ? parseInt(form.daily_token_limit) : null,
+        requests_per_hour:        form.requests_per_hour ? parseInt(form.requests_per_hour) : null,
         token_overage_chf_per_1k: parseFloat(form.token_overage_chf_per_1k),
-        max_buddies:              parseInt(form.max_buddies),
         stripe_price_id_monthly:  form.stripe_price_id_monthly || null,
         stripe_price_id_yearly:   form.stripe_price_id_yearly || null,
         features: {
@@ -129,13 +133,9 @@ function EditModal({ plan, onSave, onClose }: EditModalProps) {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
+          <div className="col-span-2 space-y-1">
             <label className={labelCls}>Name</label>
             <input value={form.name} onChange={e => set("name", e.target.value)} className={inputCls} />
-          </div>
-          <div className="space-y-1">
-            <label className={labelCls}>Max. Baddis</label>
-            <input type="number" value={form.max_buddies} onChange={e => set("max_buddies", e.target.value)} className={inputCls} />
           </div>
           <div className="space-y-1">
             <label className={labelCls}>Preis monatlich (CHF)</label>
@@ -146,8 +146,16 @@ function EditModal({ plan, onSave, onClose }: EditModalProps) {
             <input type="number" step="0.01" value={form.yearly_price} onChange={e => set("yearly_price", e.target.value)} className={inputCls} />
           </div>
           <div className="space-y-1">
-            <label className={labelCls}>Inkl. Tokens / Monat</label>
+            <label className={labelCls}>Tokens / Monat</label>
             <input type="number" value={form.included_tokens} onChange={e => set("included_tokens", e.target.value)} className={inputCls} />
+          </div>
+          <div className="space-y-1">
+            <label className={labelCls}>Tokens / Tag</label>
+            <input type="number" value={form.daily_token_limit} onChange={e => set("daily_token_limit", e.target.value)} className={inputCls} placeholder="leer = kein Limit" />
+          </div>
+          <div className="space-y-1">
+            <label className={labelCls}>Max. Anfragen / Stunde</label>
+            <input type="number" value={form.requests_per_hour} onChange={e => set("requests_per_hour", e.target.value)} className={inputCls} placeholder="leer = kein Limit" />
           </div>
           <div className="space-y-1">
             <label className={labelCls}>Overage CHF / 1k Token</label>
@@ -335,9 +343,9 @@ export default function AboModellPage() {
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                   <div><p className="text-gray-500">Preis</p><p className="text-white font-semibold">CHF 0</p></div>
-                  <div><p className="text-gray-500">Tokens</p><p className="text-white font-semibold">200k</p></div>
-                  <div><p className="text-gray-500">Baddis</p><p className="text-white font-semibold">1</p></div>
-                  <div><p className="text-gray-500">Stripe</p><p className="text-gray-500 italic">nicht nötig</p></div>
+                  <div><p className="text-gray-500">Tokens/Mo</p><p className="text-white font-semibold">50k</p></div>
+                  <div><p className="text-gray-500">Tokens/Tag</p><p className="text-white font-semibold">2k</p></div>
+                  <div><p className="text-gray-500">Anf./Std.</p><p className="text-white font-semibold">5</p></div>
                 </div>
                 <p className="text-xs text-gray-500">Free-Plan läuft ausschliesslich über das Frontend — kein Stripe-Checkout, direkte Weiterleitung zu /chat.</p>
               </div>
@@ -362,7 +370,7 @@ export default function AboModellPage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
                     <div>
                       <p className="text-gray-500">Monatlich</p>
                       <p className="text-white font-semibold">CHF {plan.monthly_price.toFixed(2)}</p>
@@ -376,8 +384,12 @@ export default function AboModellPage() {
                       <p className="text-white font-semibold">{formatTokens(plan.included_tokens)}</p>
                     </div>
                     <div>
-                      <p className="text-gray-500">Max. Baddis</p>
-                      <p className="text-white font-semibold">{plan.max_buddies}</p>
+                      <p className="text-gray-500">Tokens/Tag</p>
+                      <p className="text-white font-semibold">{plan.daily_token_limit ? formatTokens(plan.daily_token_limit) : "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Anf./Std.</p>
+                      <p className="text-white font-semibold">{plan.requests_per_hour ?? "—"}</p>
                     </div>
                   </div>
 

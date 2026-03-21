@@ -49,6 +49,8 @@ class PlanOut(BaseModel):
     yearly_monthly_equivalent: float   # yearly_price / 12
     yearly_discount_percent: int
     included_tokens: int
+    daily_token_limit: Optional[int]
+    requests_per_hour: Optional[int]
     token_overage_chf_per_1k: float
     max_buddies: int
     features: dict
@@ -115,6 +117,8 @@ async def list_plans(db: AsyncSession = Depends(get_db)):
             yearly_monthly_equivalent=yearly_mo,
             yearly_discount_percent=discount,
             included_tokens=p.included_tokens or 500_000,
+            daily_token_limit=p.daily_token_limit,
+            requests_per_hour=p.requests_per_hour,
             token_overage_chf_per_1k=float(p.token_overage_chf_per_1k or 0.002),
             max_buddies=p.max_buddies or 1,
             features=p.features or {},
@@ -326,6 +330,8 @@ class PlanAdminOut(BaseModel):
     monthly_price: float
     yearly_price: float
     included_tokens: int
+    daily_token_limit: Optional[int]
+    requests_per_hour: Optional[int]
     token_overage_chf_per_1k: float
     max_buddies: int
     features: dict
@@ -339,6 +345,8 @@ class PlanAdminUpdate(BaseModel):
     monthly_price: Optional[float] = None
     yearly_price: Optional[float] = None
     included_tokens: Optional[int] = None
+    daily_token_limit: Optional[int] = None
+    requests_per_hour: Optional[int] = None
     token_overage_chf_per_1k: Optional[float] = None
     max_buddies: Optional[int] = None
     features: Optional[dict] = None
@@ -363,6 +371,8 @@ async def admin_list_plans(
             monthly_price=float(p.monthly_price or 0),
             yearly_price=float(p.yearly_price or 0),
             included_tokens=p.included_tokens or 0,
+            daily_token_limit=p.daily_token_limit,
+            requests_per_hour=p.requests_per_hour,
             token_overage_chf_per_1k=float(p.token_overage_chf_per_1k or 0),
             max_buddies=p.max_buddies or 1,
             features=p.features or {},
@@ -397,6 +407,8 @@ async def admin_update_plan(
         monthly_price=float(plan.monthly_price or 0),
         yearly_price=float(plan.yearly_price or 0),
         included_tokens=plan.included_tokens or 0,
+        daily_token_limit=plan.daily_token_limit,
+        requests_per_hour=plan.requests_per_hour,
         token_overage_chf_per_1k=float(plan.token_overage_chf_per_1k or 0),
         max_buddies=plan.max_buddies or 1,
         features=plan.features or {},
