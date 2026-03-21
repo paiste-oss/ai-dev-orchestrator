@@ -11,7 +11,9 @@ interface CeleryTask {
   label: string;
   description: string;
   schedule: string;
-  type: "scheduled" | "manual";
+  type: "scheduled" | "manual" | "event";
+  cost: "lokal" | "api";
+  cost_detail: string;
 }
 
 export default function BackendTasksPage() {
@@ -88,7 +90,9 @@ export default function BackendTasksPage() {
             {tasks.map(task => (
               <div key={task.name} className="bg-gray-800 border border-gray-700 rounded-xl px-5 py-4">
                 <div className="flex items-start gap-4">
-                  <span className="text-2xl shrink-0 mt-0.5">{task.type === "scheduled" ? "⏰" : "▶️"}</span>
+                  <span className="text-2xl shrink-0 mt-0.5">
+                    {task.type === "scheduled" ? "⏰" : task.type === "event" ? "⚡" : "▶️"}
+                  </span>
 
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-white text-sm">{task.label}</p>
@@ -98,12 +102,22 @@ export default function BackendTasksPage() {
                       <span className={`text-xs px-2 py-0.5 rounded-full border ${
                         task.type === "scheduled"
                           ? "bg-blue-500/10 text-blue-300 border-blue-500/20"
+                          : task.type === "event"
+                          ? "bg-violet-500/10 text-violet-300 border-violet-500/20"
                           : "bg-gray-600/40 text-gray-400 border-gray-600/30"
                       }`}>
                         {task.schedule}
                       </span>
-                      <span className="text-xs text-gray-600 font-mono">{task.name}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                        task.cost === "lokal"
+                          ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+                          : "bg-amber-500/10 text-amber-300 border-amber-500/20"
+                      }`}>
+                        {task.cost === "lokal" ? "🖥 Lokal" : "☁ API"}
+                      </span>
+                      <span className="text-xs text-gray-500">{task.cost_detail}</span>
                     </div>
+                    <code className="text-[11px] text-gray-600 mt-1.5 block">{task.name}</code>
                   </div>
 
                   <button

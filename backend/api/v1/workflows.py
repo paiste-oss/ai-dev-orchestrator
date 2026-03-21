@@ -159,25 +159,40 @@ async def trigger_service(service_name: str, body: ServicePayload):
 
 CELERY_TASKS = [
     {
+        "name": "tasks.memory_manager.process_memory",
+        "label": "Memory Manager",
+        "description": "Extrahiert dauerhaft Fakten über Kunden aus Gesprächen und speichert sie in Qdrant + PostgreSQL.",
+        "schedule": "Nach jeder Chat-Antwort (event-gesteuert)",
+        "type": "event",
+        "cost": "lokal",
+        "cost_detail": "~0.007 Rappen/Aufruf (nur Strom, gemma3:12b lokal)",
+    },
+    {
+        "name": "tasks.dev_task_processor.process_dev_tasks",
+        "label": "Dev-Task Prozessor",
+        "description": "Verarbeitet ausstehende Entwickler-Aufgaben (Dev Orchestrator). Pollt alle 30s.",
+        "schedule": "Alle 30 Sekunden",
+        "type": "scheduled",
+        "cost": "api",
+        "cost_detail": "Polling: ~0 / Echter Task: 3–25 Rappen (Claude Sonnet 4.6)",
+    },
+    {
         "name": "tasks.summaries.daily_summary",
         "label": "Tägliche Zusammenfassung",
         "description": "Erstellt eine KI-Zusammenfassung des aktuellen Projektstands.",
         "schedule": "Täglich um 20:00 Uhr",
         "type": "scheduled",
-    },
-    {
-        "name": "tasks.dev_task_processor.process_dev_tasks",
-        "label": "Dev-Task Prozessor",
-        "description": "Verarbeitet ausstehende Entwickler-Aufgaben (Dev Orchestrator).",
-        "schedule": "Alle 30 Sekunden",
-        "type": "scheduled",
+        "cost": "api",
+        "cost_detail": "~0.01 Rappen/Tag (Claude Haiku)",
     },
     {
         "name": "tasks.reminders.send_reminder",
         "label": "Erinnerung senden",
-        "description": "Sendet eine proaktive Erinnerung über einen Buddy (manuell oder per Trigger).",
+        "description": "Sendet eine proaktive Erinnerung über einen Buddy. (Platzhalter — noch nicht aktiv implementiert)",
         "schedule": "Manuell",
         "type": "manual",
+        "cost": "lokal",
+        "cost_detail": "~0 (noch kein aktiver Code)",
     },
 ]
 
