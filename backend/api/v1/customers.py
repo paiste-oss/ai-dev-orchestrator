@@ -285,8 +285,11 @@ async def update_customer(
     customer_id: uuid.UUID,
     data: CustomerUpdate,
     db: AsyncSession = Depends(get_db),
-    _: Customer = Depends(require_admin),
+    current_user: Customer = Depends(get_current_user),
 ):
+    # Admin darf jeden Kunden bearbeiten; Kunde darf nur sich selbst
+    if current_user.role != "admin" and str(current_user.id) != str(customer_id):
+        raise HTTPException(status_code=403, detail="Nicht erlaubt")
     customer = await db.get(Customer, customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
