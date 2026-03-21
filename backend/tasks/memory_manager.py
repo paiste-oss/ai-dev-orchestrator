@@ -21,27 +21,37 @@ from tasks.celery_app import celery_app
 _log = logging.getLogger(__name__)
 
 _REDIS_KEY = "chat:recent:{customer_id}"
-_SYSTEM_PROMPT = """\
-Du bist ein Memory-Extraktor für einen persönlichen KI-Assistenten.
+_CONFIG_KEY = "memory_manager:config"
+_DEFAULT_MODEL = settings.ollama_chat_model
+_DEFAULT_PROMPT = (
+    "Du bist ein Memory-Extraktor für einen persönlichen KI-Assistenten.\n\n"
+    "Analysiere den folgenden Gesprächsausschnitt und extrahiere bis zu 5 wichtige, "
+    "dauerhafte Fakten über den NUTZER (nicht über den Assistenten).\n\n"
+    "Extrahiere NUR:\n"
+    "- Namen, Beruf, Wohnort, Familie\n"
+    "- Vorlieben, Abneigungen, Gewohnheiten\n"
+    "- Wichtige Lebenssituationen, Ziele, Herausforderungen\n"
+    "- Wiederkehrende Präferenzen (z. B. Kommunikationsstil, Sprache)\n\n"
+    "Extrahiere NICHT:\n"
+    "- Einmalige Fragen oder Anfragen\n"
+    "- Allgemeine Themen ohne Bezug zum Nutzer\n"
+    "- Inhalte die der Assistent generiert hat\n\n"
+    "Antworte NUR mit einer JSON-Liste von kurzen Sätzen auf Deutsch.\n"
+    'Beispiel: ["Nutzer heißt Christoph", "Arbeitet als Architekt"]\n'
+    "Wenn keine relevanten Fakten vorhanden: []"
+)
 
-Analysiere den folgenden Gesprächsausschnitt und extrahiere bis zu 5 wichtige, \
-dauerhafte Fakten über den NUTZER (nicht über den Assistenten).
 
-Extrahiere NUR:
-- Namen, Beruf, Wohnort, Familie
-- Vorlieben, Abneigungen, Gewohnheiten
-- Wichtige Lebenssituationen, Ziele, Herausforderungen
-- Wiederkehrende Präferenzen (z. B. Kommunikationsstil, Sprache)
-
-Extrahiere NICHT:
-- Einmalige Fragen oder Anfragen
-- Allgemeine Themen ohne Bezug zum Nutzer
-- Inhalte die der Assistent generiert hat
-
-Antworte NUR mit einer JSON-Liste von kurzen Sätzen auf Deutsch.
-Beispiel: ["Nutzer heißt Christoph", "Arbeitet als Architekt", "Bevorzugt kurze Antworten"]
-Wenn keine relevanten Fakten vorhanden: []\
-"""
+def _load_config(r: redis_lib.Redis) -> tuple[str, str]:
+    """Lädt Modell + Prompt aus Redis (Admin-Konfiguration)."""
+    try:
+        raw = r.get(_CONFIG_KEY)
+        if raw:
+            cfg = json.loads(raw)
+            return cfg.get("model", _DEFAULT_MODEL), cfg.get("system_prompt", _DEFAULT_PROMPT)
+    except Exception:
+        pass
+    return _DEFAULT_MODEL, _DEFAULT_PROMPT
 
 
 @celery_app.task(
@@ -73,35 +83,38 @@ def _run(customer_id: str) -> None:
         f"{m['role'].upper()}: {m['content']}" for m in messages
     )
 
-    # 2. Fakten extrahieren via Ollama
-    facts = _extract_facts(conversation)
+    # 2. Konfiguration laden (Modell + Prompt aus Redis/Admin)
+    model, system_prompt = _load_config(r)
+
+    # 3. Fakten extrahieren via Ollama
+    facts = _extract_facts(conversation, model, system_prompt)
     if not facts:
         return
 
     _log.info("Extracted %d facts for customer %s", len(facts), customer_id[:8])
 
-    # 3. In Qdrant speichern (Vektoren)
+    # 4. In Qdrant speichern (Vektoren)
     try:
         from services.memory_vector_store import store_memory_facts
         store_memory_facts(customer_id, facts)
     except Exception as exc:
         _log.warning("Qdrant store failed: %s", exc)
 
-    # 4. In PostgreSQL speichern (MemoryItems — Rückwärtskompatibilität)
+    # 5. In PostgreSQL speichern (MemoryItems — Rückwärtskompatibilität)
     try:
         _save_to_postgres(customer_id, facts)
     except Exception as exc:
         _log.warning("PostgreSQL memory store failed: %s", exc)
 
 
-def _extract_facts(conversation: str) -> list[str]:
+def _extract_facts(conversation: str, model: str, system_prompt: str) -> list[str]:
     try:
         resp = httpx.post(
             f"{settings.ollama_base_url}/api/chat",
             json={
-                "model": settings.ollama_chat_model,
+                "model": model,
                 "messages": [
-                    {"role": "system", "content": _SYSTEM_PROMPT},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": conversation},
                 ],
                 "stream": False,

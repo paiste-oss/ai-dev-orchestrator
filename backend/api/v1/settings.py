@@ -132,6 +132,51 @@ async def update_uhrwerk_config(
     return data
 
 
+_MEMORY_MANAGER_KEY = "memory_manager:config"
+
+_MEMORY_MANAGER_DEFAULTS = {
+    "model": app_settings.ollama_chat_model,
+    "system_prompt": (
+        "Du bist ein Memory-Extraktor für einen persönlichen KI-Assistenten.\n\n"
+        "Analysiere den folgenden Gesprächsausschnitt und extrahiere bis zu 5 wichtige, "
+        "dauerhafte Fakten über den NUTZER (nicht über den Assistenten).\n\n"
+        "Extrahiere NUR:\n"
+        "- Namen, Beruf, Wohnort, Familie\n"
+        "- Vorlieben, Abneigungen, Gewohnheiten\n"
+        "- Wichtige Lebenssituationen, Ziele, Herausforderungen\n"
+        "- Wiederkehrende Präferenzen (z. B. Kommunikationsstil, Sprache)\n\n"
+        "Extrahiere NICHT:\n"
+        "- Einmalige Fragen oder Anfragen\n"
+        "- Allgemeine Themen ohne Bezug zum Nutzer\n"
+        "- Inhalte die der Assistent generiert hat\n\n"
+        "Antworte NUR mit einer JSON-Liste von kurzen Sätzen auf Deutsch.\n"
+        'Beispiel: ["Nutzer heißt Christoph", "Arbeitet als Architekt"]\n'
+        "Wenn keine relevanten Fakten vorhanden: []"
+    ),
+}
+
+
+class MemoryManagerConfig(BaseModel):
+    model: str = app_settings.ollama_chat_model
+    system_prompt: str = _MEMORY_MANAGER_DEFAULTS["system_prompt"]
+
+
+@router.get("/memory-manager")
+async def get_memory_manager_config(_: Customer = Depends(require_admin)):
+    raw = _redis.get(_MEMORY_MANAGER_KEY)
+    return json.loads(raw) if raw else _MEMORY_MANAGER_DEFAULTS
+
+
+@router.put("/memory-manager")
+async def update_memory_manager_config(
+    body: MemoryManagerConfig,
+    _: Customer = Depends(require_admin),
+):
+    data = body.model_dump()
+    _redis.set(_MEMORY_MANAGER_KEY, json.dumps(data))
+    return data
+
+
 @router.get("/portal")
 async def get_portal_settings():
     """Öffentlich — wird von der Startseite gelesen."""

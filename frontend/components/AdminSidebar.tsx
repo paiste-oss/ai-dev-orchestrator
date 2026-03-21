@@ -39,6 +39,12 @@ const NAV: NavEntry[] = [
       { label: "Portal",  href: "/admin/settings", icon: "◉" },
     ],
   },
+  {
+    label: "Chat-Flow", icon: "⟳",
+    children: [
+      { label: "Memory Manager", href: "/admin/chat-flow/memory-manager", icon: "🧠" },
+    ],
+  },
   { label: "Testseiten", href: "/admin/testpages", icon: "⌘" },
 ];
 
