@@ -71,6 +71,7 @@ export default function ChatPage() {
   const [ttsEnabled, setTtsEnabled] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -163,6 +164,29 @@ export default function ChatPage() {
     }));
     setAttachedFiles(prev => [...prev, ...newFiles]);
     e.target.value = "";
+  }
+
+  // ── Drag & Drop (gesamter Chat-Bereich) ──────────────────────────────────
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    // nur auslösen wenn das Element wirklich verlassen wird (nicht bei Child-Wechsel)
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDragOver(false);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    const newFiles: AttachedFile[] = droppedFiles.map(f => ({
+      file: f,
+      id: `drop-${Date.now()}-${Math.random()}`,
+    }));
+    if (newFiles.length > 0) setAttachedFiles(prev => [...prev, ...newFiles]);
   }
 
   // ── Send ──────────────────────────────────────────────────────────────────
@@ -428,7 +452,22 @@ export default function ChatPage() {
         </aside>
 
         {/* ── Chat area ── */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div
+          className="flex-1 flex flex-col overflow-hidden relative"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          {/* Drag-Overlay */}
+          {isDragOver && (
+            <div className="absolute inset-0 z-40 flex items-center justify-center bg-indigo-950/70 border-2 border-dashed border-indigo-400 rounded-none pointer-events-none">
+              <div className="text-center">
+                <p className="text-4xl mb-2">📎</p>
+                <p className="text-indigo-200 font-semibold text-lg">Datei hier ablegen</p>
+                <p className="text-indigo-400 text-sm mt-1">Bilder, PDFs, Dokumente…</p>
+              </div>
+            </div>
+          )}
 
           {/* Mobile header bar */}
           <div className="md:hidden shrink-0 border-b border-gray-800 bg-gray-900/60 flex items-center gap-3 px-4 py-3">
