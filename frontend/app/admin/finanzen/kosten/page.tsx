@@ -122,8 +122,8 @@ export default function KostenPage() {
     setMounted(true);
     if (!u || u.role !== "admin") { router.replace("/login"); return; }
     load();
-    apiFetch(`${BACKEND_URL}/v1/finance/revenue`).then(r => r.ok && r.json().then(setRevenue));
-    apiFetch(`${BACKEND_URL}/v1/finance/usage`).then(r => r.ok && r.json().then(setUsage));
+    apiFetch(`${BACKEND_URL}/v1/finance/revenue`).then(r => { if (r.ok) r.json().then(setRevenue); });
+    apiFetch(`${BACKEND_URL}/v1/finance/usage`).then(r => { if (r.ok) r.json().then(setUsage); });
   }, []);
 
   if (!mounted) return null;
