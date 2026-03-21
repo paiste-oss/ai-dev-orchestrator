@@ -295,8 +295,10 @@ def get_intent_label(intent: str) -> str:
         "transport":    "ÖV / SBB Abfrage",
         "document":     "Dokument-Analyse",
         "web_search":   "Web-Recherche",
+        "web_fetch":    "Web-Zugriff",
         "email":        "E-Mail",
         "calendar":     "Kalender / Termine",
         "conversation": "Gespräch",
+        "image_input":  "Bild-Analyse",
     }
     return labels.get(intent, intent)

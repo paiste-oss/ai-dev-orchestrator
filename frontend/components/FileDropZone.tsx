@@ -6,6 +6,7 @@ import { useState, useRef, useCallback, DragEvent } from "react";
 const ACCEPTED_EXTENSIONS = [
   "pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt",
   "csv", "txt", "md", "json", "xml", "html", "htm", "log",
+  "jpg", "jpeg", "png", "gif", "webp",
 ];
 
 const ACCEPTED_MIME_TYPES = [
@@ -23,6 +24,10 @@ const ACCEPTED_MIME_TYPES = [
   "text/xml",
   "application/xml",
   "text/html",
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
 ];
 
 const FILE_TYPE_ICONS: Record<string, string> = {
@@ -34,6 +39,7 @@ const FILE_TYPE_ICONS: Record<string, string> = {
   txt:  "📃", md: "📃", log: "📃",
   json: "🔧", xml: "🔧",
   html: "🌐", htm: "🌐",
+  jpg: "🖼", jpeg: "🖼", png: "🖼", gif: "🖼", webp: "🖼",
 };
 
 function getExtension(filename: string): string {
@@ -154,12 +160,23 @@ export default function FileDropZone({
           {/* Datei-Chips */}
           {files.length > 0 && (
             <div className="flex flex-wrap gap-2 px-3 pt-2">
-              {files.map((af) => (
+              {files.map((af) => {
+                const isImage = af.file.type.startsWith("image/");
+                return (
                 <div
                   key={af.id}
                   className="flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-xs text-white max-w-[200px]"
                 >
-                  <span className="text-base leading-none">{getFileIcon(af.file.name)}</span>
+                  {isImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={URL.createObjectURL(af.file)}
+                      alt={af.file.name}
+                      className="w-8 h-8 rounded object-cover shrink-0"
+                    />
+                  ) : (
+                    <span className="text-base leading-none">{getFileIcon(af.file.name)}</span>
+                  )}
                   <span className="truncate max-w-[120px]">{af.file.name}</span>
                   <span className="text-gray-400 shrink-0">{formatBytes(af.file.size)}</span>
                   <button
@@ -170,7 +187,7 @@ export default function FileDropZone({
                     ×
                   </button>
                 </div>
-              ))}
+              )})}
             </div>
           )}
 

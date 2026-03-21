@@ -1,17 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { apiFetch, clearSession, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
+import FileDropZone, { AttachedFile } from "@/components/FileDropZone";
 
-const BuddyAvatar = dynamic(() => import("@/components/BuddyAvatar"), { ssr: false });
+const VoiceButton = dynamic(() => import("@/components/VoiceButton"), { ssr: false });
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  images?: string[];  // object URLs for display
   provider?: string;
   model?: string;
   created_at: string;
@@ -41,6 +43,18 @@ function AvatarCircle({ speaking }: { speaking: boolean }) {
   );
 }
 
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      resolve(result.split(",")[1]); // strip data:...;base64, prefix
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function ChatPage() {
   const router = useRouter();
   const user = getSession();
@@ -54,8 +68,15 @@ export default function ChatPage() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [lastProvider, setLastProvider] = useState<string | null>(null);
   const [speaking, setSpeaking] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [cameraOpen, setCameraOpen] = useState(false);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const firstName = user?.name?.split(" ")[0] ?? "";
 
@@ -85,25 +106,117 @@ export default function ChatPage() {
     } catch { /* ignore */ }
   }
 
+  // ── TTS ──────────────────────────────────────────────────────────────────
+  function speak(text: string) {
+    if (!ttsEnabled || typeof window === "undefined" || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = "de-DE";
+    utt.rate = 1.05;
+    window.speechSynthesis.speak(utt);
+  }
+
+  // ── Camera ────────────────────────────────────────────────────────────────
+  async function openCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+      streamRef.current = stream;
+      setCameraOpen(true);
+      // attach stream after modal renders
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+        }
+      }, 120);
+    } catch {
+      alert("Kamera nicht verfügbar oder Zugriff verweigert.");
+    }
+  }
+
+  function closeCamera() {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    setCameraOpen(false);
+  }
+
+  function capturePhoto() {
+    if (!videoRef.current) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    canvas.getContext("2d")!.drawImage(videoRef.current, 0, 0);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `foto-${Date.now()}.jpg`, { type: "image/jpeg" });
+      setAttachedFiles(prev => [...prev, { file, id: `cam-${Date.now()}` }]);
+      closeCamera();
+    }, "image/jpeg", 0.9);
+  }
+
+  // ── File input handler (attach button) ───────────────────────────────────
+  function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.files) return;
+    const newFiles: AttachedFile[] = Array.from(e.target.files).map(f => ({
+      file: f,
+      id: `f-${Date.now()}-${Math.random()}`,
+    }));
+    setAttachedFiles(prev => [...prev, ...newFiles]);
+    e.target.value = "";
+  }
+
+  // ── Send ──────────────────────────────────────────────────────────────────
   async function sendMessage() {
     const text = input.trim();
-    if (!text || loading) return;
+    if ((!text && attachedFiles.length === 0) || loading) return;
+
+    const imageFiles = attachedFiles.filter(f => f.file.type.startsWith("image/"));
+    const docFiles   = attachedFiles.filter(f => !f.file.type.startsWith("image/"));
+
+    // Build optimistic display
+    const displayText = [
+      text,
+      docFiles.map(f => `📎 ${f.file.name}`).join("\n"),
+    ].filter(Boolean).join("\n");
+
+    const imageUrls = imageFiles.map(f => URL.createObjectURL(f.file));
 
     const optimistic: Message = {
       id: `opt-${Date.now()}`,
       role: "user",
-      content: text,
+      content: displayText,
+      images: imageUrls.length > 0 ? imageUrls : undefined,
       created_at: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, optimistic]);
+    setMessages(prev => [...prev, optimistic]);
     setInput("");
+    setAttachedFiles([]);
     setLoading(true);
     setSpeaking(true);
 
     try {
+      // Convert images to base64
+      const imagesPayload = await Promise.all(
+        imageFiles.map(async af => ({
+          data: await fileToBase64(af.file),
+          media_type: af.file.type,
+        }))
+      );
+
+      // Append doc names to message text if present
+      const fullMessage = [
+        text,
+        docFiles.length > 0
+          ? `[Angehängte Dateien: ${docFiles.map(f => f.file.name).join(", ")}]`
+          : "",
+      ].filter(Boolean).join("\n");
+
+      const body: Record<string, unknown> = { message: fullMessage };
+      if (imagesPayload.length > 0) body.images = imagesPayload;
+
       const res = await apiFetch(`${BACKEND_URL}/v1/chat/message`, {
         method: "POST",
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -121,10 +234,11 @@ export default function ChatPage() {
         created_at: new Date().toISOString(),
       };
       setLastProvider(data.provider);
-      setMessages((prev) => [...prev, assistantMsg]);
+      setMessages(prev => [...prev, assistantMsg]);
+      speak(data.response);
       setTimeout(loadMemories, 4000);
     } catch (err: unknown) {
-      setMessages((prev) => [
+      setMessages(prev => [
         ...prev,
         {
           id: `err-${Date.now()}`,
@@ -143,7 +257,7 @@ export default function ChatPage() {
   async function deleteMemory(id: string) {
     try {
       await apiFetch(`${BACKEND_URL}/v1/chat/memories/${id}`, { method: "DELETE" });
-      setMemories((prev) => prev.filter((m) => m.id !== id));
+      setMemories(prev => prev.filter(m => m.id !== id));
     } catch { /* ignore */ }
   }
 
@@ -153,6 +267,11 @@ export default function ChatPage() {
       sendMessage();
     }
   }
+
+  // Voice input appends to textarea
+  const handleVoiceResult = useCallback((text: string) => {
+    setInput(prev => prev ? `${prev} ${text}` : text);
+  }, []);
 
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-white">
@@ -180,6 +299,21 @@ export default function ChatPage() {
           </button>
         </div>
         <div className="flex items-center gap-2">
+          {/* TTS Toggle */}
+          <button
+            onClick={() => {
+              if (ttsEnabled) window.speechSynthesis?.cancel();
+              setTtsEnabled(v => !v);
+            }}
+            title={ttsEnabled ? "Baddi-Stimme aus" : "Baddi-Stimme ein"}
+            className={`p-1.5 rounded-lg transition-colors text-base ${
+              ttsEnabled
+                ? "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
+                : "text-gray-500 hover:text-white hover:bg-gray-800"
+            }`}
+          >
+            {ttsEnabled ? "🔊" : "🔇"}
+          </button>
           <button
             onClick={() => setSetupOpen(true)}
             className="text-gray-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-gray-800"
@@ -236,6 +370,37 @@ export default function ChatPage() {
                   <p className="text-xs text-gray-600">Von Baddi abmelden</p>
                 </div>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Camera Modal */}
+      {cameraOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+          <div className="relative bg-gray-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl w-full max-w-sm">
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full aspect-[4/3] object-cover bg-black"
+            />
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-900 border-t border-white/10">
+              <button
+                onClick={closeCamera}
+                className="text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={capturePhoto}
+                className="w-14 h-14 rounded-full bg-white border-4 border-gray-700 hover:bg-gray-100 transition-colors flex items-center justify-center"
+                title="Foto aufnehmen"
+              >
+                <span className="w-10 h-10 rounded-full bg-white border-2 border-gray-400 block" />
+              </button>
+              <div className="w-16" />
             </div>
           </div>
         </div>
@@ -313,6 +478,20 @@ export default function ChatPage() {
                       : "bg-gray-800 text-gray-100 rounded-bl-md"
                   }`}
                 >
+                  {/* Image attachments */}
+                  {msg.images && msg.images.length > 0 && (
+                    <div className={`flex flex-wrap gap-2 ${msg.content ? "mb-2" : ""}`}>
+                      {msg.images.map((src, i) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={i}
+                          src={src}
+                          alt="Anhang"
+                          className="rounded-xl max-w-[200px] max-h-[200px] object-cover"
+                        />
+                      ))}
+                    </div>
+                  )}
                   {msg.content}
                 </div>
               </div>
@@ -336,7 +515,41 @@ export default function ChatPage() {
 
           {/* Input */}
           <div className="px-4 pb-4 pt-2 border-t border-gray-800 bg-gray-950 shrink-0">
-            <div className="flex gap-2 items-end bg-gray-900 border border-gray-700 rounded-2xl px-4 py-2 focus-within:border-indigo-600 transition-colors">
+            {/* Drag-Drop wrapper + file chips */}
+            <FileDropZone
+              files={attachedFiles}
+              onFilesChange={setAttachedFiles}
+              compact
+              className="mb-1"
+            />
+
+            <div className="flex gap-2 items-end bg-gray-900 border border-gray-700 rounded-2xl px-3 py-2 focus-within:border-indigo-600 transition-colors">
+              {/* Attach button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Datei oder Bild anhängen"
+                className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl text-gray-500 hover:text-white hover:bg-gray-700 transition-all"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                </svg>
+              </button>
+
+              {/* Camera button */}
+              <button
+                type="button"
+                onClick={openCamera}
+                title="Foto aufnehmen"
+                className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl text-gray-500 hover:text-white hover:bg-gray-700 transition-all"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+              </button>
+
+              {/* Textarea */}
               <textarea
                 ref={textareaRef}
                 rows={1}
@@ -346,15 +559,36 @@ export default function ChatPage() {
                 placeholder="Nachricht an Baddi…"
                 className="flex-1 bg-transparent resize-none outline-none text-sm text-white placeholder-gray-600 max-h-32 py-1"
               />
+
+              {/* Voice button */}
+              <VoiceButton
+                onResult={handleVoiceResult}
+                className="shrink-0 w-9 h-9"
+              />
+
+              {/* Send button */}
               <button
                 onClick={sendMessage}
-                disabled={loading || !input.trim()}
+                disabled={loading || (!input.trim() && attachedFiles.length === 0)}
                 className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
               >
                 ↑
               </button>
             </div>
-            <p className="text-xs text-gray-700 mt-1.5 text-center">Enter senden · Shift+Enter neue Zeile</p>
+
+            <p className="text-xs text-gray-700 mt-1.5 text-center">
+              Enter senden · Shift+Enter neue Zeile
+            </p>
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json"
+              onChange={handleFileInputChange}
+            />
           </div>
         </div>
 

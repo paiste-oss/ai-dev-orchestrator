@@ -95,8 +95,14 @@ def _load_global_baddi_config() -> dict:
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
+class ImageAttachment(BaseModel):
+    data: str        # base64-encoded image data
+    media_type: str  # z.B. "image/jpeg", "image/png"
+
+
 class ChatRequest(BaseModel):
     message: str
+    images: list[ImageAttachment] | None = None
 
 
 class ChatResponse(BaseModel):
@@ -147,7 +153,12 @@ async def send_message(
     # ── 3. ROUTER (zwingend lokal) ────────────────────────────────────────────
     # Jede Nachricht geht zuerst durch den Router.
     # Der Router prüft: Content Guard → Keyword-Intent → gelernter Endpunkt → dynamische Tools
-    routing = agent_route(req.message, customer_id=customer_id)
+    # Bilder → direkt als conversation routen (Claude Vision braucht kein Tool)
+    if req.images:
+        from services.agent_router import RoutingResult
+        routing = RoutingResult(intent="image_input", needs_tools=False, tool_keys=[])
+    else:
+        routing = agent_route(req.message, customer_id=customer_id)
 
     # Stage 0: Content Guard — sofort ablehnen ohne LLM-Aufruf
     if routing.blocked:
@@ -199,10 +210,28 @@ async def send_message(
 
     # ── 7. Uhrwerk aufrufen ───────────────────────────────────────────────────
     messages = [{"role": m.role, "content": m.content} for m in history[-_CONTEXT_WINDOW:]]
-    messages.append({"role": "user", "content": req.message})
+
+    # Bild-Anhänge → Claude Vision Content-Blocks
+    if req.images:
+        user_content: list[dict] = []
+        for img in req.images:
+            user_content.append({
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": img.media_type,
+                    "data": img.data,
+                },
+            })
+        if req.message.strip():
+            user_content.append({"type": "text", "text": req.message})
+        messages.append({"role": "user", "content": user_content})
+    else:
+        messages.append({"role": "user", "content": req.message})
 
     provider = "claude"
-    model_name = "claude-haiku-4-5-20251001"
+    # Vision-Anfragen → Sonnet für bessere Bild-Analyse
+    model_name = "claude-sonnet-4-6" if req.images else "claude-haiku-4-5-20251001"
     errors: list[str] = []
     response_text: str | None = None
     used_tool_key: str | None = None
@@ -236,7 +265,7 @@ async def send_message(
     # ── 8. LLM-Fallback (kein Tool oder alle Tools gescheitert) ──────────────
     if response_text is None:
         try:
-            result = await chat_with_claude(messages, system_prompt)
+            result = await chat_with_claude(messages, system_prompt, model=model_name)
             if assess_response(result.text):
                 response_text = result.text
                 tokens_used = result.total_tokens
