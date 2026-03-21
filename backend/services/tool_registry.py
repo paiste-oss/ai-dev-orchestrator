@@ -335,6 +335,121 @@ async def _handle_dalle(tool_name: str, tool_input: dict) -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Aktien / Yahoo Finance
+# ---------------------------------------------------------------------------
+
+STOCK_TOOL_DEFS = [
+    {
+        "name": "get_stock_price",
+        "description": (
+            "Gibt den aktuellen Aktienkurs, Tages-Performance und wichtige Kennzahlen "
+            "für ein börsennotiertes Unternehmen zurück. Nutze dieses Tool wenn der Nutzer "
+            "nach dem Kurs, Preis oder der Entwicklung einer Aktie fragt. "
+            "Gibt Kurs, Währung, Tagesveränderung, Marktkapitalisierung und mehr zurück."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": (
+                        "Börsenkürzel (Ticker) der Aktie, z.B. 'AAPL' für Apple, "
+                        "'NESN.SW' für Nestlé, 'NOVN.SW' für Novartis, 'ROG.SW' für Roche, "
+                        "'ABBN.SW' für ABB, 'GOOGL' für Alphabet, 'MSFT' für Microsoft"
+                    ),
+                },
+            },
+            "required": ["symbol"],
+        },
+    },
+    {
+        "name": "search_stock_symbol",
+        "description": (
+            "Sucht das Börsenkürzel (Ticker) eines Unternehmens anhand seines Namens. "
+            "Nutze dieses Tool zuerst wenn du den Ticker nicht kennst."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "company_name": {
+                    "type": "string",
+                    "description": "Firmenname, z.B. 'Nestlé', 'Apple', 'Tesla', 'UBS'",
+                },
+            },
+            "required": ["company_name"],
+        },
+    },
+]
+
+
+async def _handle_stock(tool_name: str, tool_input: dict) -> Any:
+    if tool_name == "get_stock_price":
+        symbol = tool_input.get("symbol", "").upper()
+        try:
+            import yfinance as yf
+            ticker = yf.Ticker(symbol)
+            info = ticker.fast_info
+            hist = ticker.history(period="2d")
+
+            price = getattr(info, "last_price", None)
+            prev_close = getattr(info, "previous_close", None)
+            currency = getattr(info, "currency", "USD")
+            market_cap = getattr(info, "market_cap", None)
+            volume = getattr(info, "last_volume", None)
+
+            change = None
+            change_pct = None
+            if price and prev_close and prev_close > 0:
+                change = round(price - prev_close, 4)
+                change_pct = round((change / prev_close) * 100, 2)
+
+            result: dict[str, Any] = {
+                "symbol": symbol,
+                "price": round(price, 2) if price else None,
+                "currency": currency,
+                "change": change,
+                "change_pct": change_pct,
+            }
+            if market_cap:
+                result["market_cap"] = market_cap
+            if volume:
+                result["volume"] = volume
+
+            # Full info for company name
+            try:
+                slow_info = ticker.info
+                result["name"] = slow_info.get("longName") or slow_info.get("shortName") or symbol
+                result["exchange"] = slow_info.get("exchange")
+            except Exception:
+                result["name"] = symbol
+
+            return result
+        except Exception as e:
+            return {"error": f"Aktienkurs für '{symbol}' konnte nicht abgerufen werden: {e}"}
+
+    if tool_name == "search_stock_symbol":
+        company = tool_input.get("company_name", "")
+        try:
+            import yfinance as yf
+            results = yf.Search(company, max_results=5)
+            quotes = getattr(results, "quotes", []) or []
+            out = []
+            for q in quotes[:5]:
+                if isinstance(q, dict):
+                    out.append({
+                        "symbol": q.get("symbol"),
+                        "name": q.get("longname") or q.get("shortname"),
+                        "exchange": q.get("exchange"),
+                        "type": q.get("quoteType"),
+                    })
+            return out if out else {"message": f"Keine Ergebnisse für '{company}'"}
+        except Exception as e:
+            return {"error": f"Suche fehlgeschlagen: {e}"}
+
+    return {"error": f"Unbekanntes Stock-Tool: {tool_name}"}
+
+
+# ---------------------------------------------------------------------------
 # Tool-Katalog
 # ---------------------------------------------------------------------------
 
@@ -383,10 +498,20 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_names": {"generate_image"},
         "handler": _handle_dalle,
     },
+    "stock_prices": {
+        "key": "stock_prices",
+        "name": "Aktienkurse (Yahoo Finance)",
+        "description": "Live-Aktienkurse, Tagesperformance und Kennzahlen via Yahoo Finance. Kein API-Key nötig.",
+        "prompt_hint": "Aktuelle Aktienkurse, Börsendaten und Unternehmenskennzahlen abfragen (Yahoo Finance)",
+        "category": "data",
+        "tier": "free",
+        "tool_defs": STOCK_TOOL_DEFS,
+        "tool_names": {"get_stock_price", "search_stock_symbol"},
+        "handler": _handle_stock,
+    },
     # Weitere Tools können hier ergänzt werden:
     # "google_calendar": { ... }
     # "send_email": { ... }
-    # "web_search": { ... }
 }
 
 

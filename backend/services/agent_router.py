@@ -122,6 +122,19 @@ _EMAIL_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 
+_STOCK_KEYWORDS = re.compile(
+    r"\b(aktie|aktien|aktienkurs|börsenkurs|kurs.*aktie|aktie.*kurs|"
+    r"börse|börsenpreis|börsenstand|aktienprei[s]|"
+    r"ticker|symbol.*aktie|aktie.*symbol|"
+    r"apple.*kurs|tesla.*kurs|nestle.*kurs|novartis.*kurs|roche.*kurs|abb.*kurs|"
+    r"kurs.*apple|kurs.*tesla|kurs.*nestle|kurs.*novartis|kurs.*roche|"
+    r"aapl|tsla|msft|googl|amzn|nvda|nesn\.sw|novn\.sw|rog\.sw|ubsg\.sw|"
+    r"wie.*steht.*aktie|was.*kostet.*aktie|aktienwert|"
+    r"stock.*price|share.*price|market.*cap|"
+    r"yahoo.*finance|dow jones|s&p 500|nasdaq|dax|smi)\b",
+    re.IGNORECASE,
+)
+
 _CALENDAR_KEYWORDS = re.compile(
     r"\b(termin|kalender|meeting|appointment|schedule|eintrag|reminder|"
     r"erinnerung|buche|reservier|trage.*ein)\b",
@@ -272,6 +285,13 @@ def route(message: str, customer_id: str | None = None) -> RoutingResult:
             capability_gap=True,
         )
 
+    elif _STOCK_KEYWORDS.search(msg):
+        base_result = RoutingResult(
+            intent="stock_prices",
+            needs_tools=True,
+            tool_keys=["stock_prices"],
+        )
+
     elif _CALENDAR_KEYWORDS.search(msg):
         base_result = RoutingResult(
             intent="calendar",
@@ -302,6 +322,8 @@ def route(message: str, customer_id: str | None = None) -> RoutingResult:
             base_result = RoutingResult(intent="document", needs_tools=False, tool_keys=[])
         elif semantic_intent == "email":
             base_result = RoutingResult(intent="email", needs_tools=False, tool_keys=[], capability_gap=True)
+        elif semantic_intent == "stock_prices":
+            base_result = RoutingResult(intent="stock_prices", needs_tools=True, tool_keys=["stock_prices"])
         else:
             base_result = RoutingResult(intent="conversation", needs_tools=False, tool_keys=[])
 
@@ -347,5 +369,6 @@ def get_intent_label(intent: str) -> str:
         "conversation": "Gespräch",
         "image_input":      "Bild-Analyse",
         "image_generation": "Bild-Generierung",
+        "stock_prices":     "Aktienkurse",
     }
     return labels.get(intent, intent)
