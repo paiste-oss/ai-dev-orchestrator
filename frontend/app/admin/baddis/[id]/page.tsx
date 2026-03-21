@@ -273,33 +273,36 @@ export default function BaddiDetailPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {AGENTS.map(agent => {
                       const isAssigned = config.agents.includes(agent.id);
-                      const isPlanned = agent.status === "planned";
+                      const isRoadmap = agent.status === "roadmap";
+                      const badgeStyle =
+                        agent.status === "tool"    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" :
+                        agent.status === "native"  ? "bg-blue-500/20 text-blue-300 border-blue-500/30" :
+                                                     "bg-gray-500/20 text-gray-400 border-gray-500/30";
+                      const badgeLabel =
+                        agent.status === "tool"   ? "Implementiert" :
+                        agent.status === "native" ? "Claude-nativ" : "Roadmap";
                       return (
                         <button
                           key={agent.id}
                           type="button"
-                          disabled={isPlanned}
-                          onClick={() => !isPlanned && toggleAgent(agent.id)}
+                          disabled={isRoadmap}
+                          onClick={() => !isRoadmap && toggleAgent(agent.id)}
                           className={`flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${
                             isAssigned
                               ? "border-yellow-500 bg-yellow-950/30"
-                              : isPlanned
+                              : isRoadmap
                               ? "border-gray-800 bg-gray-900/50 opacity-40 cursor-not-allowed"
                               : "border-gray-700 bg-gray-900 hover:border-gray-500"
                           }`}
                         >
-                          <span className={`text-2xl shrink-0 ${isPlanned ? "grayscale" : ""}`}>{agent.icon}</span>
+                          <span className={`text-2xl shrink-0 ${isRoadmap ? "grayscale" : ""}`}>{agent.icon}</span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className={`text-sm font-semibold ${isAssigned ? "text-yellow-200" : "text-gray-200"}`}>
                                 {agent.name}
                               </p>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium shrink-0 ${
-                                agent.status === "active" ? "bg-green-500/20 text-green-300 border-green-500/30" :
-                                agent.status === "beta"   ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30" :
-                                "bg-gray-500/20 text-gray-400 border-gray-500/30"
-                              }`}>
-                                {agent.status === "active" ? "Aktiv" : agent.status === "beta" ? "Beta" : "In Planung"}
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium shrink-0 ${badgeStyle}`}>
+                                {badgeLabel}
                               </span>
                             </div>
                             <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{agent.capability}</p>
