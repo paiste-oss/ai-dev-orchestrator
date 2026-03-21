@@ -131,6 +131,9 @@ def _run(customer_id: str) -> None:
     if not facts:
         return
 
+    # Harte Code-Deduplizierung — LLM ignoriert Anweisungen manchmal
+    facts = _deduplicate_against_existing(facts, existing_facts)
+
     _log.info("Extracted %d facts for customer %s", len(facts), customer_id[:8])
 
     # 5. In Qdrant speichern (Vektoren)
@@ -145,6 +148,29 @@ def _run(customer_id: str) -> None:
         _save_to_postgres(customer_id, facts)
     except Exception as exc:
         _log.warning("PostgreSQL memory store failed: %s", exc)
+
+
+def _word_overlap(a: str, b: str) -> float:
+    """Gibt den Jaccard-Ähnlichkeitswert zweier Texte zurück (0.0–1.0)."""
+    wa = set(a.lower().split())
+    wb = set(b.lower().split())
+    if not wa or not wb:
+        return 0.0
+    return len(wa & wb) / len(wa | wb)
+
+
+def _deduplicate_against_existing(new_facts: list[str], existing_facts: list[str]) -> list[str]:
+    """Filtert Fakten heraus die bereits (ähnlich) in existing_facts vorhanden sind."""
+    result = []
+    for fact in new_facts:
+        fl = fact.lower()
+        is_dup = any(
+            fl in ex.lower() or ex.lower() in fl or _word_overlap(fl, ex) >= 0.6
+            for ex in existing_facts
+        )
+        if not is_dup:
+            result.append(fact)
+    return result
 
 
 def _extract_facts(conversation: str, model: str, system_prompt: str, existing_facts: list[str] | None = None) -> list[str]:
@@ -188,13 +214,27 @@ def _save_to_postgres(customer_id: str, facts: list[str]) -> None:
 
 async def _save_async(customer_id: str, facts: list[str]) -> None:
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+    from sqlalchemy import select as sa_select
     from models.chat import MemoryItem
 
     engine = create_async_engine(settings.database_url, pool_size=1, max_overflow=0)
     Session = async_sessionmaker(engine, expire_on_commit=False)
     async with Session() as db:
+        # Bestehende Inhalte laden für Duplikat-Check
+        existing_result = await db.execute(
+            sa_select(MemoryItem.content).where(MemoryItem.customer_id == customer_id)
+        )
+        existing_contents = [r[0] for r in existing_result.fetchall()]
+
         for fact in facts[:5]:
-            if isinstance(fact, str) and fact.strip():
+            if not isinstance(fact, str) or not fact.strip():
+                continue
+            # Nur speichern wenn noch nicht (ähnlich) vorhanden
+            if not any(
+                fact.lower() in ex.lower() or ex.lower() in fact.lower()
+                or _word_overlap(fact, ex) >= 0.6
+                for ex in existing_contents
+            ):
                 db.add(MemoryItem(customer_id=customer_id, content=fact.strip(), importance=0.7))
         await db.commit()
     await engine.dispose()
