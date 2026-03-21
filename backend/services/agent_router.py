@@ -275,11 +275,29 @@ def route(message: str, customer_id: str | None = None) -> RoutingResult:
         )
 
     else:
-        base_result = RoutingResult(
-            intent="conversation",
-            needs_tools=False,
-            tool_keys=[],
-        )
+        # ── Semantisches Fallback (nomic-embed-text, ~50ms) ───────────────────
+        # Regex hat keinen spezifischen Intent gefunden → Embedding-Suche
+        semantic_intent = None
+        try:
+            from services.intent_vector_store import semantic_route
+            semantic_intent = semantic_route(message)
+        except Exception:
+            pass
+
+        if semantic_intent == "transport":
+            base_result = RoutingResult(intent="transport", needs_tools=True, tool_keys=["sbb_transport"])
+        elif semantic_intent == "web_search":
+            base_result = RoutingResult(intent="web_search", needs_tools=True, tool_keys=["web_search"])
+        elif semantic_intent == "web_fetch":
+            base_result = RoutingResult(intent="web_fetch", needs_tools=True, tool_keys=["web_fetch"])
+        elif semantic_intent == "image_generation":
+            base_result = RoutingResult(intent="image_generation", needs_tools=True, tool_keys=["image_generation"])
+        elif semantic_intent == "document":
+            base_result = RoutingResult(intent="document", needs_tools=False, tool_keys=[])
+        elif semantic_intent == "email":
+            base_result = RoutingResult(intent="email", needs_tools=False, tool_keys=[], capability_gap=True)
+        else:
+            base_result = RoutingResult(intent="conversation", needs_tools=False, tool_keys=[])
 
     # ── Stufe 2: Router-Gedächtnis ────────────────────────────────────────────
     # Hat der Router für diesen Intent bereits eine bewährte Route gelernt?
