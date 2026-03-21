@@ -118,10 +118,15 @@ async def init_db():
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS auto_topup_amount_chf NUMERIC(10,2) DEFAULT 20.0",
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS stripe_payment_method_id VARCHAR(100)",
             # Speicher-Tracking
-            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS storage_used_bytes INTEGER DEFAULT 0",
-            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS storage_limit_bytes INTEGER DEFAULT 524288000",  # 500 MB
-            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS storage_extra_bytes INTEGER DEFAULT 0",
-            "ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS storage_limit_bytes INTEGER DEFAULT 524288000",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS storage_used_bytes BIGINT DEFAULT 0",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS storage_limit_bytes BIGINT DEFAULT 524288000",  # 500 MB
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS storage_extra_bytes BIGINT DEFAULT 0",
+            "ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS storage_limit_bytes BIGINT DEFAULT 524288000",
+            # Upgrade INTEGER → BIGINT für vorhandene Spalten (> 2 GB Werte)
+            "ALTER TABLE customers ALTER COLUMN storage_used_bytes TYPE BIGINT",
+            "ALTER TABLE customers ALTER COLUMN storage_limit_bytes TYPE BIGINT",
+            "ALTER TABLE customers ALTER COLUMN storage_extra_bytes TYPE BIGINT",
+            "ALTER TABLE subscription_plans ALTER COLUMN storage_limit_bytes TYPE BIGINT",
         ]
         for sql in migrations:
             await conn.execute(text(sql))
