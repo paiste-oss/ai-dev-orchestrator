@@ -76,11 +76,12 @@ async def run_buddy_chat(
             tool_results = []
             for block in assistant_content:
                 if block.type == "tool_use":
+                    result = await call_tool(block.name, block.input)
                     tool_calls_log.append({
                         "tool": block.name,
                         "input": block.input,
+                        "result": result,
                     })
-                    result = await call_tool(block.name, block.input)
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,

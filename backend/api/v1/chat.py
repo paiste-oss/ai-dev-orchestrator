@@ -20,7 +20,8 @@ import json
 from datetime import datetime
 
 import redis as redis_lib
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+import httpx as _httpx
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -110,6 +111,7 @@ class ChatResponse(BaseModel):
     response: str
     provider: str
     model: str
+    image_urls: list[str] | None = None
 
 
 class MessageOut(BaseModel):
@@ -236,6 +238,7 @@ async def send_message(
     response_text: str | None = None
     used_tool_key: str | None = None
     tokens_used: int = 0
+    generated_image_urls: list[str] = []
 
     if routing.needs_tools and routing.tool_keys:
         for tool_key in routing.tool_keys:
@@ -248,6 +251,13 @@ async def send_message(
                 )
                 candidate = uhrwerk_result["output"]
                 model_name = uhrwerk_result.get("model_used", model_name)
+
+                # Bild-URLs aus Tool-Ergebnissen extrahieren
+                for tc in uhrwerk_result.get("tool_calls", []):
+                    if isinstance(tc.get("result"), dict):
+                        url = tc["result"].get("image_url")
+                        if url:
+                            generated_image_urls.append(url)
 
                 # Router bewertet die Uhrwerk-Antwort
                 if assess_response(candidate):
@@ -374,6 +384,7 @@ async def send_message(
         response=response_text,
         provider=provider,
         model=model_name,
+        image_urls=generated_image_urls if generated_image_urls else None,
     )
 
 
@@ -504,3 +515,32 @@ async def delete_memory(
         raise HTTPException(status_code=404, detail="Erinnerung nicht gefunden")
     item.is_active = False
     await db.commit()
+
+
+@router.post("/transcribe")
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    customer: Customer = Depends(get_current_user),
+):
+    """
+    Transkribiert eine Audio-Datei via OpenAI Whisper.
+    Unterstützt: mp3, mp4, mpeg, mpga, m4a, wav, webm, ogg
+    """
+    if not settings.openai_api_key:
+        raise HTTPException(status_code=503, detail="Whisper nicht verfügbar (kein OpenAI API Key).")
+
+    audio_bytes = await file.read()
+    filename = file.filename or "audio.mp3"
+
+    async with _httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(
+            "https://api.openai.com/v1/audio/transcriptions",
+            headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+            files={"file": (filename, audio_bytes, file.content_type or "audio/mpeg")},
+            data={"model": "whisper-1", "language": "de"},
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"Whisper Fehler: {resp.text}")
+        result = resp.json()
+
+    return {"text": result.get("text", "")}

@@ -128,6 +128,20 @@ _CALENDAR_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 
+_IMAGE_GEN_KEYWORDS = re.compile(
+    r"("
+    r"\bestell.*bild\b|\bbild.*erstell\b|"
+    r"\bgeneriere?.*bild\b|\bbild.*generier\b|"
+    r"\bzeichne\b|\bzeichn.*mir\b|"
+    r"\bmal.*bild\b|\bbild.*mal\b|"
+    r"\billustriere?\b|\bvisualisiere?\b|"
+    r"\bcreate.*image\b|\bmake.*image\b|"
+    r"\bdraw\b|\bgenerate.*image\b|"
+    r"\bbild.*von.*erstell\b"
+    r")",
+    re.IGNORECASE,
+)
+
 # ── Fehlschlag-Erkennung in Antworten ─────────────────────────────────────────
 # Erkennt wenn das Uhrwerk / LLM signalisiert dass es eine Anfrage NICHT erfüllen kann.
 # Bewusst konservativ — nur eindeutige "Ich-habe-kein-Werkzeug" Phrasen.
@@ -252,6 +266,13 @@ def route(message: str, customer_id: str | None = None) -> RoutingResult:
             capability_gap=True,
         )
 
+    elif _IMAGE_GEN_KEYWORDS.search(msg):
+        base_result = RoutingResult(
+            intent="image_generation",
+            needs_tools=True,
+            tool_keys=["image_generation"],
+        )
+
     else:
         base_result = RoutingResult(
             intent="conversation",
@@ -299,6 +320,7 @@ def get_intent_label(intent: str) -> str:
         "email":        "E-Mail",
         "calendar":     "Kalender / Termine",
         "conversation": "Gespräch",
-        "image_input":  "Bild-Analyse",
+        "image_input":      "Bild-Analyse",
+        "image_generation": "Bild-Generierung",
     }
     return labels.get(intent, intent)

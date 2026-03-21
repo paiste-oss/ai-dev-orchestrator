@@ -13,7 +13,8 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  images?: string[];  // object URLs for display
+  images?: string[];       // object URLs for display (user uploads)
+  generatedImages?: string[]; // URLs from DALL-E
   provider?: string;
   model?: string;
   created_at: string;
@@ -156,14 +157,41 @@ export default function ChatPage() {
   }
 
   // ── File input handler (attach button) ───────────────────────────────────
-  function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files) return;
-    const newFiles: AttachedFile[] = Array.from(e.target.files).map(f => ({
-      file: f,
-      id: `f-${Date.now()}-${Math.random()}`,
-    }));
-    setAttachedFiles(prev => [...prev, ...newFiles]);
+    const files = Array.from(e.target.files);
+
+    for (const f of files) {
+      if (f.type.startsWith("audio/") || /\.(mp3|wav|m4a|ogg|webm|mpeg|mpga)$/i.test(f.name)) {
+        // Audio → Whisper transkribieren
+        await transcribeAudio(f);
+      } else {
+        setAttachedFiles(prev => [...prev, { file: f, id: `f-${Date.now()}-${Math.random()}` }]);
+      }
+    }
     e.target.value = "";
+  }
+
+  async function transcribeAudio(file: File) {
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const res = await fetch(`${BACKEND_URL}/v1/chat/transcribe`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Transkription fehlgeschlagen");
+      const data = await res.json();
+      if (data.text) setInput(prev => prev ? `${prev} ${data.text}` : data.text);
+    } catch {
+      setInput(prev => `${prev}[Audio konnte nicht transkribiert werden]`);
+    } finally {
+      setLoading(false);
+      textareaRef.current?.focus();
+    }
   }
 
   // ── Drag & Drop (gesamter Chat-Bereich) ──────────────────────────────────
@@ -178,15 +206,17 @@ export default function ChatPage() {
     setIsDragOver(false);
   }
 
-  function handleDrop(e: React.DragEvent) {
+  async function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsDragOver(false);
     const droppedFiles = Array.from(e.dataTransfer.files);
-    const newFiles: AttachedFile[] = droppedFiles.map(f => ({
-      file: f,
-      id: `drop-${Date.now()}-${Math.random()}`,
-    }));
-    if (newFiles.length > 0) setAttachedFiles(prev => [...prev, ...newFiles]);
+    for (const f of droppedFiles) {
+      if (f.type.startsWith("audio/") || /\.(mp3|wav|m4a|ogg|webm|mpeg|mpga)$/i.test(f.name)) {
+        await transcribeAudio(f);
+      } else {
+        setAttachedFiles(prev => [...prev, { file: f, id: `drop-${Date.now()}-${Math.random()}` }]);
+      }
+    }
   }
 
   // ── Send ──────────────────────────────────────────────────────────────────
@@ -253,6 +283,7 @@ export default function ChatPage() {
         id: data.message_id,
         role: "assistant",
         content: data.response,
+        generatedImages: data.image_urls ?? undefined,
         provider: data.provider,
         model: data.model,
         created_at: new Date().toISOString(),
@@ -517,21 +548,31 @@ export default function ChatPage() {
                       : "bg-gray-800 text-gray-100 rounded-bl-md"
                   }`}
                 >
-                  {/* Image attachments */}
+                  {/* User image attachments */}
                   {msg.images && msg.images.length > 0 && (
                     <div className={`flex flex-wrap gap-2 ${msg.content ? "mb-2" : ""}`}>
                       {msg.images.map((src, i) => (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          key={i}
-                          src={src}
-                          alt="Anhang"
-                          className="rounded-xl max-w-[200px] max-h-[200px] object-cover"
-                        />
+                        <img key={i} src={src} alt="Anhang" className="rounded-xl max-w-[200px] max-h-[200px] object-cover" />
                       ))}
                     </div>
                   )}
                   {msg.content}
+                  {/* DALL-E generated images */}
+                  {msg.generatedImages && msg.generatedImages.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-3">
+                      {msg.generatedImages.map((src, i) => (
+                        <a key={i} href={src} target="_blank" rel="noopener noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={src}
+                            alt="Generiertes Bild"
+                            className="rounded-2xl max-w-[280px] max-h-[280px] object-cover shadow-lg hover:scale-105 transition-transform cursor-pointer"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -625,7 +666,7 @@ export default function ChatPage() {
               type="file"
               multiple
               className="hidden"
-              accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json"
+              accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.mp3,.wav,.m4a,.ogg,.webm"
               onChange={handleFileInputChange}
             />
           </div>

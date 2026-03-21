@@ -12,9 +12,11 @@ Jedes Tool hat:
 """
 from __future__ import annotations
 import asyncio
+import httpx
 from typing import Any
 from services import sbb_client
 from services import jina_client
+from core.config import settings
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +222,74 @@ async def _handle_sbb(tool_name: str, tool_input: dict) -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Bild-Generierung (DALL-E 3)
+# ---------------------------------------------------------------------------
+
+DALLE_TOOL_DEFS = [
+    {
+        "name": "generate_image",
+        "description": (
+            "Erstellt ein Bild basierend auf einer Textbeschreibung mit DALL-E 3. "
+            "Nutze dieses Tool wenn der Nutzer ein Bild erstellt, gezeichnet oder generiert haben möchte. "
+            "Gibt die URL des generierten Bildes zurück."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "Detaillierte Bildbeschreibung auf Englisch für beste Ergebnisse",
+                },
+                "size": {
+                    "type": "string",
+                    "enum": ["1024x1024", "1792x1024", "1024x1792"],
+                    "description": "Bildgrösse. Standard: 1024x1024 (quadratisch)",
+                },
+                "quality": {
+                    "type": "string",
+                    "enum": ["standard", "hd"],
+                    "description": "standard = schnell, hd = mehr Detail",
+                },
+            },
+            "required": ["prompt"],
+        },
+    },
+]
+
+
+async def _handle_dalle(tool_name: str, tool_input: dict) -> Any:
+    if tool_name == "generate_image":
+        if not settings.openai_api_key:
+            return {"error": "OpenAI API Key nicht konfiguriert."}
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(
+                    "https://api.openai.com/v1/images/generations",
+                    headers={
+                        "Authorization": f"Bearer {settings.openai_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": "dall-e-3",
+                        "prompt": tool_input["prompt"],
+                        "size": tool_input.get("size", "1024x1024"),
+                        "quality": tool_input.get("quality", "standard"),
+                        "n": 1,
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            image_url = data["data"][0]["url"]
+            return {
+                "image_url": image_url,
+                "prompt": tool_input["prompt"],
+            }
+        except Exception as e:
+            return {"error": f"Bild konnte nicht erstellt werden: {e}"}
+    return {"error": f"Unbekanntes DALL-E Tool: {tool_name}"}
+
+
+# ---------------------------------------------------------------------------
 # Tool-Katalog
 # ---------------------------------------------------------------------------
 
@@ -243,6 +313,16 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_defs": WEB_FETCH_TOOL_DEFS,
         "tool_names": {"web_fetch"},
         "handler": _handle_web_fetch,
+    },
+    "image_generation": {
+        "key": "image_generation",
+        "name": "Bild-Generierung (DALL-E 3)",
+        "description": "Erstellt Bilder per KI anhand einer Textbeschreibung. Nutzt OpenAI DALL-E 3.",
+        "category": "productivity",
+        "tier": "pro",
+        "tool_defs": DALLE_TOOL_DEFS,
+        "tool_names": {"generate_image"},
+        "handler": _handle_dalle,
     },
     # Weitere Tools können hier ergänzt werden:
     # "google_calendar": { ... }
