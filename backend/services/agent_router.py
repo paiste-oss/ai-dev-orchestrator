@@ -98,12 +98,14 @@ _DOCUMENT_KEYWORDS = re.compile(
 
 _WEB_FETCH_KEYWORDS = re.compile(
     r"("
-    r"https?://\S+|"                                        # Direkte URL im Text
-    r"\b(www\.\S+)|"                                        # www.irgendwas
-    r"\b(öffne|ruf.*auf|lies|lese|schau.*auf|zeig.*von|"
+    r"https?://\S+|"                                        # https://... oder http://...
+    r"\bwww\.\S+|"                                          # www.irgendwas
+    r"\b\w{2,20}\.(ch|com|de|at|org|net|io|ai|app)\b|"    # domain.tld  z.B. nzz.ch, srf.ch
+    r"\b(öffne|ruf.*auf|lies|lese|schau.*auf|"
+    r"zeig|zeige|zeigen|zeig mir|zeig.*seite|"
     r"besuche|geh auf|fetch|abruf|seite.*lesen|lese.*seite|"
     r"inhalt.*webseite|webseite.*inhalt|was steht auf|"
-    r"artikel.*lesen|lese.*artikel)\b"
+    r"artikel.*lesen|lese.*artikel|ruf.*auf|öffne.*seite)\b"
     r")",
     re.IGNORECASE,
 )
