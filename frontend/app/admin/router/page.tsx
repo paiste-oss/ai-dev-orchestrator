@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
+import AdminSidebar from "@/components/AdminSidebar";
 
 interface Tool {
   key: string;
@@ -59,6 +60,7 @@ const TIER_STYLE: Record<string, string> = {
 };
 
 export default function RouterAdminPage() {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tools, setTools]       = useState<Tool[]>([]);
   const [intents, setIntents]   = useState<Intent[]>([]);
   const [dynTools, setDynTools] = useState<string[]>([]);
@@ -108,6 +110,16 @@ export default function RouterAdminPage() {
   ] as const;
 
   return (
+    <div className="min-h-screen bg-gray-950 text-white flex">
+      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      <main className="flex-1 overflow-y-auto">
+        {/* Mobile Header */}
+        <header className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-gray-950/90 backdrop-blur md:hidden">
+          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white">☰</button>
+          <span className="font-bold text-sm text-yellow-400">⚡ Router</span>
+        </header>
+
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -326,6 +338,8 @@ export default function RouterAdminPage() {
           </div>
         </div>
       )}
+    </div>
+      </main>
     </div>
   );
 }
