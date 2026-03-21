@@ -76,6 +76,25 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     return TokenResponse(access_token=token, role=user.role, name=user.name, email=user.email)
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@router.post("/change-password", status_code=204)
+async def change_password(
+    data: ChangePasswordRequest,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not verify_password(data.current_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Aktuelles Passwort falsch")
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=422, detail="Passwort muss mindestens 8 Zeichen lang sein")
+    user.hashed_password = hash_password(data.new_password)
+    await db.commit()
+
+
 @router.get("/me")
 async def me(user: Customer = Depends(get_current_user)):
     return {
@@ -84,4 +103,10 @@ async def me(user: Customer = Depends(get_current_user)):
         "email": user.email,
         "role": user.role,
         "memory_consent": user.memory_consent,
+        "language": user.language or "de",
+        "phone": user.phone,
+        "address_street": user.address_street,
+        "address_zip": user.address_zip,
+        "address_city": user.address_city,
+        "address_country": user.address_country,
     }
