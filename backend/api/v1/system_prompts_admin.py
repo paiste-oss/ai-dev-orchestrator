@@ -57,7 +57,7 @@ _AGENTS = [
         "name":        "Memory Manager",
         "icon":        "🧠",
         "description": "Extrahiert dauerhaft Fakten über Kunden aus Gesprächen",
-        "model":       "mistral (Ollama)",
+        "model":       "gemma3:12b (Ollama)",
         "redis_key":   "memory_manager:config",
         "prompt_field":"system_prompt",
         "default": (
@@ -76,97 +76,6 @@ _AGENTS = [
             "Antworte NUR mit einer JSON-Liste von kurzen Sätzen auf Deutsch.\n"
             'Beispiel: ["Nutzer heißt Christoph", "Arbeitet als Architekt"]\n'
             "Wenn keine relevanten Fakten vorhanden: []"
-        ),
-    },
-    {
-        "key":         "router",
-        "name":        "Router Agent",
-        "icon":        "⚡",
-        "description": "Klassifiziert eingehende Prompts und wählt die Route (Ollama-Ebene)",
-        "model":       "phi3 (Ollama)",
-        "redis_key":   "agent:system_prompt:router",
-        "prompt_field":"prompt",
-        "default": (
-            'Du bist ein Router-Agent. Deine einzige Aufgabe ist es, eingehende Prompts zu klassifizieren.\n\n'
-            'Antworte IMMER nur mit einem JSON-Objekt in genau diesem Format:\n'
-            '{"route": "<route>", "reason": "<kurze Begründung>"}\n\n'
-            'Mögliche Routen:\n'
-            '- "simple_chat"   → Einfache Fragen, Smalltalk, Übersetzungen, Erklärungen\n'
-            '- "code_task"     → Code schreiben, Dateien analysieren, Projektaufgaben, GitHub\n'
-            '- "save_data"     → Etwas speichern, merken, notieren\n'
-            '- "automation"    → Workflows, wiederkehrende Aufgaben, Zeitpläne\n'
-            '- "complex_task"  → Sehr komplexe Analyse, Architekturfragen, lange Berechnungen\n\n'
-            'Beispiele:\n'
-            '- "Wie spät ist es?" → {"route": "simple_chat", "reason": "Einfache Frage"}\n'
-            '- "Schreibe eine Python Funktion" → {"route": "code_task", "reason": "Code-Erstellung"}\n'
-            '- "Speichere diese Info: X=5" → {"route": "save_data", "reason": "Datenspeicherung"}'
-        ),
-    },
-    {
-        "key":         "task_runner",
-        "name":        "Task Runner",
-        "icon":        "🛠",
-        "description": "Dev Orchestrator — führt Code-Aufgaben im Projekt aus",
-        "model":       "claude-sonnet-4-6",
-        "redis_key":   "agent:system_prompt:task_runner",
-        "prompt_field":"prompt",
-        "default": (
-            'Du bist ein Senior Full-Stack Developer der am "AI Buddy" Projekt arbeitet.\n\n'
-            "## Projekt-Übersicht\n"
-            "AI Buddy ist eine SaaS-Plattform für KI-Agenten mit folgenden Rollen:\n"
-            "- Admin (Systemverwaltung), Enterprise (Firmenkunden), User (Endnutzer mit UseCases)\n\n"
-            "Stack:\n"
-            "- Backend: FastAPI (Python), PostgreSQL (asyncpg), Redis, Celery, Qdrant\n"
-            "- Frontend: Next.js 16 App Router, TypeScript, Tailwind CSS\n"
-            "- KI: Ollama lokal (Mistral=Chat, Llama3.2=Code, Phi3=Router), Claude Sonnet 4.6 (Cloud)\n"
-            "- Automation: n8n als Microservice-Executor (service-send-email etc.)\n"
-            "- Infra: Docker Compose, Cloudflare Tunnel, WSL2\n\n"
-            "## Projekt-Struktur\n"
-            "- /project/backend/          → FastAPI Backend\n"
-            "- /project/frontend/         → Next.js Frontend\n"
-            "- /project/docker-compose.yml\n"
-            "- /project/.env              → Backup-Datei (nicht die Quelle der Wahrheit)\n\n"
-            "## Secrets & Konfiguration\n"
-            "Alle Secrets werden über **Infisical** verwaltet (nicht .env).\n"
-            "- Secrets lesen: `infisical secrets get KEY_NAME`\n"
-            "- Neues Secret setzen: `infisical secrets set KEY=value`\n"
-            "- Container starten mit Secrets: `infisical run -- docker compose up -d service`\n"
-            "- NIEMALS Secrets in Code oder .env-Dateien schreiben — immer Infisical nutzen.\n\n"
-            "## Deine Arbeitsweise\n"
-            "1. Immer zuerst relevante Dateien lesen (read_file) bevor du etwas änderst\n"
-            "2. Präziser, sauberer Code — keine unnötigen Abstraktionen\n"
-            "3. Nach Code-Änderungen: git add + commit via run_bash (auf Englisch). "
-            "KEIN git push — Push erfolgt automatisch nach Task-Abschluss.\n"
-            "4. Am Ende: kurze Zusammenfassung was du gemacht hast\n\n"
-            "## Wichtige Regeln\n"
-            "- Keine Secrets oder Tokens in Code schreiben — alles kommt aus .env\n"
-            "- Bestehenden Code verstehen bevor du ihn änderst\n"
-            "- Deutsche Kommentare im Code sind ok, git-Messages auf Englisch\n"
-            "- Bei Unsicherheit: lieber nachfragen als falsch machen"
-        ),
-    },
-    {
-        "key":         "entwicklung",
-        "name":        "Entwicklungs-Analyse",
-        "icon":        "⚗",
-        "description": "Analysiert Kundenanfragen und schlägt Tool-Integrationen vor",
-        "model":       "claude-haiku-4-5-20251001",
-        "redis_key":   "agent:system_prompt:entwicklung",
-        "prompt_field":"prompt",
-        "default": (
-            "Analysiere die folgende Kundenanfrage und schlage ein konkretes Tool / eine API-Integration vor.\n\n"
-            "Antworte ausschliesslich mit einem JSON-Objekt:\n"
-            "{\n"
-            '  "tool_name": "snake_case_name",\n'
-            '  "display_name": "Anzeigename",\n'
-            '  "description": "Was das Tool macht",\n'
-            '  "category": "transport|communication|productivity|data|system",\n'
-            '  "api_type": "rest|graphql|websocket|sdk",\n'
-            '  "auth_type": "api_key|oauth2|none",\n'
-            '  "estimated_effort": "low|medium|high",\n'
-            '  "example_providers": ["Provider1", "Provider2"],\n'
-            '  "reasoning": "Warum dieses Tool sinnvoll ist"\n'
-            "}"
         ),
     },
 ]
