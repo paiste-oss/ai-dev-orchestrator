@@ -4,7 +4,7 @@ export default function FirmenBuddies() {
   return (
     <BuddiesSegmentPage
       segment="firmen"
-      title="Baddis — Firmen"
+      title="Baddis — Firma"
       description="Intelligente Assistenten für Unternehmen und Teams"
     />
   );

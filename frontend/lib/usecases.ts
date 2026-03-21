@@ -20,7 +20,7 @@ export interface UseCase {
 }
 
 export const USE_CASES: UseCase[] = [
-  // ── Menschen ─────────────────────────────────────────────────────────────
+  // ── Mensch ───────────────────────────────────────────────────────────────
   {
     id: "silberperlen",
     baddiD: "baddiD_0",
@@ -230,7 +230,7 @@ Deine Eigenschaften:
     systemPrompt: "",
   },
 
-  // ── Firmen ────────────────────────────────────────────────────────────────
+  // ── Firma ─────────────────────────────────────────────────────────────────
   {
     id: "firma",
     baddiD: "baddiD_9",
