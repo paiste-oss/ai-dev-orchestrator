@@ -24,7 +24,9 @@
       "Bash(sed -i 's|OPENCLAW_GATEWAY_URL=.*|OPENCLAW_GATEWAY_URL=ws://host.docker.internal:18789|' /home/naor/ai-dev-orchestrator/.env)",
       "Bash(docker exec:*)",
       "Bash(python3 -m json.tool)",
-      "Bash(curl -s -H \"X-N8N-API-KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmNWZiODM1YS01OGZlLTQ4NDItODgxZC1lMTJjZjZiZWFhODUiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiYWJiMDA2MGYtNTMyYi00NDFkLTg1NGUtNDMxMDM4MzA4MDdjIiwiaWF0IjoxNzczNTU3OTk5LCJleHAiOjE3ODEzMjMyMDB9.nZJLJtV1x4oRK8p7qEGMCj3bp7oDKKH_qt_RkSg-vO8\" \"http://localhost:5678/api/v1/credentials?includeData=true\")"
+      "Bash(curl -s -H \"X-N8N-API-KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmNWZiODM1YS01OGZlLTQ4NDItODgxZC1lMTJjZjZiZWFhODUiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiYWJiMDA2MGYtNTMyYi00NDFkLTg1NGUtNDMxMDM4MzA4MDdjIiwiaWF0IjoxNzczNTU3OTk5LCJleHAiOjE3ODEzMjMyMDB9.nZJLJtV1x4oRK8p7qEGMCj3bp7oDKKH_qt_RkSg-vO8\" \"http://localhost:5678/api/v1/credentials?includeData=true\")",
+      "WebSearch",
+      "Bash(head -10 grep -n \"PATCH\\\\|avatar\\\\|persona\" backend/api/v1/buddies.py)"
     ]
   }
 }
