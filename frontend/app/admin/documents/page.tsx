@@ -13,7 +13,6 @@ interface Customer {
   id: string;
   name: string;
   email: string;
-  segment: string;
 }
 
 interface Document {
@@ -233,7 +232,6 @@ export default function AdminDocuments() {
                     }`}
                   >
                     {c.name}
-                    <span className="ml-2 text-xs text-gray-500">{c.segment}</span>
                   </button>
                 ))}
               </div>

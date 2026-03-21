@@ -17,7 +17,6 @@ interface CustomerDetail {
   id: string;
   name: string;
   email: string;
-  segment: string;
   role: string;
   is_active: boolean;
   memory_consent: boolean;
@@ -41,7 +40,6 @@ interface BaddiRecord {
   id: string;
   usecase_id: string | null;
   name: string;
-  segment: string;
   is_active: boolean;
   avatar_url: string | null;
 }
@@ -69,12 +67,6 @@ interface ServiceSchema {
 type Tab = "profil" | "baddis" | "zugangsdaten" | "finanzen";
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
-
-const SEGMENT_OPTIONS = [
-  { value: "personal",  label: "Privat"   },
-  { value: "elderly",   label: "Senioren" },
-  { value: "corporate", label: "Firma"    },
-];
 
 
 const LANGUAGE_OPTIONS = [
@@ -504,7 +496,6 @@ export default function CustomerDetailPage() {
   // Stammdaten
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [segment, setSegment] = useState("");
   const [language, setLanguage] = useState("de");
 
   // Kontakt
@@ -542,7 +533,6 @@ export default function CustomerDetailPage() {
           setCustomer(c);
           setName(c.name ?? "");
           setEmail(c.email ?? "");
-          setSegment(c.segment ?? "personal");
           setLanguage(c.language ?? "de");
           setPhone(c.phone ?? "");
           setPhoneSecondary(c.phone_secondary ?? "");
@@ -570,7 +560,7 @@ export default function CustomerDetailPage() {
       const res = await apiFetch(`${BACKEND_URL}/v1/customers/${id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          name, email, segment, language,
+          name, email, language,
           phone: phone || null,
           phone_secondary: phoneSecondary || null,
           address_street: street || null,
@@ -748,13 +738,6 @@ export default function CustomerDetailPage() {
                   </Field>
                   <Field label="E-Mail">
                     <input value={email} onChange={e => setEmail(e.target.value)} type="email" className={inputCls} />
-                  </Field>
-                  <Field label="Segment">
-                    <select value={segment} onChange={e => setSegment(e.target.value)} className={inputCls}>
-                      {SEGMENT_OPTIONS.map(s => (
-                        <option key={s.value} value={s.value}>{s.label}</option>
-                      ))}
-                    </select>
                   </Field>
                   <Field label="Bevorzugte Sprache">
                     <select value={language} onChange={e => setLanguage(e.target.value)} className={inputCls}>

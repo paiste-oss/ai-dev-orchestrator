@@ -15,7 +15,6 @@ interface Customer {
   id: string;
   name: string;
   email: string;
-  segment: string;
   role: string;
   is_active: boolean;
   created_at: string;
@@ -31,12 +30,6 @@ interface CustomerListResponse {
 
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
-
-const SEGMENT_LABELS: Record<string, { label: string; color: string }> = {
-  personal:  { label: "Privat",     color: "bg-blue-500/20 text-blue-300 border-blue-500/30"   },
-  elderly:   { label: "Senioren",   color: "bg-purple-500/20 text-purple-300 border-purple-500/30" },
-  corporate: { label: "Firma",      color: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30" },
-};
 
 const ROLE_LABELS: Record<string, { label: string; color: string }> = {
   admin:    { label: "Admin",   color: "bg-red-500/20 text-red-300 border-red-500/30"     },
@@ -95,12 +88,6 @@ function DeleteDialog({ customer, onConfirm, onCancel, loading }: {
 
 // ─── Baddi-Zuweisung Modal ────────────────────────────────────────────────────
 
-const SEGMENT_ORDER: { key: string; label: string }[] = [
-  { key: "menschen", label: "Menschen" },
-  { key: "firmen",   label: "Firmen"   },
-];
-
-
 // ─── Hauptkomponente ──────────────────────────────────────────────────────────
 
 export default function CustomersPage() {
@@ -109,7 +96,6 @@ export default function CustomersPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [search, setSearch]       = useState("");
-  const [segment, setSegment]     = useState("");
   const [role, setRole]           = useState("");
   const [activeFilter, setActiveFilter] = useState<"" | "true" | "false">("");
 
@@ -140,7 +126,6 @@ export default function CustomersPage() {
     try {
       const params = new URLSearchParams();
       if (debouncedSearch) params.set("search", debouncedSearch);
-      if (segment)         params.set("segment", segment);
       if (role)            params.set("role", role);
       if (activeFilter)    params.set("is_active", activeFilter);
       params.set("page", String(page));
@@ -155,9 +140,9 @@ export default function CustomersPage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, segment, role, activeFilter, page]);
+  }, [debouncedSearch, role, activeFilter, page]);
 
-  useEffect(() => { setPage(1); }, [debouncedSearch, segment, role, activeFilter]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, role, activeFilter]);
   useEffect(() => { if (mounted) fetchCustomers(); }, [fetchCustomers, mounted]);
 
   const toggleActive = async (customer: Customer) => {
@@ -213,7 +198,7 @@ export default function CustomersPage() {
         {/* Filter */}
         <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-3">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Filter</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
               <input type="text" placeholder="Name oder E-Mail…" value={search}
@@ -224,13 +209,6 @@ export default function CustomersPage() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs">✕</button>
               )}
             </div>
-            <select value={segment} onChange={e => setSegment(e.target.value)}
-              className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-400 transition-colors">
-              <option value="">Alle Segmente</option>
-              <option value="personal">Privat</option>
-              <option value="elderly">Senioren</option>
-              <option value="corporate">Firma</option>
-            </select>
             <select value={role} onChange={e => setRole(e.target.value)}
               className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-400 transition-colors">
               <option value="">Alle Rollen</option>
@@ -245,19 +223,13 @@ export default function CustomersPage() {
             </select>
           </div>
 
-          {(search || segment || role || activeFilter) && (
+          {(search || role || activeFilter) && (
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <span className="text-xs text-gray-500">Aktiv:</span>
               {search && (
                 <span className="flex items-center gap-1 bg-yellow-400/10 text-yellow-300 border border-yellow-400/20 text-xs px-2 py-0.5 rounded-full">
                   Suche: &ldquo;{search}&rdquo;
                   <button onClick={() => setSearch("")} className="hover:text-white ml-0.5">✕</button>
-                </span>
-              )}
-              {segment && (
-                <span className="flex items-center gap-1 bg-yellow-400/10 text-yellow-300 border border-yellow-400/20 text-xs px-2 py-0.5 rounded-full">
-                  {SEGMENT_LABELS[segment]?.label ?? segment}
-                  <button onClick={() => setSegment("")} className="hover:text-white ml-0.5">✕</button>
                 </span>
               )}
               {role && (
@@ -272,7 +244,7 @@ export default function CustomersPage() {
                   <button onClick={() => setActiveFilter("")} className="hover:text-white ml-0.5">✕</button>
                 </span>
               )}
-              <button onClick={() => { setSearch(""); setSegment(""); setRole(""); setActiveFilter(""); }}
+              <button onClick={() => { setSearch(""); setRole(""); setActiveFilter(""); }}
                 className="text-xs text-gray-500 hover:text-red-400 underline ml-auto">
                 Alle Filter zurücksetzen
               </button>
@@ -311,7 +283,6 @@ export default function CustomersPage() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">ID</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Name</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">E-Mail</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Segment</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Rolle</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Status</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Erstellt am</th>
@@ -349,7 +320,6 @@ export default function CustomersPage() {
                       <td className="px-4 py-3 text-gray-300 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         <a href={`mailto:${customer.email}`} className="hover:text-yellow-400 transition-colors">{customer.email}</a>
                       </td>
-                      <td className="px-4 py-3"><Badge value={customer.segment} map={SEGMENT_LABELS} /></td>
                       <td className="px-4 py-3"><Badge value={customer.role} map={ROLE_LABELS} /></td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${

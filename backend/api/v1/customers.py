@@ -20,7 +20,6 @@ router = APIRouter(prefix="/customers", tags=["customers"])
 class CustomerCreate(BaseModel):
     name: str
     email: str
-    segment: str = "personal"
     password: str = ""
 
 
@@ -28,7 +27,6 @@ class CustomerOut(BaseModel):
     id: uuid.UUID
     name: str
     email: str
-    segment: str
     role: str
     is_active: bool
     created_at: datetime
@@ -61,7 +59,6 @@ class CustomerOut(BaseModel):
 class CustomerUpdate(BaseModel):
     name: str | None = None
     email: str | None = None
-    segment: str | None = None
     is_active: bool | None = None
 
     # Kontakt
@@ -171,7 +168,6 @@ SERVICE_SCHEMAS: dict[str, dict] = {
 @router.get("", response_model=CustomerListResponse)
 async def list_customers(
     search: Optional[str] = Query(None, description="Suche in Name und E-Mail"),
-    segment: Optional[str] = Query(None, description="Filter nach Segment: personal, elderly, corporate"),
     role: Optional[str] = Query(None, description="Filter nach Rolle: admin, customer"),
     is_active: Optional[bool] = Query(None, description="Filter nach aktivem Status"),
     page: int = Query(1, ge=1, description="Seitennummer"),
@@ -188,8 +184,6 @@ async def list_customers(
                 func.lower(Customer.email).like(term),
             )
         )
-    if segment:
-        query = query.where(Customer.segment == segment)
     if role:
         query = query.where(Customer.role == role)
     if is_active is not None:
@@ -216,7 +210,7 @@ async def list_customers(
 
     items = [
         CustomerOut(
-            id=c.id, name=c.name, email=c.email, segment=c.segment,
+            id=c.id, name=c.name, email=c.email,
             role=c.role, is_active=c.is_active, created_at=c.created_at,
             primary_usecase_id=buddies_by_customer.get(c.id),
         )
@@ -232,7 +226,6 @@ async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_d
     customer = Customer(
         name=data.name,
         email=data.email,
-        segment=data.segment,
         hashed_password=data.password,
     )
     db.add(customer)

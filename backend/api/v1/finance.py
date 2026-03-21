@@ -136,7 +136,6 @@ class CustomerRevenueRow(BaseModel):
     customer_id: str
     customer_name: str
     customer_email: str
-    segment: str
     is_active: bool
     registered_at: str
     plan_name: str | None
@@ -155,8 +154,6 @@ class RevenueOverview(BaseModel):
     free_customers: int
     total_customers: int
     avg_revenue_per_paying_customer: float
-    # Aufschlüsselung nach Segment
-    by_segment: dict[str, float]          # segment → monthly CHF
     # Aufschlüsselung nach Plan
     by_plan: dict[str, dict]              # plan_name → {count, monthly_chf}
     # Einzelne Kunden
@@ -233,7 +230,6 @@ async def delete_cost(
 
 @router.get("/revenue", response_model=RevenueOverview)
 async def get_revenue(
-    segment: str | None = Query(None, description="Filter: personal | elderly | corporate"),
     plan: str | None = Query(None, description="Filter nach Plan-Name"),
     is_active: bool | None = Query(None, description="Nur aktive / inaktive Kunden"),
     _: Customer = Depends(require_admin),
@@ -252,8 +248,6 @@ async def get_revenue(
     )
 
     # Optionale Filter
-    if segment:
-        query = query.where(Customer.segment == segment)
     if is_active is not None:
         query = query.where(Customer.is_active == is_active)
     if plan:
@@ -270,7 +264,6 @@ async def get_revenue(
     total_monthly = 0.0
     paying_count = 0
     free_count = 0
-    by_segment: dict[str, float] = {}
     by_plan: dict[str, dict] = {}
 
     for customer, sub_plan in rows:
@@ -283,10 +276,6 @@ async def get_revenue(
         else:
             free_count += 1
 
-        # Segment-Aggregation
-        seg = customer.segment or "unbekannt"
-        by_segment[seg] = by_segment.get(seg, 0.0) + price
-
         # Plan-Aggregation
         plan_key = plan_name or "Kein Plan (Free)"
         if plan_key not in by_plan:
@@ -298,7 +287,6 @@ async def get_revenue(
             customer_id=str(customer.id),
             customer_name=customer.name,
             customer_email=customer.email,
-            segment=seg,
             is_active=customer.is_active,
             registered_at=customer.created_at.isoformat(),
             plan_name=plan_name,
@@ -317,7 +305,6 @@ async def get_revenue(
         free_customers=free_count,
         total_customers=len(customer_rows),
         avg_revenue_per_paying_customer=avg_revenue,
-        by_segment={k: round(v, 2) for k, v in by_segment.items()},
         by_plan=by_plan,
         customers=customer_rows,
     )

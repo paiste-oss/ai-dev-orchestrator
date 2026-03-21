@@ -31,7 +31,6 @@ class Customer(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String, nullable=False)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    segment: Mapped[str] = mapped_column(String, default="personal")  # elderly, corporate, personal
     hashed_password: Mapped[str] = mapped_column(String, nullable=False, default="")
     role: Mapped[str] = mapped_column(String, default="customer")  # admin, customer
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

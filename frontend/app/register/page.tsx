@@ -80,7 +80,6 @@ export default function RegisterPage() {
           name: `${form.vorname} ${form.nachname}`.trim(),
           email: form.email,
           password: form.passwort,
-          segment: "personal",
           birth_year: Number(form.geburtsjahr) || null,
           birth_date: birthDateString,
           tos_accepted: tosAccepted,

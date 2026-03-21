@@ -20,7 +20,6 @@ interface RecentCustomer {
   id: string;
   name: string;
   email: string;
-  segment: string;
   created_at: string;
 }
 
@@ -152,22 +151,6 @@ function QuickAction({
       </div>
       <span className={`text-sm transition-colors shrink-0 ${highlight ? "text-yellow-600 group-hover:text-yellow-400" : "text-gray-700 group-hover:text-gray-400"}`}>→</span>
     </button>
-  );
-}
-
-// ─── Segment-Badge ────────────────────────────────────────────────────────────
-
-function SegmentBadge({ segment }: { segment: string }) {
-  const map: Record<string, string> = {
-    personal:  "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    elderly:   "bg-purple-500/10 text-purple-400 border-purple-500/20",
-    corporate: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  };
-  const cls = map[segment] ?? "bg-gray-500/10 text-gray-400 border-gray-500/20";
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${cls} capitalize`}>
-      {segment}
-    </span>
   );
 }
 
@@ -468,7 +451,6 @@ export default function AdminDashboard() {
                             </p>
                             <p className="text-xs text-gray-600 truncate">{formatRelTime(c.created_at)}</p>
                           </div>
-                          <SegmentBadge segment={c.segment} />
                         </li>
                       ))}
                     </ul>
