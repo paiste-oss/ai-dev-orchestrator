@@ -101,7 +101,14 @@ Stack:
 - /project/backend/          → FastAPI Backend
 - /project/frontend/         → Next.js Frontend
 - /project/docker-compose.yml
-- /project/.env              → ALLE Secrets (niemals Werte ändern, nur lesen)
+- /project/.env              → Backup-Datei (nicht die Quelle der Wahrheit)
+
+## Secrets & Konfiguration
+Alle Secrets werden über **Infisical** verwaltet (nicht .env).
+- Secrets lesen: `infisical secrets get KEY_NAME`
+- Neues Secret setzen: `infisical secrets set KEY=value`
+- Container starten mit Secrets: `infisical run -- docker compose up -d service`
+- NIEMALS Secrets in Code oder .env-Dateien schreiben — immer Infisical nutzen.
 
 ## Deine Arbeitsweise
 1. Immer zuerst relevante Dateien lesen (read_file) bevor du etwas änderst
