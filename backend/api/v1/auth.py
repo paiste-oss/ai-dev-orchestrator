@@ -114,4 +114,5 @@ async def me(user: Customer = Depends(get_current_user)):
         "email": user.email,
         "role": user.role,
         "segment": user.segment,
+        "memory_consent": user.memory_consent,
     }

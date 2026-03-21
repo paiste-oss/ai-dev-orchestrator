@@ -336,6 +336,40 @@ async def toggle_customer_active(customer_id: uuid.UUID, db: AsyncSession = Depe
     return customer
 
 
+@router.delete("/{customer_id}/memory-consent", response_model=CustomerOut)
+async def revoke_memory_consent(
+    customer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Widerruft Memory-Consent und löscht alle Qdrant-Vektoren des Kunden.
+    Kann vom Kunden selbst oder vom Admin aufgerufen werden.
+    """
+    customer = await db.get(Customer, customer_id)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Kunde nicht gefunden")
+
+    # Qdrant-Vektoren löschen
+    try:
+        from services.memory_vector_store import delete_customer_memories
+        delete_customer_memories(str(customer_id))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Qdrant delete failed: %s", e)
+
+    # Auch PostgreSQL memory_items löschen
+    from models.chat import MemoryItem
+    from sqlalchemy import delete as sa_delete
+    await db.execute(
+        sa_delete(MemoryItem).where(MemoryItem.customer_id == str(customer_id))
+    )
+
+    customer.memory_consent = False
+    await db.commit()
+    await db.refresh(customer)
+    return customer
+
+
 # ─── Zugangsdaten (Credentials) pro Kunde ─────────────────────────────────────
 
 @router.get("/{customer_id}/credentials")

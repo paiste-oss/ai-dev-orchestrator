@@ -497,6 +497,9 @@ export default function CustomerDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [memoryRevokeOpen, setMemoryRevokeOpen] = useState(false);
+  const [memoryRevokeInput, setMemoryRevokeInput] = useState("");
+  const [memoryRevoking, setMemoryRevoking] = useState(false);
 
   // Stammdaten
   const [name, setName] = useState("");
@@ -598,11 +601,24 @@ export default function CustomerDetailPage() {
     if (res.ok) setCustomer(await res.json());
   };
 
-  const toggleMemoryConsent = async () => {
+  const revokeMemory = async () => {
+    if (memoryRevokeInput !== "Lösche Langzeitdaten") return;
+    setMemoryRevoking(true);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/customers/${id}/memory-consent`, { method: "DELETE" });
+      if (res.ok) setCustomer(await res.json());
+    } finally {
+      setMemoryRevoking(false);
+      setMemoryRevokeOpen(false);
+      setMemoryRevokeInput("");
+    }
+  };
+
+  const enableMemory = async () => {
     if (!customer) return;
     const res = await apiFetch(`${BACKEND_URL}/v1/customers/${id}`, {
       method: "PATCH",
-      body: JSON.stringify({ memory_consent: !customer.memory_consent }),
+      body: JSON.stringify({ memory_consent: true }),
     });
     if (res.ok) setCustomer(await res.json());
   };
@@ -682,15 +698,14 @@ export default function CustomerDetailPage() {
             </div>
             <div className="flex gap-2 shrink-0">
             <button
-              onClick={toggleMemoryConsent}
+              onClick={() => customer.memory_consent ? setMemoryRevokeOpen(true) : enableMemory()}
               className={`px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
                 customer.memory_consent
                   ? "border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
                   : "border-gray-500/40 text-gray-400 hover:bg-gray-500/10"
               }`}
-              title="Langzeitgedächtnis ein-/ausschalten"
             >
-              {customer.memory_consent ? "🧠 Deaktivieren" : "🧠 Aktivieren"}
+              {customer.memory_consent ? "🧠 Widerrufen" : "🧠 Aktivieren"}
             </button>
             <button
               onClick={toggleActive}
@@ -898,6 +913,58 @@ export default function CustomerDetailPage() {
           {tab === "finanzen" && <FinanzenTab stats={stats} />}
         </div>
       </main>
+
+      {/* ── Modal: Langzeitgedächtnis widerrufen ── */}
+      {memoryRevokeOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => { setMemoryRevokeOpen(false); setMemoryRevokeInput(""); }} />
+          <div className="relative bg-gray-900 border border-red-500/30 rounded-2xl p-6 max-w-md w-full space-y-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl shrink-0">⚠️</span>
+              <div>
+                <h3 className="font-bold text-white text-lg">Langzeitgedächtnis widerrufen</h3>
+                <p className="text-sm text-gray-400 mt-1 leading-relaxed">
+                  Wenn du dies widerrufst, werden alle Daten im Langzeitgedächtnis dieses Buddis
+                  <span className="text-red-400 font-semibold"> unwiderruflich gelöscht</span>.
+                  Dies betrifft alle gespeicherten Fakten, Vorlieben und Erinnerungen in Qdrant und der Datenbank.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm text-gray-300">
+                Wenn du dies wirklich willst, schreibe bitte{" "}
+                <code className="text-red-400 font-mono bg-red-950/30 px-1 rounded">Lösche Langzeitdaten</code>{" "}
+                in das Feld und drücke <strong>Löschen</strong>.
+              </p>
+              <input
+                type="text"
+                value={memoryRevokeInput}
+                onChange={e => setMemoryRevokeInput(e.target.value)}
+                placeholder="Lösche Langzeitdaten"
+                className="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-red-500/60 font-mono"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => { setMemoryRevokeOpen(false); setMemoryRevokeInput(""); }}
+                className="px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={revokeMemory}
+                disabled={memoryRevokeInput !== "Lösche Langzeitdaten" || memoryRevoking}
+                className="px-5 py-2 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {memoryRevoking ? "Wird gelöscht…" : "Löschen"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

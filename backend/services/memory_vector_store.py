@@ -96,6 +96,23 @@ def store_memory_facts(customer_id: str, facts: list[str]) -> int:
     return len(points)
 
 
+def delete_customer_memories(customer_id: str) -> int:
+    """Löscht alle Qdrant-Vektoren eines Kunden. Gibt Anzahl gelöschter Punkte zurück."""
+    client = _get_client()
+    try:
+        result = client.delete(
+            collection_name=COLLECTION,
+            points_selector=Filter(
+                must=[FieldCondition(key="customer_id", match=MatchValue(value=customer_id))]
+            ),
+        )
+        _log.info("Deleted all memories for customer %s (status: %s)", customer_id[:8], result.status)
+        return 1
+    except Exception as exc:
+        _log.warning("Failed to delete memories for %s: %s", customer_id[:8], exc)
+        return 0
+
+
 def search_memories(customer_id: str, query: str, top_k: int = 8, score_threshold: float = 0.55) -> list[str]:
     """Search relevant memories for a customer by vector similarity."""
     client = _get_client()
