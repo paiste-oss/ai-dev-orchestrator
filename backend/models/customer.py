@@ -62,17 +62,28 @@ class Customer(Base):
     # Interessen & Hobbys (JSON-Array von Strings)
     interests: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
 
-    # Billing
+    # Billing — Abo
     stripe_customer_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    stripe_subscription_item_id: Mapped[str | None] = mapped_column(String(100), nullable=True)  # für Metered billing
-    subscription_status: Mapped[str] = mapped_column(String(30), default="inactive")  # active | past_due | canceled | trialing | inactive
-    billing_cycle: Mapped[str] = mapped_column(String(10), default="monthly")  # monthly | yearly
+    stripe_subscription_item_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    subscription_status: Mapped[str] = mapped_column(String(30), default="inactive")
+    billing_cycle: Mapped[str] = mapped_column(String(10), default="monthly")
     subscription_period_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    token_balance_chf: Mapped[float] = mapped_column(Numeric(10, 4), default=0.0)  # Prepaid-Guthaben
     tokens_used_this_period: Mapped[int] = mapped_column(Integer, default=0)
-    tos_accepted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # ToS-Akzeptanz-Zeitstempel
-    memory_consent: Mapped[bool] = mapped_column(Boolean, default=True)               # Einwilligung Langzeitgedächtnis (revDSG)
+    tos_accepted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    memory_consent: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Wallet — Prepaid-Guthaben (Token-Overage + externe Zahlungen)
+    token_balance_chf: Mapped[float] = mapped_column(Numeric(10, 4), default=0.0)   # alias: wallet_balance_chf
+    wallet_monthly_limit_chf: Mapped[float] = mapped_column(Numeric(10, 2), default=100.0)    # max. Ausgaben/Monat
+    wallet_per_tx_limit_chf: Mapped[float] = mapped_column(Numeric(10, 2), default=50.0)      # max. pro Transaktion
+    wallet_monthly_spent_chf: Mapped[float] = mapped_column(Numeric(10, 4), default=0.0)      # Ausgaben diesen Monat
+    wallet_month_reset_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)   # wann Monatszähler zuletzt zurückgesetzt
+    # Auto-Nachzahlen
+    auto_topup_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    auto_topup_threshold_chf: Mapped[float] = mapped_column(Numeric(10, 2), default=5.0)      # Auslösung wenn < x CHF
+    auto_topup_amount_chf: Mapped[float] = mapped_column(Numeric(10, 2), default=20.0)        # Betrag pro Nachzahlung
+    stripe_payment_method_id: Mapped[str | None] = mapped_column(String(100), nullable=True)  # gespeicherte Karte für Auto-Topup
 
     subscription_plan: Mapped["SubscriptionPlan | None"] = relationship(back_populates="customers")
     buddies: Mapped[list["AiBuddy"]] = relationship(back_populates="customer")  # type: ignore

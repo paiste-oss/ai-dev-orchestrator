@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     # Stripe Billing
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
+    # Bankverbindung (für Banküberweisungs-Topup)
+    company_iban: str = ""
+    company_name: str = "Baddi AG"
     stripe_price_basis_monthly: str = ""      # z.B. price_xxx
     stripe_price_basis_yearly: str = ""
     stripe_price_komfort_monthly: str = ""

@@ -498,3 +498,125 @@ async def check_and_bill_tokens(
             )
 
     await db.commit()
+
+    # Auto-Topup: Wenn Guthaben unter Schwellwert und Auto-Topup aktiv
+    await _maybe_auto_topup(customer, db)
+
+
+async def _maybe_auto_topup(customer: Customer, db: AsyncSession) -> None:
+    """Löst automatischen Topup aus wenn Guthaben unter Schwellwert fällt."""
+    if not customer.auto_topup_enabled:
+        return
+    balance = float(customer.token_balance_chf or 0)
+    threshold = float(customer.auto_topup_threshold_chf or 5.0)
+    if balance >= threshold:
+        return
+    amount = float(customer.auto_topup_amount_chf or 20.0)
+    _log.info("Auto-Topup: Kunde %s (Guthaben %.2f < Schwellwert %.2f) → CHF %.2f",
+              customer.id, balance, threshold, amount)
+    try:
+        # Stripe: direkte Zahlung via gespeicherte Karte (kein Checkout-Redirect)
+        if customer.stripe_payment_method_id and customer.stripe_customer_id:
+            s = _stripe()
+            intent = s.PaymentIntent.create(
+                amount=int(round(amount * 100)),
+                currency="chf",
+                customer=customer.stripe_customer_id,
+                payment_method=customer.stripe_payment_method_id,
+                confirm=True,
+                off_session=True,
+                metadata={
+                    "customer_id": str(customer.id),
+                    "topup_amount_chf": str(amount),
+                    "source": "auto_topup",
+                },
+            )
+            if intent.status == "succeeded":
+                customer.token_balance_chf = Decimal(str(balance)) + Decimal(str(amount))
+                net, vat = calc_vat(amount)
+                inv_no = await next_invoice_number(db)
+                db.add(Payment(
+                    invoice_number=inv_no,
+                    customer_id=str(customer.id),
+                    stripe_payment_intent_id=intent.id,
+                    amount_chf=amount,
+                    vat_chf=vat,
+                    amount_net_chf=net,
+                    description=f"Baddi Wallet Auto-Topup CHF {amount:.2f}",
+                    payment_type="auto_topup",
+                    status="succeeded",
+                    paid_at=datetime.utcnow(),
+                ))
+                await db.commit()
+                _log.info("Auto-Topup erfolgreich: CHF %.2f → Guthaben jetzt CHF %.2f",
+                          amount, float(customer.token_balance_chf))
+        else:
+            _log.warning("Auto-Topup: Keine gespeicherte Karte für Kunde %s", customer.id)
+    except Exception as e:
+        _log.error("Auto-Topup fehlgeschlagen für Kunde %s: %s", customer.id, e)
+
+
+# ── Wallet-Ausgabe buchen ─────────────────────────────────────────────────────
+
+async def wallet_debit(
+    customer: Customer,
+    amount_chf: float,
+    description: str,
+    db: AsyncSession,
+) -> None:
+    """
+    Zieht CHF vom Wallet ab (externe Zahlung im Namen des Kunden).
+    Prüft Monatslimit + pro-Transaktion-Limit.
+    Wirft ValueError wenn Guthaben oder Limits überschritten.
+    """
+    from decimal import Decimal as D
+
+    # Monatszähler zurücksetzen falls neuer Monat
+    now = datetime.utcnow()
+    reset_at = customer.wallet_month_reset_at
+    if reset_at is None or reset_at.month != now.month or reset_at.year != now.year:
+        customer.wallet_monthly_spent_chf = D("0")
+        customer.wallet_month_reset_at = now
+
+    balance = float(customer.token_balance_chf or 0)
+    monthly_limit = float(customer.wallet_monthly_limit_chf or 100)
+    per_tx_limit = float(customer.wallet_per_tx_limit_chf or 50)
+    monthly_spent = float(customer.wallet_monthly_spent_chf or 0)
+
+    if amount_chf > per_tx_limit:
+        raise ValueError(f"Betrag CHF {amount_chf:.2f} überschreitet Transaktion-Limit CHF {per_tx_limit:.2f}.")
+    if monthly_spent + amount_chf > monthly_limit:
+        raise ValueError(f"Monats-Ausgabelimit CHF {monthly_limit:.2f} würde überschritten (bereits CHF {monthly_spent:.2f} ausgegeben).")
+    if balance < amount_chf:
+        raise ValueError(f"Guthaben CHF {balance:.2f} reicht nicht für CHF {amount_chf:.2f}.")
+
+    customer.token_balance_chf = D(str(balance)) - D(str(amount_chf))
+    customer.wallet_monthly_spent_chf = D(str(monthly_spent)) + D(str(amount_chf))
+
+    net, vat = calc_vat(amount_chf)
+    inv_no = await next_invoice_number(db)
+    db.add(Payment(
+        invoice_number=inv_no,
+        customer_id=str(customer.id),
+        amount_chf=amount_chf,
+        vat_chf=vat,
+        amount_net_chf=net,
+        description=description,
+        payment_type="wallet_debit",
+        status="succeeded",
+        paid_at=datetime.utcnow(),
+    ))
+    await db.commit()
+    await _maybe_auto_topup(customer, db)
+
+
+# ── Banküberweisung: Referenznummer generieren ────────────────────────────────
+
+def generate_bank_transfer_reference(customer_id: str) -> str:
+    """
+    Generiert eine eindeutige Zahlungsreferenz für Banküberweisungen.
+    Format: BAD-<6-stellige Kunden-Kurzkennung>-<Timestamp>
+    """
+    short_id = str(customer_id).replace("-", "")[:6].upper()
+    ts = datetime.utcnow().strftime("%m%d%H%M")
+    return f"BAD-{short_id}-{ts}"

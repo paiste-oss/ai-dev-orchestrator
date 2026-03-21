@@ -1,16 +1,22 @@
 """
-Billing API — Abo-Verwaltung, Checkout, Topup, Webhook.
+Billing API — Abo-Verwaltung, Checkout, Topup, Webhook, Wallet.
 
 Endpunkte:
-  GET  /v1/billing/plans          — Alle Pläne (öffentlich)
-  GET  /v1/billing/status         — Aktueller Status des eingeloggten Kunden
-  POST /v1/billing/checkout       — Checkout-Session starten (Abo)
-  POST /v1/billing/topup          — Guthaben aufladen
-  POST /v1/billing/portal         — Stripe Billing Portal öffnen
-  GET  /v1/billing/invoices       — Zahlungshistorie
-  POST /v1/billing/webhook        — Stripe Webhook (kein Auth, Signatur-Check)
-  POST /v1/billing/accept-tos     — ToS akzeptieren
-  GET  /v1/billing/admin/overview — Admin: alle Kunden + Revenue (Admin-only)
+  GET  /v1/billing/plans                  — Alle Pläne (öffentlich)
+  GET  /v1/billing/status                 — Aktueller Status des eingeloggten Kunden
+  POST /v1/billing/checkout               — Checkout-Session starten (Abo)
+  POST /v1/billing/topup                  — Guthaben aufladen (Stripe)
+  POST /v1/billing/portal                 — Stripe Billing Portal öffnen
+  GET  /v1/billing/invoices               — Zahlungshistorie
+  POST /v1/billing/webhook                — Stripe Webhook (kein Auth, Signatur-Check)
+  POST /v1/billing/accept-tos             — ToS akzeptieren
+  GET  /v1/billing/wallet                 — Wallet-Status + Einstellungen
+  PUT  /v1/billing/wallet/settings        — Limits + Auto-Topup konfigurieren
+  POST /v1/billing/wallet/topup/stripe    — Stripe Checkout Topup
+  POST /v1/billing/wallet/topup/bank      — Banküberweisung-Referenz generieren
+  GET  /v1/billing/admin/overview         — Admin: Revenue-Übersicht
+  GET  /v1/billing/admin/wallet/{id}      — Admin: Wallet-Status eines Kunden
+  POST /v1/billing/admin/wallet/credit    — Admin: Manuell Guthaben gutschreiben
 """
 import logging
 from datetime import datetime
@@ -32,6 +38,9 @@ from services.billing_service import (
     create_topup_checkout,
     create_billing_portal_session,
     handle_webhook,
+    generate_bank_transfer_reference,
+    next_invoice_number,
+    calc_vat,
 )
 
 _log = logging.getLogger(__name__)
@@ -416,6 +425,195 @@ async def admin_update_plan(
         stripe_price_id_monthly=plan.stripe_price_id_monthly,
         stripe_price_id_yearly=plan.stripe_price_id_yearly,
     )
+
+
+# ── Wallet ────────────────────────────────────────────────────────────────────
+
+class WalletStatusOut(BaseModel):
+    balance_chf: float
+    monthly_limit_chf: float
+    per_tx_limit_chf: float
+    monthly_spent_chf: float
+    monthly_remaining_chf: float
+    auto_topup_enabled: bool
+    auto_topup_threshold_chf: float
+    auto_topup_amount_chf: float
+    has_saved_card: bool
+
+
+class WalletSettingsIn(BaseModel):
+    monthly_limit_chf: Optional[float] = None
+    per_tx_limit_chf: Optional[float] = None
+    auto_topup_enabled: Optional[bool] = None
+    auto_topup_threshold_chf: Optional[float] = None
+    auto_topup_amount_chf: Optional[float] = None
+
+
+class BankTransferOut(BaseModel):
+    reference: str
+    amount_chf: float
+    iban: str
+    recipient: str
+    note: str
+
+
+class AdminCreditIn(BaseModel):
+    customer_id: str
+    amount_chf: float = Field(..., ge=0.01, le=10_000)
+    description: str = "Manuelle Gutschrift durch Admin"
+
+
+@router.get("/wallet", response_model=WalletStatusOut)
+async def get_wallet(
+    customer: Customer = Depends(get_current_user),
+):
+    """Wallet-Status: Guthaben, Limits, Auto-Topup."""
+    monthly_limit = float(customer.wallet_monthly_limit_chf or 100)
+    monthly_spent = float(customer.wallet_monthly_spent_chf or 0)
+    return WalletStatusOut(
+        balance_chf=float(customer.token_balance_chf or 0),
+        monthly_limit_chf=monthly_limit,
+        per_tx_limit_chf=float(customer.wallet_per_tx_limit_chf or 50),
+        monthly_spent_chf=monthly_spent,
+        monthly_remaining_chf=max(0.0, monthly_limit - monthly_spent),
+        auto_topup_enabled=bool(customer.auto_topup_enabled),
+        auto_topup_threshold_chf=float(customer.auto_topup_threshold_chf or 5),
+        auto_topup_amount_chf=float(customer.auto_topup_amount_chf or 20),
+        has_saved_card=bool(customer.stripe_payment_method_id),
+    )
+
+
+@router.put("/wallet/settings", response_model=WalletStatusOut)
+async def update_wallet_settings(
+    data: WalletSettingsIn,
+    customer: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Limits und Auto-Topup konfigurieren."""
+    for field, value in data.model_dump(exclude_none=True).items():
+        db_field = field  # Namen stimmen überein dank Präfix-Mapping unten
+        # Mapping: WalletSettingsIn field → Customer field
+        mapping = {
+            "monthly_limit_chf": "wallet_monthly_limit_chf",
+            "per_tx_limit_chf": "wallet_per_tx_limit_chf",
+            "auto_topup_enabled": "auto_topup_enabled",
+            "auto_topup_threshold_chf": "auto_topup_threshold_chf",
+            "auto_topup_amount_chf": "auto_topup_amount_chf",
+        }
+        setattr(customer, mapping.get(field, field), value)
+    await db.commit()
+    await db.refresh(customer)
+    monthly_limit = float(customer.wallet_monthly_limit_chf or 100)
+    monthly_spent = float(customer.wallet_monthly_spent_chf or 0)
+    return WalletStatusOut(
+        balance_chf=float(customer.token_balance_chf or 0),
+        monthly_limit_chf=monthly_limit,
+        per_tx_limit_chf=float(customer.wallet_per_tx_limit_chf or 50),
+        monthly_spent_chf=monthly_spent,
+        monthly_remaining_chf=max(0.0, monthly_limit - monthly_spent),
+        auto_topup_enabled=bool(customer.auto_topup_enabled),
+        auto_topup_threshold_chf=float(customer.auto_topup_threshold_chf or 5),
+        auto_topup_amount_chf=float(customer.auto_topup_amount_chf or 20),
+        has_saved_card=bool(customer.stripe_payment_method_id),
+    )
+
+
+@router.post("/wallet/topup/stripe")
+async def wallet_topup_stripe(
+    req: TopupRequest,
+    customer: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stripe Checkout Topup — öffnet Zahlungsseite."""
+    try:
+        url = await create_topup_checkout(customer, req.amount_chf, db)
+        return {"checkout_url": url}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/wallet/topup/bank", response_model=BankTransferOut)
+async def wallet_topup_bank(
+    req: TopupRequest,
+    customer: Customer = Depends(get_current_user),
+):
+    """Banküberweisung: generiert Zahlungsreferenz und IBAN-Details."""
+    if req.amount_chf < 10:
+        raise HTTPException(status_code=400, detail="Mindestbetrag für Banküberweisung: CHF 10.00")
+    reference = generate_bank_transfer_reference(str(customer.id))
+    return BankTransferOut(
+        reference=reference,
+        amount_chf=req.amount_chf,
+        iban=_cfg.company_iban or "CH00 0000 0000 0000 0000 0",
+        recipient="Baddi AG",
+        note=f"Bitte Referenz im Zahlungszweck angeben: {reference}",
+    )
+
+
+# ── Admin: Wallet-Gutschrift ───────────────────────────────────────────────────
+
+@router.get("/admin/wallet/{customer_id}", response_model=WalletStatusOut)
+async def admin_get_wallet(
+    customer_id: str,
+    _: Customer = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin: Wallet-Status eines Kunden abrufen."""
+    import uuid as _uuid
+    customer = await db.get(Customer, _uuid.UUID(customer_id))
+    if not customer:
+        raise HTTPException(status_code=404, detail="Kunde nicht gefunden")
+    monthly_limit = float(customer.wallet_monthly_limit_chf or 100)
+    monthly_spent = float(customer.wallet_monthly_spent_chf or 0)
+    return WalletStatusOut(
+        balance_chf=float(customer.token_balance_chf or 0),
+        monthly_limit_chf=monthly_limit,
+        per_tx_limit_chf=float(customer.wallet_per_tx_limit_chf or 50),
+        monthly_spent_chf=monthly_spent,
+        monthly_remaining_chf=max(0.0, monthly_limit - monthly_spent),
+        auto_topup_enabled=bool(customer.auto_topup_enabled),
+        auto_topup_threshold_chf=float(customer.auto_topup_threshold_chf or 5),
+        auto_topup_amount_chf=float(customer.auto_topup_amount_chf or 20),
+        has_saved_card=bool(customer.stripe_payment_method_id),
+    )
+
+
+@router.post("/admin/wallet/credit")
+async def admin_wallet_credit(
+    data: AdminCreditIn,
+    _: Customer = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin: Gutschrift manuell auf Kundenkonto buchen (z.B. nach Banküberweisung)."""
+    import uuid as _uuid
+    from decimal import Decimal
+    customer = await db.get(Customer, _uuid.UUID(data.customer_id))
+    if not customer:
+        raise HTTPException(status_code=404, detail="Kunde nicht gefunden")
+
+    customer.token_balance_chf = Decimal(str(float(customer.token_balance_chf or 0))) + Decimal(str(data.amount_chf))
+    net, vat = calc_vat(data.amount_chf)
+    inv_no = await next_invoice_number(db)
+    db.add(Payment(
+        invoice_number=inv_no,
+        customer_id=str(customer.id),
+        amount_chf=data.amount_chf,
+        vat_chf=vat,
+        amount_net_chf=net,
+        description=data.description,
+        payment_type="bank_transfer",
+        status="succeeded",
+        paid_at=datetime.utcnow(),
+    ))
+    await db.commit()
+    _log.info("Admin Wallet Credit: CHF %.2f → Kunde %s (neues Guthaben: %.2f)",
+              data.amount_chf, customer.id, float(customer.token_balance_chf))
+    return {
+        "customer_id": str(customer.id),
+        "amount_credited_chf": data.amount_chf,
+        "new_balance_chf": float(customer.token_balance_chf),
+        "invoice_number": inv_no,
+    }
 
 
 @router.get("/admin/stripe-status")

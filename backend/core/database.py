@@ -108,6 +108,15 @@ async def init_db():
             # Rate Limits (Mensch-Usecase: 1 Baddi, Differenzierung über Token-Volumen)
             "ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS daily_token_limit INTEGER",
             "ALTER TABLE subscription_plans ADD COLUMN IF NOT EXISTS requests_per_hour INTEGER",
+            # Wallet — Prepaid-Guthaben + Limits + Auto-Topup
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS wallet_monthly_limit_chf NUMERIC(10,2) DEFAULT 100.0",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS wallet_per_tx_limit_chf NUMERIC(10,2) DEFAULT 50.0",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS wallet_monthly_spent_chf NUMERIC(10,4) DEFAULT 0.0",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS wallet_month_reset_at TIMESTAMP",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS auto_topup_enabled BOOLEAN DEFAULT false",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS auto_topup_threshold_chf NUMERIC(10,2) DEFAULT 5.0",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS auto_topup_amount_chf NUMERIC(10,2) DEFAULT 20.0",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS stripe_payment_method_id VARCHAR(100)",
         ]
         for sql in migrations:
             await conn.execute(text(sql))
