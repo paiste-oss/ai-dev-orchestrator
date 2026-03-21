@@ -135,13 +135,8 @@ export default function ChatPage() {
   async function speak(text: string) {
     if (!ttsEnabled) return;
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("aibuddy_token") : null;
-      const res = await fetch(`${BACKEND_URL}/v1/chat/tts`, {
+      const res = await apiFetch(`${BACKEND_URL}/v1/chat/tts`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
         body: JSON.stringify({ text }),
       });
       if (!res.ok) return;
@@ -153,7 +148,7 @@ export default function ChatPage() {
       }
       const audio = new Audio(url);
       audioRef.current = audio;
-      audio.play();
+      audio.play().catch(() => {});
     } catch { /* TTS Fehler still */ }
   }
 
