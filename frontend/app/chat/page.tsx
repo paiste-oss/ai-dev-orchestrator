@@ -135,7 +135,7 @@ export default function ChatPage() {
   async function speak(text: string) {
     if (!ttsEnabled) return;
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const token = typeof window !== "undefined" ? localStorage.getItem("aibuddy_token") : null;
       const res = await fetch(`${BACKEND_URL}/v1/chat/tts`, {
         method: "POST",
         headers: {
