@@ -245,9 +245,8 @@ def route(message: str, customer_id: str | None = None) -> RoutingResult:
     elif _WEB_SEARCH_KEYWORDS.search(msg):
         base_result = RoutingResult(
             intent="web_search",
-            needs_tools=False,
-            tool_keys=[],
-            capability_gap=True,
+            needs_tools=True,
+            tool_keys=["web_search"],
         )
 
     elif _EMAIL_KEYWORDS.search(msg):

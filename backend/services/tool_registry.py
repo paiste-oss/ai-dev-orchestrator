@@ -16,6 +16,7 @@ import httpx
 from typing import Any
 from services import sbb_client
 from services import jina_client
+from services import exa_client
 from core.config import settings
 
 
@@ -222,6 +223,50 @@ async def _handle_sbb(tool_name: str, tool_input: dict) -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Web Search (Exa)
+# ---------------------------------------------------------------------------
+
+WEB_SEARCH_TOOL_DEFS = [
+    {
+        "name": "web_search",
+        "description": (
+            "Sucht im Internet nach aktuellen Informationen, Nachrichten, Preisen, "
+            "Personen oder Ereignissen. Nutze dieses Tool wenn du aktuelle oder "
+            "externe Informationen brauchst die nicht in deinem Wissen vorhanden sind. "
+            "Gibt Titel, URL und Textauszug der relevantesten Ergebnisse zurück."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Suchanfrage, z.B. 'iPhone 16 Preis Schweiz' oder 'Nachrichten Schweiz heute'",
+                },
+                "num_results": {
+                    "type": "integer",
+                    "description": "Anzahl Ergebnisse (1-5). Standard: 3",
+                    "default": 3,
+                },
+            },
+            "required": ["query"],
+        },
+    },
+]
+
+
+async def _handle_web_search(tool_name: str, tool_input: dict) -> Any:
+    if tool_name == "web_search":
+        try:
+            return await exa_client.search(
+                query=tool_input["query"],
+                num_results=tool_input.get("num_results", 3),
+            )
+        except Exception as e:
+            return {"error": f"Websuche fehlgeschlagen: {e}"}
+    return {"error": f"Unbekanntes Search-Tool: {tool_name}"}
+
+
+# ---------------------------------------------------------------------------
 # Bild-Generierung (DALL-E 3)
 # ---------------------------------------------------------------------------
 
@@ -313,6 +358,16 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_defs": WEB_FETCH_TOOL_DEFS,
         "tool_names": {"web_fetch"},
         "handler": _handle_web_fetch,
+    },
+    "web_search": {
+        "key": "web_search",
+        "name": "Web-Suche (Exa)",
+        "description": "Neuronale Websuche für aktuelle Informationen, Nachrichten, Preise und Fakten.",
+        "category": "data",
+        "tier": "free",
+        "tool_defs": WEB_SEARCH_TOOL_DEFS,
+        "tool_names": {"web_search"},
+        "handler": _handle_web_search,
     },
     "image_generation": {
         "key": "image_generation",
