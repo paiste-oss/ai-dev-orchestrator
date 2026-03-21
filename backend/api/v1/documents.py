@@ -14,8 +14,10 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from sqlalchemy import update as sa_update
 from core.database import get_db
 from models.document import CustomerDocument
+from models.customer import Customer
 from services.file_parser import parse_file, is_supported, get_file_extension, SUPPORTED_EXTENSIONS
 from services.vector_store import store_document_vectors, search_customer_documents, delete_document_vectors
 
@@ -86,6 +88,18 @@ async def upload_document(
             detail=f"Datei zu groß. Maximum: {MAX_FILE_SIZE // 1024 // 1024} MB"
         )
 
+    # Speicherlimit prüfen
+    customer = await db.get(Customer, customer_id)
+    if customer:
+        total_limit = (customer.storage_limit_bytes or 0) + (customer.storage_extra_bytes or 0)
+        used = customer.storage_used_bytes or 0
+        if used + len(content) > total_limit:
+            free_mb = max(0, total_limit - used) / 1024 / 1024
+            raise HTTPException(
+                status_code=507,
+                detail=f"Speicherlimit erreicht. Noch verfügbar: {free_mb:.1f} MB. Speicher unter Konto → Speicher erweitern."
+            )
+
     filename = file.filename or "unknown"
     mime_type = file.content_type or ""
     ext = get_file_extension(filename)
@@ -121,6 +135,14 @@ async def upload_document(
     db.add(doc)
     await db.commit()
     await db.refresh(doc)
+
+    # Storage-Zähler erhöhen
+    await db.execute(
+        sa_update(Customer)
+        .where(Customer.id == customer_id)
+        .values(storage_used_bytes=Customer.storage_used_bytes + len(content))
+    )
+    await db.commit()
 
     # Qdrant: Vektoren speichern
     if store_qdrant and parse_result.text.strip():
@@ -194,6 +216,15 @@ async def delete_document(
     # Soft-Delete
     doc.is_active = False
     await db.commit()
+
+    # Storage-Zähler verringern
+    await db.execute(
+        sa_update(Customer)
+        .where(Customer.id == doc.customer_id)
+        .values(storage_used_bytes=Customer.storage_used_bytes - doc.file_size_bytes)
+    )
+    await db.commit()
+
     return {"status": "deleted", "id": str(doc_id)}
 
 

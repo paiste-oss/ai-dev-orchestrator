@@ -45,23 +45,27 @@ def _stripe():
 # ── Plan-Konfiguration ────────────────────────────────────────────────────────
 # Seed-Daten — werden beim Start in die DB geschrieben falls leer
 
+_GB = 1024 * 1024 * 1024
+_MB = 1024 * 1024
+
 PLAN_DEFAULTS = [
     {
         "name": "Personal",
-        "slug": "basis",                   # Slug bleibt für Stripe-Kompatibilität
+        "slug": "basis",
         "max_buddies": 1,
         "monthly_price": 19.00,
-        "yearly_price": 180.00,            # ~CHF 15/Mo — 21% Rabatt
+        "yearly_price": 180.00,
         "included_tokens": 500_000,
         "daily_token_limit": 20_000,
         "requests_per_hour": 20,
         "token_overage_chf_per_1k": 0.002,
+        "storage_limit_bytes": 500 * _MB,   # 500 MB
         "sort_order": 1,
         "features": {
             "allowed_services": ["smtp"],
             "highlights": [
                 "500'000 Tokens/Monat",
-                "20'000 Tokens/Tag",
+                "500 MB Speicher",
                 "20 Anfragen/Stunde",
                 "E-Mail-Support",
             ],
@@ -72,17 +76,18 @@ PLAN_DEFAULTS = [
         "slug": "komfort",
         "max_buddies": 1,
         "monthly_price": 49.00,
-        "yearly_price": 468.00,            # ~CHF 39/Mo — 20% Rabatt
+        "yearly_price": 468.00,
         "included_tokens": 2_000_000,
         "daily_token_limit": 80_000,
         "requests_per_hour": 60,
         "token_overage_chf_per_1k": 0.0015,
+        "storage_limit_bytes": 5 * _GB,     # 5 GB
         "sort_order": 2,
         "features": {
             "allowed_services": ["smtp", "twilio", "slack"],
             "highlights": [
                 "2'000'000 Tokens/Monat",
-                "80'000 Tokens/Tag",
+                "5 GB Speicher",
                 "60 Anfragen/Stunde",
                 "Prioritäts-Support",
             ],
@@ -93,17 +98,18 @@ PLAN_DEFAULTS = [
         "slug": "premium",
         "max_buddies": 1,
         "monthly_price": 99.00,
-        "yearly_price": 948.00,            # ~CHF 79/Mo — 20% Rabatt
+        "yearly_price": 948.00,
         "included_tokens": 10_000_000,
         "daily_token_limit": 400_000,
         "requests_per_hour": 200,
         "token_overage_chf_per_1k": 0.001,
+        "storage_limit_bytes": 25 * _GB,    # 25 GB
         "sort_order": 3,
         "features": {
             "allowed_services": ["smtp", "twilio", "slack", "google_sheets", "google_docs", "google_calendar"],
             "highlights": [
                 "10'000'000 Tokens/Monat",
-                "400'000 Tokens/Tag",
+                "25 GB Speicher",
                 "200 Anfragen/Stunde",
                 "Alle Integrationen",
                 "Dedizierter Support",
@@ -130,6 +136,7 @@ async def seed_plans(db: AsyncSession) -> None:
         plan.daily_token_limit = p["daily_token_limit"]
         plan.requests_per_hour = p["requests_per_hour"]
         plan.token_overage_chf_per_1k = p["token_overage_chf_per_1k"]
+        plan.storage_limit_bytes = p["storage_limit_bytes"]
         plan.sort_order = p["sort_order"]
         plan.features = p["features"]
     await db.commit()

@@ -20,6 +20,7 @@ class SubscriptionPlan(Base):
     daily_token_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Tokens pro Tag (0 = kein Limit)
     requests_per_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)  # Max Anfragen pro Stunde
     token_overage_chf_per_1k: Mapped[float] = mapped_column(Numeric(8, 4), default=0.002)
+    storage_limit_bytes: Mapped[int] = mapped_column(Integer, default=524_288_000)  # 500 MB default
     stripe_price_id_monthly: Mapped[str | None] = mapped_column(String(100), nullable=True)
     stripe_price_id_yearly: Mapped[str | None] = mapped_column(String(100), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
@@ -72,6 +73,11 @@ class Customer(Base):
     tokens_used_this_period: Mapped[int] = mapped_column(Integer, default=0)
     tos_accepted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     memory_consent: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Speicher
+    storage_used_bytes: Mapped[int] = mapped_column(Integer, default=0)           # aktuell belegter Speicher
+    storage_limit_bytes: Mapped[int] = mapped_column(Integer, default=524_288_000) # Limit (default 500 MB)
+    storage_extra_bytes: Mapped[int] = mapped_column(Integer, default=0)           # zusätzlich gekaufter Speicher
 
     # Wallet — Prepaid-Guthaben (Token-Overage + externe Zahlungen)
     token_balance_chf: Mapped[float] = mapped_column(Numeric(10, 4), default=0.0)   # alias: wallet_balance_chf

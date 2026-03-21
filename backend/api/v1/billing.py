@@ -439,6 +439,10 @@ class WalletStatusOut(BaseModel):
     auto_topup_threshold_chf: float
     auto_topup_amount_chf: float
     has_saved_card: bool
+    # Storage
+    storage_used_bytes: int
+    storage_limit_bytes: int
+    storage_extra_bytes: int
 
 
 class WalletSettingsIn(BaseModel):
@@ -467,7 +471,7 @@ class AdminCreditIn(BaseModel):
 async def get_wallet(
     customer: Customer = Depends(get_current_user),
 ):
-    """Wallet-Status: Guthaben, Limits, Auto-Topup."""
+    """Wallet-Status: Guthaben, Limits, Auto-Topup, Speicher."""
     monthly_limit = float(customer.wallet_monthly_limit_chf or 100)
     monthly_spent = float(customer.wallet_monthly_spent_chf or 0)
     return WalletStatusOut(
@@ -480,6 +484,9 @@ async def get_wallet(
         auto_topup_threshold_chf=float(customer.auto_topup_threshold_chf or 5),
         auto_topup_amount_chf=float(customer.auto_topup_amount_chf or 20),
         has_saved_card=bool(customer.stripe_payment_method_id),
+        storage_used_bytes=customer.storage_used_bytes or 0,
+        storage_limit_bytes=customer.storage_limit_bytes or 524_288_000,
+        storage_extra_bytes=customer.storage_extra_bytes or 0,
     )
 
 
@@ -515,6 +522,9 @@ async def update_wallet_settings(
         auto_topup_threshold_chf=float(customer.auto_topup_threshold_chf or 5),
         auto_topup_amount_chf=float(customer.auto_topup_amount_chf or 20),
         has_saved_card=bool(customer.stripe_payment_method_id),
+        storage_used_bytes=customer.storage_used_bytes or 0,
+        storage_limit_bytes=customer.storage_limit_bytes or 524_288_000,
+        storage_extra_bytes=customer.storage_extra_bytes or 0,
     )
 
 
@@ -550,6 +560,78 @@ async def wallet_topup_bank(
     )
 
 
+# ── Speicher Add-ons ──────────────────────────────────────────────────────────
+
+_GB = 1024 * 1024 * 1024
+
+STORAGE_ADDONS = [
+    {"key": "10gb",  "label": "10 GB",  "bytes": 10 * _GB,  "price_chf": 1.90,  "description": "+10 GB Zusatzspeicher"},
+    {"key": "50gb",  "label": "50 GB",  "bytes": 50 * _GB,  "price_chf": 6.90,  "description": "+50 GB Zusatzspeicher"},
+    {"key": "500gb", "label": "500 GB", "bytes": 500 * _GB, "price_chf": 39.00, "description": "+500 GB Zusatzspeicher"},
+]
+
+
+class StorageAddonIn(BaseModel):
+    addon_key: str   # "10gb" | "50gb" | "500gb"
+
+
+@router.get("/storage/addons")
+async def list_storage_addons():
+    """Verfügbare Speicher Add-ons."""
+    return STORAGE_ADDONS
+
+
+@router.post("/storage/addon")
+async def purchase_storage_addon(
+    data: StorageAddonIn,
+    customer: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Speicher Add-on kaufen — wird vom Wallet-Guthaben abgezogen.
+    Nach dem Kauf wird storage_extra_bytes dauerhaft erhöht.
+    """
+    from decimal import Decimal
+    addon = next((a for a in STORAGE_ADDONS if a["key"] == data.addon_key), None)
+    if not addon:
+        raise HTTPException(status_code=400, detail="Unbekanntes Add-on.")
+
+    price = Decimal(str(addon["price_chf"]))
+    balance = Decimal(str(float(customer.token_balance_chf or 0)))
+    if balance < price:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Zu wenig Guthaben. Benötigt: CHF {addon['price_chf']:.2f}, Verfügbar: CHF {float(balance):.2f}. Bitte zuerst Wallet aufladen.",
+        )
+
+    customer.token_balance_chf = balance - price
+    customer.storage_extra_bytes = (customer.storage_extra_bytes or 0) + addon["bytes"]
+
+    net, vat = calc_vat(addon["price_chf"])
+    inv_no = await next_invoice_number(db)
+    db.add(Payment(
+        invoice_number=inv_no,
+        customer_id=str(customer.id),
+        amount_chf=addon["price_chf"],
+        vat_chf=vat,
+        amount_net_chf=net,
+        description=addon["description"],
+        payment_type="storage_addon",
+        status="succeeded",
+        paid_at=datetime.utcnow(),
+    ))
+    await db.commit()
+    await db.refresh(customer)
+    _log.info("Storage Add-on: %s → Kunde %s (+%d bytes)", addon["key"], customer.id, addon["bytes"])
+    return {
+        "addon": addon["key"],
+        "bytes_added": addon["bytes"],
+        "storage_extra_bytes": customer.storage_extra_bytes,
+        "new_balance_chf": float(customer.token_balance_chf),
+        "invoice_number": inv_no,
+    }
+
+
 # ── Admin: Wallet-Gutschrift ───────────────────────────────────────────────────
 
 @router.get("/admin/wallet/{customer_id}", response_model=WalletStatusOut)
@@ -575,6 +657,9 @@ async def admin_get_wallet(
         auto_topup_threshold_chf=float(customer.auto_topup_threshold_chf or 5),
         auto_topup_amount_chf=float(customer.auto_topup_amount_chf or 20),
         has_saved_card=bool(customer.stripe_payment_method_id),
+        storage_used_bytes=customer.storage_used_bytes or 0,
+        storage_limit_bytes=customer.storage_limit_bytes or 524_288_000,
+        storage_extra_bytes=customer.storage_extra_bytes or 0,
     )
 
 

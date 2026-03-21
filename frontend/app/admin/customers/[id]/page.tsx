@@ -422,6 +422,15 @@ interface WalletStatus {
   auto_topup_threshold_chf: number;
   auto_topup_amount_chf: number;
   has_saved_card: boolean;
+  storage_used_bytes: number;
+  storage_limit_bytes: number;
+  storage_extra_bytes: number;
+}
+
+function fmtBytes(b: number) {
+  if (b >= 1024 * 1024 * 1024) return `${(b / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  if (b >= 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(0)} MB`;
+  return `${(b / 1024).toFixed(0)} KB`;
 }
 
 function WalletTab({ customerId }: { customerId: string }) {
@@ -516,6 +525,35 @@ function WalletTab({ customerId }: { customerId: string }) {
               {wallet.has_saved_card ? " · Karte gespeichert" : " · ⚠ keine Karte"}
             </span>
           )}
+        </p>
+      </div>
+
+      {/* Speicher */}
+      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-300">Speicher</h3>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-400">Belegt</span>
+          <span className="text-gray-300 font-mono">
+            {fmtBytes(wallet.storage_used_bytes)} / {fmtBytes(wallet.storage_limit_bytes + wallet.storage_extra_bytes)}
+            {wallet.storage_extra_bytes > 0 && (
+              <span className="ml-2 text-xs text-yellow-400/80">(+{fmtBytes(wallet.storage_extra_bytes)} Add-on)</span>
+            )}
+          </span>
+        </div>
+        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+          {(() => {
+            const total = wallet.storage_limit_bytes + wallet.storage_extra_bytes;
+            const pct = total > 0 ? Math.min(100, (wallet.storage_used_bytes / total) * 100) : 0;
+            return (
+              <div
+                className={`h-full rounded-full transition-all ${pct > 90 ? "bg-red-500" : pct > 70 ? "bg-orange-500" : "bg-blue-500"}`}
+                style={{ width: `${pct}%` }}
+              />
+            );
+          })()}
+        </div>
+        <p className="text-xs text-gray-500">
+          Plan-Limit: {fmtBytes(wallet.storage_limit_bytes)} · Add-on: {fmtBytes(wallet.storage_extra_bytes)} · Gesamt: {fmtBytes(wallet.storage_limit_bytes + wallet.storage_extra_bytes)}
         </p>
       </div>
 

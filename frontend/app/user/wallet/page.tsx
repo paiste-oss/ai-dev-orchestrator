@@ -15,6 +15,17 @@ interface WalletStatus {
   auto_topup_threshold_chf: number;
   auto_topup_amount_chf: number;
   has_saved_card: boolean;
+  storage_used_bytes: number;
+  storage_limit_bytes: number;
+  storage_extra_bytes: number;
+}
+
+interface StorageAddon {
+  key: string;
+  label: string;
+  bytes: number;
+  price_chf: number;
+  description: string;
 }
 
 interface Invoice {
@@ -38,6 +49,12 @@ interface BankTransfer {
 
 function chf(n: number) {
   return new Intl.NumberFormat("de-CH", { style: "currency", currency: "CHF" }).format(n);
+}
+
+function fmtBytes(b: number) {
+  if (b >= 1024 * 1024 * 1024) return `${(b / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  if (b >= 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(0)} MB`;
+  return `${(b / 1024).toFixed(0)} KB`;
 }
 
 function ProgressBar({ value, max, color }: { value: number; max: number; color: string }) {
@@ -76,6 +93,11 @@ export default function WalletPage() {
 
   const [copied, setCopied] = useState("");
 
+  // Storage add-ons
+  const [addons, setAddons] = useState<StorageAddon[]>([]);
+  const [addonBuying, setAddonBuying] = useState<string | null>(null);
+  const [addonMsg, setAddonMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
   useEffect(() => {
     setMounted(true);
     if (!getSession()) { router.replace("/login"); return; }
@@ -87,9 +109,10 @@ export default function WalletPage() {
   async function load() {
     setLoading(true);
     try {
-      const [wRes, iRes] = await Promise.all([
+      const [wRes, iRes, aRes] = await Promise.all([
         apiFetch(`${BACKEND_URL}/v1/billing/wallet`),
         apiFetch(`${BACKEND_URL}/v1/billing/invoices`),
+        apiFetch(`${BACKEND_URL}/v1/billing/storage/addons`),
       ]);
       if (wRes.ok) {
         const w: WalletStatus = await wRes.json();
@@ -103,7 +126,26 @@ export default function WalletPage() {
         });
       }
       if (iRes.ok) setInvoices(await iRes.json());
+      if (aRes.ok) setAddons(await aRes.json());
     } finally { setLoading(false); }
+  }
+
+  async function buyAddon(key: string) {
+    setAddonMsg(null);
+    setAddonBuying(key);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/billing/storage/addon`, {
+        method: "POST",
+        body: JSON.stringify({ addon_key: key }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAddonMsg({ text: data.detail || "Fehler", ok: false });
+      } else {
+        setAddonMsg({ text: `${data.addon} hinzugefügt ✓ · Neues Guthaben: CHF ${data.new_balance_chf.toFixed(2)}`, ok: true });
+        await load();
+      }
+    } finally { setAddonBuying(null); }
   }
 
   async function doStripeTopup() {
@@ -349,6 +391,62 @@ export default function WalletPage() {
                 )}
               </div>
             )}
+
+            {/* ── Speicher ── */}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-4">
+              <h2 className="font-semibold text-white">Speicher</h2>
+
+              {/* Usage bar */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>Belegt</span>
+                  <span>
+                    {fmtBytes(wallet.storage_used_bytes)} / {fmtBytes(wallet.storage_limit_bytes + wallet.storage_extra_bytes)}
+                    {wallet.storage_extra_bytes > 0 && (
+                      <span className="ml-1 text-yellow-400/70">(+{fmtBytes(wallet.storage_extra_bytes)} Add-on)</span>
+                    )}
+                  </span>
+                </div>
+                <ProgressBar
+                  value={wallet.storage_used_bytes}
+                  max={wallet.storage_limit_bytes + wallet.storage_extra_bytes}
+                  color={
+                    wallet.storage_used_bytes / (wallet.storage_limit_bytes + wallet.storage_extra_bytes) > 0.9
+                      ? "bg-red-500"
+                      : wallet.storage_used_bytes / (wallet.storage_limit_bytes + wallet.storage_extra_bytes) > 0.7
+                        ? "bg-orange-500"
+                        : "bg-blue-500"
+                  }
+                />
+              </div>
+
+              {/* Add-on options */}
+              {addons.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-500">Zusatzspeicher kaufen (einmalig vom Guthaben):</p>
+                  {addonMsg && (
+                    <p className={`text-xs px-3 py-2 rounded-xl border ${addonMsg.ok ? "bg-green-950/30 border-green-800/40 text-green-400" : "bg-red-950/30 border-red-900/40 text-red-400"}`}>
+                      {addonMsg.text}
+                    </p>
+                  )}
+                  <div className="grid grid-cols-3 gap-2">
+                    {addons.map(a => (
+                      <button
+                        key={a.key}
+                        onClick={() => buyAddon(a.key)}
+                        disabled={addonBuying === a.key}
+                        className="flex flex-col items-center gap-1 p-3 rounded-xl border border-gray-700 bg-gray-800 hover:border-blue-600/50 hover:bg-blue-950/20 transition-colors disabled:opacity-50"
+                      >
+                        <span className="text-base font-bold text-blue-300">+{a.label}</span>
+                        <span className="text-xs font-semibold text-white">{chf(a.price_chf)}</span>
+                        <span className="text-xs text-gray-500">{addonBuying === a.key ? "Kaufe…" : "Sofort"}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-600">Speicher wird sofort vom Wallet-Guthaben abgezogen und dauerhaft hinzugefügt.</p>
+                </div>
+              )}
+            </div>
 
             {/* ── Transaktionshistorie ── */}
             {invoices.length > 0 && (
