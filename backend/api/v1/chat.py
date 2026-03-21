@@ -194,6 +194,21 @@ async def send_message(
         caps_text = "\n".join(f"- {c}" for c in caps)
         system_parts.append(f"\nDeine Fähigkeiten (aktive Agenten):\n{caps_text}")
 
+    # Aktive Tools aus dem Uhrwerk — Baddi muss wissen was es wirklich kann
+    from services.tool_registry import TOOL_CATALOG
+    _TOOL_DESCRIPTIONS = {
+        "sbb_transport":    "Echtzeit-Fahrpläne, Abfahrtstafeln und Verbindungssuche im Schweizer ÖV (SBB/Bus/Tram)",
+        "web_fetch":        "Webseiten abrufen und vollständig lesen — einfach eine URL nennen",
+        "web_search":       "Im Internet nach aktuellen Informationen, Nachrichten und Preisen suchen (Exa)",
+        "image_generation": "Echte Bilder generieren und zeichnen mit DALL-E 3 — du kannst wirklich Bilder erstellen!",
+    }
+    active_tools = [_TOOL_DESCRIPTIONS[k] for k in _TOOL_DESCRIPTIONS if k in TOOL_CATALOG]
+    if active_tools:
+        tools_text = "\n".join(f"- {t}" for t in active_tools)
+        system_parts.append(
+            f"\nDEINE AKTIVEN UHRWERK-TOOLS (diese Fähigkeiten hast du wirklich — behaupte nie das Gegenteil):\n{tools_text}"
+        )
+
     if relevant:
         facts = "\n".join(f"- {m}" for m in relevant)
         system_parts.append(f"\nWas du über {first_name} weißt:\n{facts}")
