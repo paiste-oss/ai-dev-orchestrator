@@ -33,9 +33,13 @@ async def run_buddy_chat(
     tool_keys: list[str],
     model: str = "claude-sonnet-4-6",
     max_tool_rounds: int = 5,
+    history: list[dict] | None = None,
 ) -> dict[str, Any]:
     """
     Führt einen Chat-Turn mit Tool Use durch.
+
+    Args:
+        history: Bisheriger Gesprächsverlauf (ohne aktuelle Nachricht)
 
     Returns:
         {"output": str, "model_used": str, "tool_calls": list}
@@ -43,7 +47,8 @@ async def run_buddy_chat(
     client = _get_client()
     tool_defs = get_tool_defs(tool_keys)
 
-    messages = [{"role": "user", "content": message}]
+    messages = list(history) if history else []
+    messages.append({"role": "user", "content": message})
     tool_calls_log = []
 
     for _ in range(max_tool_rounds):

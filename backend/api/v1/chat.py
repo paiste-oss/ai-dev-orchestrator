@@ -223,7 +223,8 @@ async def send_message(
         )
 
     # ── 7. Uhrwerk aufrufen ───────────────────────────────────────────────────
-    messages = [{"role": m.role, "content": m.content} for m in history[-_CONTEXT_WINDOW:]]
+    prior_messages = [{"role": m.role, "content": m.content} for m in history[-_CONTEXT_WINDOW:]]
+    messages = prior_messages + []  # wird unten mit aktuellem Turn ergänzt
 
     # Bild-Anhänge → Claude Vision Content-Blocks
     if req.images:
@@ -239,9 +240,9 @@ async def send_message(
             })
         if req.message.strip():
             user_content.append({"type": "text", "text": req.message})
-        messages.append({"role": "user", "content": user_content})
+        messages = prior_messages + [{"role": "user", "content": user_content}]
     else:
-        messages.append({"role": "user", "content": req.message})
+        messages = prior_messages + [{"role": "user", "content": req.message}]
 
     provider = "claude"
     # Vision-Anfragen → Sonnet für bessere Bild-Analyse
@@ -272,6 +273,7 @@ async def send_message(
                     buddy_name="Baddi",
                     system_prompt=tool_system_prompt,
                     tool_keys=[tool_key],
+                    history=prior_messages,
                 )
                 candidate = uhrwerk_result["output"]
                 model_name = uhrwerk_result.get("model_used", model_name)
