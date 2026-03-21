@@ -37,10 +37,18 @@ const ALL_PAGES: PageEntry[] = [
   },
   {
     path: "/register",
-    label: "Kundenregistrierung",
+    label: "Registriere mich",
     icon: "📝",
     role: "public",
-    description: "Einheitliches Registrierungsformular — Baddi wird automatisch angelegt",
+    description: "Registrierungsformular mit Name, Geburtsdatum, E-Mail, Passwort & Einwilligungen",
+    group: "Public",
+  },
+  {
+    path: "/register/plan",
+    label: "Plan-Auswahl",
+    icon: "💳",
+    role: "public",
+    description: "Abo-Auswahl nach Registrierung: Free, Basis, Komfort, Premium — Free direkt zu /chat, sonst Stripe",
     group: "Public",
   },
 
