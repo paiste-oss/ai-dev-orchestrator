@@ -18,8 +18,8 @@ class Settings(BaseSettings):
     # Ollama
     ollama_base_url: str
     ollama_router_model: str = "phi3"
-    ollama_chat_model: str = "mistral"
-    ollama_code_model: str = "llama3.2"
+    ollama_chat_model: str = "gemma3:12b"
+    ollama_code_model: str = "gemma3:12b"
 
     # Anthropic
     anthropic_api_key: str = ""
