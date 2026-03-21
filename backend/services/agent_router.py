@@ -124,7 +124,8 @@ _EMAIL_KEYWORDS = re.compile(
 
 _STOCK_KEYWORDS = re.compile(
     r"\b(aktie|aktien|aktienkurs|börsenkurs|kurs.*aktie|aktie.*kurs|"
-    r"börse|börsenpreis|börsenstand|aktienprei[s]|"
+    r"suche.*aktie|aktie.*suche|"
+    r"börse|börsenkotiert|börsennotiert|börsenpreis|börsenstand|aktienprei[s]|"
     r"ticker|symbol.*aktie|aktie.*symbol|"
     r"apple.*kurs|tesla.*kurs|nestle.*kurs|novartis.*kurs|roche.*kurs|abb.*kurs|"
     r"kurs.*apple|kurs.*tesla|kurs.*nestle|kurs.*novartis|kurs.*roche|"
@@ -263,6 +264,13 @@ def route(message: str, customer_id: str | None = None) -> RoutingResult:
             tool_keys=[],
         )
 
+    elif _STOCK_KEYWORDS.search(msg):
+        base_result = RoutingResult(
+            intent="stock_prices",
+            needs_tools=True,
+            tool_keys=["stock_prices"],
+        )
+
     elif _WEB_FETCH_KEYWORDS.search(message):  # Original-Case für URL-Erkennung
         base_result = RoutingResult(
             intent="web_fetch",
@@ -283,13 +291,6 @@ def route(message: str, customer_id: str | None = None) -> RoutingResult:
             needs_tools=False,
             tool_keys=[],
             capability_gap=True,
-        )
-
-    elif _STOCK_KEYWORDS.search(msg):
-        base_result = RoutingResult(
-            intent="stock_prices",
-            needs_tools=True,
-            tool_keys=["stock_prices"],
         )
 
     elif _CALENDAR_KEYWORDS.search(msg):
