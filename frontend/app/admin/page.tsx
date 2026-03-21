@@ -481,14 +481,8 @@ export default function AdminDashboard() {
             </div>
 
             {/* ── Footer ── */}
-            <div className="flex items-center justify-between pt-4 border-t border-white/5 text-xs text-gray-700">
+            <div className="pt-4 border-t border-white/5 text-xs text-gray-700">
               <span>Baddi Admin · {new Date().getFullYear()}</span>
-              <button
-                onClick={() => window.open(API_ROUTES.apiDocs, "_blank")}
-                className="hover:text-gray-400 transition-colors"
-              >
-                API Docs ↗
-              </button>
             </div>
 
           </div>

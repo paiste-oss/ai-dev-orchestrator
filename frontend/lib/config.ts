@@ -21,6 +21,5 @@ export const API_ROUTES = {
   customerLookup:    (email: string) => `${BACKEND_URL}/v1/customers/lookup?email=${encodeURIComponent(email)}`,
   customers:         `${BACKEND_URL}/v1/customers`,
   documents:         `${BACKEND_URL}/v1/documents`,
-  apiDocs:           `${BACKEND_URL}/docs`,
   metabase:          METABASE_URL,
 } as const;
