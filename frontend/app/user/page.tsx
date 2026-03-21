@@ -92,7 +92,7 @@ export default function UserHub() {
 
   const handleOpen = (uc: typeof USE_CASES[number]) => {
     if (uc.id === "funktion-chat") {
-      router.push(`/chat/${uc.id}`);
+      router.push("/chat");
     } else {
       router.push(`/user/${uc.id}`);
     }

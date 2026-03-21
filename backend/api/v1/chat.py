@@ -17,7 +17,6 @@ Flow pro Request:
   11. Memory-Extraktion im Hintergrund
 """
 import json
-import uuid as uuid_mod
 from datetime import datetime
 
 import redis as redis_lib
@@ -29,7 +28,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.config import settings
 from core.database import get_db
 from core.dependencies import get_current_user
-from models.buddy import AiBuddy
 from models.chat import ChatMessage, MemoryItem
 from models.customer import Customer
 from services.llm_gateway import chat_with_claude, chat_with_gemini, chat_with_openai
@@ -85,13 +83,13 @@ def _push_short_term_memory(customer_id: str, user_msg: str, assistant_msg: str)
     r.expire(key, 86400)  # 24h TTL
 
 
-def _load_baddi_config(usecase_id: str) -> dict:
-    """Lädt Baddi-Konfiguration (System-Prompt + Agenten) aus Redis."""
+def _load_global_baddi_config() -> dict:
+    """Lädt die globale Baddi-Konfiguration aus Redis (admin-konfigurierbar)."""
     try:
-        raw = _get_redis().get(f"baddi:config:{usecase_id}")
+        raw = _get_redis().get("baddi:config")
         return json.loads(raw) if raw else {}
     except Exception as e:
-        _log.warning("Baddi-Config konnte nicht geladen werden (%s): %s", usecase_id, e)
+        _log.warning("Globale Baddi-Config konnte nicht geladen werden: %s", e)
         return {}
 
 
@@ -99,7 +97,6 @@ def _load_baddi_config(usecase_id: str) -> dict:
 
 class ChatRequest(BaseModel):
     message: str
-    buddy_id: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -144,26 +141,8 @@ async def send_message(
     )
     history = list(reversed(result.scalars().all()))
 
-    # 2. Kunden-Baddi laden (1:1) + Konfiguration
-    buddy: AiBuddy | None = None
-    baddi_config: dict = {}
-    if req.buddy_id:
-        try:
-            buddy = await db.get(AiBuddy, uuid_mod.UUID(req.buddy_id))
-        except Exception:
-            pass
-    if buddy is None:
-        r2 = await db.execute(
-            select(AiBuddy)
-            .where(AiBuddy.customer_id == customer.id, AiBuddy.is_active == True)
-            .limit(1)
-        )
-        buddy = r2.scalar_one_or_none()
-    if buddy:
-        if buddy.usecase_id:
-            baddi_config = _load_baddi_config(buddy.usecase_id)
-        if not baddi_config and buddy.persona_config:
-            baddi_config = buddy.persona_config
+    # 2. Globale Baddi-Konfiguration laden (kein AiBuddy-Körper mehr)
+    baddi_config = _load_global_baddi_config()
 
     # ── 3. ROUTER (zwingend lokal) ────────────────────────────────────────────
     # Jede Nachricht geht zuerst durch den Router.
@@ -215,7 +194,6 @@ async def send_message(
             message=req.message,
             intent=routing.intent,
             customer_id=customer_id,
-            buddy_id=req.buddy_id or (str(buddy.id) if buddy else None),
             db=db,
         )
 
@@ -235,7 +213,7 @@ async def send_message(
             try:
                 uhrwerk_result = await run_buddy_chat(
                     message=req.message,
-                    buddy_name=buddy.name if buddy else "Baddi",
+                    buddy_name="Baddi",
                     system_prompt=system_prompt,
                     tool_keys=[tool_key],
                 )
@@ -315,7 +293,6 @@ async def send_message(
             message=req.message,
             intent=routing.intent,
             customer_id=customer_id,
-            buddy_id=req.buddy_id or (str(buddy.id) if buddy else None),
             db=db,
         )
         # Memory trotzdem extrahieren
@@ -330,7 +307,6 @@ async def send_message(
     # ── 10. Beide Turns persistieren ─────────────────────────────────────────
     user_msg = ChatMessage(
         customer_id=customer_id,
-        buddy_id=req.buddy_id,
         role="user",
         content=req.message,
         provider=provider,
@@ -338,7 +314,6 @@ async def send_message(
     )
     assistant_msg = ChatMessage(
         customer_id=customer_id,
-        buddy_id=req.buddy_id,
         role="assistant",
         content=response_text,
         provider=provider,
@@ -377,7 +352,6 @@ async def _handle_gap(
     message: str,
     intent: str,
     customer_id: str,
-    buddy_id: str | None,
     db: AsyncSession,
 ) -> "ChatResponse":
     """
@@ -398,7 +372,6 @@ async def _handle_gap(
     if should_create_gap(intent, message):
         cap_req = CapabilityRequest(
             customer_id=customer_id,
-            buddy_id=buddy_id,
             original_message=message,
             detected_intent=intent,
             status="pending",
@@ -418,11 +391,11 @@ async def _handle_gap(
         schedule_capability_analysis(str(cap_req.id))
 
     user_msg = ChatMessage(
-        customer_id=customer_id, buddy_id=buddy_id,
+        customer_id=customer_id,
         role="user", content=message, provider="system", model="gap-detection",
     )
     assistant_msg = ChatMessage(
-        customer_id=customer_id, buddy_id=buddy_id,
+        customer_id=customer_id,
         role="assistant", content=gap_response, provider="system", model="gap-detection",
     )
     db.add(user_msg)

@@ -92,6 +92,34 @@ async def update_baddi_config(
     return data
 
 
+_GLOBAL_BADDI_KEY = "baddi:config"
+
+_GLOBAL_BADDI_DEFAULTS = {
+    "system_prompt": (
+        "Du bist Baddi — der persönliche KI-Begleiter deines Kunden. "
+        "Du bist warm, direkt, ehrlich und empathisch. "
+        "Du hilfst bei allem — vom Alltag bis zu komplexen Aufgaben. "
+        "Antworte auf Deutsch, ausser der Kunde schreibt in einer anderen Sprache."
+    ),
+    "agents": [],
+}
+
+
+@router.get("/baddi-global")
+async def get_global_baddi_config(_: Customer = Depends(require_admin)):
+    """Lädt die globale Baddi-Konfiguration (gilt für alle Kunden)."""
+    raw = _redis.get(_GLOBAL_BADDI_KEY)
+    return json.loads(raw) if raw else _GLOBAL_BADDI_DEFAULTS
+
+
+@router.put("/baddi-global")
+async def update_global_baddi_config(body: BaddiConfig, _: Customer = Depends(require_admin)):
+    """Speichert die globale Baddi-Konfiguration."""
+    data = body.model_dump()
+    _redis.set(_GLOBAL_BADDI_KEY, json.dumps(data))
+    return data
+
+
 _UHRWERK_KEY = "uhrwerk:config"
 
 _UHRWERK_DEFAULTS = {

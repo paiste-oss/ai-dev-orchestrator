@@ -7,7 +7,6 @@ from core.database import get_db
 from core.security import hash_password, verify_password, create_access_token
 from core.dependencies import get_current_user
 from models.customer import Customer
-from models.buddy import AiBuddy
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -74,33 +73,6 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     db.add(user)
     await db.commit()
     await db.refresh(user)
-
-    # Persönlichen Baddi immer automatisch erstellen (1:1 mit Kunde)
-    first_name = data.name.split()[0] if data.name else "Dein"
-    default_buddy = AiBuddy(
-        customer_id=user.id,
-        usecase_id=data.usecase_id,   # optional, für Admin-Info
-        name=f"{first_name}s Baddi",
-        segment=data.segment,
-        qdrant_collection=f"buddy_{str(user.id)[:8]}",
-        persona_config={
-            "tone": "warm",
-            "language": "de",
-            "preferred_model": "claude-haiku-4-5-20251001",
-            "fallback_model": "gemini-2.5-flash",
-            "system_prompt_template": (
-                f"Du bist der persönliche KI-Begleiter von {data.name}. "
-                "Du kennst diese Person und ihre Bedürfnisse. "
-                "Du bist direkt, ehrlich, praktisch und empathisch. "
-                "Du hilfst bei allem — von Alltag bis komplexen Aufgaben. "
-                "Antworte auf Deutsch, ausser die Person schreibt in einer anderen Sprache."
-            ),
-            "capabilities": ["conversation"],
-            "agents": [],
-        },
-    )
-    db.add(default_buddy)
-    await db.commit()
 
     token = create_access_token(subject=user.email, role=user.role)
     return TokenResponse(access_token=token, role=user.role, name=user.name, email=user.email)
