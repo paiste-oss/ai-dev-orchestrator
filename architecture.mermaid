@@ -37,24 +37,24 @@ subgraph FE["🖥️  Frontend  (Next.js / Vercel)"]
     end
 
     subgraph FE_USER["Kundenbereich"]
-        FP_CHAT["/chat/[buddyId]\nBaddi-Chat"]
+        FP_CHAT["/chat\nBaddi-Chat (alle Kunden)"]
         FP_BILLING["/user/billing\nAbos & Tokens"]
-        FP_PORTAL["/user/silberperlen\n/bestager / /youngsters…"]
+        FP_WALLET["/user/wallet\nPrepaid-Guthaben"]
+        FP_SETTINGS["/user/settings\nProfil · Sprache · Passwort"]
     end
 
     subgraph FE_ADMIN["Admin-Bereich"]
-        FP_CUST["/admin/customers\n+/[id]"]
+        FP_CUST["/admin/customers\n+/[id] · +/abo-modell"]
         FP_BADDIS["/admin/baddis\n+/[id]"]
         FP_ENTW["/admin/entwicklung\n+/[id]"]
         FP_DEVTOOL["/admin/devtool"]
-        FP_FINANCE["/admin/finanzen"]
+        FP_FINANCE["/admin/finanzen\nkosten · revenue"]
         FP_UHRWERK["/admin/uhrwerk"]
         FP_WF["/admin/workflows"]
         FP_CELERY["/admin/workflows/celery"]
     end
 
     subgraph FE_COMP["Komponenten"]
-        C_CHAT["BaddiChat.tsx"]
         C_AVATAR["BuddyAvatar.tsx\nAvatarCreatorModal.tsx"]
         C_SIDEBAR["AdminSidebar.tsx"]
         C_VOICE["VoiceButton.tsx"]
@@ -72,10 +72,10 @@ VERCEL --- FE
 
 subgraph API["🔌 API  (backend/api/v1/)"]
     direction TB
-    A_AUTH["auth.py\nPOST /login\nPOST /register\nGET /me"]
+    A_AUTH["auth.py\nPOST /login · /register\nGET /me\nPOST /change-password"]
     A_CHAT["chat.py\nPOST /chat/message\nGET /chat/history\nGET /chat/memories"]
-    A_BILD["billing.py\nGET /plans\nPOST /checkout\nPOST /topup\nPOST /webhook"]
-    A_CUST["customers.py\nCRUD /customers/{id}"]
+    A_BILD["billing.py\nGET /plans · /wallet\nPOST /checkout · /topup\nPOST /webhook\nAdmin: /admin/wallet/credit"]
+    A_CUST["customers.py\nCRUD /customers/{id}\nPATCH /customers/me\nDELETE /me/memory-consent"]
     A_BUDDY["buddies.py\nCRUD /buddies\nPATCH /avatar"]
     A_DOC["documents.py\nPOST /upload\nPOST /search"]
     A_ENTW["entwicklung.py\nGET /entwicklung\nPOST /{id}/implement"]
@@ -85,7 +85,6 @@ subgraph API["🔌 API  (backend/api/v1/)"]
     A_FIN["finance.py\nGET /costs\nGET /revenue"]
     A_SET["settings.py\nGET/PUT /baddi/{id}\nGET /uhrwerk"]
     A_CRED["credentials.py\nGET/PUT /credentials"]
-    A_TRANSP["transport.py\nSBB API"]
 end
 
 BACKEND_ENTRY --> API
@@ -102,7 +101,7 @@ subgraph CHAT_FLOW["💬 Chat-Flow  (pro Nachricht)"]
     CF4["4. System-Prompt bauen"]
     CF5["5. ROUTER\nagent_router.py"]
     CF6["6. Router-Gedächtnis\n(Redis: router:learned:{intent})"]
-    CF7["7. Uhrwerk / Tools\n(n8n + Tool Registry)"]
+    CF7["7. Uhrwerk / Tools\n(Tool Registry → direkt)"]
     CF8["8. Bewertung\nassess_response()"]
     CF9["9. LLM-Aufruf\nllm_gateway.py"]
     CF10["10. Persistieren\n(PostgreSQL)"]
@@ -128,9 +127,9 @@ subgraph SVC["⚙️  Services  (backend/services/)"]
     direction LR
 
     subgraph SVC_AI["KI & Routing"]
-        S_ROUTER["agent_router.py\nStage 0 Content Guard\nKeyword → Memory → Tools → Assess"]
+        S_ROUTER["agent_router.py\nStage 0 Content Guard\nKeyword → Memory → Tools → Assess\nIntents: transport · web_fetch\ndocument · email · calendar"]
         S_GW["llm_gateway.py\nClaude → Gemini → OpenAI\nChatResult (text + tokens)"]
-        S_BUDDY["buddy_agent.py\nAnthropic Tool Use\nTool-Loop"]
+        S_BUDDY["buddy_agent.py\nAnthropic Tool Use\nTool-Loop (max 5 Runden)"]
         S_ENTW["entwicklung_engine.py\nCapability-Analyse\nTool-Planung"]
     end
 
@@ -142,11 +141,12 @@ subgraph SVC["⚙️  Services  (backend/services/)"]
     end
 
     subgraph SVC_INT["Integrationen"]
-        S_N8N["n8n_client.py\nWebhook-Trigger"]
+        S_N8N["n8n_client.py\nWebhook-Trigger\n(E-Mail · SMS · Slack · Sheets)"]
+        S_TOOLS["tool_registry.py\nZentraler Tool-Katalog\nsbb_transport · web_fetch"]
         S_SBB["sbb_client.py\nSBB Transport API"]
-        S_TOOLS["tool_registry.py\nTool-Katalog"]
+        S_JINA["jina_client.py\nJina Reader\nr.jina.ai/{url}\nWebseiten → Markdown"]
         S_CRED["credential_service.py\nFernet-Verschlüsselung"]
-        S_BILL["billing_service.py\nStripe Checkout\nWebhook · Quota · VAT"]
+        S_BILL["billing_service.py\nStripe Checkout · Webhook\nWallet · Auto-Topup · VAT"]
         S_FILE["file_parser.py\nPDF · DOCX · XLSX"]
         S_EVT["buddy_event_service.py\nSSE via Redis Pub/Sub"]
     end
@@ -155,8 +155,10 @@ end
 CF5 --> S_ROUTER
 CF9 --> S_GW
 CF3 --> S_MEM
-S_MEM --> S_MVEC
 CF12 -.->|async| TASKS
+S_ROUTER -->|tool_keys| S_TOOLS
+S_TOOLS -->|web_fetch| S_JINA
+S_TOOLS -->|sbb_transport| S_SBB
 
 %% ════════════════════════════════════════════════════════════════
 %% CELERY TASKS
@@ -186,8 +188,8 @@ subgraph DB["🗄️  Datenbanken"]
     direction TB
 
     subgraph PG["PostgreSQL  (ai_postgres :5432)"]
-        PG1["customers\nsubscription_plans"]
-        PG2["ai_buddies\nbuddy_tools\nbuddy_events"]
+        PG1["customers\nsubscription_plans\nwallet (balance · limits · auto-topup)"]
+        PG2["ai_buddies\nbuddy_events"]
         PG3["chat_messages\nmemory_items"]
         PG4["dev_tasks\ncapability_requests"]
         PG5["payments\ninvoice_counter\ncost_entries"]
@@ -218,8 +220,9 @@ subgraph EXT["🌍 Externe Dienste"]
     E_OPENAI["OpenAI\nGPT-4o-mini\n(Fallback 2)"]
     E_OLLAMA["Ollama  (lokal)\nphi3 · mistral\nnomic-embed-text\nMemory + Routing"]
     E_N8N["n8n  (:5678)\nE-Mail · SMS · Slack\nCalendar · Sheets"]
-    E_STRIPE["Stripe\nCheckout · Webhooks\nAbo-Verwaltung · VAT"]
+    E_STRIPE["Stripe\nCheckout · Webhooks\nAbo-Verwaltung · Wallet · VAT"]
     E_SBB["SBB API\nÖV-Auskunft"]
+    E_JINA["Jina Reader\nr.jina.ai\nWebseiten → Markdown\n(kostenlos · kein Key)"]
     E_RPM["Ready Player Me\nAvatar-Creator"]
     E_INFISICAL["Infisical  (:8080)\nSecrets Manager\nalle Env-Vars"]
     E_METABASE["Metabase  (:3001)\nBI-Dashboard"]
@@ -235,6 +238,7 @@ S_VDOC --> E_OLLAMA
 S_N8N --> E_N8N
 S_BILL --> E_STRIPE
 S_SBB --> E_SBB
+S_JINA --> E_JINA
 A_BILD --> E_STRIPE
 E_N8N --> E_BREVO
 
@@ -266,7 +270,7 @@ E_INFISICAL -.->|injects secrets| BACKEND_ENTRY
 %% ENTWICKLUNG & DEPLOYMENT
 %% ════════════════════════════════════════════════════════════════
 
-subgraph DEV["🛠️  Dev-Pipeline"]
+subgraph DEV["🛠️  Dev-Pipeline (Selbstentwickelndes Uhrwerk)"]
     D_CAPGAP["CapabilityRequest\nKunde meldet Bedarf"]
     D_ENTW["entwicklung_engine.py\nAnalyse + Planung"]
     D_DEVTASK["DevTask Queue\n(PostgreSQL)"]
@@ -280,6 +284,21 @@ A_ENTW --> DEV
 T_DEV --> D_CLAUDE
 
 %% ════════════════════════════════════════════════════════════════
+%% BEZAHLMODELL / WALLET
+%% ════════════════════════════════════════════════════════════════
+
+subgraph BILLING["💳 Bezahlmodell"]
+    direction LR
+    B_ABO["Abo (Stripe)\nPersonal · Intensiv · Premium\nMonatlich / Jährlich\n1 Baddi · Token-Limits"]
+    B_WALLET["Prepaid-Wallet\ntoken_balance_chf\nMonats- & Tx-Limit\nAuto-Topup (Karte)"]
+    B_BANK["Banküberweisung\nBAD-{6CHAR}-{MMDDHHMM}\nAdmin bestätigt manuell"]
+    B_OVERAGE["Token-Overage\nCHF/1k Tokens\nnach Inklusiv-Kontingent"]
+end
+
+A_BILD --> BILLING
+S_BILL --> BILLING
+
+%% ════════════════════════════════════════════════════════════════
 %% STYLING
 %% ════════════════════════════════════════════════════════════════
 
@@ -290,11 +309,13 @@ classDef database fill:#3b1f1f,stroke:#ef4444,color:#fca5a5
 classDef external fill:#1f2d1f,stroke:#84cc16,color:#bef264
 classDef task fill:#1a2a3a,stroke:#38bdf8,color:#7dd3fc
 classDef infra fill:#2a2a1a,stroke:#eab308,color:#fde047
+classDef billing fill:#2a1a2a,stroke:#ec4899,color:#f9a8d4
 
-class FE_AUTH,FE_USER,FE_ADMIN,FE_COMP,FP_LOGIN,FP_REG,FP_CHAT,FP_BILLING,FP_PORTAL,FP_CUST,FP_BADDIS,FP_ENTW,FP_DEVTOOL,FP_FINANCE,FP_UHRWERK,FP_WF,FP_CELERY frontend
-class BACKEND_ENTRY,API,A_AUTH,A_CHAT,A_BILD,A_CUST,A_BUDDY,A_DOC,A_ENTW,A_DEV,A_EVT,A_WF,A_FIN,A_SET,A_CRED,A_TRANSP backend
-class SVC,SVC_AI,SVC_MEM,SVC_INT,S_ROUTER,S_GW,S_BUDDY,S_ENTW,S_MEM,S_MVEC,S_VDOC,S_RMEM,S_N8N,S_SBB,S_TOOLS,S_CRED,S_BILL,S_FILE,S_EVT service
+class FE_AUTH,FE_USER,FE_ADMIN,FE_COMP,FP_LOGIN,FP_REG,FP_CHAT,FP_BILLING,FP_WALLET,FP_SETTINGS,FP_CUST,FP_BADDIS,FP_ENTW,FP_DEVTOOL,FP_FINANCE,FP_UHRWERK,FP_WF,FP_CELERY frontend
+class BACKEND_ENTRY,API,A_AUTH,A_CHAT,A_BILD,A_CUST,A_BUDDY,A_DOC,A_ENTW,A_DEV,A_EVT,A_WF,A_FIN,A_SET,A_CRED backend
+class SVC,SVC_AI,SVC_MEM,SVC_INT,S_ROUTER,S_GW,S_BUDDY,S_ENTW,S_MEM,S_MVEC,S_VDOC,S_RMEM,S_N8N,S_SBB,S_JINA,S_TOOLS,S_CRED,S_BILL,S_FILE,S_EVT service
 class DB,PG,PG1,PG2,PG3,PG4,PG5,PG6,REDIS,R1,R2,R3,R4,QDRANT,Q1,Q2 database
-class EXT,E_CLAUDE,E_GEMINI,E_OPENAI,E_OLLAMA,E_N8N,E_STRIPE,E_SBB,E_RPM,E_INFISICAL,E_METABASE,E_BREVO external
+class EXT,E_CLAUDE,E_GEMINI,E_OPENAI,E_OLLAMA,E_N8N,E_STRIPE,E_SBB,E_JINA,E_RPM,E_INFISICAL,E_METABASE,E_BREVO external
 class TASKS,T_MM,T_DEV,T_SUM,T_REM task
 class CELERY_INFRA,CWORKER,CBEAT,CF,VERCEL infra
+class BILLING,B_ABO,B_WALLET,B_BANK,B_OVERAGE billing
