@@ -69,7 +69,7 @@ export default function SystemPromptsPage() {
       <main className="flex-1 overflow-y-auto">
         <header className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-gray-950/90 backdrop-blur md:hidden">
           <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white">☰</button>
-          <span className="font-bold text-sm text-yellow-400">System-Prompts</span>
+          <span className="font-bold text-sm text-yellow-400">Identität</span>
         </header>
 
         <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -77,9 +77,9 @@ export default function SystemPromptsPage() {
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-white">System-Prompts</h1>
+              <h1 className="text-2xl font-bold text-white">Identität</h1>
               <p className="text-gray-400 text-sm mt-0.5">
-                Rollen aller Agenten im Projekt — LLM + System-Prompt = Agent
+                Persönlichkeit, Ton und Werte von Baddi — LLM + Identität = Agent
               </p>
             </div>
             <button
