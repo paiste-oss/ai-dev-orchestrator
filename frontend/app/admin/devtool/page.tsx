@@ -65,9 +65,14 @@ export default function DevTool() {
       const res  = await apiFetch(`${BACKEND_URL}/v1/dev-tasks`);
       const data = await res.json();
       if (!Array.isArray(data)) return;
-      setTasks([...data].sort(
-        (a: Task, b: Task) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      ));
+      const sorted = [...data].sort(
+        (a: Task, b: Task) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      const cutoff = Date.now() - 72 * 60 * 60 * 1000;
+      const filtered = sorted.filter((t: Task, i: number) =>
+        i < 5 || new Date(t.created_at).getTime() >= cutoff
+      );
+      setTasks(filtered.reverse());
     } catch {}
   };
 
