@@ -4,6 +4,12 @@ Claude Code Runner — WSL Host Service
 ======================================
 Nimmt Dev-Tasks aus dem Backend und führt sie mit Claude Code CLI aus.
 
+Memory-System:
+  Nach jeder abgeschlossenen Aufgabe wird eine Zusammenfassung in
+  scripts/dev-orchestrator-memory.md geschrieben. Diese wird beim
+  nächsten Auftrag automatisch als Kontext mitgegeben, sodass Claude
+  weiss was zuvor gemacht wurde.
+
 Kommunikation: Backend HTTP API (172.28.224.1:8000)
 Claude Binary: lokal auf WSL
 
@@ -35,6 +41,76 @@ CLAUDE_BIN = os.environ.get(
     "CLAUDE_BIN",
     "/home/naor/.vscode-server/extensions/anthropic.claude-code-2.1.81-linux-x64/resources/native-binary/claude",
 )
+
+# Memory-Datei: hält die letzten abgeschlossenen Tasks als Kontext
+MEMORY_FILE     = os.path.join(PROJECT_ROOT, "scripts", "dev-orchestrator-memory.md")
+MAX_MEMORY_TASKS = 8   # Wie viele vergangene Tasks als Kontext mitgegeben werden
+
+
+# ── Memory-System ──────────────────────────────────────────────────────────────
+
+def read_memory() -> str:
+    """Liest die gespeicherten Task-Zusammenfassungen."""
+    if not os.path.exists(MEMORY_FILE):
+        return ""
+    try:
+        with open(MEMORY_FILE, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except Exception:
+        return ""
+
+
+def update_memory(title: str, output: str, success: bool) -> None:
+    """
+    Schreibt eine Zusammenfassung der abgeschlossenen Aufgabe in die Memory-Datei.
+    Behält die letzten MAX_MEMORY_TASKS Einträge.
+    """
+    try:
+        existing = read_memory()
+        entries = existing.split("\n---\n") if existing else []
+
+        # Neuen Eintrag erstellen
+        status_icon = "✓" if success else "✗"
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        # Output auf die letzten 600 Zeichen kürzen (nur das Wesentliche)
+        short_output = output.strip()
+        if len(short_output) > 600:
+            short_output = "…" + short_output[-600:]
+
+        new_entry = f"{status_icon} [{ts}] {title}\n{short_output}"
+        entries.append(new_entry)
+
+        # Nur die letzten N Einträge behalten
+        if len(entries) > MAX_MEMORY_TASKS:
+            entries = entries[-MAX_MEMORY_TASKS:]
+
+        with open(MEMORY_FILE, "w", encoding="utf-8") as f:
+            f.write("\n---\n".join(entries))
+
+        log(f"💾 Memory aktualisiert ({len(entries)} Einträge)")
+    except Exception as e:
+        log(f"Memory-Update fehlgeschlagen: {e}")
+
+
+def build_prompt(description: str) -> str:
+    """
+    Kombiniert die aktuelle Task-Beschreibung mit dem Memory-Kontext.
+    So weiss Claude was in vorherigen Aufgaben erledigt wurde.
+    """
+    memory = read_memory()
+    if not memory:
+        return description
+
+    return (
+        "# Kontext vergangener Aufgaben\n"
+        "Die folgenden Aufgaben wurden bereits in diesem Projekt abgeschlossen. "
+        "Nutze sie als Kontext für die aktuelle Aufgabe:\n\n"
+        f"{memory}\n\n"
+        "---\n\n"
+        "# Aktuelle Aufgabe\n"
+        f"{description}"
+    )
 
 
 # ── API-Hilfsfunktionen ────────────────────────────────────────────────────────
@@ -91,12 +167,18 @@ def run_task(task: dict) -> None:
 
     log(f"▶ Task {task_id[:8]} — {title}")
 
+    # Prompt mit Memory-Kontext aufbauen
+    prompt = build_prompt(description)
+    memory_lines = len(read_memory().splitlines()) if read_memory() else 0
+    if memory_lines > 0:
+        log(f"💾 Memory: {memory_lines} Zeilen Kontext mitgegeben")
+
     cmd = [
         CLAUDE_BIN,
         "--print",                         # nicht-interaktiv, Output auf stdout
         "--dangerously-skip-permissions",  # keine Rückfragen bei File/Bash-Ops
         "--output-format", "text",         # plain text Output
-        description,
+        prompt,
     ]
 
     output_lines: list[str] = []
@@ -130,9 +212,11 @@ def run_task(task: dict) -> None:
         if proc.returncode == 0:
             complete_task(task_id, final_output)
             log(f"✓ Task {task_id[:8]} abgeschlossen")
+            update_memory(title, final_output, success=True)
         else:
             fail_task(task_id, final_output, f"Claude exit code {proc.returncode}")
             log(f"✗ Task {task_id[:8]} fehlgeschlagen (exit {proc.returncode})")
+            update_memory(title, final_output, success=False)
 
     except FileNotFoundError:
         error = f"Claude Binary nicht gefunden: {CLAUDE_BIN}"
@@ -142,6 +226,8 @@ def run_task(task: dict) -> None:
         output = "\n".join(output_lines)
         fail_task(task_id, output, str(e))
         log(f"✗ Task {task_id[:8]} Fehler: {e}")
+        if output_lines:
+            update_memory(title, output, success=False)
 
 
 # ── Logging ────────────────────────────────────────────────────────────────────
@@ -158,6 +244,7 @@ def main() -> None:
     log(f"Backend:  {BACKEND_URL}")
     log(f"Projekt:  {PROJECT_ROOT}")
     log(f"Claude:   {CLAUDE_BIN}")
+    log(f"Memory:   {MEMORY_FILE}")
 
     if not os.path.exists(CLAUDE_BIN):
         log(f"FEHLER: Claude Binary nicht gefunden: {CLAUDE_BIN}")
@@ -166,6 +253,14 @@ def main() -> None:
 
     if not RUNNER_SECRET:
         log("WARNUNG: RUNNER_SECRET nicht gesetzt — alle Runner-Requests werden abgelehnt.")
+
+    # Bestehende Memory anzeigen
+    existing_memory = read_memory()
+    if existing_memory:
+        entries = existing_memory.split("\n---\n")
+        log(f"💾 Memory geladen: {len(entries)} vergangene Aufgaben als Kontext verfügbar")
+    else:
+        log("💾 Memory: noch keine vergangenen Aufgaben")
 
     log(f"Polling alle {POLL_INTERVAL}s für neue Tasks...")
 
