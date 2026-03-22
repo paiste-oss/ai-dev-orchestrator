@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { apiFetch, clearSession, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
+import ReactMarkdown from "react-markdown";
 import FileDropZone, { AttachedFile } from "@/components/FileDropZone";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
@@ -1004,7 +1005,21 @@ export default function ChatPage() {
                         </a>
                       </div>
                     </div>
-                  ) : msg.content}
+                  ) : (
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                        ul: ({ children }) => <ul className="list-disc pl-4 mb-1 space-y-0.5">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal pl-4 mb-1 space-y-0.5">{children}</ol>,
+                        li: ({ children }) => <li>{children}</li>,
+                        code: ({ children }) => <code className="bg-black/30 rounded px-1 py-0.5 text-xs font-mono">{children}</code>,
+                        pre: ({ children }) => <pre className="bg-black/30 rounded-lg p-3 overflow-x-auto text-xs font-mono my-1">{children}</pre>,
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  )}
                   {/* DALL-E generated images */}
                   {msg.generatedImages && msg.generatedImages.length > 0 && !msg.structuredData && (
                     <div className="mt-3 flex flex-wrap gap-3">
