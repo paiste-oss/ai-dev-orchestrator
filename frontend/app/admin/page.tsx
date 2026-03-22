@@ -328,7 +328,7 @@ export default function AdminDashboard() {
                 icon="◈"
                 accent="bg-emerald-500"
                 loading={statsLoading}
-                onClick={() => router.push("/admin/customers")}
+                onClick={() => router.push("/admin/buddies")}
               />
               <StatCard
                 label="In Entwicklung"
@@ -374,7 +374,7 @@ export default function AdminDashboard() {
                     icon="◈"
                     label="Baddis"
                     sub="Persönliche KI-Begleiter"
-                    onClick={() => router.push("/admin/customers")}
+                    onClick={() => router.push("/admin/buddies")}
                   />
                   <QuickAction
                     icon="⌥"
@@ -383,10 +383,16 @@ export default function AdminDashboard() {
                     onClick={() => router.push("/admin/devtool")}
                   />
                   <QuickAction
-                    icon="▦"
-                    label="Dokumente"
-                    sub="RAG & Wissensbasis"
-                    onClick={() => router.push("/admin/documents")}
+                    icon="◐"
+                    label="Design"
+                    sub="Erscheinungsbild & Branding"
+                    onClick={() => router.push("/admin/design")}
+                  />
+                  <QuickAction
+                    icon="⚙"
+                    label="Uhrwerk"
+                    sub="Chat-Pipeline & Konfiguration"
+                    onClick={() => router.push("/admin/uhrwerk/system-prompt")}
                   />
                   <QuickAction
                     icon="▤"
