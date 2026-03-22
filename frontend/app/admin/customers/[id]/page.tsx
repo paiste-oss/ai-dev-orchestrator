@@ -2,14 +2,9 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import { getSession, apiFetch } from "@/lib/auth";
 import AdminSidebar from "@/components/AdminSidebar";
-import AvatarCreatorModal from "@/components/AvatarCreatorModal";
-import { USE_CASES } from "@/lib/usecases";
 import { BACKEND_URL } from "@/lib/config";
-
-const BuddyAvatar = dynamic(() => import("@/components/BuddyAvatar"), { ssr: false });
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
 
@@ -32,14 +27,6 @@ interface CustomerDetail {
   language: string | null;
 }
 
-interface BaddiRecord {
-  id: string;
-  usecase_id: string | null;
-  name: string;
-  is_active: boolean;
-  avatar_url: string | null;
-}
-
 interface CustomerStats {
   threads: number;
   messages: number;
@@ -60,7 +47,7 @@ interface ServiceSchema {
   fields: ServiceField[];
 }
 
-type Tab = "profil" | "baddis" | "zugangsdaten" | "verbrauch" | "wallet" | "notizen";
+type Tab = "profil" | "zugangsdaten" | "verbrauch" | "wallet" | "notizen";
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
 
@@ -91,146 +78,6 @@ const inputCls = "w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2
 const readCls = "bg-gray-700/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300";
 
 // ─── Baddis Tab ───────────────────────────────────────────────────────────────
-
-function BaddisTab({ customer }: { customer: CustomerDetail }) {
-  const [buddies, setBuddies] = useState<BaddiRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [avatarCreatorFor, setAvatarCreatorFor] = useState<BaddiRecord | null>(null);
-  const [previewAvatarFor, setPreviewAvatarFor] = useState<string | null>(null);
-  const [savingAvatar, setSavingAvatar] = useState<string | null>(null);
-
-  const loadBuddies = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/buddies/customer/${customer.id}`);
-      if (res.ok) setBuddies(await res.json());
-    } finally {
-      setLoading(false);
-    }
-  }, [customer.id]);
-
-  useEffect(() => { loadBuddies(); }, [loadBuddies]);
-
-  const saveAvatar = async (buddy: BaddiRecord, avatarUrl: string) => {
-    setSavingAvatar(buddy.id);
-    setAvatarCreatorFor(null);
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/buddies/${buddy.id}/avatar`, {
-        method: "PATCH",
-        body: JSON.stringify({ avatar_url: avatarUrl }),
-      });
-      if (res.ok) await loadBuddies();
-    } finally {
-      setSavingAvatar(null);
-    }
-  };
-
-  const removeAvatar = async (buddy: BaddiRecord) => {
-    setSavingAvatar(buddy.id);
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/buddies/${buddy.id}/avatar`, {
-        method: "PATCH",
-        body: JSON.stringify({ avatar_url: null }),
-      });
-      if (res.ok) await loadBuddies();
-    } finally {
-      setSavingAvatar(null);
-    }
-  };
-
-
-  return (
-    <div className="space-y-6">
-
-      {/* Zugewiesene Baddis mit Avatar */}
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-gray-300">{customer.name.split(" ")[0]}s Baddi</h3>
-        {loading ? (
-          <p className="text-sm text-gray-500">Wird geladen…</p>
-        ) : buddies.length === 0 ? (
-          <p className="text-sm text-gray-500">Noch keine Baddis zugewiesen.</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {buddies.map(b => {
-              const uc = USE_CASES.find(u => u.id === b.usecase_id);
-              return (
-                <div
-                  key={b.id}
-                  className={`rounded-xl border overflow-hidden ${uc ? `${uc.bgColor} ${uc.borderColor}` : "bg-gray-700 border-gray-600"}`}
-                >
-                  {/* Avatar Preview */}
-                  {b.avatar_url && previewAvatarFor === b.id ? (
-                    <div className="relative">
-                      <BuddyAvatar avatarUrl={b.avatar_url} height={220} cameraDistance={2.2} />
-                      <button
-                        onClick={() => setPreviewAvatarFor(null)}
-                        className="absolute top-2 right-2 bg-black/50 hover:bg-black/80 text-white text-xs px-2 py-1 rounded-lg transition-colors"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : b.avatar_url ? (
-                    <button
-                      onClick={() => setPreviewAvatarFor(b.id)}
-                      className="w-full bg-gray-900/60 hover:bg-gray-900/80 transition-colors py-3 flex flex-col items-center gap-1"
-                    >
-                      <span className="text-3xl">🧍</span>
-                      <span className="text-xs text-gray-300">Avatar anzeigen</span>
-                    </button>
-                  ) : (
-                    <div className="w-full bg-gray-900/40 py-4 flex flex-col items-center gap-1">
-                      <span className="text-3xl opacity-30">{uc?.icon ?? "🤖"}</span>
-                      <span className="text-xs text-gray-500">Kein Avatar</span>
-                    </div>
-                  )}
-
-                  {/* Info + Aktionen */}
-                  <div className="p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className={`font-semibold text-sm ${uc?.color ?? "text-white"}`}>{b.name}</p>
-                        <p className="font-mono text-xs text-yellow-500">{uc?.baddiD ?? "—"}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setAvatarCreatorFor(b)}
-                        disabled={savingAvatar === b.id}
-                        className="flex-1 text-xs py-1.5 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold transition-colors disabled:opacity-50"
-                      >
-                        {savingAvatar === b.id ? "Speichern…" : b.avatar_url ? "Avatar ändern" : "Avatar erstellen"}
-                      </button>
-                      {b.avatar_url && (
-                        <button
-                          onClick={() => removeAvatar(b)}
-                          disabled={savingAvatar === b.id}
-                          className="text-xs px-3 py-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors disabled:opacity-50"
-                        >
-                          Entfernen
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-
-      {/* Avatar Creator Modal */}
-      {avatarCreatorFor && (
-        <AvatarCreatorModal
-          buddyName={avatarCreatorFor.name}
-          onSave={(url) => saveAvatar(avatarCreatorFor, url)}
-          onClose={() => setAvatarCreatorFor(null)}
-        />
-      )}
-    </div>
-  );
-}
 
 // ─── Zugangsdaten Tab ─────────────────────────────────────────────────────────
 
@@ -1063,7 +910,6 @@ export default function CustomerDetailPage() {
 
   const TABS: { key: Tab; label: string; icon: string }[] = [
     { key: "profil",       label: "Profil",       icon: "👤" },
-    { key: "baddis",       label: "Baddis",       icon: "🤖" },
     { key: "zugangsdaten", label: "Zugangsdaten", icon: "🔑" },
     { key: "verbrauch",    label: "Verbrauch",    icon: "📊" },
     { key: "wallet",       label: "Wallet",       icon: "💳" },
@@ -1257,8 +1103,7 @@ export default function CustomerDetailPage() {
             </div>
           )}
 
-          {tab === "baddis" && <BaddisTab customer={customer} />}
-          {tab === "zugangsdaten" && <ZugangsdatenTab customerId={customer.id} />}
+{tab === "zugangsdaten" && <ZugangsdatenTab customerId={customer.id} />}
           {tab === "verbrauch" && <VerbrauchTab customerId={customer.id} />}
           {tab === "wallet" && <WalletTab customerId={customer.id.toString()} />}
           {tab === "notizen" && <NotizenTab customerId={customer.id.toString()} />}
