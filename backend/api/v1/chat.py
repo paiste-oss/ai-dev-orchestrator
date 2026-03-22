@@ -153,6 +153,10 @@ async def send_message(
     if routing.blocked:
         raise HTTPException(status_code=400, detail="Anfrage abgelehnt.")
 
+    # 3b. Quota-Check — vor dem API-Call
+    from services.billing_service import check_quota
+    await check_quota(customer, db)
+
     # 4. Relevante Memories
     relevant = await select_relevant_context(customer_id, req.message, db)
 

@@ -639,6 +639,19 @@ export default function ChatPage() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: "Unbekannter Fehler" }));
+        if (res.status === 402) {
+          setMessages(prev => [
+            ...prev,
+            {
+              id: `quota-${Date.now()}`,
+              role: "assistant" as const,
+              content: "__QUOTA_EXCEEDED__",
+              structuredData: { message: err.detail } as unknown as Message["structuredData"],
+              created_at: new Date().toISOString(),
+            },
+          ]);
+          return;
+        }
         throw new Error(err.detail ?? "Fehler beim Senden");
       }
 
@@ -933,7 +946,24 @@ export default function ChatPage() {
                       ))}
                     </div>
                   )}
-                  {msg.content}
+                  {/* Quota-exceeded Banner */}
+                  {msg.content === "__QUOTA_EXCEEDED__" ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-2 text-amber-400">
+                        <span className="text-xl">⚠️</span>
+                        <span className="font-semibold text-sm">Kontingent aufgebraucht</span>
+                      </div>
+                      <p className="text-xs text-gray-400 leading-relaxed">
+                        {(msg.structuredData as { message?: string })?.message ?? "Dein Guthaben ist erschöpft."}
+                      </p>
+                      <a
+                        href="/user/billing"
+                        className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-xl transition-colors w-fit"
+                      >
+                        <span>💳</span> Guthaben aufladen
+                      </a>
+                    </div>
+                  ) : msg.content}
                   {/* DALL-E generated images */}
                   {msg.generatedImages && msg.generatedImages.length > 0 && !msg.structuredData && (
                     <div className="mt-3 flex flex-wrap gap-3">

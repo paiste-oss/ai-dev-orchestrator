@@ -461,6 +461,51 @@ async def _on_invoice_failed(invoice: dict, db: AsyncSession) -> None:
 
 # ── Token-Quota ───────────────────────────────────────────────────────────────
 
+async def check_quota(customer: Customer, db: AsyncSession) -> None:
+    """
+    Prüft VOR dem API-Call ob der Kunde noch ein Kontingent hat.
+    Wirft HTTPException 402 wenn sowohl Abo-Kontingent als auch Wallet erschöpft.
+
+    Logik:
+      - Innerhalb Abo-Kontingent → frei
+      - Über Kontingent, aber Wallet > 0 → Overage erlaubt
+      - Über Kontingent UND Wallet leer → 402
+      - Kein Plan + Wallet > 0 → pay-as-you-go erlaubt
+      - Kein Plan + Wallet leer → 402
+    """
+    from fastapi import HTTPException
+
+    plan: SubscriptionPlan | None = None
+    if customer.subscription_plan_id:
+        plan = await db.get(SubscriptionPlan, customer.subscription_plan_id)
+
+    used = customer.tokens_used_this_period or 0
+    included = plan.included_tokens if plan else 0
+    balance = float(customer.token_balance_chf or 0)
+
+    within_quota = included > 0 and used < included
+    has_wallet = balance > 0
+
+    if not within_quota and not has_wallet:
+        if plan:
+            raise HTTPException(
+                status_code=402,
+                detail=(
+                    f"Dein monatliches Kontingent von {included:,} Tokens ist aufgebraucht "
+                    f"und dein Wallet-Guthaben beträgt CHF 0.00. "
+                    "Bitte lade dein Guthaben auf oder warte bis zum nächsten Abrechnungsmonat."
+                ),
+            )
+        else:
+            raise HTTPException(
+                status_code=402,
+                detail=(
+                    "Kein aktives Abo und kein Wallet-Guthaben vorhanden. "
+                    "Bitte wähle ein Abo oder lade dein Guthaben auf."
+                ),
+            )
+
+
 async def check_and_bill_tokens(
     customer: Customer,
     tokens_used: int,
