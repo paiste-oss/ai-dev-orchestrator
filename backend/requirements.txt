@@ -27,3 +27,4 @@ pillow
 pycryptodome
 stripe
 yfinance
+boto3

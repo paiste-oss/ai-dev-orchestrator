@@ -9,6 +9,9 @@ Ablauf:
 
 Wird nur verwendet wenn der Buddy mindestens ein Tool hat.
 Ohne Tools läuft der Chat über route_prompt() (Ollama, kein Tool Use).
+
+Bedrock-Modus: USE_BEDROCK=true → Calls laufen über AWS eu-central-1
+statt direkt zu Anthropic (USA). Daten bleiben in der EU.
 """
 import json
 import anthropic
@@ -16,14 +19,39 @@ from typing import Any
 from core.config import settings
 from services.tool_registry import get_tool_defs, call_tool
 
+# Mapping: Anthropic-Modellname → AWS Bedrock Modell-ID (eu-cross-region)
+_BEDROCK_MODEL_MAP = {
+    "claude-haiku-4-5-20251001":  "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "claude-sonnet-4-6":          "eu.anthropic.claude-sonnet-4-6-20250514-v1:0",
+    "claude-sonnet-4-5":          "eu.anthropic.claude-sonnet-4-5-20251001-v1:0",
+    # Fallback auf bewährte Modelle falls neuere nicht verfügbar
+    "claude-3-5-haiku-20241022":  "eu.anthropic.claude-3-5-haiku-20241022-v1:0",
+    "claude-3-5-sonnet-20241022": "eu.anthropic.claude-3-5-sonnet-20241022-v2:0",
+}
+
 _CLIENT = None
 
 
-def _get_client() -> anthropic.Anthropic:
+def _get_client():
+    """Gibt den passenden Client zurück: Bedrock (EU) oder direkt Anthropic (USA)."""
     global _CLIENT
     if _CLIENT is None:
-        _CLIENT = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        if settings.use_bedrock and settings.aws_access_key_id:
+            _CLIENT = anthropic.AnthropicBedrock(
+                aws_access_key=settings.aws_access_key_id,
+                aws_secret_key=settings.aws_secret_access_key,
+                aws_region=settings.aws_region,
+            )
+        else:
+            _CLIENT = anthropic.Anthropic(api_key=settings.anthropic_api_key)
     return _CLIENT
+
+
+def _resolve_model(model: str) -> str:
+    """Konvertiert Anthropic-Modellnamen zu Bedrock-ID wenn Bedrock aktiv."""
+    if settings.use_bedrock:
+        return _BEDROCK_MODEL_MAP.get(model, model)
+    return model
 
 
 async def run_buddy_chat(
@@ -46,6 +74,7 @@ async def run_buddy_chat(
     """
     client = _get_client()
     tool_defs = get_tool_defs(tool_keys)
+    resolved_model = _resolve_model(model)
 
     messages = list(history) if history else []
     messages.append({"role": "user", "content": message})
@@ -53,7 +82,7 @@ async def run_buddy_chat(
 
     for _ in range(max_tool_rounds):
         kwargs = {
-            "model": model,
+            "model": resolved_model,
             "max_tokens": 2048,
             "system": system_prompt,
             "messages": messages,
