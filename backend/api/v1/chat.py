@@ -195,6 +195,18 @@ async def send_message(
         )
 
     system_parts.append(
+        "\nAKTIONS-BUTTONS: Wenn ein Kunde nach einer dieser Funktionen fragt oder "
+        "darauf hingewiesen werden soll, füge am Ende deiner Antwort einen oder mehrere "
+        "dieser Marker ein — sie werden als klickbare Buttons angezeigt:\n"
+        "[AKTION: Wallet aufladen | /user/wallet]\n"
+        "[AKTION: Abo anpassen | /user/billing]\n"
+        "[AKTION: Einstellungen | /user/settings]\n"
+        "Verwende diese Marker wenn jemand nach Guthaben, Tokens, Abo, Plan, "
+        "Einstellungen, Profil oder Zahlungen fragt. Nur passende Buttons einfügen. "
+        "Diese Marker sind nur für das System — der Kunde sieht nur den Button, nicht den Marker."
+    )
+
+    system_parts.append(
         "\nFEHLENDE FÄHIGKEITEN: Wenn der Kunde etwas möchte, das du aktuell nicht "
         "kannst aber das als digitale Funktion grundsätzlich umsetzbar wäre — "
         "z.B. Links oder Buttons senden, Kalender-Einträge erstellen, E-Mails schreiben, "
@@ -324,7 +336,17 @@ async def send_message(
     if response_text is None:
         raise HTTPException(status_code=502, detail=" | ".join(errors))
 
-    # 7b. Fehlende-Fähigkeit-Marker erkennen und CapabilityRequest erstellen
+    # 7b. Aktions-Buttons aus Marker extrahieren
+    _action_buttons: list[dict] = []
+    if response_text:
+        for m in re.finditer(r"\[AKTION:\s*(.+?)\s*\|\s*(.+?)\]", response_text):
+            _action_buttons.append({"label": m.group(1).strip(), "url": m.group(2).strip()})
+        if _action_buttons:
+            response_text = re.sub(r"\s*\[AKTION:[^\]]+\]", "", response_text).strip()
+            response_type = "action_buttons"
+            structured_data = {"buttons": _action_buttons}
+
+    # 7d. Fehlende-Fähigkeit-Marker erkennen und CapabilityRequest erstellen
     _capability_intent: str | None = None
     if response_text:
         _marker_match = re.search(r"\[FÄHIGKEIT_FEHLT:\s*(.+?)\]", response_text, re.IGNORECASE)

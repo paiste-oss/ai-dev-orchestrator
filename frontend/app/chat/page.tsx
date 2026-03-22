@@ -52,6 +52,10 @@ interface TransportBoardData {
   departures: TransportDeparture[];
 }
 
+interface ActionButtonsData {
+  buttons: { label: string; url: string }[];
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
@@ -59,7 +63,7 @@ interface Message {
   images?: string[];       // object URLs for display (user uploads)
   generatedImages?: string[]; // URLs from DALL-E
   responseType?: string;
-  structuredData?: StockData | StockHistoryData | ImageGalleryData | TransportBoardData;
+  structuredData?: StockData | StockHistoryData | ImageGalleryData | TransportBoardData | ActionButtonsData;
   provider?: string;
   model?: string;
   created_at: string;
@@ -274,6 +278,22 @@ function ImageGalleryCard({ data }: { data: ImageGalleryData }) {
             </p>
           </div>
         </div>
+      ))}
+    </div>
+  );
+}
+
+function ActionButtonsCard({ data }: { data: ActionButtonsData }) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {data.buttons.map((btn, i) => (
+        <a
+          key={i}
+          href={btn.url}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors shadow-md shadow-indigo-900/30"
+        >
+          {btn.label} →
+        </a>
       ))}
     </div>
   );
@@ -1012,6 +1032,9 @@ export default function ChatPage() {
                   )}
                   {msg.responseType === "transport_board" && msg.structuredData && (
                     <TransportBoardCard data={msg.structuredData as TransportBoardData} />
+                  )}
+                  {msg.responseType === "action_buttons" && msg.structuredData && (
+                    <ActionButtonsCard data={msg.structuredData as ActionButtonsData} />
                   )}
                 </div>
               </div>
