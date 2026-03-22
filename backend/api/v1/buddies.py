@@ -23,24 +23,6 @@ class BuddyCreate(BaseModel):
     persona_config: dict = {}
 
 
-class BuddyAdminOut(BaseModel):
-    """Erweitertes Buddy-Modell mit Kunden-Info für Admin-Liste."""
-    id: uuid.UUID
-    name: str
-    customer_id: uuid.UUID
-    customer_name: str
-    customer_email: str
-    usecase_id: Optional[str] = None
-    segment: str
-    is_active: bool
-    avatar_url: Optional[str] = None
-    created_at: datetime
-    last_message_at: Optional[datetime] = None
-    message_count: int = 0
-
-    class Config:
-        from_attributes = True
-
 
 class BuddyOut(BaseModel):
     id: uuid.UUID
@@ -82,67 +64,6 @@ async def list_buddies(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(AiBuddy).where(AiBuddy.is_active == True))
     return result.scalars().all()
 
-
-@router.get("/admin/list", response_model=list[BuddyAdminOut])
-async def admin_list_buddies(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    search: str = Query("", alias="q"),
-    db: AsyncSession = Depends(get_db),
-    _: Customer = Depends(require_admin),
-):
-    """Admin: Alle Baddis mit Kunden-Info — wie die Kunden-Liste."""
-    offset = (page - 1) * page_size
-
-    # Alle aktiven Baddis mit zugehörigen Kunden laden
-    q = (
-        select(AiBuddy, Customer)
-        .join(Customer, AiBuddy.customer_id == Customer.id)
-        .where(AiBuddy.is_active == True)
-    )
-    if search:
-        q = q.where(
-            Customer.name.ilike(f"%{search}%") |
-            Customer.email.ilike(f"%{search}%") |
-            AiBuddy.name.ilike(f"%{search}%")
-        )
-
-    q = q.order_by(AiBuddy.created_at.desc()).offset(offset).limit(page_size)
-    result = await db.execute(q)
-    rows = result.all()
-
-    out = []
-    for buddy, customer in rows:
-        # Letzte Nachricht + Anzahl Nachrichten
-        last_msg_result = await db.execute(
-            select(ChatMessage.created_at)
-            .where(ChatMessage.buddy_id == str(buddy.id))
-            .order_by(ChatMessage.created_at.desc())
-            .limit(1)
-        )
-        last_msg_at = last_msg_result.scalar_one_or_none()
-
-        count_result = await db.execute(
-            select(func.count()).select_from(ChatMessage)
-            .where(ChatMessage.buddy_id == str(buddy.id))
-        )
-        msg_count = count_result.scalar() or 0
-
-        out.append(BuddyAdminOut(
-            id=buddy.id,
-            name=buddy.name,
-            customer_id=customer.id,
-            customer_name=customer.name,
-            customer_email=customer.email,
-            usecase_id=buddy.usecase_id,
-            segment=buddy.segment,
-            is_active=buddy.is_active,
-            avatar_url=buddy.avatar_url,
-            created_at=buddy.created_at,
-            last_message_at=last_msg_at,
-            message_count=msg_count,
-        ))
-    return out
 
 
 @router.get("/customer/{customer_id}", response_model=list[BuddyOut])

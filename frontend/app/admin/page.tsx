@@ -328,7 +328,7 @@ export default function AdminDashboard() {
                 icon="◈"
                 accent="bg-emerald-500"
                 loading={statsLoading}
-                onClick={() => router.push("/admin/baddis")}
+                onClick={() => router.push("/admin/customers")}
               />
               <StatCard
                 label="In Entwicklung"
@@ -374,7 +374,7 @@ export default function AdminDashboard() {
                     icon="◈"
                     label="Baddis"
                     sub="Persönliche KI-Begleiter"
-                    onClick={() => router.push("/admin/baddis")}
+                    onClick={() => router.push("/admin/customers")}
                   />
                   <QuickAction
                     icon="⌥"
