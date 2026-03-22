@@ -110,6 +110,89 @@ async def get_all_system_prompts(_admin: Customer = Depends(require_admin)):
     }
 
 
+_IDENTITY_ANCHOR = (
+    "IDENTITÄT (unveränderlich):\n"
+    "- Du bist Baddi. Nenne dich ausschliesslich 'Baddi'.\n"
+    "- Du sprichst {first_name} natürlich an.\n"
+    "- Du bist warm, direkt, ehrlich und empathisch."
+)
+
+
+@router.get("/assembly")
+async def get_assembly(_admin: Customer = Depends(require_admin)):
+    """Gibt alle Schichten des System-Prompt-Assembly zurück."""
+    from services.tool_registry import TOOL_CATALOG
+
+    base_prompt = _get_prompt(next(a for a in _AGENTS if a["key"] == "baddi"))
+    tool_hints = [v["prompt_hint"] for v in TOOL_CATALOG.values() if v.get("prompt_hint")]
+
+    return {
+        "layers": [
+            {
+                "step": 1,
+                "name": "Basis-Identität",
+                "source": "Identität-Seite (Redis: baddi:config)",
+                "type": "static",
+                "content": base_prompt,
+                "editable": True,
+                "edit_path": "/admin/uhrwerk/system-prompts",
+            },
+            {
+                "step": 2,
+                "name": "Identitäts-Anker",
+                "source": "Fest im Code (chat.py)",
+                "type": "static",
+                "content": _IDENTITY_ANCHOR,
+                "editable": False,
+            },
+            {
+                "step": 3,
+                "name": "Kommunikationsstil",
+                "source": "Memory Manager → Qdrant/PostgreSQL (category=style)",
+                "type": "dynamic",
+                "note": (
+                    "Wird pro Kunde automatisch aus Gesprächen gelernt. "
+                    "Der Memory Manager (gemma3:12b) erkennt Stil-Signale wie "
+                    "'antworte kürzer', 'erkläre technisch' oder 'duze mich'."
+                ),
+                "example": [
+                    "Nutzer bevorzugt kurze, direkte Antworten",
+                    "Nutzer möchte per Du angesprochen werden",
+                    "Nutzer wünscht technische Erklärungen",
+                ],
+                "editable": False,
+                "edit_path": "/admin/chat-flow/memory-manager",
+            },
+            {
+                "step": 4,
+                "name": "Tool-Hinweise",
+                "source": "Tool Registry (services/tool_registry.py)",
+                "type": "static",
+                "content": tool_hints,
+                "editable": False,
+                "edit_path": "/admin/tools",
+            },
+            {
+                "step": 5,
+                "name": "Fakten über den Kunden",
+                "source": "Memory System → Qdrant/PostgreSQL (semantische Suche, category=fact)",
+                "type": "dynamic",
+                "note": (
+                    "Wird pro Kunde und pro Anfrage aus dem Langzeitgedächtnis geladen. "
+                    "Semantische Vektorsuche findet die relevantesten Fakten zur aktuellen Frage."
+                ),
+                "example": [
+                    "Nutzer heisst Christoph und lebt in Bern",
+                    "Hat einen Hund namens Bello",
+                    "Arbeitet als Softwareentwickler",
+                ],
+                "editable": False,
+                "edit_path": "/admin/chat-flow/memory-manager",
+            },
+        ]
+    }
+
+
 class PromptUpdate(BaseModel):
     prompt: str
 

@@ -154,6 +154,9 @@ async def init_db():
             )""",
             "CREATE INDEX IF NOT EXISTS idx_content_guard_logs_customer ON content_guard_logs(customer_id)",
             "CREATE INDEX IF NOT EXISTS idx_content_guard_logs_created ON content_guard_logs(created_at DESC)",
+            # Kunden-Stil: Kommunikationspräferenzen als eigene Memory-Kategorie
+            "ALTER TABLE memory_items ADD COLUMN IF NOT EXISTS category VARCHAR(20) DEFAULT 'fact'",
+            "CREATE INDEX IF NOT EXISTS idx_memory_items_category ON memory_items(customer_id, category)",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

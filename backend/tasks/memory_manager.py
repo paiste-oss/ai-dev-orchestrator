@@ -23,6 +23,26 @@ _log = logging.getLogger(__name__)
 _REDIS_KEY = "chat:recent:{customer_id}"
 _CONFIG_KEY = "memory_manager:config"
 _DEFAULT_MODEL = settings.ollama_chat_model
+_STYLE_PROMPT = (
+    "Du bist ein Kommunikationsstil-Analysator für einen persönlichen KI-Assistenten.\n\n"
+    "Analysiere das Gespräch und erkenne, WIE der Nutzer kommuniziert und was er bevorzugt.\n\n"
+    "Erkenne NUR klare Stil-Signale wie:\n"
+    "- Antworte kürzer / ausführlicher\n"
+    "- Erkläre technisch / einfach / mit Beispielen\n"
+    "- Verwende Aufzählungen / Fließtext\n"
+    "- Sieze / duze mich\n"
+    "- Sprich mich mit Nachnamen / Vornamen an\n"
+    "- Sprich Schweizerdeutsch / Hochdeutsch / Englisch\n"
+    "- Antworte direkter / sanfter\n\n"
+    "Erkenne NICHT:\n"
+    "- Faktenwissen (Name, Beruf, Wohnort — das sind Fakten, keine Stilvorgaben)\n"
+    "- Einmalige thematische Anfragen\n"
+    "- Implizite Präferenzen ohne klares Signal\n"
+    "- Stile die bereits in 'BEREITS BEKANNTE STILVORGABEN' stehen\n\n"
+    "Antworte NUR mit einer JSON-Liste auf Deutsch. Maximal 2 neue Stilvorgaben.\n"
+    'Beispiel: ["Nutzer bevorzugt kurze, direkte Antworten", "Nutzer möchte per Du angesprochen werden"]\n'
+    "Wenn keine NEUEN Stilvorgaben erkennbar: []"
+)
 _DEFAULT_PROMPT = (
     "Du bist ein Memory-Extraktor für einen persönlichen KI-Assistenten.\n\n"
     "Analysiere NUR die USER-Nachrichten und extrahiere dauerhafte, persönliche Fakten über den NUTZER.\n\n"
@@ -109,6 +129,10 @@ def _run(customer_id: str) -> None:
     # Älteste zuerst (Redis LPUSH = neueste zuerst)
     messages = [json.loads(m) for m in reversed(raw_msgs)]
 
+    # Vollständiges Gespräch (User + Assistent) für Stil-Analyse
+    full_conversation = "\n".join(
+        f"{m.get('role', 'user').upper()}: {m['content']}" for m in messages
+    )
     # NUR User-Nachrichten analysieren — Assistent-Antworten enthalten keine User-Fakten
     # und können Nachrichten-Inhalte, Web-Suchergebnisse etc. enthalten.
     user_messages = [m for m in messages if m.get("role") == "user"]
@@ -139,15 +163,37 @@ def _run(customer_id: str) -> None:
     # 5. In Qdrant speichern (Vektoren)
     try:
         from services.memory_vector_store import store_memory_facts
-        store_memory_facts(customer_id, facts)
+        store_memory_facts(customer_id, facts, category="fact")
     except Exception as exc:
         _log.warning("Qdrant store failed: %s", exc)
 
     # 6. In PostgreSQL speichern (MemoryItems — Rückwärtskompatibilität)
     try:
-        _save_to_postgres(customer_id, facts)
+        _save_to_postgres(customer_id, facts, category="fact")
     except Exception as exc:
         _log.warning("PostgreSQL memory store failed: %s", exc)
+
+    # 7. Stil-Signale extrahieren (vollständiges Gespräch inkl. Assistent-Reaktionen)
+    try:
+        from services.memory_vector_store import get_style_memories
+        existing_styles = get_style_memories(customer_id)
+    except Exception:
+        existing_styles = []
+
+    style_signals = _extract_style(full_conversation, model, existing_styles)
+    if style_signals:
+        style_signals = _deduplicate_against_existing(style_signals, existing_styles)
+    if style_signals:
+        _log.info("Extracted %d style signals for customer %s", len(style_signals), customer_id[:8])
+        try:
+            from services.memory_vector_store import store_memory_facts
+            store_memory_facts(customer_id, style_signals, category="style")
+        except Exception as exc:
+            _log.warning("Qdrant style store failed: %s", exc)
+        try:
+            _save_to_postgres(customer_id, style_signals, category="style")
+        except Exception as exc:
+            _log.warning("PostgreSQL style store failed: %s", exc)
 
 
 def _word_overlap(a: str, b: str) -> float:
@@ -171,6 +217,39 @@ def _deduplicate_against_existing(new_facts: list[str], existing_facts: list[str
         if not is_dup:
             result.append(fact)
     return result
+
+
+def _extract_style(conversation: str, model: str, existing_styles: list[str] | None = None) -> list[str]:
+    """Extrahiert Kommunikationsstil-Signale aus dem Gespräch."""
+    user_content = conversation
+    if existing_styles:
+        known = "\n".join(f"- {s}" for s in existing_styles[:20])
+        user_content = (
+            f"BEREITS BEKANNTE STILVORGABEN (diese NICHT nochmals extrahieren):\n{known}\n\n"
+            f"GESPRÄCH:\n{conversation}"
+        )
+    try:
+        resp = httpx.post(
+            f"{settings.ollama_base_url}/api/chat",
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content": _STYLE_PROMPT},
+                    {"role": "user", "content": user_content},
+                ],
+                "stream": False,
+            },
+            timeout=45.0,
+        )
+        resp.raise_for_status()
+        text = resp.json().get("message", {}).get("content", "[]")
+        start, end = text.find("["), text.rfind("]") + 1
+        if start >= 0 and end > start:
+            signals = json.loads(text[start:end])
+            return [s for s in signals if isinstance(s, str) and s.strip()]
+    except Exception as exc:
+        _log.warning("Style extraction failed: %s", exc)
+    return []
 
 
 def _extract_facts(conversation: str, model: str, system_prompt: str, existing_facts: list[str] | None = None) -> list[str]:
@@ -206,13 +285,13 @@ def _extract_facts(conversation: str, model: str, system_prompt: str, existing_f
     return []
 
 
-def _save_to_postgres(customer_id: str, facts: list[str]) -> None:
+def _save_to_postgres(customer_id: str, facts: list[str], category: str = "fact") -> None:
     """Speichert Fakten als MemoryItems in PostgreSQL via asyncio.run()."""
     import asyncio
-    asyncio.run(_save_async(customer_id, facts))
+    asyncio.run(_save_async(customer_id, facts, category))
 
 
-async def _save_async(customer_id: str, facts: list[str]) -> None:
+async def _save_async(customer_id: str, facts: list[str], category: str = "fact") -> None:
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
     from sqlalchemy import select as sa_select
     from models.chat import MemoryItem
@@ -226,6 +305,7 @@ async def _save_async(customer_id: str, facts: list[str]) -> None:
         )
         existing_contents = [r[0] for r in existing_result.fetchall()]
 
+        importance = 0.9 if category == "style" else 0.7
         for fact in facts[:5]:
             if not isinstance(fact, str) or not fact.strip():
                 continue
@@ -235,6 +315,6 @@ async def _save_async(customer_id: str, facts: list[str]) -> None:
                 or _word_overlap(fact, ex) >= 0.6
                 for ex in existing_contents
             ):
-                db.add(MemoryItem(customer_id=customer_id, content=fact.strip(), importance=0.7))
+                db.add(MemoryItem(customer_id=customer_id, content=fact.strip(), importance=importance, category=category))
         await db.commit()
     await engine.dispose()

@@ -50,6 +50,34 @@ async def select_relevant_context(
     return [m.content for m in memories]
 
 
+async def select_style_context(customer_id: str, db: AsyncSession) -> list[str]:
+    """
+    Gibt gespeicherte Kommunikationsstil-Präferenzen zurück (category='style').
+    1. Primär: Qdrant (alle Style-Einträge)
+    2. Fallback: PostgreSQL MemoryItems mit category='style'
+    """
+    try:
+        from services.memory_vector_store import get_style_memories
+        styles = get_style_memories(customer_id)
+        if styles:
+            return styles
+    except Exception as exc:
+        logger.warning("Qdrant style lookup failed: %s", exc)
+
+    # Fallback: PostgreSQL
+    result = await db.execute(
+        select(MemoryItem)
+        .where(
+            MemoryItem.customer_id == customer_id,
+            MemoryItem.is_active.is_(True),
+            MemoryItem.category == "style",
+        )
+        .order_by(MemoryItem.importance.desc())
+        .limit(5)
+    )
+    return [m.content for m in result.scalars().all()]
+
+
 async def _extract_and_save(customer_id: str, user_message: str, ai_response: str) -> None:
     """
     Background: ask Ollama to extract important facts from a conversation turn

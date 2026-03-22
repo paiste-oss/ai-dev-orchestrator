@@ -29,7 +29,7 @@ from core.dependencies import get_current_user
 from models.chat import ChatMessage, MemoryItem
 from models.customer import Customer
 from services.llm_gateway import chat_with_claude, chat_with_gemini, chat_with_openai
-from services.memory_service import select_relevant_context
+from services.memory_service import select_relevant_context, select_style_context
 from services.agent_router import route as agent_route
 from services.buddy_agent import run_buddy_chat
 from services.billing_service import check_and_bill_tokens
@@ -156,8 +156,9 @@ async def send_message(
     from services.billing_service import check_quota
     await check_quota(customer, db)
 
-    # 4. Relevante Memories
+    # 4. Relevante Memories + Kunden-Stil
     relevant = await select_relevant_context(customer_id, req.message, db)
+    style_prefs = await select_style_context(customer_id, db)
 
     # 5. System-Prompt aufbauen
     first_name = customer.name.split()[0] if customer.name else "du"
@@ -176,6 +177,11 @@ async def send_message(
         f"- Du bist warm, direkt, ehrlich und empathisch."
     )
 
+    if style_prefs:
+        system_parts.append(
+            f"\nKOMMUNIKATIONSSTIL von {first_name} (höchste Priorität — immer befolgen):\n"
+            + "\n".join(f"- {s}" for s in style_prefs)
+        )
 
     from services.tool_registry import TOOL_CATALOG
     active_tools = [v["prompt_hint"] for v in TOOL_CATALOG.values() if v.get("prompt_hint")]

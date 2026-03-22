@@ -68,7 +68,7 @@ def _embed(text: str) -> list[float]:
     return []
 
 
-def store_memory_facts(customer_id: str, facts: list[str]) -> int:
+def store_memory_facts(customer_id: str, facts: list[str], category: str = "fact") -> int:
     """Store extracted facts in Qdrant. Returns number of stored facts."""
     client = _get_client()
     import time
@@ -85,14 +85,14 @@ def store_memory_facts(customer_id: str, facts: list[str]) -> int:
         points.append(PointStruct(
             id=str(uuid.uuid4()),
             vector=vec,
-            payload={"customer_id": customer_id, "fact": fact, "extracted_at": ts},
+            payload={"customer_id": customer_id, "fact": fact, "category": category, "extracted_at": ts},
         ))
 
     if not points:
         return 0
 
     client.upsert(collection_name=COLLECTION, points=points)
-    _log.info("Stored %d memory facts for customer %s", len(points), customer_id[:8])
+    _log.info("Stored %d memory %ss for customer %s", len(points), category, customer_id[:8])
     return len(points)
 
 
@@ -111,6 +111,28 @@ def delete_customer_memories(customer_id: str) -> int:
     except Exception as exc:
         _log.warning("Failed to delete memories for %s: %s", customer_id[:8], exc)
         return 0
+
+
+def get_style_memories(customer_id: str, limit: int = 10) -> list[str]:
+    """Gibt alle gespeicherten Stil-Präferenzen eines Kunden zurück."""
+    client = _get_client()
+    try:
+        results, _ = client.scroll(
+            collection_name=COLLECTION,
+            scroll_filter=Filter(
+                must=[
+                    FieldCondition(key="customer_id", match=MatchValue(value=customer_id)),
+                    FieldCondition(key="category", match=MatchValue(value="style")),
+                ]
+            ),
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [r.payload["fact"] for r in results if "fact" in r.payload]
+    except Exception as exc:
+        _log.warning("Qdrant get_style_memories failed: %s", exc)
+        return []
 
 
 def get_all_memories(customer_id: str, limit: int = 60) -> list[str]:
