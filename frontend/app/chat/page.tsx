@@ -105,7 +105,7 @@ function StockCard({ data }: { data: StockData }) {
   }
 
   return (
-    <div className="mt-3 rounded-2xl bg-gray-900 border border-gray-700 p-4 min-w-[240px] max-w-[340px] shadow-lg">
+    <div className="mt-3 rounded-2xl bg-gray-900 border border-gray-700 p-4 w-full shadow-lg">
       <div className="flex items-start justify-between gap-2 mb-3">
         <div>
           <p className="text-xs text-gray-500 font-mono uppercase tracking-widest">{data.symbol}</p>
@@ -165,7 +165,7 @@ function StockHistoryCard({ data }: { data: StockHistoryData }) {
   const padding = (maxVal - minVal) * 0.08 || 1;
 
   return (
-    <div className="mt-3 rounded-2xl bg-gray-900 border border-gray-700 p-4 w-full max-w-[460px] shadow-lg">
+    <div className="mt-3 rounded-2xl bg-gray-900 border border-gray-700 p-4 w-full shadow-lg">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
@@ -258,13 +258,13 @@ function ImageGalleryCard({ data }: { data: ImageGalleryData }) {
   return (
     <div className="mt-3 flex flex-wrap gap-3">
       {data.images.map((img, i) => (
-        <div key={i} className="rounded-2xl overflow-hidden shadow-lg max-w-[300px]">
+        <div key={i} className="rounded-2xl overflow-hidden shadow-lg w-full">
           <a href={img.image_url} target="_blank" rel="noopener noreferrer">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={img.image_url}
               alt={img.description}
-              className="w-full max-h-[220px] object-cover hover:scale-105 transition-transform cursor-pointer"
+              className="w-full max-h-[200px] object-cover hover:scale-105 transition-transform cursor-pointer"
             />
           </a>
           <div className="bg-gray-900 px-3 py-1.5">
@@ -281,7 +281,7 @@ function ImageGalleryCard({ data }: { data: ImageGalleryData }) {
 
 function TransportBoardCard({ data }: { data: TransportBoardData }) {
   return (
-    <div className="mt-3 rounded-2xl bg-gray-900 border border-gray-700 overflow-hidden shadow-lg max-w-[460px]">
+    <div className="mt-3 rounded-2xl bg-gray-900 border border-gray-700 overflow-hidden shadow-lg w-full">
       <div className="bg-gray-800 px-4 py-2.5 flex items-center gap-2">
         <span className="text-lg">🚆</span>
         <span className="text-sm font-semibold text-white">{data.station ?? "Abfahrten"}</span>
@@ -914,7 +914,11 @@ export default function ChatPage() {
                   <AvatarCircle speaking={false} />
                 )}
                 <div
-                  className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed shadow-sm ${
+                  className={`rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed shadow-sm ${
+                    msg.structuredData
+                      ? "w-full max-w-[min(480px,90vw)]"
+                      : "max-w-[78%]"
+                  } ${
                     msg.role === "user"
                       ? "bg-indigo-600 text-white rounded-br-md"
                       : "bg-gray-800 text-gray-100 rounded-bl-md"
