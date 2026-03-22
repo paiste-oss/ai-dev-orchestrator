@@ -11,6 +11,7 @@ type NavEntry = NavItem | NavGroup;
 const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
 
 const NAV: NavEntry[] = [
+  { label: "Chat öffnen",      href: "/chat",               icon: "💬" },
   { label: "Dashboard",        href: "/admin",              icon: "⬡" },
   { label: "Dev Orchestrator", href: "/admin/devtool",      icon: "⌥" },
   { label: "Kunden",           href: "/admin/customers",    icon: "◎" },
@@ -118,7 +119,7 @@ export default function AdminSidebar({ open, onClose }: Props) {
           {NAV.map((entry) => {
             if (!isGroup(entry)) {
               const active     = isActive(entry.href);
-              const isDivider  = entry.href === "/admin/testpages";
+              const isDivider  = entry.href === "/admin/testpages" || entry.href === "/admin";
               return (
                 <div key={entry.href}>
                   {isDivider && <div className="my-2 h-px bg-white/5 mx-1" />}
