@@ -948,20 +948,28 @@ export default function ChatPage() {
                   )}
                   {/* Quota-exceeded Banner */}
                   {msg.content === "__QUOTA_EXCEEDED__" ? (
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center gap-2 text-amber-400">
-                        <span className="text-xl">⚠️</span>
-                        <span className="font-semibold text-sm">Kontingent aufgebraucht</span>
+                    <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/8 px-4 py-4 flex flex-col gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">⚠️</span>
+                        <span className="font-bold text-base text-yellow-400">Guthaben aufgebraucht</span>
                       </div>
-                      <p className="text-xs text-gray-400 leading-relaxed">
-                        {(msg.structuredData as { message?: string })?.message ?? "Dein Guthaben ist erschöpft."}
+                      <p className="text-sm text-gray-300 leading-relaxed">
+                        {(msg.structuredData as { message?: string })?.message ?? "Dein Kontingent und dein Wallet-Guthaben sind erschöpft."}
                       </p>
-                      <a
-                        href="/user/billing"
-                        className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-4 py-2 rounded-xl transition-colors w-fit"
-                      >
-                        <span>💳</span> Guthaben aufladen
-                      </a>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <a
+                          href="/user/wallet"
+                          className="inline-flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-gray-900 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+                        >
+                          💳 Wallet aufladen
+                        </a>
+                        <a
+                          href="/user/billing"
+                          className="inline-flex items-center gap-2 bg-white/8 hover:bg-white/15 border border-white/15 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+                        >
+                          📋 Abo wechseln
+                        </a>
+                      </div>
                     </div>
                   ) : msg.content}
                   {/* DALL-E generated images */}
