@@ -200,7 +200,7 @@ function StockHistoryCard({ data }: { data: StockHistoryData }) {
             <Tooltip
               contentStyle={{ backgroundColor: "#111827", border: "1px solid #374151", borderRadius: 8, fontSize: 12 }}
               labelStyle={{ color: "#9ca3af" }}
-              formatter={(value: number) => [`${value.toFixed(2)} ${data.currency}`, "Kurs"]}
+              formatter={(value) => [`${(value as number).toFixed(2)} ${data.currency}`, "Kurs"]}
             />
             <ReferenceLine y={data.start_price} stroke="#4b5563" strokeDasharray="4 4" />
             <Line
