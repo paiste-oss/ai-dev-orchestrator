@@ -29,7 +29,9 @@
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(''''active:'''', d.get\\(''''active''''\\), ''''id:'''', d.get\\(''''id''''\\)\\)\")",
       "Bash(curl -s -w \"\\\\nHTTP: %{http_code}\" -X POST http://localhost:5678/webhook/stripe -H \"Content-Type: application/json\" -d '{\"\"\"\"type\"\"\"\":\"\"\"\"test\"\"\"\"}')",
       "Bash(curl -s -w \"\\\\nHTTP: %{http_code}\" -X POST http://localhost:3000/webhook/n8n/stripe -H \"Content-Type: application/json\" -d '{\"\"type\"\":\"\"test\"\"}')",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)"
     ]
   }
 }

@@ -254,26 +254,6 @@ services:
     networks:
       - ai_internal
 
-  metabase:
-    image: metabase/metabase:latest
-    container_name: ai_metabase
-    restart: always
-    ports:
-      - "3001:3000"
-    environment:
-      MB_DB_TYPE: postgres
-      MB_DB_DBNAME: aibuddy
-      MB_DB_PORT: 5432
-      MB_DB_USER: aibuddy
-      MB_DB_PASS: ${POSTGRES_PASSWORD}
-      MB_DB_HOST: postgres
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - ai_internal
-      - ai_external
-
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: cloudflare_tunnel

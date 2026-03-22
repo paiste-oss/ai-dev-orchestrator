@@ -28,3 +28,9 @@ Fertig. Das Problem war, dass die vorherige Fix auf die falsche Seite (`chat/pag
 Fertig. Was geändert wurde:
 - **Backend** (`main.py`): Neuer `GET /v1/system/status` Endpoint — prüft DB (SELECT 1), Redis (PING) und ob KI-Keys konfiguriert sind. Timeout je 2 Sekunden.
 - **Frontend** (`admin/page.tsx`): System-Status wird jetzt live vom Backend geladen, mit Skeleton-Animation während des Ladens. Statt hart codiert "Online" zeigt es echte Zustände inkl. Fehlerstatus.
+---
+✓ [2026-03-22 20:41] Bitte zeige hier auf der Devtool Seite nur Einträge der letzten 72h an. Für die 
+Fertig. Logik:
+- Tasks älter als **72h** werden ausgeblendet
+- Die **jüngsten 5** bleiben immer sichtbar, egal wie alt
+- Gefiltert wird im Frontend nach dem Fetch, das Backend bleibt unverändert

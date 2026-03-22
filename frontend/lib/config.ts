@@ -8,7 +8,6 @@
  */
 
 export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
-export const METABASE_URL = process.env.NEXT_PUBLIC_METABASE_URL ?? "http://localhost:3001";
 export const N8N_URL = process.env.NEXT_PUBLIC_N8N_URL ?? "http://localhost:5678";
 
 export const API_ROUTES = {
@@ -21,5 +20,4 @@ export const API_ROUTES = {
   customerLookup:    (email: string) => `${BACKEND_URL}/v1/customers/lookup?email=${encodeURIComponent(email)}`,
   customers:         `${BACKEND_URL}/v1/customers`,
   documents:         `${BACKEND_URL}/v1/documents`,
-  metabase:          METABASE_URL,
 } as const;

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, apiFetch } from "@/lib/auth";
-import { API_ROUTES, BACKEND_URL } from "@/lib/config";
+import { BACKEND_URL } from "@/lib/config";
 import AdminSidebar from "@/components/AdminSidebar";
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
@@ -429,12 +429,6 @@ export default function AdminDashboard() {
                     label="n8n Workflows"
                     sub="Automationen & Services"
                     onClick={() => router.push("/admin/workflows")}
-                  />
-                  <QuickAction
-                    icon="📊"
-                    label="Metabase Analytik"
-                    sub="Dashboards & Metriken"
-                    onClick={() => window.open(API_ROUTES.metabase, "_blank")}
                   />
                 </div>
               </section>
