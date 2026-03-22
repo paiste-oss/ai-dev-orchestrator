@@ -664,14 +664,40 @@ const MODEL_DISPLAY: Record<string, string> = {
   "unbekannt":                 "Unbekannt",
 };
 
-function VerbrauchTab({ usage }: { usage: CustomerUsage | null }) {
-  if (!usage) return <p className="text-sm text-gray-500">Verbrauchsdaten werden geladen…</p>;
+function VerbrauchTab({ customerId }: { customerId: string }) {
+  const [usage, setUsage] = useState<CustomerUsage | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/customers/${customerId}/usage`);
+      if (res.ok) setUsage(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }, [customerId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading && !usage) return <p className="text-sm text-gray-500">Verbrauchsdaten werden geladen…</p>;
+  if (!usage) return <p className="text-sm text-gray-500">Keine Daten verfügbar.</p>;
 
   const storagePct = usage.storage.limit_bytes > 0
     ? Math.min(100, (usage.storage.used_bytes / usage.storage.limit_bytes) * 100) : 0;
 
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">
+        <button
+          onClick={load}
+          disabled={loading}
+          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-white bg-white/5 hover:bg-white/8 border border-white/8 px-3 py-1.5 rounded-lg transition-all disabled:opacity-40"
+        >
+          <span className={loading ? "animate-spin" : ""}>↻</span>
+          Aktualisieren
+        </button>
+      </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -804,7 +830,6 @@ export default function CustomerDetailPage() {
 
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
   const [stats, setStats] = useState<CustomerStats | null>(null);
-  const [usage, setUsage] = useState<CustomerUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
@@ -843,10 +868,9 @@ export default function CustomerDetailPage() {
     (async () => {
       setLoading(true);
       try {
-        const [cRes, sRes, uRes] = await Promise.all([
+        const [cRes, sRes] = await Promise.all([
           apiFetch(`${BACKEND_URL}/v1/customers/${id}`),
           apiFetch(`${BACKEND_URL}/v1/customers/${id}/stats`),
-          apiFetch(`${BACKEND_URL}/v1/customers/${id}/usage`),
         ]);
         if (cRes.ok) {
           const c: CustomerDetail = await cRes.json();
@@ -866,7 +890,6 @@ export default function CustomerDetailPage() {
           setInterests(c.interests ?? []);
         }
         if (sRes.ok) setStats(await sRes.json());
-        if (uRes.ok) setUsage(await uRes.json());
       } finally {
         setLoading(false);
       }
@@ -1215,7 +1238,7 @@ export default function CustomerDetailPage() {
 
           {tab === "baddis" && <BaddisTab customer={customer} />}
           {tab === "zugangsdaten" && <ZugangsdatenTab customerId={customer.id} />}
-          {tab === "verbrauch" && <VerbrauchTab usage={usage} />}
+          {tab === "verbrauch" && <VerbrauchTab customerId={customer.id} />}
           {tab === "wallet" && <WalletTab customerId={customer.id.toString()} />}
         </div>
       </main>
