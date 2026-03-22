@@ -167,6 +167,21 @@ async def init_db():
                 created_at TIMESTAMP DEFAULT NOW()
             )""",
             "CREATE INDEX IF NOT EXISTS idx_customer_notes_customer ON customer_notes(customer_id, created_at DESC)",
+            # Anonymisierte Chat-Analytics (DSG-konform, kein Personenbezug)
+            """CREATE TABLE IF NOT EXISTS chat_analytics (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                session_hash VARCHAR(12) NOT NULL,
+                user_message TEXT NOT NULL,
+                assistant_message TEXT NOT NULL,
+                response_type VARCHAR(50) DEFAULT 'text',
+                tokens_used INTEGER DEFAULT 0,
+                language VARCHAR(10) DEFAULT 'de',
+                day DATE NOT NULL,
+                hour_of_day SMALLINT NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_chat_analytics_day ON chat_analytics(day DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_chat_analytics_session ON chat_analytics(session_hash)",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

@@ -374,6 +374,33 @@ async def send_message(
     await db.commit()
     await db.refresh(assistant_msg)
 
+    # 8b. Anonymisierte Analytics speichern (DSG-konform)
+    try:
+        import hashlib
+        from datetime import date
+        _session_hash = hashlib.sha256(customer_id.encode()).hexdigest()[:12]
+        _now = datetime.utcnow()
+        await db.execute(
+            text(
+                "INSERT INTO chat_analytics "
+                "(session_hash, user_message, assistant_message, response_type, tokens_used, language, day, hour_of_day) "
+                "VALUES (:sh, :um, :am, :rt, :tu, :lang, :day, :hour)"
+            ),
+            {
+                "sh": _session_hash,
+                "um": req.message,
+                "am": response_text,
+                "rt": response_type,
+                "tu": tokens_used,
+                "lang": customer.language or "de",
+                "day": _now.date(),
+                "hour": _now.hour,
+            },
+        )
+        await db.commit()
+    except Exception as e:
+        _log.warning("Analytics konnte nicht gespeichert werden: %s", e)
+
     # 9. Token-Quota abrechnen
     if tokens_used > 0:
         try:
