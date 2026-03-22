@@ -22,12 +22,12 @@ interface Assembly {
   layers: Layer[];
 }
 
-const STEP_COLORS: Record<number, { border: string; badge: string; icon: string }> = {
-  1: { border: "border-yellow-500/30", badge: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30", icon: "◈" },
-  2: { border: "border-blue-500/30",   badge: "bg-blue-500/15 text-blue-400 border-blue-500/30",     icon: "⊕" },
-  3: { border: "border-purple-500/30", badge: "bg-purple-500/15 text-purple-400 border-purple-500/30", icon: "⟳" },
-  4: { border: "border-emerald-500/30",badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", icon: "⚙" },
-  5: { border: "border-purple-500/30", badge: "bg-purple-500/15 text-purple-400 border-purple-500/30", icon: "⟳" },
+const STEP_COLORS: Record<number, { border: string; badge: string }> = {
+  1: { border: "border-yellow-500/30", badge: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30" },
+  2: { border: "border-blue-500/30",   badge: "bg-blue-500/15 text-blue-400 border-blue-500/30"     },
+  3: { border: "border-purple-500/30", badge: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
+  4: { border: "border-emerald-500/30",badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  5: { border: "border-purple-500/30", badge: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
 };
 
 export default function SystemPromptPage() {
@@ -35,17 +35,51 @@ export default function SystemPromptPage() {
   const [assembly, setAssembly]       = useState<Assembly | null>(null);
   const [loading, setLoading]         = useState(true);
   const [preview, setPreview]         = useState(false);
-  const router = useRouter();
+
+  // Inline-Editor für Schicht 1 (Baddi-Basis-Prompt)
+  const [draft, setDraft]     = useState("");
+  const [original, setOriginal] = useState("");
+  const [saving, setSaving]   = useState(false);
+  const [saved, setSaved]     = useState(false);
 
   useEffect(() => { load(); }, []);
 
   async function load() {
     setLoading(true);
     try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/admin/system-prompts/assembly`);
-      if (res.ok) setAssembly(await res.json());
+      const [assemblyRes, promptRes] = await Promise.all([
+        apiFetch(`${BACKEND_URL}/v1/admin/system-prompts/assembly`),
+        apiFetch(`${BACKEND_URL}/v1/admin/system-prompts/baddi`),
+      ]);
+      if (assemblyRes.ok) setAssembly(await assemblyRes.json());
+      if (promptRes.ok) {
+        const d = await promptRes.json();
+        setDraft(d.prompt);
+        setOriginal(d.prompt);
+      }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function savePrompt() {
+    setSaving(true);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/admin/system-prompts/baddi`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: draft }),
+      });
+      if (res.ok) {
+        setOriginal(draft);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2500);
+        // Assembly neu laden damit Vorschau aktuell bleibt
+        const r = await apiFetch(`${BACKEND_URL}/v1/admin/system-prompts/assembly`);
+        if (r.ok) setAssembly(await r.json());
+      }
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -67,6 +101,8 @@ export default function SystemPromptPage() {
       return layer.content ?? "";
     }).join("\n\n");
   }
+
+  const isDirty = draft !== original;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex">
@@ -109,6 +145,11 @@ export default function SystemPromptPage() {
             </div>
           </div>
 
+          {/* Info */}
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3 text-xs text-blue-300">
+            💡 Änderungen an der Basis-Identität werden sofort in Redis gespeichert und beim nächsten Chat-Request aktiv.
+          </div>
+
           {loading ? (
             <div className="text-gray-500 text-sm py-8 text-center">Laden…</div>
           ) : !assembly ? (
@@ -130,17 +171,16 @@ export default function SystemPromptPage() {
               {assembly.layers.map((layer, idx) => {
                 const colors = STEP_COLORS[layer.step] ?? STEP_COLORS[1];
                 const isLast = idx === assembly.layers.length - 1;
+                const isEditable = layer.step === 1;
 
                 return (
                   <div key={layer.step}>
-                    {/* Layer Card */}
                     <div className={`bg-gray-900 border rounded-xl overflow-hidden ${colors.border}`}>
 
                       {/* Header */}
                       <div className="flex items-start justify-between gap-3 px-5 py-4">
                         <div className="flex items-start gap-3">
-                          {/* Step Number */}
-                          <div className={`shrink-0 w-8 h-8 rounded-lg border flex items-center justify-center text-base font-bold ${colors.badge}`}>
+                          <div className={`shrink-0 w-8 h-8 rounded-lg border flex items-center justify-center text-sm font-bold ${colors.badge}`}>
                             {layer.step}
                           </div>
                           <div>
@@ -157,29 +197,45 @@ export default function SystemPromptPage() {
                             <p className="text-[11px] text-gray-500 mt-0.5 font-mono">{layer.source}</p>
                           </div>
                         </div>
-
-                        {/* Edit Link */}
-                        {layer.editable && layer.edit_path && (
-                          <button
-                            onClick={() => router.push(layer.edit_path!)}
-                            className="shrink-0 text-xs text-yellow-500/70 hover:text-yellow-400 border border-yellow-500/20 hover:border-yellow-500/40 px-2.5 py-1 rounded-lg transition-colors"
-                          >
-                            Bearbeiten →
-                          </button>
-                        )}
-                        {!layer.editable && layer.edit_path && (
-                          <button
-                            onClick={() => router.push(layer.edit_path!)}
-                            className="shrink-0 text-xs text-gray-600 hover:text-gray-400 border border-gray-800 hover:border-gray-700 px-2.5 py-1 rounded-lg transition-colors"
-                          >
-                            Ansehen →
-                          </button>
+                        {/* Status für Schicht 1 */}
+                        {isEditable && (
+                          <div className="shrink-0 flex items-center gap-2">
+                            {isDirty && <span className="text-xs text-amber-400">● Ungespeichert</span>}
+                            {saved  && <span className="text-xs text-emerald-400">✓ Gespeichert</span>}
+                          </div>
                         )}
                       </div>
 
                       {/* Content */}
-                      <div className="px-5 pb-4">
-                        {layer.type === "static" ? (
+                      <div className="px-5 pb-5">
+                        {isEditable ? (
+                          /* Inline-Editor für Schicht 1 */
+                          <div className="space-y-3">
+                            <textarea
+                              value={draft}
+                              onChange={e => setDraft(e.target.value)}
+                              rows={Math.max(4, draft.split("\n").length + 1)}
+                              className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-200 font-mono leading-relaxed focus:outline-none focus:border-yellow-500/50 resize-y transition"
+                              spellCheck={false}
+                            />
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-600">
+                                {draft.length} Zeichen · {draft.split("\n").length} Zeilen
+                              </span>
+                              <button
+                                onClick={savePrompt}
+                                disabled={saving || !isDirty}
+                                className={`text-sm px-4 py-2 rounded-lg font-medium transition-all ${
+                                  isDirty
+                                    ? "bg-yellow-500 hover:bg-yellow-400 text-gray-900"
+                                    : "bg-gray-800 text-gray-600 cursor-default"
+                                } disabled:opacity-60`}
+                              >
+                                {saving ? "Speichere…" : "Speichern"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : layer.type === "static" ? (
                           <div className="bg-gray-950 border border-gray-800 rounded-xl px-4 py-3">
                             {Array.isArray(layer.content) ? (
                               <ul className="space-y-1">

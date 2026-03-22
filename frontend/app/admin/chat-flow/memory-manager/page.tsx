@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import AdminSidebar from "@/components/AdminSidebar";
@@ -9,6 +8,13 @@ import AdminSidebar from "@/components/AdminSidebar";
 interface Config {
   model: string;
   system_prompt: string;
+}
+
+interface PromptState {
+  value: string;
+  original: string;
+  saving: boolean;
+  saved: boolean;
 }
 
 const KNOWN_MODELS = [
@@ -26,14 +32,33 @@ export default function MemoryManagerPage() {
   const [saving, setSaving]   = useState(false);
   const [saved, setSaved]     = useState(false);
   const [error, setError]     = useState<string | null>(null);
-  const router = useRouter();
+  const [prompt, setPrompt]   = useState<PromptState>({ value: "", original: "", saving: false, saved: false });
 
   useEffect(() => {
-    apiFetch(`${BACKEND_URL}/v1/settings/memory-manager`)
-      .then(r => r.json())
-      .then(setConfig)
-      .catch(() => setError("Konfiguration konnte nicht geladen werden."));
+    Promise.all([
+      apiFetch(`${BACKEND_URL}/v1/settings/memory-manager`).then(r => r.json()).then(setConfig),
+      apiFetch(`${BACKEND_URL}/v1/admin/system-prompts/memory-manager`).then(r => r.json()).then(d =>
+        setPrompt({ value: d.prompt, original: d.prompt, saving: false, saved: false })
+      ),
+    ]).catch(() => setError("Konfiguration konnte nicht geladen werden."));
   }, []);
+
+  const savePrompt = async () => {
+    setPrompt(p => ({ ...p, saving: true }));
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/admin/system-prompts/memory_manager`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: prompt.value }),
+      });
+      if (res.ok) {
+        setPrompt(p => ({ ...p, original: p.value, saved: true }));
+        setTimeout(() => setPrompt(p => ({ ...p, saved: false })), 2500);
+      }
+    } finally {
+      setPrompt(p => ({ ...p, saving: false }));
+    }
+  };
 
   const save = async () => {
     if (!config) return;
@@ -144,20 +169,50 @@ export default function MemoryManagerPage() {
             </div>
           )}
 
-          {/* Hinweis System-Prompt */}
-          <button
-            onClick={() => router.push("/admin/uhrwerk/system-prompts")}
-            className="w-full flex items-center justify-between bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl px-5 py-3.5 transition-colors group text-left"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-lg">📝</span>
+          {/* Extraktion-Prompt */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+            <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-gray-800">
               <div>
-                <p className="text-sm font-semibold text-white">Extraktion-Prompt</p>
-                <p className="text-xs text-gray-500 mt-0.5">Der System-Prompt für die Fakten-Extraktion wird unter System-Prompts verwaltet</p>
+                <p className="font-semibold text-white text-sm">Extraktion-Prompt</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  System-Prompt für die Fakten-Extraktion · gemma3:12b (Ollama)
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {prompt.value !== prompt.original && (
+                  <span className="text-xs text-amber-400">● Ungespeichert</span>
+                )}
+                {prompt.saved && (
+                  <span className="text-xs text-emerald-400">✓ Gespeichert</span>
+                )}
               </div>
             </div>
-            <span className="text-gray-600 group-hover:text-gray-400 text-sm">→</span>
-          </button>
+            <div className="p-5 space-y-3">
+              <textarea
+                value={prompt.value}
+                onChange={e => setPrompt(p => ({ ...p, value: e.target.value }))}
+                rows={Math.max(8, prompt.value.split("\n").length + 1)}
+                className="w-full bg-gray-950 border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-200 font-mono leading-relaxed focus:outline-none focus:border-yellow-500/50 resize-y transition"
+                spellCheck={false}
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-600">
+                  {prompt.value.length} Zeichen · {prompt.value.split("\n").length} Zeilen
+                </span>
+                <button
+                  onClick={savePrompt}
+                  disabled={prompt.saving || prompt.value === prompt.original}
+                  className={`text-sm px-4 py-2 rounded-lg font-medium transition-all ${
+                    prompt.value !== prompt.original
+                      ? "bg-yellow-500 hover:bg-yellow-400 text-gray-900"
+                      : "bg-gray-800 text-gray-600 cursor-default"
+                  } disabled:opacity-60`}
+                >
+                  {prompt.saving ? "Speichere…" : "Speichern"}
+                </button>
+              </div>
+            </div>
+          </div>
 
           {/* Speichern */}
           {config && (
