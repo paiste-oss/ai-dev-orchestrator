@@ -13,13 +13,7 @@ const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
 const NAV: NavEntry[] = [
   { label: "Dashboard",        href: "/admin",              icon: "⬡" },
   { label: "Dev Orchestrator", href: "/admin/devtool",      icon: "⌥" },
-  {
-    label: "Kunden", icon: "◎",
-    children: [
-      { label: "Kunden",     href: "/admin/customers",             icon: "◎" },
-      { label: "Abo-Modell", href: "/admin/customers/abo-modell",  icon: "◇" },
-    ],
-  },
+  { label: "Kunden", href: "/admin/customers", icon: "◎" },
   { label: "Baddis",           href: "/admin/baddis",       icon: "◈" },
   { label: "Dokumente",        href: "/admin/documents",    icon: "▦" },
   { label: "Entwicklung",      href: "/admin/entwicklung",  icon: "⚗" },
@@ -39,7 +33,8 @@ const NAV: NavEntry[] = [
   {
     label: "Finanzen", icon: "◇",
     children: [
-      { label: "Kosten", href: "/admin/finanzen/kosten", icon: "▤" },
+      { label: "Abo-Modell", href: "/admin/customers/abo-modell",  icon: "◇" },
+      { label: "Kosten",     href: "/admin/finanzen/kosten",       icon: "▤" },
     ],
   },
   {
