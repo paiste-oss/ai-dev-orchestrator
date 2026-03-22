@@ -20,13 +20,15 @@ router = APIRouter(prefix="/admin/llm", tags=["admin-llm"])
 # ---------------------------------------------------------------------------
 
 _OLLAMA_REGISTRY: dict[str, dict] = {
-    "phi3":             {"latest": "phi4",              "description": "Microsoft Phi — Router / Klassifizierung (aktiv)"},
-    "phi4":             {"latest": "phi4",              "description": "Microsoft Phi — Router / Klassifizierung"},
-    "mistral-small3.1": {"latest": "mistral-small3.1",  "description": "Mistral AI 24B — Reserve"},
-    "llama3.3":         {"latest": "llama3.3",          "description": "Meta LLaMA 70B — CPU-only (zu gross für VRAM)"},
-    "gemma3":           {"latest": "gemma3:12b",        "description": "Google Gemma 3 — Memory-Extraktion / Code (aktiv, 7GB VRAM)"},
-    "qwen2.5":          {"latest": "qwen2.5",           "description": "Alibaba Qwen — Multilingual / Reserve"},
-    "deepseek-r1":      {"latest": "deepseek-r1",       "description": "DeepSeek R1 — Reasoning / Reserve"},
+    "phi3":              {"latest": "phi4",               "description": "Microsoft Phi 3 — veraltet, ersetzt durch phi4"},
+    "phi4":              {"latest": "phi4",               "description": "Microsoft Phi 4 — Router / Klassifizierung (9.1 GB)"},
+    "mistral-small3.1":  {"latest": "mistral-small3.1",   "description": "Mistral Small 3.1 24B — Reserve (15.5 GB)"},
+    "llama3.3":          {"latest": "llama3.3",           "description": "Meta LLaMA 3.3 70B — CPU-only, zu gross für VRAM (42.5 GB)"},
+    "gemma3":            {"latest": "gemma3:12b",         "description": "Google Gemma 3 4B — veraltet, ersetzt durch gemma3:12b"},
+    "gemma3:12b":        {"latest": "gemma3:12b",         "description": "Google Gemma 3 12B — Chat-Fallback / Code (8.1 GB VRAM)"},
+    "qwen2.5":           {"latest": "qwen2.5",            "description": "Alibaba Qwen 2.5 — Multilingual / Reserve (4.7 GB)"},
+    "deepseek-r1":       {"latest": "deepseek-r1",        "description": "DeepSeek R1 — Reasoning / Reserve (5.2 GB)"},
+    "nomic-embed-text":  {"latest": "nomic-embed-text",   "description": "Nomic Embeddings — Semantische Suche / Intent Vector Store (274 MB)"},
 }
 
 _ANTHROPIC_MODELS = [
@@ -88,7 +90,8 @@ async def get_llm_overview(_admin: Customer = Depends(require_admin)):
         base = m["name"].split(":")[0]
         installed_names.add(base)
         installed_names.add(m["name"])
-        info = _OLLAMA_REGISTRY.get(base, {})
+        # Vollname zuerst prüfen (z.B. "gemma3:12b"), dann Basis (z.B. "gemma3")
+        info = _OLLAMA_REGISTRY.get(m["name"]) or _OLLAMA_REGISTRY.get(base, {})
         latest = info.get("latest", base)
         local_models.append({
             "name":        m["name"],
