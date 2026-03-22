@@ -36,7 +36,8 @@ async def get_all_tools(_admin: Customer = Depends(require_admin)):
 
 @router.get("/{key}")
 async def get_tool_detail(key: str, _admin: Customer = Depends(require_admin)):
-    """Ein Tool im Detail — inkl. vollständiger Anthropic Tool-Definitionen."""
+    """Ein Tool im Detail — inkl. vollständiger Anthropic Tool-Definitionen und Handler-Info."""
+    import inspect
     from services.tool_registry import TOOL_CATALOG
     from core.config import settings
 
@@ -46,16 +47,42 @@ async def get_tool_detail(key: str, _admin: Customer = Depends(require_admin)):
 
     api_status = _check_api_status(key, settings)
 
+    # Handler-Metadaten via inspect
+    handler = v.get("handler")
+    handler_info = None
+    if handler:
+        try:
+            raw_file = inspect.getfile(handler)
+            # Pfad relativ zu /app/ (Container) oder Projekt-Root
+            for prefix in ["/app/", "/home/"]:
+                idx = raw_file.find(prefix)
+                if idx != -1:
+                    rel = raw_file[idx + len(prefix):]
+                    # Kürze /home/naor/ai-dev-orchestrator/backend/ → backend/
+                    rel = rel.split("ai-dev-orchestrator/")[-1]
+                    break
+            else:
+                rel = raw_file
+            handler_info = {
+                "function":  handler.__name__,
+                "module":    handler.__module__,
+                "file":      rel,
+                "line":      inspect.getsourcelines(handler)[1],
+            }
+        except Exception:
+            handler_info = {"function": handler.__name__, "module": handler.__module__, "file": "—", "line": None}
+
     return {
-        "key":         v["key"],
-        "name":        v["name"],
-        "description": v["description"],
-        "category":    v["category"],
-        "tier":        v["tier"],
-        "tool_count":  len(v["tool_defs"]),
-        "tool_names":  sorted(v["tool_names"]),
-        "tool_defs":   v["tool_defs"],
-        "api_status":  api_status,
+        "key":          v["key"],
+        "name":         v["name"],
+        "description":  v["description"],
+        "category":     v["category"],
+        "tier":         v["tier"],
+        "tool_count":   len(v["tool_defs"]),
+        "tool_names":   sorted(v["tool_names"]),
+        "tool_defs":    v["tool_defs"],
+        "api_status":   api_status,
+        "handler":      handler_info,
     }
 
 

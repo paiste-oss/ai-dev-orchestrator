@@ -39,8 +39,16 @@ interface ToolDef {
   };
 }
 
+interface HandlerInfo {
+  function: string;
+  module: string;
+  file: string;
+  line: number | null;
+}
+
 interface ToolDetail extends Tool {
   tool_defs: ToolDef[];
+  handler: HandlerInfo | null;
 }
 
 const CATEGORY_COLOR: Record<string, string> = {
@@ -60,10 +68,11 @@ const TIER_STYLE: Record<string, string> = {
 
 export default function ToolsAdminPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [tools, setTools]           = useState<Tool[]>([]);
-  const [selected, setSelected]     = useState<ToolDetail | null>(null);
-  const [loading, setLoading]       = useState(true);
+  const [tools, setTools]             = useState<Tool[]>([]);
+  const [selected, setSelected]       = useState<ToolDetail | null>(null);
+  const [loading, setLoading]         = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [openDefs, setOpenDefs]       = useState<Record<string, boolean>>({});
 
   useEffect(() => { loadTools(); }, []);
 
@@ -184,63 +193,88 @@ export default function ToolsAdminPage() {
 
                 {/* Detail Panel */}
                 {selected?.key === tool.key && (
-                  <div className="border border-yellow-500/20 border-t-0 bg-gray-900/60 rounded-b-xl px-5 py-4 space-y-4">
+                  <div className="border border-yellow-500/20 border-t-0 bg-gray-900/60 rounded-b-xl px-5 py-4 space-y-5">
                     {detailLoading ? (
                       <p className="text-gray-500 text-sm">Lade Details…</p>
                     ) : (
                       <>
-                        <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">
-                          Anthropic Tool-Definitionen ({selected.tool_defs.length})
-                        </p>
-                        {selected.tool_defs.map(def => (
-                          <div key={def.name} className="bg-gray-950 border border-gray-800 rounded-xl p-4 space-y-3">
-                            <div>
-                              <code className="text-sm text-yellow-400 font-semibold">{def.name}</code>
-                              <p className="text-xs text-gray-400 mt-1 leading-relaxed">{def.description}</p>
-                            </div>
-
-                            {Object.keys(def.input_schema.properties).length > 0 && (
-                              <div className="space-y-2">
-                                <p className="text-xs text-gray-600 font-medium">Parameter</p>
-                                <div className="space-y-1.5">
-                                  {Object.entries(def.input_schema.properties).map(([name, param]) => {
-                                    const required = def.input_schema.required?.includes(name);
-                                    return (
-                                      <div key={name} className="grid grid-cols-[140px_1fr] gap-2 items-start">
-                                        <div className="flex items-center gap-1.5">
-                                          <code className="text-xs text-sky-400">{name}</code>
-                                          {required && (
-                                            <span className="text-[10px] text-red-400/70">*</span>
-                                          )}
-                                        </div>
-                                        <div>
-                                          <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="text-[11px] text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded">
-                                              {param.type}
-                                            </span>
-                                            {param.enum && (
-                                              <span className="text-[11px] text-violet-400/70">
-                                                {param.enum.join(" | ")}
-                                              </span>
-                                            )}
-                                            {param.default !== undefined && (
-                                              <span className="text-[11px] text-gray-600">
-                                                default: {String(param.default)}
-                                              </span>
-                                            )}
-                                          </div>
-                                          {param.description && (
-                                            <p className="text-[11px] text-gray-500 mt-0.5">{param.description}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                        {/* Handler */}
+                        {selected.handler && (
+                          <div className="space-y-2">
+                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Python Handler</p>
+                            <div className="bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+                              <div>
+                                <p className="text-[10px] text-gray-600 mb-0.5">Funktion</p>
+                                <code className="text-sm text-emerald-400 font-semibold">{selected.handler.function}()</code>
                               </div>
-                            )}
+                              <div>
+                                <p className="text-[10px] text-gray-600 mb-0.5">Datei</p>
+                                <code className="text-xs text-sky-400">{selected.handler.file}{selected.handler.line ? `:${selected.handler.line}` : ""}</code>
+                              </div>
+                              <div>
+                                <p className="text-[10px] text-gray-600 mb-0.5">Modul</p>
+                                <code className="text-xs text-gray-400">{selected.handler.module}</code>
+                              </div>
+                            </div>
                           </div>
-                        ))}
+                        )}
+
+                        {/* Tool-Definitionen */}
+                        <div className="space-y-2">
+                          <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">
+                            Tool-Definitionen (JSON-Schema) · {selected.tool_defs.length}
+                          </p>
+                          {selected.tool_defs.map(def => {
+                            const isOpen = openDefs[def.name] ?? false;
+                            return (
+                              <div key={def.name} className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden">
+                                {/* Header — immer sichtbar */}
+                                <button
+                                  onClick={() => setOpenDefs(s => ({ ...s, [def.name]: !s[def.name] }))}
+                                  className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-800/40 transition-colors"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <code className="text-sm text-yellow-400 font-semibold">{def.name}</code>
+                                    <span className="text-xs text-gray-600">{Object.keys(def.input_schema.properties).length} Parameter</span>
+                                  </div>
+                                  <span className={`text-gray-600 text-[10px] transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}>▶</span>
+                                </button>
+
+                                {/* Body — aufklappbar */}
+                                {isOpen && (
+                                  <div className="px-4 pb-4 space-y-3 border-t border-gray-800">
+                                    <p className="text-xs text-gray-400 leading-relaxed pt-3">{def.description}</p>
+
+                                    {Object.keys(def.input_schema.properties).length > 0 && (
+                                      <div className="space-y-1.5">
+                                        <p className="text-[10px] text-gray-600 font-medium uppercase tracking-wider">Parameter</p>
+                                        {Object.entries(def.input_schema.properties).map(([pname, param]) => {
+                                          const required = def.input_schema.required?.includes(pname);
+                                          return (
+                                            <div key={pname} className="grid grid-cols-[160px_1fr] gap-2 items-start py-1 border-b border-gray-800/50 last:border-0">
+                                              <div className="flex items-center gap-1.5">
+                                                <code className="text-xs text-sky-400">{pname}</code>
+                                                {required && <span className="text-[10px] text-red-400/70 font-bold">*</span>}
+                                              </div>
+                                              <div>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                  <span className="text-[11px] text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded">{param.type}</span>
+                                                  {param.enum && <span className="text-[11px] text-violet-400/70">{param.enum.join(" | ")}</span>}
+                                                  {param.default !== undefined && <span className="text-[11px] text-gray-600">default: {String(param.default)}</span>}
+                                                </div>
+                                                {param.description && <p className="text-[11px] text-gray-500 mt-0.5">{param.description}</p>}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </>
                     )}
                   </div>
