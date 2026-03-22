@@ -78,6 +78,7 @@ async def _run_bedrock(
     }
     tool_calls_log: list[dict] = []
     content: list[dict] = []
+    total_tokens = 0
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         for _ in range(max_tool_rounds):
@@ -95,6 +96,9 @@ async def _run_bedrock(
             resp.raise_for_status()
             data = resp.json()
 
+            usage = data.get("usage", {})
+            total_tokens += usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+
             stop_reason = data.get("stop_reason")
             content = data.get("content", [])
 
@@ -102,7 +106,7 @@ async def _run_bedrock(
                 text = "".join(
                     b.get("text", "") for b in content if b.get("type") == "text"
                 )
-                return {"output": text, "model_used": model, "tool_calls": tool_calls_log}
+                return {"output": text, "model_used": model, "tool_calls": tool_calls_log, "total_tokens": total_tokens}
 
             if stop_reason == "tool_use":
                 messages.append({"role": "assistant", "content": content})
@@ -126,7 +130,7 @@ async def _run_bedrock(
             break
 
     text = "".join(b.get("text", "") for b in content if b.get("type") == "text")
-    return {"output": text or "Keine Antwort erhalten.", "model_used": model, "tool_calls": tool_calls_log}
+    return {"output": text or "Keine Antwort erhalten.", "model_used": model, "tool_calls": tool_calls_log, "total_tokens": total_tokens}
 
 
 async def _run_anthropic(
@@ -139,6 +143,8 @@ async def _run_anthropic(
     """Tool Use Loop über Anthropic API direkt."""
     client = _get_anthropic_client()
     tool_calls_log: list[dict] = []
+    total_tokens = 0
+    response = None
 
     for _ in range(max_tool_rounds):
         kwargs: dict = {
@@ -151,10 +157,11 @@ async def _run_anthropic(
             kwargs["tools"] = tool_defs
 
         response = client.messages.create(**kwargs)
+        total_tokens += response.usage.input_tokens + response.usage.output_tokens
 
         if response.stop_reason == "end_turn":
             text = _extract_text(response.content)
-            return {"output": text, "model_used": model, "tool_calls": tool_calls_log}
+            return {"output": text, "model_used": model, "tool_calls": tool_calls_log, "total_tokens": total_tokens}
 
         if response.stop_reason == "tool_use":
             assistant_content = response.content
@@ -179,7 +186,7 @@ async def _run_anthropic(
         break
 
     text = _extract_text(response.content) if response else "Keine Antwort erhalten."
-    return {"output": text, "model_used": model, "tool_calls": tool_calls_log}
+    return {"output": text, "model_used": model, "tool_calls": tool_calls_log, "total_tokens": total_tokens}
 
 
 def _extract_text(content_blocks) -> str:

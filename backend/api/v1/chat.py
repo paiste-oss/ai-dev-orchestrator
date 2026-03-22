@@ -239,6 +239,7 @@ async def send_message(
             )
             response_text = uhrwerk_result["output"]
             model_name = uhrwerk_result.get("model_used", model_name)
+            tokens_used = uhrwerk_result.get("total_tokens", 0)
 
             # Bild-URLs + Structured Data aus Tool-Calls extrahieren
             for tc in uhrwerk_result.get("tool_calls", []):
