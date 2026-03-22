@@ -22,6 +22,7 @@ const NAV: NavEntry[] = [
     label: "Uhrwerk", icon: "⚙",
     children: [
       { label: "Content Guard",  href: "/admin/router",                        icon: "🛡" },
+      { label: "Tools",          href: "/admin/tools",                         icon: "🔧" },
       { label: "LLM",            href: "/admin/uhrwerk/llm",                   icon: "◈" },
       { label: "System-Prompts", href: "/admin/uhrwerk/system-prompts",        icon: "📝" },
       { label: "Memory Manager", href: "/admin/chat-flow/memory-manager",      icon: "🧠" },
