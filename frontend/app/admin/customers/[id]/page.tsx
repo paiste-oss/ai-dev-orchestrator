@@ -856,8 +856,7 @@ export default function CustomerDetailPage() {
   const [workplace, setWorkplace] = useState("");
   const [jobTitle, setJobTitle] = useState("");
 
-  // Interessen & Notizen
-  const [notes, setNotes] = useState("");
+  // Interessen
   const [interestInput, setInterestInput] = useState("");
   const [interests, setInterests] = useState<string[]>([]);
 
@@ -886,7 +885,6 @@ export default function CustomerDetailPage() {
           setCountry(c.address_country ?? "Schweiz");
           setWorkplace(c.workplace ?? "");
           setJobTitle(c.job_title ?? "");
-          setNotes(c.notes ?? "");
           setInterests(c.interests ?? []);
         }
         if (sRes.ok) setStats(await sRes.json());
@@ -913,7 +911,6 @@ export default function CustomerDetailPage() {
           address_country: country || null,
           workplace: workplace || null,
           job_title: jobTitle || null,
-          notes: notes || null,
           interests,
         }),
       });
@@ -1177,18 +1174,6 @@ export default function CustomerDetailPage() {
                 )}
               </div>
 
-              {/* Notizen */}
-              <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-300">Notizen (intern)</h3>
-                <p className="text-xs text-gray-500">Werden dem Baddi als Kontext mitgegeben — nicht sichtbar für den Kunden.</p>
-                <textarea
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  rows={4}
-                  placeholder="Besonderheiten, Präferenzen, wichtige Hinweise…"
-                  className={`${inputCls} resize-y`}
-                />
-              </div>
 
               {/* Speichern */}
               <div className="flex items-center gap-3">
