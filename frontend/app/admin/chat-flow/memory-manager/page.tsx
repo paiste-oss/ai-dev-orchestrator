@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import AdminSidebar from "@/components/AdminSidebar";
@@ -11,23 +12,21 @@ interface Config {
 }
 
 const KNOWN_MODELS = [
-  "mistral",
-  "llama3.1",
-  "llama3.2",
-  "llama3",
-  "phi3",
+  "gemma3:12b",
   "phi4",
-  "gemma2",
   "qwen2.5",
   "deepseek-r1",
+  "mistral-small3.1",
+  "llama3.3",
 ];
 
 export default function MemoryManagerPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [config, setConfig]     = useState<Config | null>(null);
-  const [saving, setSaving]     = useState(false);
-  const [saved, setSaved]       = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const [config, setConfig]   = useState<Config | null>(null);
+  const [saving, setSaving]   = useState(false);
+  const [saved, setSaved]     = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     apiFetch(`${BACKEND_URL}/v1/settings/memory-manager`)
@@ -56,137 +55,127 @@ export default function MemoryManagerPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
+    <div className="min-h-screen bg-gray-950 text-white flex">
       <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="h-14 flex items-center gap-4 px-6 border-b border-white/5 shrink-0">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="md:hidden text-gray-400 hover:text-white"
-          >☰</button>
-          <div>
-            <p className="text-xs text-gray-500 font-medium tracking-wide uppercase">Chat-Flow</p>
-            <h1 className="text-sm font-semibold text-white leading-none mt-0.5">Memory Manager</h1>
-          </div>
+      <main className="flex-1 overflow-y-auto">
+        <header className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-gray-950/90 backdrop-blur md:hidden">
+          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white">☰</button>
+          <span className="font-bold text-sm text-yellow-400">🧠 Memory Manager</span>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6 space-y-6 max-w-3xl">
+        <div className="p-6 max-w-3xl mx-auto space-y-6">
 
-          {/* Info-Box */}
-          <div className="bg-gray-900 border border-white/5 rounded-xl p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-yellow-400">Was macht der Memory Manager?</h2>
+          {/* Header */}
+          <div>
+            <h1 className="text-2xl font-bold text-white flex items-center gap-2">🧠 Memory Manager</h1>
+            <p className="text-gray-400 text-sm mt-0.5">Langzeit-Gedächtnis · Fakten-Extraktion · Qdrant + PostgreSQL</p>
+          </div>
+
+          {/* Flow-Erklärung */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
+            <h2 className="text-sm font-semibold text-yellow-400">Wie funktioniert das Gedächtnis?</h2>
             <p className="text-sm text-gray-400 leading-relaxed">
-              Nach jeder Baddi-Antwort läuft im Hintergrund ein Celery-Task. Dieser liest die letzten
-              6 Gesprächs-Turns aus dem Redis-Kurzzeitgedächtnis, analysiert sie mit dem lokalen LLM
-              und extrahiert dauerhafte Fakten über den Nutzer. Die Fakten werden als Vektoren in
-              Qdrant gespeichert und beim nächsten Chat automatisch als Kontext eingebunden.
+              Nach jeder Baddi-Antwort läuft ein Celery-Task im Hintergrund. Er liest die letzten
+              12 Nachrichten aus dem Redis-Kurzzeitgedächtnis, analysiert sie mit dem lokalen LLM
+              und extrahiert dauerhafte Fakten über den Nutzer. Diese werden als Vektoren in Qdrant
+              gespeichert und beim nächsten Chat automatisch als Kontext eingebunden.
             </p>
-            <div className="flex flex-wrap gap-3 pt-1">
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                ["Auslöser", "Nach jeder Antwort"],
-                ["Input", "Redis: chat:recent:{id} (12 Msg)"],
-                ["Output", "Qdrant: customer_memories"],
-                ["Fallback", "PostgreSQL: memory_items"],
-              ].map(([label, value]) => (
-                <div key={label} className="bg-gray-800 rounded-lg px-3 py-2">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
-                  <p className="text-xs text-gray-200 font-mono mt-0.5">{value}</p>
+                { label: "Auslöser",  value: "Nach jeder Antwort",          icon: "⚡" },
+                { label: "Input",     value: "Redis · 12 Nachrichten",       icon: "📥" },
+                { label: "Speicher",  value: "Qdrant + PostgreSQL",          icon: "🗄" },
+                { label: "Kontext",   value: "Automatisch beim nächsten Chat", icon: "🔄" },
+              ].map(({ label, value, icon }) => (
+                <div key={label} className="bg-gray-800 rounded-lg px-3 py-2.5">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">{icon} {label}</p>
+                  <p className="text-xs text-gray-200 font-mono mt-1 leading-tight">{value}</p>
                 </div>
               ))}
             </div>
           </div>
 
+          {/* Modell */}
           {!config ? (
             <p className="text-sm text-gray-500">{error ?? "Lädt…"}</p>
           ) : (
-            <div className="space-y-5">
-
-              {/* Modell */}
-              <div className="bg-gray-900 border border-white/5 rounded-xl p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-white">Lokales LLM</h2>
-                <p className="text-xs text-gray-500">
-                  Ollama-Modell das für die Fakten-Extraktion verwendet wird.
-                  Das Modell muss auf dem Ollama-Server installiert sein.
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
+              <div>
+                <h2 className="text-sm font-semibold text-white">Lokales LLM für Fakten-Extraktion</h2>
+                <p className="text-xs text-gray-500 mt-1">
+                  Das Ollama-Modell das die Gesprächs-Analyse durchführt. Muss auf dem Ollama-Server installiert sein.
                 </p>
-                <div className="flex gap-3 items-center">
-                  <input
-                    type="text"
-                    value={config.model}
-                    onChange={e => setConfig({ ...config, model: e.target.value })}
-                    className="flex-1 bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-yellow-500/50"
-                    placeholder="z.B. mistral"
-                  />
-                  <div className="flex flex-wrap gap-1">
-                    {KNOWN_MODELS.map(m => (
-                      <button
-                        key={m}
-                        onClick={() => setConfig({ ...config, model: m })}
-                        className={`px-2 py-1 rounded-md text-xs font-mono transition-colors ${
-                          config.model === m
-                            ? "bg-yellow-400 text-gray-900 font-semibold"
-                            : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700"
-                        }`}
-                      >
-                        {m}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Aktuelles Modell Badge */}
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="w-2 h-2 rounded-full bg-green-400 shrink-0" />
-                  <span className="text-xs text-gray-400">
-                    Aktiv: <span className="text-green-400 font-mono">{config.model}</span>
-                  </span>
-                </div>
               </div>
 
-              {/* System Prompt */}
-              <div className="bg-gray-900 border border-white/5 rounded-xl p-5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-white">System-Prompt (Persönlichkeit / Filter)</h2>
-                  <span className="text-xs text-gray-600 font-mono">{config.system_prompt.length} Zeichen</span>
-                </div>
-                <p className="text-xs text-gray-500">
-                  Dieser Prompt bestimmt, welche Fakten das LLM extrahiert und welche es ignoriert.
-                  Die Antwort muss immer eine JSON-Liste sein.
-                </p>
-                <textarea
-                  value={config.system_prompt}
-                  onChange={e => setConfig({ ...config, system_prompt: e.target.value })}
-                  rows={16}
-                  className="w-full bg-gray-800 border border-white/10 rounded-lg px-4 py-3 text-sm text-gray-200 font-mono leading-relaxed focus:outline-none focus:border-yellow-500/50 resize-y"
+              <div className="flex gap-3 items-center">
+                <input
+                  type="text"
+                  value={config.model}
+                  onChange={e => setConfig({ ...config, model: e.target.value })}
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-yellow-500/50 transition-colors"
+                  placeholder="z.B. gemma3:12b"
                 />
-                <p className="text-xs text-gray-600">
-                  Pflicht: Der Prompt muss am Ende eine JSON-Liste verlangen, z.B.{" "}
-                  <code className="text-yellow-500/80">["Fakt 1", "Fakt 2"]</code>
-                </p>
               </div>
 
-              {/* Speichern */}
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={save}
-                  disabled={saving}
-                  className="px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold text-sm transition-colors disabled:opacity-50"
-                >
-                  {saving ? "Speichern…" : "Speichern"}
-                </button>
-                {saved && (
-                  <span className="text-sm text-green-400">✓ Gespeichert — gilt ab dem nächsten Chat-Turn</span>
-                )}
-                {error && (
-                  <span className="text-sm text-red-400">{error}</span>
-                )}
+              <div className="flex flex-wrap gap-2">
+                {KNOWN_MODELS.map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setConfig({ ...config, model: m })}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
+                      config.model === m
+                        ? "bg-yellow-400 text-gray-900 font-semibold"
+                        : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 border border-gray-700"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
               </div>
 
+              <div className="flex items-center gap-2 pt-1 border-t border-gray-800">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                <span className="text-xs text-gray-400">
+                  Aktiv: <span className="text-emerald-400 font-mono">{config.model}</span>
+                </span>
+              </div>
             </div>
           )}
-        </main>
-      </div>
+
+          {/* Hinweis System-Prompt */}
+          <button
+            onClick={() => router.push("/admin/uhrwerk/system-prompts")}
+            className="w-full flex items-center justify-between bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl px-5 py-3.5 transition-colors group text-left"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-lg">📝</span>
+              <div>
+                <p className="text-sm font-semibold text-white">Extraktion-Prompt</p>
+                <p className="text-xs text-gray-500 mt-0.5">Der System-Prompt für die Fakten-Extraktion wird unter System-Prompts verwaltet</p>
+              </div>
+            </div>
+            <span className="text-gray-600 group-hover:text-gray-400 text-sm">→</span>
+          </button>
+
+          {/* Speichern */}
+          {config && (
+            <div className="flex items-center gap-4">
+              <button
+                onClick={save}
+                disabled={saving}
+                className="px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold text-sm transition-colors disabled:opacity-50"
+              >
+                {saving ? "Speichern…" : "Speichern"}
+              </button>
+              {saved && <span className="text-sm text-emerald-400">✓ Gespeichert</span>}
+              {error && <span className="text-sm text-red-400">{error}</span>}
+            </div>
+          )}
+
+        </div>
+      </main>
     </div>
   );
 }
