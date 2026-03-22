@@ -105,6 +105,8 @@ class ChatResponse(BaseModel):
     provider: str
     model: str
     image_urls: list[str] | None = None
+    response_type: str = "text"
+    structured_data: dict | None = None
 
 
 class MessageOut(BaseModel):
@@ -198,6 +200,8 @@ async def send_message(
     tokens_used: int = 0
     generated_image_urls: list[str] = []
     errors: list[str] = []
+    response_type = "text"
+    structured_data: dict | None = None
 
     if req.images:
         # Vision: Sonnet, keine Tools
@@ -236,9 +240,12 @@ async def send_message(
             response_text = uhrwerk_result["output"]
             model_name = uhrwerk_result.get("model_used", model_name)
 
-            # Bild-URLs extrahieren (DALL-E + Unsplash)
+            # Bild-URLs + Structured Data aus Tool-Calls extrahieren
             for tc in uhrwerk_result.get("tool_calls", []):
+                tool_name = tc.get("tool")
                 result = tc.get("result")
+
+                # Bild-URLs (DALL-E + Unsplash)
                 if isinstance(result, dict):
                     url = result.get("image_url")
                     if url:
@@ -249,6 +256,27 @@ async def send_message(
                             url = item.get("image_url")
                             if url:
                                 generated_image_urls.append(url)
+
+                # Structured data für UI-Karten
+                if tool_name == "get_stock_price" and isinstance(result, dict) and "price" in result:
+                    response_type = "stock_card"
+                    structured_data = result
+
+                elif tool_name == "get_stock_history" and isinstance(result, dict) and "data_points" in result:
+                    response_type = "stock_history"
+                    structured_data = result
+
+                elif tool_name == "search_image":
+                    if isinstance(result, list) and result:
+                        response_type = "image_gallery"
+                        structured_data = {"images": result}
+                    elif isinstance(result, dict) and "image_url" in result:
+                        response_type = "image_gallery"
+                        structured_data = {"images": [result]}
+
+                elif tool_name == "sbb_stationboard" and isinstance(result, dict) and "departures" in result:
+                    response_type = "transport_board"
+                    structured_data = result
         except Exception as e:
             errors.append(f"Uhrwerk: {e}")
 
@@ -311,6 +339,8 @@ async def send_message(
         provider=provider,
         model=model_name,
         image_urls=generated_image_urls if generated_image_urls else None,
+        response_type=response_type,
+        structured_data=structured_data,
     )
 
 

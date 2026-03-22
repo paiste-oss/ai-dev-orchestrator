@@ -9,12 +9,54 @@ import FileDropZone, { AttachedFile } from "@/components/FileDropZone";
 
 const VoiceButton = dynamic(() => import("@/components/VoiceButton"), { ssr: false });
 
+interface StockData {
+  symbol: string;
+  name?: string;
+  price?: number;
+  currency?: string;
+  change?: number;
+  change_pct?: number;
+  market_cap?: number;
+  volume?: number;
+  exchange?: string;
+}
+
+interface StockHistoryData {
+  symbol: string;
+  period: string;
+  currency: string;
+  total_change_pct: number;
+  start_price: number;
+  end_price: number;
+  data_points: { date: string; close: number; change_pct: number | null }[];
+}
+
+interface ImageGalleryData {
+  images: { image_url: string; description: string; photographer: string; source: string }[];
+}
+
+interface TransportDeparture {
+  line: string;
+  destination: string;
+  departure: string;
+  track?: string;
+  delay?: number;
+  category?: string;
+}
+
+interface TransportBoardData {
+  station?: string;
+  departures: TransportDeparture[];
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   images?: string[];       // object URLs for display (user uploads)
   generatedImages?: string[]; // URLs from DALL-E
+  responseType?: string;
+  structuredData?: StockData | StockHistoryData | ImageGalleryData | TransportBoardData;
   provider?: string;
   model?: string;
   created_at: string;
@@ -40,6 +82,170 @@ function AvatarCircle({ speaking }: { speaking: boolean }) {
       {speaking && (
         <span className="absolute inset-0 rounded-full animate-ping bg-indigo-500 opacity-20" />
       )}
+    </div>
+  );
+}
+
+// ── Structured Card Components ────────────────────────────────────────────
+
+function StockCard({ data }: { data: StockData }) {
+  const isPositive = (data.change_pct ?? 0) >= 0;
+  const changeColor = isPositive ? "text-emerald-400" : "text-red-400";
+  const changeBg = isPositive ? "bg-emerald-500/10" : "bg-red-500/10";
+  const arrow = isPositive ? "▲" : "▼";
+
+  function formatMarketCap(mc: number) {
+    if (mc >= 1e12) return `${(mc / 1e12).toFixed(2)}T`;
+    if (mc >= 1e9) return `${(mc / 1e9).toFixed(2)}B`;
+    if (mc >= 1e6) return `${(mc / 1e6).toFixed(2)}M`;
+    return mc.toLocaleString();
+  }
+
+  return (
+    <div className="mt-3 rounded-2xl bg-gray-900 border border-gray-700 p-4 min-w-[240px] max-w-[340px] shadow-lg">
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div>
+          <p className="text-xs text-gray-500 font-mono uppercase tracking-widest">{data.symbol}</p>
+          {data.name && <p className="text-sm text-gray-300 font-medium leading-tight">{data.name}</p>}
+        </div>
+        {data.exchange && (
+          <span className="text-xs text-gray-600 bg-gray-800 px-2 py-0.5 rounded-full">{data.exchange}</span>
+        )}
+      </div>
+      <div className="flex items-end gap-3">
+        <span className="text-3xl font-bold text-white tabular-nums">
+          {data.price?.toFixed(2) ?? "–"}
+        </span>
+        <span className="text-sm text-gray-500 mb-0.5">{data.currency}</span>
+      </div>
+      {data.change_pct !== null && data.change_pct !== undefined && (
+        <div className={`inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full text-sm font-medium ${changeBg} ${changeColor}`}>
+          <span>{arrow}</span>
+          <span>{Math.abs(data.change ?? 0).toFixed(2)} ({Math.abs(data.change_pct).toFixed(2)}%)</span>
+        </div>
+      )}
+      {(data.market_cap || data.volume) && (
+        <div className="flex gap-4 mt-3 pt-3 border-t border-gray-800 text-xs text-gray-500">
+          {data.market_cap && (
+            <div>
+              <p className="text-gray-600 mb-0.5">Market Cap</p>
+              <p className="text-gray-400">{formatMarketCap(data.market_cap)}</p>
+            </div>
+          )}
+          {data.volume && (
+            <div>
+              <p className="text-gray-600 mb-0.5">Volumen</p>
+              <p className="text-gray-400">{data.volume.toLocaleString()}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StockHistoryCard({ data }: { data: StockHistoryData }) {
+  const isPositive = data.total_change_pct >= 0;
+  const changeColor = isPositive ? "text-emerald-400" : "text-red-400";
+  const arrow = isPositive ? "▲" : "▼";
+
+  return (
+    <div className="mt-3 rounded-2xl bg-gray-900 border border-gray-700 p-4 max-w-[420px] shadow-lg">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-xs text-gray-500 font-mono uppercase tracking-widest">{data.symbol}</p>
+          <p className="text-sm text-gray-400">Kursverlauf · {data.period}</p>
+        </div>
+        <div className={`text-right ${changeColor}`}>
+          <p className="text-lg font-bold">{arrow} {Math.abs(data.total_change_pct).toFixed(2)}%</p>
+          <p className="text-xs text-gray-500">{data.start_price} → {data.end_price} {data.currency}</p>
+        </div>
+      </div>
+      <div className="overflow-x-auto -mx-1">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-gray-600">
+              <th className="text-left py-1 px-1">Datum</th>
+              <th className="text-right py-1 px-1">Kurs</th>
+              <th className="text-right py-1 px-1">Änderung</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.data_points.slice(-12).map((row, i) => (
+              <tr key={i} className="border-t border-gray-800/60">
+                <td className="py-1 px-1 text-gray-500 font-mono">{row.date.substring(0, 7)}</td>
+                <td className="py-1 px-1 text-right text-gray-300 tabular-nums">{row.close.toFixed(2)}</td>
+                <td className={`py-1 px-1 text-right tabular-nums ${
+                  row.change_pct === null ? "text-gray-600"
+                  : row.change_pct >= 0 ? "text-emerald-400" : "text-red-400"
+                }`}>
+                  {row.change_pct !== null ? `${row.change_pct >= 0 ? "+" : ""}${row.change_pct.toFixed(2)}%` : "–"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ImageGalleryCard({ data }: { data: ImageGalleryData }) {
+  return (
+    <div className="mt-3 flex flex-wrap gap-3">
+      {data.images.map((img, i) => (
+        <div key={i} className="rounded-2xl overflow-hidden shadow-lg max-w-[300px]">
+          <a href={img.image_url} target="_blank" rel="noopener noreferrer">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={img.image_url}
+              alt={img.description}
+              className="w-full max-h-[220px] object-cover hover:scale-105 transition-transform cursor-pointer"
+            />
+          </a>
+          <div className="bg-gray-900 px-3 py-1.5">
+            <p className="text-xs text-gray-500">
+              Foto: <span className="text-gray-400">{img.photographer}</span>
+              <span className="ml-1 text-gray-600">· {img.source}</span>
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TransportBoardCard({ data }: { data: TransportBoardData }) {
+  return (
+    <div className="mt-3 rounded-2xl bg-gray-900 border border-gray-700 overflow-hidden shadow-lg max-w-[460px]">
+      <div className="bg-gray-800 px-4 py-2.5 flex items-center gap-2">
+        <span className="text-lg">🚆</span>
+        <span className="text-sm font-semibold text-white">{data.station ?? "Abfahrten"}</span>
+      </div>
+      <div className="divide-y divide-gray-800">
+        {data.departures.slice(0, 8).map((dep, i) => {
+          const isDelayed = dep.delay && dep.delay > 0;
+          return (
+            <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+              <span className="text-xs font-bold bg-indigo-600 text-white px-2 py-0.5 rounded min-w-[40px] text-center">
+                {dep.line}
+              </span>
+              <span className="flex-1 text-sm text-gray-300 truncate">{dep.destination}</span>
+              <div className="text-right shrink-0">
+                <span className={`text-sm font-mono font-medium ${isDelayed ? "text-red-400" : "text-white"}`}>
+                  {dep.departure}
+                </span>
+                {isDelayed && (
+                  <span className="block text-xs text-red-500">+{dep.delay} min</span>
+                )}
+              </div>
+              {dep.track && (
+                <span className="text-xs text-gray-600 min-w-[30px] text-right">Gl. {dep.track}</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -378,6 +584,8 @@ export default function ChatPage() {
         role: "assistant",
         content: data.response,
         generatedImages: data.image_urls ?? undefined,
+        responseType: data.response_type ?? "text",
+        structuredData: data.structured_data ?? undefined,
         provider: data.provider,
         model: data.model,
         created_at: new Date().toISOString(),
@@ -659,7 +867,7 @@ export default function ChatPage() {
                   )}
                   {msg.content}
                   {/* DALL-E generated images */}
-                  {msg.generatedImages && msg.generatedImages.length > 0 && (
+                  {msg.generatedImages && msg.generatedImages.length > 0 && !msg.structuredData && (
                     <div className="mt-3 flex flex-wrap gap-3">
                       {msg.generatedImages.map((src, i) => (
                         <a key={i} href={src} target="_blank" rel="noopener noreferrer">
@@ -672,6 +880,19 @@ export default function ChatPage() {
                         </a>
                       ))}
                     </div>
+                  )}
+                  {/* Structured cards */}
+                  {msg.responseType === "stock_card" && msg.structuredData && (
+                    <StockCard data={msg.structuredData as StockData} />
+                  )}
+                  {msg.responseType === "stock_history" && msg.structuredData && (
+                    <StockHistoryCard data={msg.structuredData as StockHistoryData} />
+                  )}
+                  {msg.responseType === "image_gallery" && msg.structuredData && (
+                    <ImageGalleryCard data={msg.structuredData as ImageGalleryData} />
+                  )}
+                  {msg.responseType === "transport_board" && msg.structuredData && (
+                    <TransportBoardCard data={msg.structuredData as TransportBoardData} />
                   )}
                 </div>
               </div>
