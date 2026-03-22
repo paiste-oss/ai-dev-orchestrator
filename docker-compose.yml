@@ -68,6 +68,10 @@ services:
       - STRIPE_PRICE_KOMFORT_YEARLY=${STRIPE_PRICE_KOMFORT_YEARLY}
       - STRIPE_PRICE_PREMIUM_MONTHLY=${STRIPE_PRICE_PREMIUM_MONTHLY}
       - STRIPE_PRICE_PREMIUM_YEARLY=${STRIPE_PRICE_PREMIUM_YEARLY}
+      # Storage Add-on Stripe Price IDs (recurring monthly)
+      - STRIPE_PRICE_STORAGE_10GB=${STRIPE_PRICE_STORAGE_10GB}
+      - STRIPE_PRICE_STORAGE_50GB=${STRIPE_PRICE_STORAGE_50GB}
+      - STRIPE_PRICE_STORAGE_500GB=${STRIPE_PRICE_STORAGE_500GB}
     extra_hosts:
       - "host.docker.internal:host-gateway"   # Ollama auf dem Host erreichbar
     depends_on:

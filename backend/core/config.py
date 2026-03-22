@@ -80,6 +80,10 @@ class Settings(BaseSettings):
     stripe_price_komfort_yearly: str = ""
     stripe_price_premium_monthly: str = ""
     stripe_price_premium_yearly: str = ""
+    # Storage Add-on Stripe Price IDs (recurring monthly — in Stripe-Dashboard anlegen)
+    stripe_price_storage_10gb: str = ""
+    stripe_price_storage_50gb: str = ""
+    stripe_price_storage_500gb: str = ""
 
     # System-SMTP (für automatische Benachrichtigungen: Kurs-Alerts etc.)
     # Brevo: smtp-relay.brevo.com:587, User=E-Mail, Password=API-Key

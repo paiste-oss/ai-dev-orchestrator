@@ -412,8 +412,11 @@ async def _on_subscription_deleted(sub: dict, db: AsyncSession) -> None:
     if customer:
         customer.subscription_status = "canceled"
         customer.subscription_plan_id = None
+        # Zusatzspeicher entfernen — war Bestandteil des Abos
+        customer.storage_extra_bytes = 0
+        customer.storage_addon_items = []
         await db.commit()
-        _log.info("Subscription canceled: customer=%s", customer.id)
+        _log.info("Subscription canceled: customer=%s — Zusatzspeicher entfernt", customer.id)
 
 
 async def _on_invoice_paid(invoice: dict, db: AsyncSession) -> None:
@@ -663,6 +666,52 @@ async def wallet_debit(
 
 
 # ── Banküberweisung: Referenznummer generieren ────────────────────────────────
+
+async def add_storage_subscription_item(
+    customer: Customer,
+    addon_key: str,
+    addon_label: str,
+    bytes_to_add: int,
+    price_id: str,
+    db: AsyncSession,
+) -> str:
+    """
+    Fügt einen Speicher Add-on als Stripe Subscription Item hinzu.
+    Der Kunde wird monatlich zusammen mit seinem Abo belastet.
+    Gibt die Stripe Subscription Item ID zurück.
+
+    Voraussetzung: Kunde hat ein aktives Abo (stripe_subscription_id gesetzt).
+    """
+    if not customer.stripe_subscription_id:
+        raise ValueError("Kein aktives Stripe-Abo gefunden.")
+
+    s = _stripe()
+    item = s.SubscriptionItem.create(
+        subscription=customer.stripe_subscription_id,
+        price=price_id,
+        quantity=1,
+        # Proration: anteilig für den aktuellen Monat abrechnen
+        proration_behavior="create_prorations",
+    )
+
+    # Speicher sofort freischalten
+    addon_items = list(customer.storage_addon_items or [])
+    addon_items.append({
+        "key": addon_key,
+        "stripe_item_id": item.id,
+        "bytes": bytes_to_add,
+        "added_at": datetime.now(timezone.utc).isoformat(),
+    })
+    customer.storage_addon_items = addon_items
+    customer.storage_extra_bytes = (customer.storage_extra_bytes or 0) + bytes_to_add
+
+    await db.commit()
+    _log.info(
+        "Storage Add-on %s hinzugefügt: customer=%s, stripe_item=%s (+%d bytes)",
+        addon_key, customer.id, item.id, bytes_to_add,
+    )
+    return item.id
+
 
 def generate_bank_transfer_reference(customer_id: str) -> str:
     """

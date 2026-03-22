@@ -157,6 +157,8 @@ async def init_db():
             # Kunden-Stil: Kommunikationspräferenzen als eigene Memory-Kategorie
             "ALTER TABLE memory_items ADD COLUMN IF NOT EXISTS category VARCHAR(20) DEFAULT 'fact'",
             "CREATE INDEX IF NOT EXISTS idx_memory_items_category ON memory_items(customer_id, category)",
+            # Storage Add-on Tracking: aktive Stripe Subscription Items pro Kunde
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS storage_addon_items JSONB DEFAULT '[]'",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

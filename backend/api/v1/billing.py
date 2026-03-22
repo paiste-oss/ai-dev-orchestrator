@@ -41,6 +41,7 @@ from services.billing_service import (
     generate_bank_transfer_reference,
     next_invoice_number,
     calc_vat,
+    add_storage_subscription_item,
 )
 
 _log = logging.getLogger(__name__)
@@ -443,10 +444,12 @@ class WalletStatusOut(BaseModel):
     auto_topup_threshold_chf: float
     auto_topup_amount_chf: float
     has_saved_card: bool
+    has_active_subscription: bool
     # Storage
     storage_used_bytes: int
     storage_limit_bytes: int
     storage_extra_bytes: int
+    storage_addon_items: list
 
 
 class WalletSettingsIn(BaseModel):
@@ -471,11 +474,8 @@ class AdminCreditIn(BaseModel):
     description: str = "Manuelle Gutschrift durch Admin"
 
 
-@router.get("/wallet", response_model=WalletStatusOut)
-async def get_wallet(
-    customer: Customer = Depends(get_current_user),
-):
-    """Wallet-Status: Guthaben, Limits, Auto-Topup, Speicher."""
+def _wallet_out(customer: Customer) -> WalletStatusOut:
+    """Hilfsfunktion: Customer → WalletStatusOut."""
     monthly_limit = float(customer.wallet_monthly_limit_chf or 100)
     monthly_spent = float(customer.wallet_monthly_spent_chf or 0)
     return WalletStatusOut(
@@ -488,10 +488,20 @@ async def get_wallet(
         auto_topup_threshold_chf=float(customer.auto_topup_threshold_chf or 5),
         auto_topup_amount_chf=float(customer.auto_topup_amount_chf or 20),
         has_saved_card=bool(customer.stripe_payment_method_id),
+        has_active_subscription=customer.subscription_status in ("active", "trialing"),
         storage_used_bytes=customer.storage_used_bytes or 0,
         storage_limit_bytes=customer.storage_limit_bytes or 524_288_000,
         storage_extra_bytes=customer.storage_extra_bytes or 0,
+        storage_addon_items=customer.storage_addon_items or [],
     )
+
+
+@router.get("/wallet", response_model=WalletStatusOut)
+async def get_wallet(
+    customer: Customer = Depends(get_current_user),
+):
+    """Wallet-Status: Guthaben, Limits, Auto-Topup, Speicher."""
+    return _wallet_out(customer)
 
 
 @router.put("/wallet/settings", response_model=WalletStatusOut)
@@ -514,22 +524,7 @@ async def update_wallet_settings(
         setattr(customer, mapping.get(field, field), value)
     await db.commit()
     await db.refresh(customer)
-    monthly_limit = float(customer.wallet_monthly_limit_chf or 100)
-    monthly_spent = float(customer.wallet_monthly_spent_chf or 0)
-    return WalletStatusOut(
-        balance_chf=float(customer.token_balance_chf or 0),
-        monthly_limit_chf=monthly_limit,
-        per_tx_limit_chf=float(customer.wallet_per_tx_limit_chf or 50),
-        monthly_spent_chf=monthly_spent,
-        monthly_remaining_chf=max(0.0, monthly_limit - monthly_spent),
-        auto_topup_enabled=bool(customer.auto_topup_enabled),
-        auto_topup_threshold_chf=float(customer.auto_topup_threshold_chf or 5),
-        auto_topup_amount_chf=float(customer.auto_topup_amount_chf or 20),
-        has_saved_card=bool(customer.stripe_payment_method_id),
-        storage_used_bytes=customer.storage_used_bytes or 0,
-        storage_limit_bytes=customer.storage_limit_bytes or 524_288_000,
-        storage_extra_bytes=customer.storage_extra_bytes or 0,
-    )
+    return _wallet_out(customer)
 
 
 @router.post("/wallet/topup/stripe")
@@ -538,7 +533,12 @@ async def wallet_topup_stripe(
     customer: Customer = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Stripe Checkout Topup — öffnet Zahlungsseite."""
+    """Stripe Checkout Topup — nur mit aktivem Abo möglich."""
+    if customer.subscription_status not in ("active", "trialing"):
+        raise HTTPException(
+            status_code=400,
+            detail="Token-Guthaben aufladen ist nur mit einem aktiven Abo möglich. Bitte zuerst ein Abo abschliessen.",
+        )
     try:
         url = await create_topup_checkout(customer, req.amount_chf, db)
         return {"checkout_url": url}
@@ -551,7 +551,12 @@ async def wallet_topup_bank(
     req: TopupRequest,
     customer: Customer = Depends(get_current_user),
 ):
-    """Banküberweisung: generiert Zahlungsreferenz und IBAN-Details."""
+    """Banküberweisung: generiert Zahlungsreferenz und IBAN-Details. Nur mit aktivem Abo."""
+    if customer.subscription_status not in ("active", "trialing"):
+        raise HTTPException(
+            status_code=400,
+            detail="Token-Guthaben aufladen ist nur mit einem aktiven Abo möglich. Bitte zuerst ein Abo abschliessen.",
+        )
     if req.amount_chf < 10:
         raise HTTPException(status_code=400, detail="Mindestbetrag für Banküberweisung: CHF 10.00")
     reference = generate_bank_transfer_reference(str(customer.id))
@@ -569,9 +574,21 @@ async def wallet_topup_bank(
 _GB = 1024 * 1024 * 1024
 
 STORAGE_ADDONS = [
-    {"key": "10gb",  "label": "10 GB",  "bytes": 10 * _GB,  "price_chf": 1.90,  "description": "+10 GB Zusatzspeicher"},
-    {"key": "50gb",  "label": "50 GB",  "bytes": 50 * _GB,  "price_chf": 6.90,  "description": "+50 GB Zusatzspeicher"},
-    {"key": "500gb", "label": "500 GB", "bytes": 500 * _GB, "price_chf": 39.00, "description": "+500 GB Zusatzspeicher"},
+    {
+        "key": "10gb",  "label": "10 GB",  "bytes": 10 * _GB,
+        "price_chf": 1.90,  "description": "+10 GB Zusatzspeicher (monatlich)",
+        "stripe_price_key": "stripe_price_storage_10gb",
+    },
+    {
+        "key": "50gb",  "label": "50 GB",  "bytes": 50 * _GB,
+        "price_chf": 6.90,  "description": "+50 GB Zusatzspeicher (monatlich)",
+        "stripe_price_key": "stripe_price_storage_50gb",
+    },
+    {
+        "key": "500gb", "label": "500 GB", "bytes": 500 * _GB,
+        "price_chf": 39.00, "description": "+500 GB Zusatzspeicher (monatlich)",
+        "stripe_price_key": "stripe_price_storage_500gb",
+    },
 ]
 
 
@@ -581,8 +598,12 @@ class StorageAddonIn(BaseModel):
 
 @router.get("/storage/addons")
 async def list_storage_addons():
-    """Verfügbare Speicher Add-ons."""
-    return STORAGE_ADDONS
+    """Verfügbare Speicher Add-ons (monatlich zum Abo hinzugefügt)."""
+    # stripe_price_key nicht an Frontend geben
+    return [
+        {k: v for k, v in a.items() if k != "stripe_price_key"}
+        for a in STORAGE_ADDONS
+    ]
 
 
 @router.post("/storage/addon")
@@ -592,47 +613,55 @@ async def purchase_storage_addon(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Speicher Add-on kaufen — wird vom Wallet-Guthaben abgezogen.
-    Nach dem Kauf wird storage_extra_bytes dauerhaft erhöht.
+    Speicher Add-on buchen — wird als monatlich wiederkehrendes Stripe Subscription Item
+    zum bestehenden Abo hinzugefügt. Voraussetzung: aktives Abo.
+    Das Wallet-Guthaben wird NICHT verwendet — nur für Token-Overage.
     """
-    from decimal import Decimal
+    # Abo-Pflicht
+    if customer.subscription_status not in ("active", "trialing"):
+        raise HTTPException(
+            status_code=400,
+            detail="Speicher Add-ons sind nur mit einem aktiven Abo buchbar.",
+        )
+
     addon = next((a for a in STORAGE_ADDONS if a["key"] == data.addon_key), None)
     if not addon:
         raise HTTPException(status_code=400, detail="Unbekanntes Add-on.")
 
-    price = Decimal(str(addon["price_chf"]))
-    balance = Decimal(str(float(customer.token_balance_chf or 0)))
-    if balance < price:
+    # Stripe Price ID prüfen
+    price_id = getattr(_cfg, addon["stripe_price_key"], "")
+    if not price_id:
         raise HTTPException(
-            status_code=402,
-            detail=f"Zu wenig Guthaben. Benötigt: CHF {addon['price_chf']:.2f}, Verfügbar: CHF {float(balance):.2f}. Bitte zuerst Wallet aufladen.",
+            status_code=503,
+            detail=f"Stripe Price ID für {addon['key']} ist nicht konfiguriert. Bitte Admin kontaktieren.",
         )
 
-    customer.token_balance_chf = balance - price
-    customer.storage_extra_bytes = (customer.storage_extra_bytes or 0) + addon["bytes"]
+    try:
+        stripe_item_id = await add_storage_subscription_item(
+            customer=customer,
+            addon_key=addon["key"],
+            addon_label=addon["label"],
+            bytes_to_add=addon["bytes"],
+            price_id=price_id,
+            db=db,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        _log.error("Storage Add-on Stripe Fehler: %s", e)
+        raise HTTPException(status_code=502, detail=f"Stripe-Fehler: {e}")
 
-    net, vat = calc_vat(addon["price_chf"])
-    inv_no = await next_invoice_number(db)
-    db.add(Payment(
-        invoice_number=inv_no,
-        customer_id=str(customer.id),
-        amount_chf=addon["price_chf"],
-        vat_chf=vat,
-        amount_net_chf=net,
-        description=addon["description"],
-        payment_type="storage_addon",
-        status="succeeded",
-        paid_at=datetime.utcnow(),
-    ))
-    await db.commit()
     await db.refresh(customer)
-    _log.info("Storage Add-on: %s → Kunde %s (+%d bytes)", addon["key"], customer.id, addon["bytes"])
+    _log.info("Storage Add-on: %s → Kunde %s (+%d bytes, item=%s)",
+              addon["key"], customer.id, addon["bytes"], stripe_item_id)
     return {
         "addon": addon["key"],
+        "label": addon["label"],
         "bytes_added": addon["bytes"],
         "storage_extra_bytes": customer.storage_extra_bytes,
-        "new_balance_chf": float(customer.token_balance_chf),
-        "invoice_number": inv_no,
+        "stripe_item_id": stripe_item_id,
+        "billing": "monthly_subscription",
+        "price_chf_monthly": addon["price_chf"],
     }
 
 
@@ -649,22 +678,7 @@ async def admin_get_wallet(
     customer = await db.get(Customer, _uuid.UUID(customer_id))
     if not customer:
         raise HTTPException(status_code=404, detail="Kunde nicht gefunden")
-    monthly_limit = float(customer.wallet_monthly_limit_chf or 100)
-    monthly_spent = float(customer.wallet_monthly_spent_chf or 0)
-    return WalletStatusOut(
-        balance_chf=float(customer.token_balance_chf or 0),
-        monthly_limit_chf=monthly_limit,
-        per_tx_limit_chf=float(customer.wallet_per_tx_limit_chf or 50),
-        monthly_spent_chf=monthly_spent,
-        monthly_remaining_chf=max(0.0, monthly_limit - monthly_spent),
-        auto_topup_enabled=bool(customer.auto_topup_enabled),
-        auto_topup_threshold_chf=float(customer.auto_topup_threshold_chf or 5),
-        auto_topup_amount_chf=float(customer.auto_topup_amount_chf or 20),
-        has_saved_card=bool(customer.stripe_payment_method_id),
-        storage_used_bytes=customer.storage_used_bytes or 0,
-        storage_limit_bytes=customer.storage_limit_bytes or 524_288_000,
-        storage_extra_bytes=customer.storage_extra_bytes or 0,
-    )
+    return _wallet_out(customer)
 
 
 @router.post("/admin/wallet/credit")

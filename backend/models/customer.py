@@ -77,7 +77,8 @@ class Customer(Base):
     # Speicher
     storage_used_bytes: Mapped[int] = mapped_column(BigInteger, default=0)           # aktuell belegter Speicher
     storage_limit_bytes: Mapped[int] = mapped_column(BigInteger, default=524_288_000) # Limit (default 500 MB)
-    storage_extra_bytes: Mapped[int] = mapped_column(BigInteger, default=0)           # zusätzlich gekaufter Speicher
+    storage_extra_bytes: Mapped[int] = mapped_column(BigInteger, default=0)           # zusätzlich gebuchter Speicher
+    storage_addon_items: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)  # aktive Stripe-Subscription-Items
 
     # Wallet — Prepaid-Guthaben (Token-Overage + externe Zahlungen)
     token_balance_chf: Mapped[float] = mapped_column(Numeric(10, 4), default=0.0)   # alias: wallet_balance_chf

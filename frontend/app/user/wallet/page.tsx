@@ -15,9 +15,11 @@ interface WalletStatus {
   auto_topup_threshold_chf: number;
   auto_topup_amount_chf: number;
   has_saved_card: boolean;
+  has_active_subscription: boolean;
   storage_used_bytes: number;
   storage_limit_bytes: number;
   storage_extra_bytes: number;
+  storage_addon_items: { key: string; bytes: number; added_at: string }[];
 }
 
 interface StorageAddon {
@@ -142,7 +144,7 @@ export default function WalletPage() {
       if (!res.ok) {
         setAddonMsg({ text: data.detail || "Fehler", ok: false });
       } else {
-        setAddonMsg({ text: `${data.addon} hinzugefügt ✓ · Neues Guthaben: CHF ${data.new_balance_chf.toFixed(2)}`, ok: true });
+        setAddonMsg({ text: `+${data.label} Speicher hinzugefügt ✓ — wird monatlich zum Abo verrechnet`, ok: true });
         await load();
       }
     } finally { setAddonBuying(null); }
@@ -205,8 +207,9 @@ export default function WalletPage() {
     topup: "Aufladung (Karte)",
     auto_topup: "Auto-Aufladung",
     bank_transfer: "Banküberweisung",
-    wallet_debit: "Ausgabe",
+    wallet_debit: "Token-Overage",
     subscription: "Abo-Zahlung",
+    storage_addon: "Speicher Add-on (monatlich)",
   };
 
   const inputCls = "w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-yellow-400 transition-colors";
@@ -272,56 +275,73 @@ export default function WalletPage() {
 
             {/* ── Aufladen ── */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-4">
-              <h2 className="font-semibold text-white">Guthaben aufladen</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-white">Token-Guthaben aufladen</h2>
+                <span className="text-[10px] text-gray-500 bg-gray-800 px-2 py-1 rounded-lg">Nur für Overage-Tokens</span>
+              </div>
 
-              {/* Betrag wählen */}
-              <div className="space-y-2">
-                <p className="text-xs text-gray-500">Betrag (CHF)</p>
-                <div className="flex gap-2 flex-wrap">
-                  {AMOUNTS.map(a => (
-                    <button
-                      key={a}
-                      onClick={() => setTopupAmount(String(a))}
-                      className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                        topupAmount === String(a)
-                          ? "bg-yellow-400/10 border-yellow-400/50 text-yellow-400"
-                          : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"
-                      }`}
-                    >
-                      {chf(a)}
-                    </button>
-                  ))}
-                  <input
-                    type="number"
-                    min="5"
-                    max="500"
-                    value={topupAmount}
-                    onChange={e => setTopupAmount(e.target.value)}
-                    className="w-24 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-yellow-400"
-                    placeholder="Betrag"
-                  />
+              {!wallet.has_active_subscription ? (
+                <div className="flex items-start gap-3 bg-yellow-950/20 border border-yellow-800/30 rounded-xl px-4 py-3">
+                  <span className="text-yellow-400 text-lg shrink-0">🔒</span>
+                  <div>
+                    <p className="text-sm font-medium text-yellow-300">Abo erforderlich</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Token-Guthaben kann nur mit einem aktiven Abo aufgeladen werden.</p>
+                    <a href="/user/billing" className="inline-block mt-2 text-xs text-yellow-400 hover:text-yellow-300 underline underline-offset-2">Jetzt Abo abschliessen →</a>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  {/* Betrag wählen */}
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500">Betrag (CHF)</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {AMOUNTS.map(a => (
+                        <button
+                          key={a}
+                          onClick={() => setTopupAmount(String(a))}
+                          className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                            topupAmount === String(a)
+                              ? "bg-yellow-400/10 border-yellow-400/50 text-yellow-400"
+                              : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"
+                          }`}
+                        >
+                          {chf(a)}
+                        </button>
+                      ))}
+                      <input
+                        type="number"
+                        min="5"
+                        max="500"
+                        value={topupAmount}
+                        onChange={e => setTopupAmount(e.target.value)}
+                        className="w-24 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-yellow-400"
+                        placeholder="Betrag"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-600">Das Guthaben wird ausschliesslich für zusätzliche Tokens (Overage) verwendet.</p>
+                  </div>
 
-              {/* Methode wählen */}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => { setTopupModal("stripe"); setBankTransfer(null); setTopupError(""); }}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl border border-indigo-800/50 bg-indigo-950/30 hover:bg-indigo-950/50 transition-colors"
-                >
-                  <span className="text-2xl">💳</span>
-                  <span className="text-sm font-medium text-indigo-300">Kreditkarte</span>
-                  <span className="text-xs text-gray-500">Sofort via Stripe</span>
-                </button>
-                <button
-                  onClick={() => { setTopupModal("bank"); setBankTransfer(null); setTopupError(""); }}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl border border-cyan-800/50 bg-cyan-950/30 hover:bg-cyan-950/50 transition-colors"
-                >
-                  <span className="text-2xl">🏦</span>
-                  <span className="text-sm font-medium text-cyan-300">Banküberweisung</span>
-                  <span className="text-xs text-gray-500">1–2 Werktage</span>
-                </button>
-              </div>
+                  {/* Methode wählen */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => { setTopupModal("stripe"); setBankTransfer(null); setTopupError(""); }}
+                      className="flex flex-col items-center gap-2 p-4 rounded-xl border border-indigo-800/50 bg-indigo-950/30 hover:bg-indigo-950/50 transition-colors"
+                    >
+                      <span className="text-2xl">💳</span>
+                      <span className="text-sm font-medium text-indigo-300">Kreditkarte</span>
+                      <span className="text-xs text-gray-500">Sofort via Stripe</span>
+                    </button>
+                    <button
+                      onClick={() => { setTopupModal("bank"); setBankTransfer(null); setTopupError(""); }}
+                      className="flex flex-col items-center gap-2 p-4 rounded-xl border border-cyan-800/50 bg-cyan-950/30 hover:bg-cyan-950/50 transition-colors"
+                    >
+                      <span className="text-2xl">🏦</span>
+                      <span className="text-sm font-medium text-cyan-300">Banküberweisung</span>
+                      <span className="text-xs text-gray-500">1–2 Werktage</span>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* ── Stripe Confirm Modal ── */}
@@ -423,27 +443,49 @@ export default function WalletPage() {
               {/* Add-on options */}
               {addons.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs text-gray-500">Zusatzspeicher kaufen (einmalig vom Guthaben):</p>
-                  {addonMsg && (
-                    <p className={`text-xs px-3 py-2 rounded-xl border ${addonMsg.ok ? "bg-green-950/30 border-green-800/40 text-green-400" : "bg-red-950/30 border-red-900/40 text-red-400"}`}>
-                      {addonMsg.text}
-                    </p>
-                  )}
-                  <div className="grid grid-cols-3 gap-2">
-                    {addons.map(a => (
-                      <button
-                        key={a.key}
-                        onClick={() => buyAddon(a.key)}
-                        disabled={addonBuying === a.key}
-                        className="flex flex-col items-center gap-1 p-3 rounded-xl border border-gray-700 bg-gray-800 hover:border-blue-600/50 hover:bg-blue-950/20 transition-colors disabled:opacity-50"
-                      >
-                        <span className="text-base font-bold text-blue-300">+{a.label}</span>
-                        <span className="text-xs font-semibold text-white">{chf(a.price_chf)}</span>
-                        <span className="text-xs text-gray-500">{addonBuying === a.key ? "Kaufe…" : "Sofort"}</span>
-                      </button>
-                    ))}
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500">Zusatzspeicher buchen:</p>
+                    <span className="text-[10px] text-blue-400 bg-blue-950/30 border border-blue-800/30 px-2 py-0.5 rounded-lg">Monatlich zum Abo</span>
                   </div>
-                  <p className="text-xs text-gray-600">Speicher wird sofort vom Wallet-Guthaben abgezogen und dauerhaft hinzugefügt.</p>
+
+                  {!wallet.has_active_subscription ? (
+                    <div className="flex items-start gap-3 bg-yellow-950/20 border border-yellow-800/30 rounded-xl px-3 py-2.5">
+                      <span className="text-yellow-400 shrink-0">🔒</span>
+                      <div>
+                        <p className="text-xs font-medium text-yellow-300">Abo erforderlich</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Speicher Add-ons sind nur mit einem aktiven Abo buchbar.</p>
+                        <a href="/user/billing" className="inline-block mt-1 text-xs text-yellow-400 hover:text-yellow-300 underline underline-offset-2">Abo abschliessen →</a>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {addonMsg && (
+                        <p className={`text-xs px-3 py-2 rounded-xl border ${addonMsg.ok ? "bg-green-950/30 border-green-800/40 text-green-400" : "bg-red-950/30 border-red-900/40 text-red-400"}`}>
+                          {addonMsg.text}
+                        </p>
+                      )}
+                      <div className="grid grid-cols-3 gap-2">
+                        {addons.map(a => (
+                          <button
+                            key={a.key}
+                            onClick={() => buyAddon(a.key)}
+                            disabled={addonBuying === a.key}
+                            className="flex flex-col items-center gap-1 p-3 rounded-xl border border-gray-700 bg-gray-800 hover:border-blue-600/50 hover:bg-blue-950/20 transition-colors disabled:opacity-50"
+                          >
+                            <span className="text-base font-bold text-blue-300">+{a.label}</span>
+                            <span className="text-xs font-semibold text-white">{chf(a.price_chf)}/Mt.</span>
+                            <span className="text-xs text-gray-500">{addonBuying === a.key ? "Buche…" : "Zum Abo"}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-600">
+                        Wird monatlich zusammen mit deinem Abo abgerechnet.
+                        {wallet.storage_addon_items.length > 0 && (
+                          <span className="ml-1 text-blue-400">{wallet.storage_addon_items.length} aktive{wallet.storage_addon_items.length === 1 ? "s" : ""} Add-on{wallet.storage_addon_items.length > 1 ? "s" : ""}.</span>
+                        )}
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
             </div>
