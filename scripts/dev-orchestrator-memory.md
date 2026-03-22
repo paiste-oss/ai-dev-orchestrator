@@ -1,6 +1,3 @@
-✓ [2026-03-22 18:21] Für was ist die Anzeige links hier mit P1, P10 etc.?
-Kannst du mir einen Screenshot oder mehr Kontext geben? "P1, P10" könnte sich auf verschiedene Dinge beziehen — z.B. die Claude Code Todo-Liste (Task-Prioritäten), einen Panel in deinem Orchestrator-Frontend, oder etwas anderes in der UI.
----
 ✓ [2026-03-22 18:24] Es bezieht sich hier im Frontend des Orchestrators. links neben meiner Eingabe k
 Das ist die **Task-Priorität** für den Dev Orchestrator.
 - **P1** = höchste Priorität
@@ -34,3 +31,6 @@ Fertig. Logik:
 - Tasks älter als **72h** werden ausgeblendet
 - Die **jüngsten 5** bleiben immer sichtbar, egal wie alt
 - Gefiltert wird im Frontend nach dem Fetch, das Backend bleibt unverändert
+---
+✓ [2026-03-22 22:13] Bitte füge auf der Chat Seite einen Button ein, der Zurück heisst und auf die Ad
+Fertig. Im Chat-Header erscheint jetzt ein "← Zurück"-Button, der nur für Admin-User sichtbar ist und direkt zur Admin-Seite navigiert.

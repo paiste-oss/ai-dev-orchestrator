@@ -738,6 +738,14 @@ export default function ChatPage() {
       {/* ── Header ── */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900/80 backdrop-blur shrink-0">
         <div className="flex items-center gap-2">
+          {user?.role === "admin" && (
+            <button
+              onClick={() => router.push("/admin")}
+              className="text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-gray-800 border border-white/5 hover:border-gray-600 px-3 py-1.5 rounded-lg transition-all"
+            >
+              ← Zurück
+            </button>
+          )}
           {lastProvider && (
             <span className="text-xs text-gray-600 hidden sm:block">
               {lastProvider === "claude" ? "🟠 Claude" :
