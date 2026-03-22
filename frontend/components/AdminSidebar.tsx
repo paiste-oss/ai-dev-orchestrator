@@ -21,12 +21,13 @@ const NAV: NavEntry[] = [
   {
     label: "Uhrwerk", icon: "⚙",
     children: [
-      { label: "Content Guard",  href: "/admin/router",                  icon: "🛡" },
-      { label: "LLM",            href: "/admin/uhrwerk/llm",             icon: "◈" },
-      { label: "System-Prompts", href: "/admin/uhrwerk/system-prompts",  icon: "📝" },
-      { label: "n8n Workflows",  href: "/admin/workflows",               icon: "⇆" },
-      { label: "Backend Tasks",  href: "/admin/workflows/celery",        icon: "⏱" },
-      { label: "Agenten",        href: "/admin/workflows/agents",        icon: "◈" },
+      { label: "Content Guard",  href: "/admin/router",                        icon: "🛡" },
+      { label: "LLM",            href: "/admin/uhrwerk/llm",                   icon: "◈" },
+      { label: "System-Prompts", href: "/admin/uhrwerk/system-prompts",        icon: "📝" },
+      { label: "Memory Manager", href: "/admin/chat-flow/memory-manager",      icon: "🧠" },
+      { label: "n8n Workflows",  href: "/admin/workflows",                     icon: "⇆" },
+      { label: "Backend Tasks",  href: "/admin/workflows/celery",              icon: "⏱" },
+      { label: "Agenten",        href: "/admin/workflows/agents",              icon: "◈" },
     ],
   },
   {
@@ -40,12 +41,6 @@ const NAV: NavEntry[] = [
     label: "Konfigurieren", icon: "⊙",
     children: [
       { label: "Portal",  href: "/admin/settings", icon: "◉" },
-    ],
-  },
-  {
-    label: "Chat-Flow", icon: "⟳",
-    children: [
-      { label: "Memory Manager", href: "/admin/chat-flow/memory-manager", icon: "🧠" },
     ],
   },
   { label: "Testseiten", href: "/admin/testpages", icon: "⌘" },
