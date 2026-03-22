@@ -136,7 +136,7 @@ async def list_credentials(_: Customer = Depends(require_admin)):
 
 
 @router.get("")
-async def list_workflows():
+async def list_workflows(_: Customer = Depends(require_admin)):
     async with httpx.AsyncClient() as client:
         r = await client.get(f"{settings.n8n_base_url}/api/v1/workflows", headers=N8N_HEADERS, timeout=10)
         r.raise_for_status()
@@ -155,7 +155,7 @@ async def list_workflows():
 
 
 @router.get("/{n8n_id}")
-async def get_workflow(n8n_id: str):
+async def get_workflow(n8n_id: str, _: Customer = Depends(require_admin)):
     async with httpx.AsyncClient() as client:
         r = await client.get(f"{settings.n8n_base_url}/api/v1/workflows/{n8n_id}", headers=N8N_HEADERS, timeout=10)
         r.raise_for_status()
@@ -163,7 +163,7 @@ async def get_workflow(n8n_id: str):
 
 
 @router.post("/{n8n_id}/activate")
-async def activate_workflow(n8n_id: str):
+async def activate_workflow(n8n_id: str, _: Customer = Depends(require_admin)):
     async with httpx.AsyncClient() as client:
         r = await client.post(f"{settings.n8n_base_url}/api/v1/workflows/{n8n_id}/activate", headers=N8N_HEADERS, timeout=10)
         r.raise_for_status()
@@ -171,7 +171,7 @@ async def activate_workflow(n8n_id: str):
 
 
 @router.post("/{n8n_id}/deactivate")
-async def deactivate_workflow(n8n_id: str):
+async def deactivate_workflow(n8n_id: str, _: Customer = Depends(require_admin)):
     async with httpx.AsyncClient() as client:
         r = await client.post(f"{settings.n8n_base_url}/api/v1/workflows/{n8n_id}/deactivate", headers=N8N_HEADERS, timeout=10)
         r.raise_for_status()
@@ -179,7 +179,7 @@ async def deactivate_workflow(n8n_id: str):
 
 
 @router.delete("/{n8n_id}")
-async def delete_workflow(n8n_id: str):
+async def delete_workflow(n8n_id: str, _: Customer = Depends(require_admin)):
     async with httpx.AsyncClient() as client:
         r = await client.delete(f"{settings.n8n_base_url}/api/v1/workflows/{n8n_id}", headers=N8N_HEADERS, timeout=10)
         r.raise_for_status()

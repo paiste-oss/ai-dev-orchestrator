@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from core.database import get_db
 from core.dependencies import require_admin, get_current_user
+from core.security import hash_password
 from models.customer import Customer, SubscriptionPlan
 from models.buddy import AiBuddy, ConversationThread, Message
 from models.credential import CustomerCredential
@@ -251,7 +252,7 @@ async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_d
     customer = Customer(
         name=data.name,
         email=data.email,
-        hashed_password=data.password,
+        hashed_password=hash_password(data.password) if data.password else "",
     )
     db.add(customer)
     try:
