@@ -1,16 +1,12 @@
 # ========================
 # SECRETS & ENVIRONMENT
 # ========================
-# .env wird nicht mehr verwendet — Secrets kommen aus Infisical (./start.sh)
 # Nur .env.example wird committed (enthält keine echten Werte)
 .env
 *.env
 .env.local
 .env.*.local
-# Infisical Bootstrap-Secrets (enthält ENCRYPTION_KEY, AUTH_SECRET, TOKEN)
-.env.infisical
-# Infisical: Token-Cache (lokale Session nach "infisical login")
-.infisical-token
+.envnot
 
 # ========================
 # DATENBANK
@@ -69,4 +65,3 @@ desktop.ini
 # ========================
 celerybeat-schedule
 celerybeat-schedule.db
-eu-central-2
