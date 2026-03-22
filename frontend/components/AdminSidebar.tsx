@@ -24,7 +24,7 @@ const NAV: NavEntry[] = [
       { label: "Tools",          href: "/admin/tools",                         icon: "🔧" },
       { label: "LLM",            href: "/admin/uhrwerk/llm",                   icon: "◈" },
       { label: "Identität",       href: "/admin/uhrwerk/system-prompts",        icon: "📝" },
-      { label: "System-Prompt",  href: "/admin/uhrwerk/system-prompt",         icon: "⬡" },
+      { label: "Paket",           href: "/admin/uhrwerk/system-prompt",         icon: "⬡" },
       { label: "Memory Manager", href: "/admin/chat-flow/memory-manager",      icon: "🧠" },
       { label: "n8n Workflows",  href: "/admin/workflows",                     icon: "⇆" },
       { label: "Backend Tasks",  href: "/admin/workflows/celery",              icon: "⏱" },
