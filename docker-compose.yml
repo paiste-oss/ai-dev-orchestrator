@@ -180,6 +180,8 @@ services:
     environment:
       - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
       - NEXT_PUBLIC_METABASE_URL=${NEXT_PUBLIC_METABASE_URL}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Backend via Host-Port erreichbar
     depends_on:
       - backend
     networks:

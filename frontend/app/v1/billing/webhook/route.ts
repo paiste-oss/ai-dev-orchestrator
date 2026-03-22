@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import http from "http";
-import dns from "dns";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-// Docker's interner DNS-Resolver explizit setzen, damit der Hostname
-// "backend" im Turbopack-Kontext aufgelöst werden kann.
-dns.setDefaultResultOrder("ipv4first");
-dns.setServers(["127.0.0.11"]);
 
 function forwardToBackend(
   body: Buffer,
@@ -18,7 +12,9 @@ function forwardToBackend(
   return new Promise((resolve, reject) => {
     const req = http.request(
       {
-        hostname: "backend",
+        // host.docker.internal → Host-Maschine → Port 8000 → backend Container
+        // Umgeht DNS-Probleme im Turbopack-Kontext
+        hostname: "host.docker.internal",
         port: 8000,
         path: "/v1/billing/webhook",
         method: "POST",
