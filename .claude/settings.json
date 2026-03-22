@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /home/naor/ai-dev-orchestrator/frontend/components -type f -name *.tsx -o -name *.ts)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/v1/billing/plans)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -X POST http://localhost:3000/v1/billing/webhook -H \"Content-Type: application/json\" -d '{}')",
+      "Bash(curl -v -X POST http://localhost:8000/v1/billing/webhook -H \"Content-Type: application/json\" -d '{\"\"\"\"test\"\"\"\":1}')",
+      "Bash(curl -v -X POST http://localhost:3000/v1/billing/webhook -H \"Content-Type: application/json\" -H \"stripe-signature: t=1234,v1=abc123\" -d '{\"\"\"\"type\"\"\"\":\"\"\"\"checkout.session.completed\"\"\"\"}')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -X POST http://localhost:3000/v1/billing/webhook -H \"Content-Type: application/json\" -H \"stripe-signature: t=1234,v1=test\" -d '{\"\"type\"\":\"\"test\"\"}')",
+      "Bash(docker restart:*)",
+      "Bash(curl -s -w \"\\\\nHTTP: %{http_code}\" -X POST http://localhost:3000/v1/billing/webhook -H \"Content-Type: application/json\" -H \"stripe-signature: t=1234,v1=test\" -d '{\"\"type\"\":\"\"test\"\"}')",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\([k for k in d.keys\\(\\)]\\)\")",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(docker inspect:*)",
+      "Bash(curl -s -w \"\\\\nHTTP: %{http_code}\" -X POST http://localhost:3000/v1/billing/webhook -H \"Content-Type: application/json\" -H \"stripe-signature: t=1234,v1=test\" -d '{\"\"\"\"type\"\"\"\":\"\"\"\"test\"\"\"\"}')",
+      "Bash(docker network:*)",
+      "Bash(python3 -c \":*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/v1/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"test@test.com\"\",\"\"password\"\":\"\"test\"\"}')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/v1/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"test@test.com\"\",\"\"password\"\":\"\"test\"\"}')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/v1/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"x@x.com\"\",\"\"password\"\":\"\"x\"\"}')",
+      "Bash(curl -s -o /dev/null -w \"Login: %{http_code}\" http://localhost:3000/v1/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"x@x.com\"\",\"\"password\"\":\"\"x\"\"}')",
+      "Bash(curl -s http://localhost:5678/api/v1/workflows -H \"X-N8N-API-KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmNWZiODM1YS01OGZlLTQ4NDItODgxZC1lMTJjZjZiZWFhODUiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiYWJiMDA2MGYtNTMyYi00NDFkLTg1NGUtNDMxMDM4MzA4MDdjIiwiaWF0IjoxNzczNTU3OTk5LCJleHAiOjE3ODEzMjMyMDB9.nZJLJtV1x4oRK8p7qEGMCj3bp7oDKKH_qt_RkSg-vO8\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(''''Workflows:'''', len\\(d.get\\(''''data'''',[]\\)\\), [w[''''name''''] for w in d.get\\(''''data'''',[]\\)]\\)\")",
+      "Bash(curl -s -X PATCH http://localhost:5678/api/v1/workflows/hRKROaC7bcHnlul3 -H \"X-N8N-API-KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmNWZiODM1YS01OGZlLTQ4NDItODgxZC1lMTJjZjZiZWFhODUiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiYWJiMDA2MGYtNTMyYi00NDFkLTg1NGUtNDMxMDM4MzA4MDdjIiwiaWF0IjoxNzczNTU3OTk5LCJleHAiOjE3ODEzMjMyMDB9.nZJLJtV1x4oRK8p7qEGMCj3bp7oDKKH_qt_RkSg-vO8\" -H \"Content-Type: application/json\" -d '{\"\"\"\"active\"\"\"\": true}')",
+      "Bash(curl -s -X POST http://localhost:5678/api/v1/workflows/hRKROaC7bcHnlul3/activate -H \"X-N8N-API-KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmNWZiODM1YS01OGZlLTQ4NDItODgxZC1lMTJjZjZiZWFhODUiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiYWJiMDA2MGYtNTMyYi00NDFkLTg1NGUtNDMxMDM4MzA4MDdjIiwiaWF0IjoxNzczNTU3OTk5LCJleHAiOjE3ODEzMjMyMDB9.nZJLJtV1x4oRK8p7qEGMCj3bp7oDKKH_qt_RkSg-vO8\")",
+      "Bash(curl -s http://localhost:5678/api/v1/workflows/hRKROaC7bcHnlul3 -H \"X-N8N-API-KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmNWZiODM1YS01OGZlLTQ4NDItODgxZC1lMTJjZjZiZWFhODUiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiYWJiMDA2MGYtNTMyYi00NDFkLTg1NGUtNDMxMDM4MzA4MDdjIiwiaWF0IjoxNzczNTU3OTk5LCJleHAiOjE3ODEzMjMyMDB9.nZJLJtV1x4oRK8p7qEGMCj3bp7oDKKH_qt_RkSg-vO8\")",
+      "Bash(curl -s -w \"\\\\nHTTP: %{http_code}\" -X POST http://localhost:5678/webhook-test/stripe -H \"Content-Type: application/json\" -d '{\"\"type\"\":\"\"test\"\"}')",
+      "Bash(curl -s -X POST http://localhost:5678/api/v1/workflows/xEx97Pg7TUDzM4ec/activate -H \"X-N8N-API-KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmNWZiODM1YS01OGZlLTQ4NDItODgxZC1lMTJjZjZiZWFhODUiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiYWJiMDA2MGYtNTMyYi00NDFkLTg1NGUtNDMxMDM4MzA4MDdjIiwiaWF0IjoxNzczNTU3OTk5LCJleHAiOjE3ODEzMjMyMDB9.nZJLJtV1x4oRK8p7qEGMCj3bp7oDKKH_qt_RkSg-vO8\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(''''active:'''', d.get\\(''''active''''\\), ''''id:'''', d.get\\(''''id''''\\)\\)\")",
+      "Bash(curl -s -w \"\\\\nHTTP: %{http_code}\" -X POST http://localhost:5678/webhook/stripe -H \"Content-Type: application/json\" -d '{\"\"\"\"type\"\"\"\":\"\"\"\"test\"\"\"\"}')",
+      "Bash(curl -s -w \"\\\\nHTTP: %{http_code}\" -X POST http://localhost:3000/webhook/n8n/stripe -H \"Content-Type: application/json\" -d '{\"\"type\"\":\"\"test\"\"}')",
+      "Bash(git pull:*)"
+    ]
+  }
+}

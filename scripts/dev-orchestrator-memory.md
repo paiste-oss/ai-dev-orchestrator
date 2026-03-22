@@ -1,0 +1,25 @@
+✓ [2026-03-22 18:21] Für was ist die Anzeige links hier mit P1, P10 etc.?
+Kannst du mir einen Screenshot oder mehr Kontext geben? "P1, P10" könnte sich auf verschiedene Dinge beziehen — z.B. die Claude Code Todo-Liste (Task-Prioritäten), einen Panel in deinem Orchestrator-Frontend, oder etwas anderes in der UI.
+---
+✓ [2026-03-22 18:24] Es bezieht sich hier im Frontend des Orchestrators. links neben meiner Eingabe k
+Das ist die **Task-Priorität** für den Dev Orchestrator.
+- **P1** = höchste Priorität
+- **P5** = mittel
+- **P10** = Standard (Default)
+- **P20** = niedrigste Priorität
+Wenn du eine Aufgabe sendest, wird der Wert mit `{ title, description, priority }` übergeben. Je nach Backend-Implementierung bestimmt die Priorität, wie dringend/früh eine Task verarbeitet wird — z.B. bei einer Queue mit mehreren parallelen Agents.
+---
+✓ [2026-03-22 19:05] Wenn ich auf dieser Seite des Orchestrator bin, wird verhindert dass ich nach ob
+Fertig. Was jetzt passiert:
+- Wenn du **oben im Verlauf scrollst**, wird `userScrolledUp = true` gesetzt → kein Auto-Scroll mehr nach unten
+- Sobald du **wieder nach unten scrollst** (innerhalb 80px vom Ende), wird Auto-Scroll wieder aktiv
+- Neue Nachrichten scrollen nur noch nach unten, wenn du bereits unten warst
+---
+✓ [2026-03-22 19:07] j
+Meintest du etwas bestimmtes? "j" scheint eine versehentliche Eingabe zu sein.
+---
+✓ [2026-03-22 19:11] Bitte pushe die änderung auf github
+Gepusht. Commit: `fix: Auto-Scroll pausieren wenn Benutzer nach oben scrollt`
+---
+✓ [2026-03-22 19:18] Es ist noch gleich wie vorher. Die Seite scrolled automatisch nach unten.
+Fertig. Das Problem war, dass die vorherige Fix auf die falsche Seite (`chat/page.tsx`) angewendet wurde. Die Devtool-Seite (mit P1/P10) hatte noch kein Scroll-Pause-Verhalten. Jetzt gilt: scrollst du nach oben → kein Auto-Scroll mehr. Scrollst du wieder nach unten → Auto-Scroll reaktiviert.

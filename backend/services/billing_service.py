@@ -324,28 +324,6 @@ async def handle_webhook(payload: bytes, sig_header: str, db: AsyncSession) -> N
         await _on_invoice_failed(event["data"]["object"], db)
 
 
-async def handle_stripe_event(event: dict, db: AsyncSession) -> None:
-    """
-    Verarbeitet ein Stripe-Event-Objekt ohne Signaturprüfung.
-    Wird von n8n aufgerufen (n8n hat das Event bereits von Stripe empfangen).
-    """
-    etype = event.get("type", "")
-    _log.info("n8n Stripe Event: %s", etype)
-
-    if etype == "checkout.session.completed":
-        await _on_checkout_completed(event["data"]["object"], db)
-    elif etype in ("customer.subscription.updated", "customer.subscription.created"):
-        await _on_subscription_updated(event["data"]["object"], db)
-    elif etype == "customer.subscription.deleted":
-        await _on_subscription_deleted(event["data"]["object"], db)
-    elif etype == "invoice.payment_succeeded":
-        await _on_invoice_paid(event["data"]["object"], db)
-    elif etype == "invoice.payment_failed":
-        await _on_invoice_failed(event["data"]["object"], db)
-    else:
-        _log.info("n8n Stripe Event ignoriert: %s", etype)
-
-
 async def _on_checkout_completed(session: dict, db: AsyncSession) -> None:
     meta = session.get("metadata", {})
     customer_id = meta.get("customer_id")

@@ -180,7 +180,6 @@ services:
     environment:
       - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
       - NEXT_PUBLIC_METABASE_URL=${NEXT_PUBLIC_METABASE_URL}
-      - BACKEND_IP=172.22.0.10   # Feste IP nach erstem docker compose down/up; aktuell 172.22.0.4
     depends_on:
       - backend
     networks:

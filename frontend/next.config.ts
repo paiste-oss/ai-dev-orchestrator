@@ -9,11 +9,6 @@ const nextConfig: NextConfig = {
         source: "/v1/:path*",
         destination: "http://backend:8000/v1/:path*",
       },
-      {
-        // Stripe-Webhooks über n8n abwickeln (n8n → Backend, kein Turbopack-DNS-Problem)
-        source: "/webhook/n8n/:path*",
-        destination: "http://n8n:5678/webhook/:path*",
-      },
     ];
   },
 };
