@@ -23,3 +23,8 @@ Gepusht. Commit: `fix: Auto-Scroll pausieren wenn Benutzer nach oben scrollt`
 ---
 ✓ [2026-03-22 19:18] Es ist noch gleich wie vorher. Die Seite scrolled automatisch nach unten.
 Fertig. Das Problem war, dass die vorherige Fix auf die falsche Seite (`chat/page.tsx`) angewendet wurde. Die Devtool-Seite (mit P1/P10) hatte noch kein Scroll-Pause-Verhalten. Jetzt gilt: scrollst du nach oben → kein Auto-Scroll mehr. Scrollst du wieder nach unten → Auto-Scroll reaktiviert.
+---
+✓ [2026-03-22 20:29] Schaue dir das Dashboard an, kannst du dies aktualisieren und in github puschen
+Fertig. Was geändert wurde:
+- **Backend** (`main.py`): Neuer `GET /v1/system/status` Endpoint — prüft DB (SELECT 1), Redis (PING) und ob KI-Keys konfiguriert sind. Timeout je 2 Sekunden.
+- **Frontend** (`admin/page.tsx`): System-Status wird jetzt live vom Backend geladen, mit Skeleton-Animation während des Ladens. Statt hart codiert "Online" zeigt es echte Zustände inkl. Fehlerstatus.
