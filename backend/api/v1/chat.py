@@ -39,21 +39,6 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 _HISTORY_WINDOW = 20
 _CONTEXT_WINDOW = 10
 
-_AGENT_CAPABILITIES: dict[str, str] = {
-    "ki-chat":        "Intelligente Konversation, Texterstellung und Beratung",
-    "document":       "Analyse und Zusammenfassung von PDFs, Word- und Textdokumenten",
-    "speech":         "Voice-to-Text, Transkription und Sprachsteuerung",
-    "automation":     "n8n-Workflows planen, optimieren und auslösen",
-    "translation":    "Mehrsprachige Übersetzung mit kulturellem Kontext",
-    "knowledge-base": "Suche und Beantwortung aus eigener Wissensdatenbank (RAG)",
-    "research":       "Web-Recherche und Faktenprüfung in Echtzeit",
-    "code":           "Code schreiben, reviewen und ausführen",
-    "planning":       "Komplexe Ziele planen, priorisieren und koordinieren",
-    "communication":  "E-Mails verfassen, Termine planen und CRM-Einträge verwalten",
-    "data-analysis":  "Statistische Analysen, Visualisierungen und Handlungsempfehlungen",
-    "devops":         "Deployments überwachen, Tests ausführen und Incidents beheben",
-    "support":        "Kundenanfragen beantworten und bei Bedarf eskalieren",
-}
 
 import logging as _logging
 _log = _logging.getLogger(__name__)
@@ -191,10 +176,6 @@ async def send_message(
         f"- Du bist warm, direkt, ehrlich und empathisch."
     )
 
-    agent_ids: list[str] = baddi_config.get("agents", [])
-    caps = [_AGENT_CAPABILITIES[aid] for aid in agent_ids if aid in _AGENT_CAPABILITIES]
-    if caps:
-        system_parts.append(f"\nDeine Fähigkeiten:\n" + "\n".join(f"- {c}" for c in caps))
 
     from services.tool_registry import TOOL_CATALOG
     active_tools = [v["prompt_hint"] for v in TOOL_CATALOG.values() if v.get("prompt_hint")]
