@@ -5,11 +5,14 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
-        // Alle /v1/* Anfragen werden vom Next.js-Server ans Backend (Port 8000) weitergeleitet.
-        // Das ist nötig damit Stripe-Webhooks (baddi.ch/v1/billing/webhook) ankommen,
-        // und damit der Browser nicht direkt localhost:8000 aufrufen muss.
+        // Alle /v1/* Anfragen ans Backend weiterleiten
         source: "/v1/:path*",
         destination: "http://backend:8000/v1/:path*",
+      },
+      {
+        // Stripe-Webhooks über n8n abwickeln (n8n → Backend, kein Turbopack-DNS-Problem)
+        source: "/webhook/n8n/:path*",
+        destination: "http://n8n:5678/webhook/:path*",
       },
     ];
   },

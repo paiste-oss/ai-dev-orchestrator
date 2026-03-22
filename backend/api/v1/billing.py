@@ -38,6 +38,7 @@ from services.billing_service import (
     create_topup_checkout,
     create_billing_portal_session,
     handle_webhook,
+    handle_stripe_event,
     generate_bank_transfer_reference,
     next_invoice_number,
     calc_vat,
@@ -280,6 +281,30 @@ async def stripe_webhook(
         return {"received": True}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── n8n Stripe-Event Proxy ────────────────────────────────────────────────────
+
+@router.post("/n8n-event", status_code=200)
+async def stripe_event_from_n8n(
+    request: Request,
+    x_n8n_secret: str = Header(None, alias="x-n8n-secret"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Stripe-Events von n8n entgegennehmen.
+    n8n empfängt den Stripe-Webhook, leitet das Event als JSON weiter.
+    Gesichert via X-N8N-Secret Header (kein Stripe-Signatur-Check nötig).
+    """
+    if not x_n8n_secret or x_n8n_secret != _cfg.n8n_webhook_secret:
+        raise HTTPException(status_code=403, detail="Ungültiger n8n-Secret.")
+    event = await request.json()
+    try:
+        await handle_stripe_event(event, db)
+        return {"received": True}
+    except Exception as e:
+        _log.error("n8n Stripe-Event Fehler: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Admin: Revenue-Übersicht ──────────────────────────────────────────────────
