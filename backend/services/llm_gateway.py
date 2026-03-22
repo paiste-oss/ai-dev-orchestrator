@@ -91,24 +91,51 @@ async def _chat_bedrock(
     system_prompt: str | None,
     model: str,
 ) -> ChatResult:
-    """Sendet Chat-Request über AWS Bedrock (Daten bleiben in EU)."""
-    import anthropic as _anthropic
+    """Sendet Chat-Request über AWS Bedrock (Daten bleiben in EU/Zürich)."""
     bedrock_model = _BEDROCK_MODEL_MAP.get(model, model)
 
-    client = _anthropic.AnthropicBedrock(
+    # Variante A: Bedrock API Key (Bearer Token — empfohlen, einfacher Setup)
+    if settings.aws_bedrock_api_key:
+        url = (
+            f"https://bedrock-runtime.{settings.aws_region}.amazonaws.com"
+            f"/model/{bedrock_model}/invoke"
+        )
+        payload: dict = {"max_tokens": 2048, "messages": messages, "anthropic_version": "bedrock-2023-05-31"}
+        if system_prompt:
+            payload["system"] = system_prompt
+
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                url,
+                headers={
+                    "Authorization": f"Bearer {settings.aws_bedrock_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        text = data["content"][0]["text"]
+        usage = data.get("usage", {})
+        return ChatResult(
+            text=text,
+            input_tokens=usage.get("inputTokens", 0),
+            output_tokens=usage.get("outputTokens", 0),
+        )
+
+    # Variante B: IAM Access Key + Secret (klassisch)
+    import anthropic as _anthropic
+    client_b = _anthropic.AnthropicBedrock(
         aws_access_key=settings.aws_access_key_id,
         aws_secret_key=settings.aws_secret_access_key,
         aws_region=settings.aws_region,
     )
-    kwargs: dict = {
-        "model": bedrock_model,
-        "max_tokens": 2048,
-        "messages": messages,
-    }
+    kwargs: dict = {"model": bedrock_model, "max_tokens": 2048, "messages": messages}
     if system_prompt:
         kwargs["system"] = system_prompt
 
-    response = client.messages.create(**kwargs)
+    response = client_b.messages.create(**kwargs)
     text = "".join(b.text for b in response.content if hasattr(b, "text"))
     usage = response.usage
     return ChatResult(

@@ -33,10 +33,19 @@ _CLIENT = None
 
 
 def _get_client():
-    """Gibt den passenden Client zurück: Bedrock (EU) oder direkt Anthropic (USA)."""
+    """Gibt den passenden Client zurück: Bedrock (EU/Zürich) oder direkt Anthropic (USA)."""
     global _CLIENT
     if _CLIENT is None:
-        if settings.use_bedrock and settings.aws_access_key_id:
+        if settings.use_bedrock and settings.aws_bedrock_api_key:
+            # Bedrock API Key (Bearer Token) — einfachster Setup
+            _CLIENT = anthropic.AnthropicBedrock(
+                aws_region=settings.aws_region,
+                # Bearer-Token-Auth via base_url + api_key
+                base_url=f"https://bedrock-runtime.{settings.aws_region}.amazonaws.com",
+                api_key=settings.aws_bedrock_api_key,
+            )
+        elif settings.use_bedrock and settings.aws_access_key_id:
+            # IAM Access Key — klassische Auth
             _CLIENT = anthropic.AnthropicBedrock(
                 aws_access_key=settings.aws_access_key_id,
                 aws_secret_key=settings.aws_secret_access_key,

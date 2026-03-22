@@ -24,13 +24,14 @@ class Settings(BaseSettings):
     # Anthropic
     anthropic_api_key: str = ""
 
-    # AWS Bedrock (Datensouveränität — Daten bleiben in EU/Frankfurt)
-    # Wenn use_bedrock=true: alle Claude-Calls laufen über AWS eu-central-1
+    # AWS Bedrock (Datensouveränität — Daten bleiben in EU/Zürich)
+    # Wenn use_bedrock=true: alle Claude-Calls laufen über AWS eu-central-2
     # statt direkt zu Anthropic (USA)
     use_bedrock: bool = False
-    aws_access_key_id: str = ""
+    aws_bedrock_api_key: str = ""   # Bedrock API Key (Bearer Token — einfachste Auth)
+    aws_access_key_id: str = ""     # Alternative: klassische IAM-Credentials
     aws_secret_access_key: str = ""
-    aws_region: str = "eu-central-1"
+    aws_region: str = "eu-central-2"
 
     # External LLMs (KI-Chat Funktion)
     gemini_api_key: str = ""
