@@ -48,8 +48,10 @@ export default function DevTool() {
   const [input, setInput]           = useState("");
   const [priority, setPriority]     = useState(10);
   const [submitting, setSubmitting] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const bottomRef   = useRef<HTMLDivElement>(null);
+  const textareaRef       = useRef<HTMLTextAreaElement>(null);
+  const bottomRef         = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const userScrolledUp    = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -75,9 +77,11 @@ export default function DevTool() {
     return () => clearInterval(iv);
   }, []);
 
-  // Auto-scroll bei neuem Output
+  // Auto-scroll bei neuem Output (pausiert wenn Benutzer nach oben scrollt)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!userScrolledUp.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [tasks]);
 
   const handleSubmit = async () => {
@@ -150,7 +154,16 @@ export default function DevTool() {
       </header>
 
       {/* ── Terminal-Konversation ── */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-10 font-mono text-sm">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-10 font-mono text-sm"
+        onScroll={() => {
+          const el = scrollContainerRef.current;
+          if (!el) return;
+          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+          userScrolledUp.current = !atBottom;
+        }}
+      >
 
         {tasks.length === 0 && (
           <div className="flex flex-col items-center justify-center min-h-64 text-center gap-3">
