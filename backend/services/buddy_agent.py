@@ -41,22 +41,23 @@ async def run_buddy_chat(
     model: str = "claude-haiku-4-5-20251001",
     max_tool_rounds: int = 5,
     history: list[dict] | None = None,
+    customer_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Führt einen Chat-Turn mit Tool Use durch.
     Claude entscheidet selbst ob und welches Tool es aufruft.
 
     Returns:
-        {"output": str, "model_used": str, "tool_calls": list}
+        {"output": str, "model_used": str, "tool_calls": list, "total_tokens": int}
     """
     tool_defs = get_tool_defs(tool_keys)
     messages = list(history) if history else []
     messages.append({"role": "user", "content": message})
 
     if settings.use_bedrock and settings.aws_bedrock_api_key:
-        return await _run_bedrock(messages, system_prompt, tool_defs, model, max_tool_rounds)
+        return await _run_bedrock(messages, system_prompt, tool_defs, model, max_tool_rounds, customer_id)
     else:
-        return await _run_anthropic(messages, system_prompt, tool_defs, model, max_tool_rounds)
+        return await _run_anthropic(messages, system_prompt, tool_defs, model, max_tool_rounds, customer_id)
 
 
 async def _run_bedrock(
@@ -65,6 +66,7 @@ async def _run_bedrock(
     tool_defs: list[dict],
     model: str,
     max_tool_rounds: int,
+    customer_id: str | None = None,
 ) -> dict[str, Any]:
     """Tool Use Loop über AWS Bedrock Bearer Token (Daten bleiben in EU)."""
     bedrock_model = _BEDROCK_MODEL_MAP.get(model, model)
@@ -113,7 +115,7 @@ async def _run_bedrock(
                 tool_results = []
                 for block in content:
                     if block.get("type") == "tool_use":
-                        result = await call_tool(block["name"], block.get("input", {}))
+                        result = await call_tool(block["name"], block.get("input", {}), customer_id=customer_id)
                         tool_calls_log.append({
                             "tool": block["name"],
                             "input": block.get("input", {}),
@@ -139,6 +141,7 @@ async def _run_anthropic(
     tool_defs: list[dict],
     model: str,
     max_tool_rounds: int,
+    customer_id: str | None = None,
 ) -> dict[str, Any]:
     """Tool Use Loop über Anthropic API direkt."""
     client = _get_anthropic_client()
@@ -169,7 +172,7 @@ async def _run_anthropic(
             tool_results = []
             for block in assistant_content:
                 if block.type == "tool_use":
-                    result = await call_tool(block.name, block.input)
+                    result = await call_tool(block.name, block.input, customer_id=customer_id)
                     tool_calls_log.append({
                         "tool": block.name,
                         "input": block.input,

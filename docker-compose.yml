@@ -123,6 +123,11 @@ services:
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - PROJECT_ROOT=/project
       - SECRET_KEY=${SECRET_KEY}
+      - SYSTEM_SMTP_HOST=${SYSTEM_SMTP_HOST}
+      - SYSTEM_SMTP_PORT=${SYSTEM_SMTP_PORT:-587}
+      - SYSTEM_SMTP_USER=${SYSTEM_SMTP_USER}
+      - SYSTEM_SMTP_PASSWORD=${SYSTEM_SMTP_PASSWORD}
+      - SYSTEM_SMTP_FROM=${SYSTEM_SMTP_FROM:-noreply@baddi.ch}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

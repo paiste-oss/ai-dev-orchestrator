@@ -127,6 +127,22 @@ async def init_db():
             "ALTER TABLE customers ALTER COLUMN storage_limit_bytes TYPE BIGINT",
             "ALTER TABLE customers ALTER COLUMN storage_extra_bytes TYPE BIGINT",
             "ALTER TABLE subscription_plans ALTER COLUMN storage_limit_bytes TYPE BIGINT",
+            # Kurs-Alerts
+            """CREATE TABLE IF NOT EXISTS stock_alerts (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+                email VARCHAR(200) NOT NULL,
+                symbol VARCHAR(20) NOT NULL,
+                company_name VARCHAR(200),
+                threshold FLOAT NOT NULL,
+                direction VARCHAR(10) NOT NULL,
+                currency VARCHAR(10) DEFAULT 'CHF',
+                is_active BOOLEAN DEFAULT true,
+                triggered_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_stock_alerts_active ON stock_alerts(is_active) WHERE is_active = true",
+            "CREATE INDEX IF NOT EXISTS idx_stock_alerts_customer ON stock_alerts(customer_id)",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

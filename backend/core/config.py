@@ -81,6 +81,14 @@ class Settings(BaseSettings):
     stripe_price_premium_monthly: str = ""
     stripe_price_premium_yearly: str = ""
 
+    # System-SMTP (für automatische Benachrichtigungen: Kurs-Alerts etc.)
+    # Brevo: smtp-relay.brevo.com:587, User=E-Mail, Password=API-Key
+    system_smtp_host: str = ""
+    system_smtp_port: int = 587
+    system_smtp_user: str = ""
+    system_smtp_password: str = ""
+    system_smtp_from: str = "noreply@baddi.ch"
+
     # Dev Orchestrator — Projekt-Root im Container
     project_root: str = "/project"
 

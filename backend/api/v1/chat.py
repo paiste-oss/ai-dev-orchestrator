@@ -240,6 +240,7 @@ async def send_message(
                 tool_keys=all_tool_keys,
                 model=model_name,
                 history=prior_messages,
+                customer_id=customer_id,
             )
             response_text = uhrwerk_result["output"]
             model_name = uhrwerk_result.get("model_used", model_name)

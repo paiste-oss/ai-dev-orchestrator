@@ -552,6 +552,160 @@ UNSPLASH_TOOL_DEFS = [
 ]
 
 
+STOCK_ALERT_TOOL_DEFS = [
+    {
+        "name": "create_stock_alert",
+        "description": (
+            "Richtet eine automatische Kurs-Benachrichtigung per E-Mail ein. "
+            "Nutze dieses Tool wenn der Nutzer informiert werden möchte wenn ein Aktienkurs "
+            "einen bestimmten Wert über- oder unterschreitet. "
+            "Der Alert wird automatisch alle 15 Minuten (Mo-Fr, 07:00-22:00 Zürich) geprüft "
+            "und eine E-Mail gesendet wenn die Bedingung erfüllt ist."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Börsenkürzel, z.B. 'HOLN.SW', 'AAPL', 'NESN.SW'. Falls unbekannt zuerst search_stock_symbol verwenden.",
+                },
+                "threshold": {
+                    "type": "number",
+                    "description": "Kurs-Schwellwert, z.B. 70.0",
+                },
+                "direction": {
+                    "type": "string",
+                    "enum": ["above", "below"],
+                    "description": "'above' = benachrichtigen wenn Kurs ÜBER dem Schwellwert, 'below' = wenn DARUNTER",
+                },
+                "email": {
+                    "type": "string",
+                    "description": "E-Mail-Adresse für die Benachrichtigung. Falls nicht angegeben wird die Kunden-E-Mail verwendet.",
+                },
+                "company_name": {
+                    "type": "string",
+                    "description": "Optionaler Firmenname für die E-Mail, z.B. 'Holcim AG'",
+                },
+            },
+            "required": ["symbol", "threshold", "direction"],
+        },
+    },
+    {
+        "name": "list_stock_alerts",
+        "description": "Zeigt alle aktiven Kurs-Alerts des Nutzers.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "delete_stock_alert",
+        "description": "Löscht einen bestehenden Kurs-Alert anhand seiner ID.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "alert_id": {
+                    "type": "string",
+                    "description": "Die ID des Alerts (aus list_stock_alerts)",
+                },
+            },
+            "required": ["alert_id"],
+        },
+    },
+]
+
+
+async def _handle_stock_alerts(tool_name: str, tool_input: dict, customer_id: str | None = None) -> Any:
+    from core.database import AsyncSessionLocal
+    from models.stock_alert import StockAlert
+    from models.customer import Customer
+    from sqlalchemy import select
+    import uuid as uuid_mod
+
+    if not customer_id:
+        return {"error": "Kunden-ID fehlt — Alert kann nicht angelegt werden."}
+
+    async with AsyncSessionLocal() as db:
+        if tool_name == "create_stock_alert":
+            # Kunden-E-Mail als Fallback
+            email = tool_input.get("email")
+            if not email:
+                cust = await db.get(Customer, uuid_mod.UUID(customer_id))
+                email = cust.email if cust else None
+            if not email:
+                return {"error": "Keine E-Mail-Adresse gefunden."}
+
+            symbol = tool_input.get("symbol", "").upper()
+            threshold = float(tool_input.get("threshold", 0))
+            direction = tool_input.get("direction", "above")
+
+            # Aktuellen Kurs für Currency ermitteln
+            currency = "CHF"
+            try:
+                import yfinance as yf
+                info = yf.Ticker(symbol).fast_info
+                currency = getattr(info, "currency", "CHF") or "CHF"
+            except Exception:
+                pass
+
+            alert = StockAlert(
+                customer_id=uuid_mod.UUID(customer_id),
+                email=email,
+                symbol=symbol,
+                company_name=tool_input.get("company_name"),
+                threshold=threshold,
+                direction=direction,
+                currency=currency,
+            )
+            db.add(alert)
+            await db.commit()
+            await db.refresh(alert)
+
+            direction_de = "über" if direction == "above" else "unter"
+            return {
+                "success": True,
+                "alert_id": str(alert.id),
+                "message": (
+                    f"Alert angelegt: Du erhältst eine E-Mail an {email}, "
+                    f"sobald {symbol} {direction_de} {threshold:.2f} {currency} liegt. "
+                    f"Prüfung alle 15 Minuten (Mo–Fr 07:00–22:00 Zürich)."
+                ),
+            }
+
+        elif tool_name == "list_stock_alerts":
+            result = await db.execute(
+                select(StockAlert)
+                .where(StockAlert.customer_id == uuid_mod.UUID(customer_id), StockAlert.is_active.is_(True))
+                .order_by(StockAlert.created_at.desc())
+            )
+            alerts = result.scalars().all()
+            if not alerts:
+                return {"alerts": [], "message": "Keine aktiven Kurs-Alerts."}
+            return {
+                "alerts": [
+                    {
+                        "id": str(a.id),
+                        "symbol": a.symbol,
+                        "company": a.company_name,
+                        "threshold": a.threshold,
+                        "direction": a.direction,
+                        "currency": a.currency,
+                        "email": a.email,
+                        "created_at": a.created_at.strftime("%d.%m.%Y %H:%M"),
+                    }
+                    for a in alerts
+                ]
+            }
+
+        elif tool_name == "delete_stock_alert":
+            alert_id = tool_input.get("alert_id")
+            alert = await db.get(StockAlert, uuid_mod.UUID(alert_id))
+            if not alert or str(alert.customer_id) != customer_id:
+                return {"error": "Alert nicht gefunden."}
+            alert.is_active = False
+            await db.commit()
+            return {"success": True, "message": f"Alert für {alert.symbol} wurde gelöscht."}
+
+    return {"error": f"Unbekanntes Tool: {tool_name}"}
+
+
 async def _handle_unsplash(tool_name: str, tool_input: dict) -> Any:
     if tool_name == "search_image":
         from core.config import settings
@@ -656,9 +810,18 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_names": {"search_image"},
         "handler": _handle_unsplash,
     },
-    # Weitere Tools können hier ergänzt werden:
-    # "google_calendar": { ... }
-    # "send_email": { ... }
+    "stock_alerts": {
+        "key": "stock_alerts",
+        "name": "Kurs-Alerts (E-Mail)",
+        "description": "Automatische E-Mail-Benachrichtigung wenn ein Aktienkurs einen Schwellwert über- oder unterschreitet.",
+        "prompt_hint": "Kurs-Alerts einrichten: E-Mail erhalten wenn ein Aktienkurs über/unter einen Wert fällt",
+        "category": "data",
+        "tier": "free",
+        "tool_defs": STOCK_ALERT_TOOL_DEFS,
+        "tool_names": {"create_stock_alert", "list_stock_alerts", "delete_stock_alert"},
+        "handler": _handle_stock_alerts,
+        "needs_customer_id": True,
+    },
 }
 
 
@@ -672,10 +835,12 @@ def get_tool_defs(tool_keys: list[str]) -> list[dict]:
     return defs
 
 
-async def call_tool(tool_name: str, tool_input: dict) -> Any:
+async def call_tool(tool_name: str, tool_input: dict, customer_id: str | None = None) -> Any:
     """Führt einen Tool-Call aus — findet automatisch den richtigen Handler."""
     for entry in TOOL_CATALOG.values():
         if tool_name in entry["tool_names"]:
+            if entry.get("needs_customer_id"):
+                return await entry["handler"](tool_name, tool_input, customer_id=customer_id)
             return await entry["handler"](tool_name, tool_input)
     return {"error": f"Tool '{tool_name}' nicht gefunden"}
 

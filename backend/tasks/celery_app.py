@@ -6,7 +6,13 @@ celery_app = Celery(
     "aibuddy",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["tasks.summaries", "tasks.reminders", "tasks.dev_task_processor", "tasks.memory_manager"],
+    include=[
+        "tasks.summaries",
+        "tasks.reminders",
+        "tasks.dev_task_processor",
+        "tasks.memory_manager",
+        "tasks.stock_alerts",
+    ],
 )
 
 celery_app.conf.beat_schedule = {
@@ -17,6 +23,10 @@ celery_app.conf.beat_schedule = {
     "process-dev-tasks": {
         "task": "tasks.dev_task_processor.process_dev_tasks",
         "schedule": 30.0,  # alle 30 Sekunden
+    },
+    "check-stock-alerts": {
+        "task": "tasks.stock_alerts.check_stock_alerts",
+        "schedule": crontab(minute="*/15", hour="7-22", day_of_week="mon-fri"),
     },
 }
 
