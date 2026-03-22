@@ -251,7 +251,7 @@ async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_d
     from sqlalchemy.exc import IntegrityError
     customer = Customer(
         name=data.name,
-        email=data.email,
+        email=data.email.lower(),
         hashed_password=hash_password(data.password) if data.password else "",
     )
     db.add(customer)
@@ -266,7 +266,7 @@ async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_d
 
 @router.get("/lookup", response_model=CustomerOut)
 async def lookup_customer_by_email(email: str, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Customer).where(Customer.email == email))
+    result = await db.execute(select(Customer).where(Customer.email == email.lower()))
     customer = result.scalar_one_or_none()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
