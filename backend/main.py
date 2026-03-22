@@ -66,3 +66,41 @@ app.include_router(integrations_admin.router)
 @app.get("/")
 async def health():
     return {"status": "ok", "service": "AI Buddy API", "version": "2.0.0"}
+
+
+@app.get("/v1/system/status")
+async def system_status():
+    """Prüft den Status aller kritischen Dienste (DB, Redis, KI)."""
+    import asyncio
+    from sqlalchemy import text
+    from core.database import AsyncSessionLocal
+    import redis.asyncio as aioredis
+
+    results: dict[str, dict] = {}
+
+    # Backend selbst ist erreichbar (sonst käme dieser Handler gar nicht)
+    results["backend"] = {"ok": True}
+
+    # Datenbank
+    try:
+        async with AsyncSessionLocal() as session:
+            await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=2.0)
+        results["db"] = {"ok": True}
+    except Exception as e:
+        results["db"] = {"ok": False, "error": str(e)[:80]}
+
+    # Redis
+    try:
+        r = aioredis.from_url(settings.redis_url, decode_responses=True)
+        await asyncio.wait_for(r.ping(), timeout=2.0)
+        await r.aclose()
+        results["redis"] = {"ok": True}
+    except Exception as e:
+        results["redis"] = {"ok": False, "error": str(e)[:80]}
+
+    # KI-Modelle: Anthropic oder Bedrock konfiguriert?
+    ai_ok = bool(settings.anthropic_api_key or settings.aws_bedrock_api_key or settings.aws_access_key_id)
+    results["ai"] = {"ok": ai_ok}
+
+    overall = all(v["ok"] for v in results.values())
+    return {"ok": overall, "services": results}

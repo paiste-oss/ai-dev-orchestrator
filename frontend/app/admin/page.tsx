@@ -16,6 +16,21 @@ interface DashboardStats {
   pending_entwicklung: number;
 }
 
+interface ServiceStatus {
+  ok: boolean;
+  error?: string;
+}
+
+interface SystemStatus {
+  ok: boolean;
+  services: {
+    backend?: ServiceStatus;
+    db?: ServiceStatus;
+    redis?: ServiceStatus;
+    ai?: ServiceStatus;
+  };
+}
+
 interface RecentCustomer {
   id: string;
   name: string;
@@ -175,6 +190,7 @@ export default function AdminDashboard() {
   const [stats,        setStats]        = useState<DashboardStats | null>(null);
   const [recent,       setRecent]       = useState<RecentCustomer[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [sysStatus,    setSysStatus]    = useState<SystemStatus | null>(null);
 
   useEffect(() => {
     const u = getSession();
@@ -217,6 +233,14 @@ export default function AdminDashboard() {
       }
 
       setStats({ total_customers, active_buddies, chats_today: 0, active_workflows, pending_entwicklung });
+
+      // System-Status separat laden
+      try {
+        const statusRes = await apiFetch(`${BACKEND_URL}/v1/system/status`);
+        if (statusRes.ok) setSysStatus(await statusRes.json());
+      } catch {
+        setSysStatus({ ok: false, services: { backend: { ok: false }, db: { ok: false }, redis: { ok: false }, ai: { ok: false } } });
+      }
     } catch {
       // stille Fehler
     } finally {
@@ -468,19 +492,30 @@ export default function AdminDashboard() {
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">System-Status</h3>
                   <div className="space-y-2">
                     {[
-                      { label: "Backend API",    ok: true },
-                      { label: "Datenbank",      ok: true },
-                      { label: "KI-Modelle",     ok: true },
-                      { label: "Redis / Cache",  ok: true },
-                    ].map(({ label, ok }) => (
-                      <div key={label} className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">{label}</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full ${ok ? "bg-emerald-400" : "bg-red-400"}`} />
-                          <span className={`text-xs ${ok ? "text-emerald-500" : "text-red-500"}`}>{ok ? "Online" : "Fehler"}</span>
+                      { label: "Backend API", key: "backend" as const },
+                      { label: "Datenbank",   key: "db"      as const },
+                      { label: "KI-Modelle",  key: "ai"      as const },
+                      { label: "Redis / Cache", key: "redis" as const },
+                    ].map(({ label, key }) => {
+                      const svc = sysStatus?.services?.[key];
+                      const loading = statsLoading || !sysStatus;
+                      const ok = svc?.ok ?? false;
+                      return (
+                        <div key={label} className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">{label}</span>
+                          <div className="flex items-center gap-1.5">
+                            {loading ? (
+                              <span className="w-12 h-3 rounded bg-white/5 animate-pulse inline-block" />
+                            ) : (
+                              <>
+                                <span className={`w-1.5 h-1.5 rounded-full ${ok ? "bg-emerald-400" : "bg-red-400"}`} />
+                                <span className={`text-xs ${ok ? "text-emerald-500" : "text-red-500"}`}>{ok ? "Online" : "Fehler"}</span>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </section>
