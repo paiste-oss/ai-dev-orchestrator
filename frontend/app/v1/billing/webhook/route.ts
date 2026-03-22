@@ -12,9 +12,10 @@ function forwardToBackend(
   return new Promise((resolve, reject) => {
     const req = http.request(
       {
-        // host.docker.internal → Host-Maschine → Port 8000 → backend Container
-        // Umgeht DNS-Probleme im Turbopack-Kontext
-        hostname: "host.docker.internal",
+        // Direkte IP des Backend-Containers — Turbopack-VM hat kein DNS
+        // Static IP 172.22.0.10 greift nach nächstem docker compose down/up
+        // Aktuell: 172.22.0.4 (docker inspect ai_backend)
+        hostname: process.env.BACKEND_IP ?? "172.22.0.4",
         port: 8000,
         path: "/v1/billing/webhook",
         method: "POST",
