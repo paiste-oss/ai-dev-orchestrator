@@ -130,7 +130,7 @@ export default function DevTool() {
   if (!mounted) return null;
 
   return (
-    <div className="h-screen bg-gray-950 text-white flex overflow-hidden">
+    <div className="h-[100dvh] bg-gray-950 text-white flex overflow-hidden">
 
       {/* ── Sidebar ── */}
       <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
