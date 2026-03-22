@@ -379,6 +379,30 @@ STOCK_TOOL_DEFS = [
             "required": ["company_name"],
         },
     },
+    {
+        "name": "get_stock_history",
+        "description": (
+            "Gibt den historischen Kursverlauf einer Aktie zurück. "
+            "Nutze dieses Tool wenn der Nutzer nach dem Verlauf, der Entwicklung über Zeit, "
+            "dem Chart oder historischen Kursen einer Aktie fragt. "
+            "Gibt monatliche/wöchentliche Schlusskurse als Tabelle zurück."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Börsenkürzel, z.B. 'HOLN.SW', 'AAPL', 'NESN.SW'",
+                },
+                "period": {
+                    "type": "string",
+                    "enum": ["1mo", "3mo", "6mo", "1y", "2y", "5y"],
+                    "description": "Zeitraum: 1mo=1 Monat, 3mo=3 Monate, 6mo=6 Monate, 1y=1 Jahr, 2y=2 Jahre, 5y=5 Jahre. Standard: 1y",
+                },
+            },
+            "required": ["symbol"],
+        },
+    },
 ]
 
 
@@ -445,6 +469,52 @@ async def _handle_stock(tool_name: str, tool_input: dict) -> Any:
             return out if out else {"message": f"Keine Ergebnisse für '{company}'"}
         except Exception as e:
             return {"error": f"Suche fehlgeschlagen: {e}"}
+
+    if tool_name == "get_stock_history":
+        symbol = tool_input.get("symbol", "").upper()
+        period = tool_input.get("period", "1y")
+        try:
+            import yfinance as yf
+            ticker = yf.Ticker(symbol)
+
+            # Intervall: bei kurzem Zeitraum wöchentlich, sonst monatlich
+            interval = "1wk" if period in ("1mo", "3mo", "6mo") else "1mo"
+            hist = ticker.history(period=period, interval=interval)
+
+            if hist.empty:
+                return {"error": f"Keine historischen Daten für '{symbol}'"}
+
+            # Kompakte Tabelle: Datum + Schlusskurs + Veränderung %
+            rows = []
+            closes = hist["Close"].dropna()
+            for i, (date, close) in enumerate(closes.items()):
+                change_pct = None
+                if i > 0:
+                    prev = closes.iloc[i - 1]
+                    if prev > 0:
+                        change_pct = round((close - prev) / prev * 100, 2)
+                rows.append({
+                    "date": date.strftime("%Y-%m-%d"),
+                    "close": round(float(close), 2),
+                    "change_pct": change_pct,
+                })
+
+            # Zusammenfassung
+            first_close = float(closes.iloc[0])
+            last_close = float(closes.iloc[-1])
+            total_change_pct = round((last_close - first_close) / first_close * 100, 2)
+
+            return {
+                "symbol": symbol,
+                "period": period,
+                "currency": getattr(ticker.fast_info, "currency", "?"),
+                "total_change_pct": total_change_pct,
+                "start_price": round(first_close, 2),
+                "end_price": round(last_close, 2),
+                "data_points": rows,
+            }
+        except Exception as e:
+            return {"error": f"Kursverlauf für '{symbol}' konnte nicht abgerufen werden: {e}"}
 
     return {"error": f"Unbekanntes Stock-Tool: {tool_name}"}
 
@@ -572,7 +642,7 @@ TOOL_CATALOG: dict[str, dict] = {
         "category": "data",
         "tier": "free",
         "tool_defs": STOCK_TOOL_DEFS,
-        "tool_names": {"get_stock_price", "search_stock_symbol"},
+        "tool_names": {"get_stock_price", "search_stock_symbol", "get_stock_history"},
         "handler": _handle_stock,
     },
     "image_search": {
