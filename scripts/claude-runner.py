@@ -45,6 +45,7 @@ CLAUDE_BIN = os.environ.get(
 # Memory-Datei: hält die letzten abgeschlossenen Tasks als Kontext
 MEMORY_FILE     = os.path.join(PROJECT_ROOT, "scripts", "dev-orchestrator-memory.md")
 MAX_MEMORY_TASKS = 8   # Wie viele vergangene Tasks als Kontext mitgegeben werden
+MAX_MEMORY_CHARS = 2000  # Zeichen pro Task-Eintrag
 
 
 # ── Memory-System ──────────────────────────────────────────────────────────────
@@ -73,10 +74,10 @@ def update_memory(title: str, output: str, success: bool) -> None:
         status_icon = "✓" if success else "✗"
         ts = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        # Output auf die letzten 600 Zeichen kürzen (nur das Wesentliche)
+        # Output auf die letzten N Zeichen kürzen (nur das Wesentliche)
         short_output = output.strip()
-        if len(short_output) > 600:
-            short_output = "…" + short_output[-600:]
+        if len(short_output) > MAX_MEMORY_CHARS:
+            short_output = "…" + short_output[-MAX_MEMORY_CHARS:]
 
         new_entry = f"{status_icon} [{ts}] {title}\n{short_output}"
         entries.append(new_entry)
@@ -178,6 +179,7 @@ def run_task(task: dict) -> None:
         "--print",                         # nicht-interaktiv, Output auf stdout
         "--dangerously-skip-permissions",  # keine Rückfragen bei File/Bash-Ops
         "--output-format", "text",         # plain text Output
+        "--model", "claude-sonnet-4-6",    # explizit neuestes Sonnet-Modell
         prompt,
     ]
 
