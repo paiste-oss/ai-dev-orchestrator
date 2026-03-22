@@ -243,10 +243,12 @@ async def create_topup_checkout(
     customer: Customer,
     amount_chf: float,
     db: AsyncSession,
+    return_path: str = "/user/wallet",
 ) -> str:
     """
     Erstellt eine einmalige Checkout Session um Prepaid-Guthaben aufzuladen.
     Minimalbetrag CHF 5, Maximum CHF 500.
+    return_path: Wohin nach erfolgreichem Checkout weitergeleitet wird.
     """
     if amount_chf < 5 or amount_chf > 500:
         raise ValueError("Aufladebetrag muss zwischen CHF 5 und CHF 500 liegen.")
@@ -261,13 +263,13 @@ async def create_topup_checkout(
         line_items=[{
             "price_data": {
                 "currency": "chf",
-                "product_data": {"name": f"Baddi Guthaben-Aufladung CHF {amount_chf:.2f}"},
+                "product_data": {"name": f"Baddi Token-Guthaben CHF {amount_chf:.2f}"},
                 "unit_amount": amount_rappen,
             },
             "quantity": 1,
         }],
-        success_url=f"{settings.frontend_url}/user/billing?status=topup_success",
-        cancel_url=f"{settings.frontend_url}/user/billing?status=canceled",
+        success_url=f"{settings.frontend_url}{return_path}?status=topup_success",
+        cancel_url=f"{settings.frontend_url}{return_path}?status=canceled",
         metadata={
             "customer_id": str(customer.id),
             "topup_amount_chf": str(amount_chf),

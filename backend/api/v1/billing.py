@@ -197,7 +197,7 @@ async def topup_balance(
             detail="Guthaben aufladen ist nur mit einem aktiven Abo möglich."
         )
     try:
-        url = await create_topup_checkout(customer, req.amount_chf, db)
+        url = await create_topup_checkout(customer, req.amount_chf, db, return_path="/user/billing")
         return {"checkout_url": url}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -282,8 +282,8 @@ function BillingPageInner() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <button onClick={() => router.back()} className="text-xs text-gray-600 hover:text-gray-400 mb-3 flex items-center gap-1">
-              ← Zurück
+            <button onClick={() => router.push("/chat")} className="text-xs text-gray-600 hover:text-gray-400 mb-3 flex items-center gap-1">
+              ← Zurück zum Chat
             </button>
             <h1 className="text-2xl font-bold text-white">Abonnement & Abrechnung</h1>
             <p className="text-sm text-gray-500 mt-1">Plan verwalten, Guthaben aufladen, Rechnungen herunterladen</p>

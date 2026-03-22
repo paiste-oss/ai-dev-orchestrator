@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getSession, getToken, apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 
@@ -68,12 +68,14 @@ function ProgressBar({ value, max, color }: { value: number; max: number; color:
   );
 }
 
-export default function WalletPage() {
+function WalletPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
   const [wallet, setWallet] = useState<WalletStatus | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [alert, setAlert] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Top-up modal
   const [topupModal, setTopupModal] = useState<"stripe" | "bank" | null>(null);
@@ -104,6 +106,10 @@ export default function WalletPage() {
     setMounted(true);
     if (!getSession()) { router.replace("/login"); return; }
     load();
+    // Stripe Rückleitung auswerten
+    const s = searchParams.get("status");
+    if (s === "topup_success") setAlert({ type: "success", text: "Zahlung erfolgreich! Dein Guthaben wird in Kürze gutgeschrieben." });
+    if (s === "canceled")     setAlert({ type: "error",   text: "Zahlung abgebrochen." });
   }, []);
 
   if (!mounted) return null;
@@ -220,12 +226,24 @@ export default function WalletPage() {
 
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => router.back()} className="text-gray-500 hover:text-white text-xl">←</button>
+          <button onClick={() => router.push("/chat")} className="text-gray-500 hover:text-white text-xl">←</button>
           <div>
             <h1 className="text-xl font-bold">Wallet</h1>
             <p className="text-xs text-gray-500">Guthaben, Limits & Transaktionen</p>
           </div>
         </div>
+
+        {/* Alert nach Stripe-Rückleitung */}
+        {alert && (
+          <div className={`rounded-xl border px-4 py-3 text-sm flex items-center justify-between ${
+            alert.type === "success"
+              ? "bg-green-500/10 border-green-500/30 text-green-300"
+              : "bg-red-500/10 border-red-500/30 text-red-300"
+          }`}>
+            <span>{alert.text}</span>
+            <button onClick={() => setAlert(null)} className="text-lg leading-none opacity-50 hover:opacity-100">×</button>
+          </div>
+        )}
 
         {loading ? (
           <p className="text-center text-gray-600 py-16">Lade…</p>
@@ -608,5 +626,13 @@ export default function WalletPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function WalletPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-950" />}>
+      <WalletPageInner />
+    </Suspense>
   );
 }
