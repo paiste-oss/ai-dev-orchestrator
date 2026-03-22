@@ -345,6 +345,8 @@ export default function ChatPage() {
   const [isDragOver, setIsDragOver] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const userScrolledUp = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -359,7 +361,9 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!userScrolledUp.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages, loading]);
 
   async function loadHistory() {
@@ -902,7 +906,16 @@ export default function ChatPage() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          <div
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+            onScroll={() => {
+              const el = scrollContainerRef.current;
+              if (!el) return;
+              const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+              userScrolledUp.current = !atBottom;
+            }}
+          >
             {!historyLoaded && (
               <p className="text-center text-gray-600 text-sm pt-10">Lade Verlauf…</p>
             )}
