@@ -13,20 +13,20 @@ const isGroup = (e: NavEntry): e is NavGroup => "children" in e;
 const NAV: NavEntry[] = [
   { label: "Dashboard",        href: "/admin",              icon: "⬡" },
   { label: "Dev Orchestrator", href: "/admin/devtool",      icon: "⌥" },
-  { label: "Kunden", href: "/admin/customers", icon: "◎" },
+  { label: "Kunden",           href: "/admin/customers",    icon: "◎" },
+  { label: "Tools",            href: "/admin/tools",        icon: "🔧" },
   { label: "Dokumente",        href: "/admin/documents",    icon: "▦" },
   { label: "Entwicklung",      href: "/admin/entwicklung",  icon: "⚗" },
   { label: "Design",           href: "/admin/design",       icon: "◐" },
   {
     label: "Uhrwerk", icon: "⚙",
     children: [
-      { label: "Content Guard",   href: "/admin/router",                   icon: "🛡" },
-      { label: "Tools",          href: "/admin/uhrwerk/tools",            icon: "🔧" },
-      { label: "LLM",            href: "/admin/uhrwerk/llm",              icon: "◈" },
-      { label: "System-Prompts", href: "/admin/uhrwerk/system-prompts",   icon: "📝" },
-      { label: "n8n Workflows",  href: "/admin/workflows",                icon: "⇆" },
-      { label: "Backend Tasks", href: "/admin/workflows/celery", icon: "⏱" },
-      { label: "Agenten",       href: "/admin/workflows/agents", icon: "◈" },
+      { label: "Content Guard",  href: "/admin/router",                  icon: "🛡" },
+      { label: "LLM",            href: "/admin/uhrwerk/llm",             icon: "◈" },
+      { label: "System-Prompts", href: "/admin/uhrwerk/system-prompts",  icon: "📝" },
+      { label: "n8n Workflows",  href: "/admin/workflows",               icon: "⇆" },
+      { label: "Backend Tasks",  href: "/admin/workflows/celery",        icon: "⏱" },
+      { label: "Agenten",        href: "/admin/workflows/agents",        icon: "◈" },
     ],
   },
   {
