@@ -450,6 +450,72 @@ async def _handle_stock(tool_name: str, tool_input: dict) -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Bildsuche (Unsplash)
+# ---------------------------------------------------------------------------
+
+UNSPLASH_TOOL_DEFS = [
+    {
+        "name": "search_image",
+        "description": (
+            "Sucht echte Fotos und Bilder aus dem Internet via Unsplash. "
+            "Nutze dieses Tool wenn der Nutzer ein Bild, Foto oder eine Aufnahme "
+            "aus dem Internet sehen möchte — z.B. 'zeige mir ein Bild von einem Schaf', "
+            "'suche ein Foto von Zürich', 'zeig mir wie ein Kolibri aussieht'. "
+            "Gibt direkte Bild-URLs zurück die im Chat angezeigt werden."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Suchanfrage auf Englisch für beste Ergebnisse, z.B. 'sheep', 'Zurich city', 'hummingbird'",
+                },
+                "count": {
+                    "type": "integer",
+                    "description": "Anzahl Bilder (1-3). Standard: 1",
+                    "default": 1,
+                },
+            },
+            "required": ["query"],
+        },
+    },
+]
+
+
+async def _handle_unsplash(tool_name: str, tool_input: dict) -> Any:
+    if tool_name == "search_image":
+        from core.config import settings
+        if not settings.unsplash_access_key:
+            return {"error": "Unsplash API Key nicht konfiguriert."}
+        query = tool_input.get("query", "")
+        count = min(tool_input.get("count", 1), 3)
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    "https://api.unsplash.com/search/photos",
+                    headers={"Authorization": f"Client-ID {settings.unsplash_access_key}"},
+                    params={"query": query, "per_page": count, "orientation": "landscape"},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            results = data.get("results", [])
+            if not results:
+                return {"error": f"Keine Bilder gefunden für '{query}'"}
+            images = []
+            for r in results:
+                images.append({
+                    "image_url": r["urls"]["regular"],
+                    "description": r.get("alt_description") or r.get("description") or query,
+                    "photographer": r["user"]["name"],
+                    "source": "Unsplash",
+                })
+            return images if len(images) > 1 else images[0]
+        except Exception as e:
+            return {"error": f"Bildsuche fehlgeschlagen: {e}"}
+    return {"error": f"Unbekanntes Unsplash-Tool: {tool_name}"}
+
+
+# ---------------------------------------------------------------------------
 # Tool-Katalog
 # ---------------------------------------------------------------------------
 
@@ -508,6 +574,17 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_defs": STOCK_TOOL_DEFS,
         "tool_names": {"get_stock_price", "search_stock_symbol"},
         "handler": _handle_stock,
+    },
+    "image_search": {
+        "key": "image_search",
+        "name": "Bildsuche (Unsplash)",
+        "description": "Sucht echte Fotos aus dem Internet via Unsplash. Zeigt Bilder direkt im Chat an.",
+        "prompt_hint": "Echte Fotos und Bilder aus dem Internet suchen und anzeigen (Unsplash)",
+        "category": "data",
+        "tier": "free",
+        "tool_defs": UNSPLASH_TOOL_DEFS,
+        "tool_names": {"search_image"},
+        "handler": _handle_unsplash,
     },
     # Weitere Tools können hier ergänzt werden:
     # "google_calendar": { ... }

@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     # Exa Web Search
     exa_api_key: str = ""
 
+    # Unsplash Bildsuche
+    unsplash_access_key: str = ""
+
     # GitHub
     github_token: str = ""
     github_repo: str = "paiste-oss/ai-dev-orchestrator"

@@ -236,12 +236,19 @@ async def send_message(
             response_text = uhrwerk_result["output"]
             model_name = uhrwerk_result.get("model_used", model_name)
 
-            # Bild-URLs extrahieren
+            # Bild-URLs extrahieren (DALL-E + Unsplash)
             for tc in uhrwerk_result.get("tool_calls", []):
-                if isinstance(tc.get("result"), dict):
-                    url = tc["result"].get("image_url")
+                result = tc.get("result")
+                if isinstance(result, dict):
+                    url = result.get("image_url")
                     if url:
                         generated_image_urls.append(url)
+                elif isinstance(result, list):
+                    for item in result:
+                        if isinstance(item, dict):
+                            url = item.get("image_url")
+                            if url:
+                                generated_image_urls.append(url)
         except Exception as e:
             errors.append(f"Uhrwerk: {e}")
 
