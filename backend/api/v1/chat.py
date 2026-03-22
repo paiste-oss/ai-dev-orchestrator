@@ -151,6 +151,20 @@ async def send_message(
     # 3. Content Guard
     routing = agent_route(req.message, customer_id=customer_id)
     if routing.blocked:
+        # Blockierte Anfrage persistieren (für Behörden-Auskunft)
+        try:
+            from models.content_guard_log import ContentGuardLog
+            from services.agent_router import _CONTENT_GUARD_PATTERNS
+            m = _CONTENT_GUARD_PATTERNS.search(req.message)
+            log_entry = ContentGuardLog(
+                customer_id=customer_id,
+                message=req.message,
+                matched_pattern=m.group(0)[:200] if m else None,
+            )
+            db.add(log_entry)
+            await db.commit()
+        except Exception as e:
+            _log.warning("Content Guard Log fehlgeschlagen: %s", e)
         raise HTTPException(status_code=400, detail="Anfrage abgelehnt.")
 
     # 3b. Quota-Check — vor dem API-Call

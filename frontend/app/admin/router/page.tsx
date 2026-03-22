@@ -27,6 +27,16 @@ interface TestResult {
   message_preview: string;
 }
 
+interface GuardLog {
+  id: string;
+  customer_id: string;
+  customer_name: string;
+  customer_email: string;
+  message: string;
+  matched_pattern: string | null;
+  created_at: string;
+}
+
 const SEVERITY_STYLE: Record<string, string> = {
   critical: "bg-red-500/15 text-red-300 border border-red-500/30",
   high:     "bg-amber-500/15 text-amber-300 border border-amber-500/30",
@@ -47,8 +57,11 @@ export default function RouterAdminPage() {
   const [testMsg, setTestMsg]       = useState("");
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [testing, setTesting]       = useState(false);
+  const [logs, setLogs]             = useState<GuardLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [expandedLog, setExpandedLog] = useState<string | null>(null);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadLogs(); }, []);
 
   async function load() {
     setLoading(true);
@@ -57,6 +70,19 @@ export default function RouterAdminPage() {
       if (res.ok) setGuard(await res.json());
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadLogs() {
+    setLogsLoading(true);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/admin/router/logs`);
+      if (res.ok) {
+        const d = await res.json();
+        setLogs(d.logs);
+      }
+    } finally {
+      setLogsLoading(false);
     }
   }
 
@@ -215,6 +241,90 @@ export default function RouterAdminPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Blockierte Anfragen — Behörden-Log */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                Blockierte Anfragen
+                {logs.length > 0 && (
+                  <span className="ml-2 text-red-400 font-bold normal-case text-xs">({logs.length})</span>
+                )}
+              </h2>
+              <button
+                onClick={loadLogs}
+                className="text-xs text-gray-500 hover:text-gray-300 border border-gray-800 hover:border-gray-600 px-2.5 py-1 rounded-lg transition-colors"
+              >
+                ↻ Aktualisieren
+              </button>
+            </div>
+
+            {logsLoading ? (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 text-center text-gray-600 text-sm">Lade…</div>
+            ) : logs.length === 0 ? (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 text-center">
+                <p className="text-gray-500 text-sm">Keine blockierten Anfragen vorhanden.</p>
+              </div>
+            ) : (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+                {/* Tabellen-Header */}
+                <div className="grid grid-cols-[1fr_180px_140px] gap-4 px-4 py-2.5 border-b border-gray-800 text-xs text-gray-500 font-medium uppercase tracking-wider">
+                  <span>Nutzer</span>
+                  <span>Muster</span>
+                  <span>Zeitpunkt</span>
+                </div>
+
+                <div className="divide-y divide-gray-800/60">
+                  {logs.map(log => {
+                    const isExpanded = expandedLog === log.id;
+                    const dt = new Date(log.created_at);
+                    return (
+                      <div key={log.id}>
+                        <button
+                          onClick={() => setExpandedLog(isExpanded ? null : log.id)}
+                          className="w-full grid grid-cols-[1fr_180px_140px] gap-4 px-4 py-3 text-left hover:bg-gray-800/30 transition-colors"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{log.customer_name}</p>
+                            <p className="text-xs text-gray-500 truncate">{log.customer_email}</p>
+                          </div>
+                          <div className="flex items-center">
+                            {log.matched_pattern ? (
+                              <code className="text-xs text-red-400 bg-red-500/10 px-2 py-0.5 rounded truncate max-w-[170px]">
+                                {log.matched_pattern}
+                              </code>
+                            ) : (
+                              <span className="text-xs text-gray-600">—</span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-xs text-gray-300">{dt.toLocaleDateString("de-CH")}</p>
+                              <p className="text-xs text-gray-500">{dt.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}</p>
+                            </div>
+                            <span className={`text-gray-600 text-[10px] transition-transform duration-200 ml-2 ${isExpanded ? "rotate-90" : ""}`}>▶</span>
+                          </div>
+                        </button>
+
+                        {isExpanded && (
+                          <div className="px-4 pb-4 pt-1 border-t border-gray-800/50 bg-gray-950/40 space-y-2">
+                            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Vollständige Anfrage (Klartext)</p>
+                            <div className="bg-red-500/5 border border-red-500/20 rounded-lg px-4 py-3">
+                              <p className="text-sm text-gray-200 whitespace-pre-wrap break-words leading-relaxed">{log.message}</p>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs text-gray-600 pt-1">
+                              <span>ID: <code className="text-gray-500">{log.id}</code></span>
+                              <span>Kunden-ID: <code className="text-gray-500">{log.customer_id}</code></span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Info */}

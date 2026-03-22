@@ -143,6 +143,17 @@ async def init_db():
             )""",
             "CREATE INDEX IF NOT EXISTS idx_stock_alerts_active ON stock_alerts(is_active) WHERE is_active = true",
             "CREATE INDEX IF NOT EXISTS idx_stock_alerts_customer ON stock_alerts(customer_id)",
+            # Content Guard Log — blockierte Anfragen für Behörden-Auskunft
+            """CREATE TABLE IF NOT EXISTS content_guard_logs (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                customer_id VARCHAR(36) NOT NULL,
+                message TEXT NOT NULL,
+                matched_pattern VARCHAR(200),
+                ip_address VARCHAR(60),
+                created_at TIMESTAMP DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_content_guard_logs_customer ON content_guard_logs(customer_id)",
+            "CREATE INDEX IF NOT EXISTS idx_content_guard_logs_created ON content_guard_logs(created_at DESC)",
         ]
         for sql in migrations:
             await conn.execute(text(sql))
