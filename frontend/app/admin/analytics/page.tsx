@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import AdminLayout from "@/components/AdminLayout";
-import { apiFetch } from "@/lib/auth";
+import { useRouter } from "next/navigation";
+import { apiFetch, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
+import AdminSidebar from "@/components/AdminSidebar";
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -62,6 +63,9 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
+  const router = useRouter();
+  const [mounted, setMounted]     = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [days, setDays]           = useState(30);
   const [overview, setOverview]   = useState<Overview | null>(null);
   const [rtData, setRtData]       = useState<ResponseType[]>([]);
@@ -98,9 +102,16 @@ export default function AnalyticsPage() {
     setTotal(data.total);
   }, [days, page, rtFilter]);
 
+  useEffect(() => {
+    setMounted(true);
+    const user = getSession();
+    if (!user || user.role !== "admin") router.replace("/login");
+  }, []);
   useEffect(() => { loadOverview(); }, [loadOverview]);
   useEffect(() => { setPage(0); }, [days, rtFilter]);
   useEffect(() => { loadMessages(); }, [loadMessages]);
+
+  if (!mounted) return null;
 
   const totalPages = Math.ceil(total / LIMIT);
 
@@ -111,7 +122,17 @@ export default function AnalyticsPage() {
   }));
 
   return (
-    <AdminLayout>
+    <div className="h-[100dvh] bg-gray-950 text-white flex overflow-hidden">
+      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Mobile Header */}
+        <div className="md:hidden flex items-center gap-3 px-4 py-3 border-b border-white/5">
+          <button onClick={() => setSidebarOpen(true)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/5">
+            ☰
+          </button>
+          <span className="text-sm font-medium text-white">Analyse</span>
+        </div>
+        <div className="flex-1 overflow-y-auto">
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
 
         {/* ── Header ── */}
@@ -312,6 +333,8 @@ export default function AnalyticsPage() {
         </div>
 
       </div>
-    </AdminLayout>
+        </div>
+      </div>
+    </div>
   );
 }
