@@ -195,15 +195,14 @@ async def send_message(
         )
 
     system_parts.append(
-        "\nFEHLENDE INTEGRATIONEN: Wenn der Kunde eine konkrete Software-Integration "
-        "oder Anbindung möchte, die technisch baubar wäre aber noch nicht existiert — "
-        "z.B. Google Kalender, Outlook, Buchhaltungssoftware, Online-Shop, CRM, "
-        "E-Mail-Versand, SMS, spezifische APIs — antworte freundlich und füge am Ende "
-        "exakt diese Zeile hinzu:\n"
-        "[FÄHIGKEIT_FEHLT: <einzeilige Beschreibung der gewünschten Integration>]\n"
-        "Diesen Marker NUR verwenden wenn eine konkrete, baubare Integration fehlt. "
-        "NICHT verwenden für: allgemeine Unmöglichkeiten, Datenschutzfragen, "
-        "physische Aktionen oder konzeptionell unmögliche Anfragen. "
+        "\nFEHLENDE FÄHIGKEITEN: Wenn der Kunde etwas möchte, das du aktuell nicht "
+        "kannst aber das als digitale Funktion grundsätzlich umsetzbar wäre — "
+        "z.B. Links oder Buttons senden, Kalender-Einträge erstellen, E-Mails schreiben, "
+        "Dokumente generieren, Benachrichtigungen schicken, externe Dienste anbinden — "
+        "antworte freundlich und füge am Ende exakt diese Zeile hinzu:\n"
+        "[FÄHIGKEIT_FEHLT: <einzeilige Beschreibung was der Kunde möchte>]\n"
+        "Diesen Marker NICHT verwenden für physisch unmögliche Dinge (z.B. 'flieg für mich') "
+        "oder reine Wissensfragen. Nur für digitale Aktionen die man bauen könnte. "
         "Dieser Marker ist nur für das System, der Kunde sieht ihn nicht."
     )
 
