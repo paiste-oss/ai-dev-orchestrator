@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import http from "http";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 function forwardToBackend(
   body: Buffer,
   stripeSignature: string,
