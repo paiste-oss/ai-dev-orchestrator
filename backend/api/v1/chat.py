@@ -1,20 +1,17 @@
 """
-Chat API — vollständige Routing-Pipeline.
+Chat API — vereinfachte Pipeline mit nativem Claude Tool Use.
 
 Flow pro Request:
   1.  Conversation history laden
-  2.  Baddi laden + Konfiguration aus Redis
-  3.  Relevante Memories auswählen
+  2.  Globale Baddi-Konfiguration laden
+  3.  Content Guard (lokal, <1ms)
   4.  System-Prompt aufbauen
-  5.  ROUTER (zwingend lokal, <1ms) — klassifiziert Intent
-  6.  Router-Gedächtnis prüfen — gelernte Routen bevorzugen
-  7.  Uhrwerk aufrufen (Tool / Agent / Workflow) wenn Tools verfügbar
-  8.  ROUTER bewertet Antwort:
-        → Positiv: Antwort an Baddi/Kunden weiterleiten
-        → Negativ: Capability Gap erkannt → an Entwicklung weiterreichen
-  9.  Router lernt: Erfolg/Misserfolg in Redis speichern
-  10. Beide Turns persistieren
-  11. Memory-Extraktion im Hintergrund
+  5.  Bilder? → claude-sonnet-4-6 (Vision, keine Tools)
+      Text?   → claude-haiku-4-5 + ALLE Tools (Claude entscheidet selbst)
+  6.  Fallback: Gemini → OpenAI
+  7.  Beide Turns persistieren
+  8.  Token-Quota abrechnen
+  9.  Memory-Extraktion im Hintergrund
 """
 import json
 from datetime import datetime
@@ -33,9 +30,8 @@ from models.chat import ChatMessage, MemoryItem
 from models.customer import Customer
 from services.llm_gateway import chat_with_claude, chat_with_gemini, chat_with_openai
 from services.memory_service import select_relevant_context
-from services.agent_router import route as agent_route, assess_response, get_intent_label
+from services.agent_router import route as agent_route
 from services.buddy_agent import run_buddy_chat
-from services.router_memory import record_success, record_failure, should_create_gap
 from services.billing_service import check_and_bill_tokens
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -43,7 +39,6 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 _HISTORY_WINDOW = 20
 _CONTEXT_WINDOW = 10
 
-# Agent-Capabilities (spiegelt frontend/lib/agents.ts)
 _AGENT_CAPABILITIES: dict[str, str] = {
     "ki-chat":        "Intelligente Konversation, Texterstellung und Beratung",
     "document":       "Analyse und Zusammenfassung von PDFs, Word- und Textdokumenten",
@@ -60,11 +55,11 @@ _AGENT_CAPABILITIES: dict[str, str] = {
     "support":        "Kundenanfragen beantworten und bei Bedarf eskalieren",
 }
 
-
 import logging as _logging
 _log = _logging.getLogger(__name__)
 
 _redis_client: "redis_lib.Redis | None" = None
+
 
 def _get_redis() -> "redis_lib.Redis":
     global _redis_client
@@ -74,18 +69,16 @@ def _get_redis() -> "redis_lib.Redis":
 
 
 def _push_short_term_memory(customer_id: str, user_msg: str, assistant_msg: str) -> None:
-    """Speichert letzte Nachrichten in Redis (Kurzzeitgedächtnis für Memory Manager)."""
     import time
     r = _get_redis()
     key = f"chat:recent:{customer_id}"
     r.lpush(key, json.dumps({"role": "user",      "content": user_msg,      "ts": time.time()}))
     r.lpush(key, json.dumps({"role": "assistant", "content": assistant_msg, "ts": time.time()}))
-    r.ltrim(key, 0, 11)   # Max 12 Einträge = 6 Turns
-    r.expire(key, 86400)  # 24h TTL
+    r.ltrim(key, 0, 11)
+    r.expire(key, 86400)
 
 
 def _load_global_baddi_config() -> dict:
-    """Lädt die globale Baddi-Konfiguration aus Redis (admin-konfigurierbar)."""
     try:
         raw = _get_redis().get("baddi:config")
         return json.loads(raw) if raw else {}
@@ -97,8 +90,8 @@ def _load_global_baddi_config() -> dict:
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class ImageAttachment(BaseModel):
-    data: str        # base64-encoded image data
-    media_type: str  # z.B. "image/jpeg", "image/png"
+    data: str
+    media_type: str
 
 
 class ChatRequest(BaseModel):
@@ -148,28 +141,20 @@ async def send_message(
         .limit(_HISTORY_WINDOW)
     )
     history = list(reversed(result.scalars().all()))
+    prior_messages = [{"role": m.role, "content": m.content} for m in history[-_CONTEXT_WINDOW:]]
 
-    # 2. Globale Baddi-Konfiguration laden (kein AiBuddy-Körper mehr)
+    # 2. Globale Baddi-Konfiguration
     baddi_config = _load_global_baddi_config()
 
-    # ── 3. ROUTER (zwingend lokal) ────────────────────────────────────────────
-    # Jede Nachricht geht zuerst durch den Router.
-    # Der Router prüft: Content Guard → Keyword-Intent → gelernter Endpunkt → dynamische Tools
-    # Bilder → direkt als conversation routen (Claude Vision braucht kein Tool)
-    if req.images:
-        from services.agent_router import RoutingResult
-        routing = RoutingResult(intent="image_input", needs_tools=False, tool_keys=[])
-    else:
-        routing = agent_route(req.message, customer_id=customer_id)
-
-    # Stage 0: Content Guard — sofort ablehnen ohne LLM-Aufruf
+    # 3. Content Guard
+    routing = agent_route(req.message, customer_id=customer_id)
     if routing.blocked:
         raise HTTPException(status_code=400, detail="Anfrage abgelehnt.")
 
-    # ── 4. Relevante Memories ─────────────────────────────────────────────────
+    # 4. Relevante Memories
     relevant = await select_relevant_context(customer_id, req.message, db)
 
-    # ── 5. System-Prompt aufbauen ─────────────────────────────────────────────
+    # 5. System-Prompt aufbauen
     first_name = customer.name.split()[0] if customer.name else "du"
 
     base_prompt = (
@@ -179,162 +164,95 @@ async def send_message(
     ).strip()
     system_parts = [base_prompt]
 
-    # Baddi-Identität — gilt immer, für alle Baddis
     system_parts.append(
         f"\nIDENTITÄT (unveränderlich):\n"
-        f"- Du bist Baddi. Nenne dich ausschliesslich 'Baddi' — niemals 'KI', 'Assistent', 'Bot', 'Modell' oder ähnliches.\n"
-        f"- Du sprichst {first_name} natürlich an — ohne seinen Namen bei jeder einzelnen Antwort zu wiederholen.\n"
-        f"- Du kommunizierst stets aus deiner Perspektive als Baddi: 'Ich bin dein Baddi und begleite dich durchs Leben.'\n"
+        f"- Du bist Baddi. Nenne dich ausschliesslich 'Baddi'.\n"
+        f"- Du sprichst {first_name} natürlich an.\n"
         f"- Du bist warm, direkt, ehrlich und empathisch."
     )
 
     agent_ids: list[str] = baddi_config.get("agents", [])
     caps = [_AGENT_CAPABILITIES[aid] for aid in agent_ids if aid in _AGENT_CAPABILITIES]
     if caps:
-        caps_text = "\n".join(f"- {c}" for c in caps)
-        system_parts.append(f"\nDeine Fähigkeiten (aktive Agenten):\n{caps_text}")
+        system_parts.append(f"\nDeine Fähigkeiten:\n" + "\n".join(f"- {c}" for c in caps))
 
-    # Aktive Tools aus dem Uhrwerk — auto-generiert aus TOOL_CATALOG.prompt_hint
-    # Neues Tool einfach im TOOL_CATALOG registrieren → automatisch im System-Prompt
     from services.tool_registry import TOOL_CATALOG
     active_tools = [v["prompt_hint"] for v in TOOL_CATALOG.values() if v.get("prompt_hint")]
     if active_tools:
-        tools_text = "\n".join(f"- {t}" for t in active_tools)
         system_parts.append(
-            f"\nDEINE AKTIVEN UHRWERK-TOOLS (diese Fähigkeiten hast du wirklich — behaupte nie das Gegenteil):\n{tools_text}\n"
-            f"WICHTIG: Wenn ein Tool technisch fehlschlägt, erkläre den Fehler ehrlich. "
-            f"Sage NIEMALS 'Ich habe diese Fähigkeit nicht' — sage stattdessen 'Es gab einen technischen Fehler'."
+            f"\nDEINE AKTIVEN TOOLS (diese Fähigkeiten hast du wirklich):\n"
+            + "\n".join(f"- {t}" for t in active_tools)
+            + "\nWenn ein Tool technisch fehlschlägt, erkläre den Fehler ehrlich. "
+            "Sage NIEMALS 'Ich habe diese Fähigkeit nicht'."
         )
 
     if relevant:
-        facts = "\n".join(f"- {m}" for m in relevant)
-        system_parts.append(f"\nWas du über {first_name} weißt:\n{facts}")
+        system_parts.append(f"\nWas du über {first_name} weißt:\n" + "\n".join(f"- {m}" for m in relevant))
 
     system_prompt = "\n".join(system_parts)
 
-    # ── 6. Bekannter Gap (kein Tool vorhanden, Router weiss es) ──────────────
-    # Nur wenn: gap=True UND keine gelernten/dynamischen Tools den Gap schliessen
-    if routing.capability_gap and not routing.needs_tools:
-        return await _handle_gap(
-            message=req.message,
-            intent=routing.intent,
-            customer_id=customer_id,
-            db=db,
-        )
+    # 6. Request ausführen
+    provider = "claude"
+    model_name = "claude-haiku-4-5-20251001"
+    response_text: str | None = None
+    tokens_used: int = 0
+    generated_image_urls: list[str] = []
+    errors: list[str] = []
 
-    # ── 7. Uhrwerk aufrufen ───────────────────────────────────────────────────
-    prior_messages = [{"role": m.role, "content": m.content} for m in history[-_CONTEXT_WINDOW:]]
-    messages = prior_messages + []  # wird unten mit aktuellem Turn ergänzt
-
-    # Bild-Anhänge → Claude Vision Content-Blocks
     if req.images:
+        # Vision: Sonnet, keine Tools
+        model_name = "claude-sonnet-4-6"
         user_content: list[dict] = []
         for img in req.images:
             user_content.append({
                 "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": img.media_type,
-                    "data": img.data,
-                },
+                "source": {"type": "base64", "media_type": img.media_type, "data": img.data},
             })
         if req.message.strip():
             user_content.append({"type": "text", "text": req.message})
         messages = prior_messages + [{"role": "user", "content": user_content}]
-    else:
-        messages = prior_messages + [{"role": "user", "content": req.message}]
 
-    provider = "claude"
-    # Vision-Anfragen → Sonnet für bessere Bild-Analyse
-    model_name = "claude-sonnet-4-6" if req.images else "claude-haiku-4-5-20251001"
-    errors: list[str] = []
-    response_text: str | None = None
-    used_tool_key: str | None = None
-    tokens_used: int = 0
-    generated_image_urls: list[str] = []
-
-    if routing.needs_tools and routing.tool_keys:
-        for tool_key in routing.tool_keys:
-            try:
-                # Für Bildgenerierung: Claude explizit sagen wie es mit dem Tool-Ergebnis umgehen soll
-                tool_system_prompt = system_prompt
-                if tool_key == "image_generation":
-                    tool_system_prompt = (
-                        system_prompt
-                        + "\n\nWICHTIG FÜR BILDGENERIERUNG: Wenn das generate_image Tool ein Bild erstellt hat, "
-                        "sage dem Nutzer freudig dass das Bild fertig ist und gleich erscheint. "
-                        "Sage NIEMALS dass du keine Bilder anzeigen oder einbetten kannst — "
-                        "das Frontend zeigt das Bild automatisch unterhalb deiner Antwort an. "
-                        "Kurze freudige Antwort genügt, z.B. 'Hier ist dein Bild! 🎨'"
-                    )
-
-                uhrwerk_result = await run_buddy_chat(
-                    message=req.message,
-                    buddy_name="Baddi",
-                    system_prompt=tool_system_prompt,
-                    tool_keys=[tool_key],
-                    history=prior_messages,
-                )
-                candidate = uhrwerk_result["output"]
-                model_name = uhrwerk_result.get("model_used", model_name)
-
-                # Bild-URLs aus Tool-Ergebnissen extrahieren
-                for tc in uhrwerk_result.get("tool_calls", []):
-                    if isinstance(tc.get("result"), dict):
-                        url = tc["result"].get("image_url")
-                        if url:
-                            generated_image_urls.append(url)
-
-                # Wenn Bild generiert wurde → immer als Erfolg werten, unabhängig vom Text
-                if generated_image_urls and tool_key == "image_generation":
-                    response_text = candidate
-                    used_tool_key = tool_key
-                    record_success(routing.intent, tool_key)
-                    break
-
-                # Router bewertet die Uhrwerk-Antwort
-                if assess_response(candidate):
-                    response_text = candidate
-                    used_tool_key = tool_key
-                    record_success(routing.intent, tool_key)
-                    break
-                else:
-                    record_failure(routing.intent, tool_key)
-                    errors.append(f"Uhrwerk/{tool_key}: Capability-Gap in Antwort erkannt")
-            except Exception as e:
-                record_failure(routing.intent, tool_key)
-                errors.append(f"Uhrwerk/{tool_key}: {e}")
-
-    # ── 8. LLM-Fallback (kein Tool oder alle Tools gescheitert) ──────────────
-    if response_text is None:
         try:
             result = await chat_with_claude(messages, system_prompt, model=model_name)
-            if assess_response(result.text):
-                response_text = result.text
-                tokens_used = result.total_tokens
-                record_success(routing.intent, "llm_claude")
-            else:
-                record_failure(routing.intent, "llm_claude")
-                errors.append("Claude: Gap erkannt in LLM-Antwort")
-                # Rohantwort trotzdem behalten für Gap-Analyse
-                response_text = result.text
-                tokens_used = result.total_tokens
+            response_text = result.text
+            tokens_used = result.total_tokens
         except Exception as e:
-            errors.append(f"Claude: {e}")
+            errors.append(f"Claude Vision: {e}")
 
+    else:
+        # Text: Haiku + ALLE Tools — Claude entscheidet selbst
+        messages = prior_messages + [{"role": "user", "content": req.message}]
+        all_tool_keys = list(TOOL_CATALOG.keys())
+
+        try:
+            uhrwerk_result = await run_buddy_chat(
+                message=req.message,
+                buddy_name="Baddi",
+                system_prompt=system_prompt,
+                tool_keys=all_tool_keys,
+                model=model_name,
+                history=prior_messages,
+            )
+            response_text = uhrwerk_result["output"]
+            model_name = uhrwerk_result.get("model_used", model_name)
+
+            # Bild-URLs extrahieren
+            for tc in uhrwerk_result.get("tool_calls", []):
+                if isinstance(tc.get("result"), dict):
+                    url = tc["result"].get("image_url")
+                    if url:
+                        generated_image_urls.append(url)
+        except Exception as e:
+            errors.append(f"Uhrwerk: {e}")
+
+    # 7. Fallback: Gemini → OpenAI
     if response_text is None and settings.gemini_api_key:
         try:
             provider = "gemini"
             model_name = "gemini-2.5-flash"
             result = await chat_with_gemini(messages, system_prompt)
-            if assess_response(result.text):
-                response_text = result.text
-                tokens_used = result.total_tokens
-                record_success(routing.intent, "llm_gemini")
-            else:
-                record_failure(routing.intent, "llm_gemini")
-                response_text = result.text
-                tokens_used = result.total_tokens
+            response_text = result.text
+            tokens_used = result.total_tokens
         except Exception as e:
             errors.append(f"Gemini: {e}")
 
@@ -343,69 +261,36 @@ async def send_message(
             provider = "openai"
             model_name = "gpt-4o-mini"
             result = await chat_with_openai(messages, system_prompt)
-            if assess_response(result.text):
-                response_text = result.text
-                tokens_used = result.total_tokens
-                record_success(routing.intent, "llm_openai")
-            else:
-                record_failure(routing.intent, "llm_openai")
-                response_text = result.text
-                tokens_used = result.total_tokens
+            response_text = result.text
+            tokens_used = result.total_tokens
         except Exception as e:
-            errors.append(f"ChatGPT: {e}")
+            errors.append(f"OpenAI: {e}")
 
     if response_text is None:
         raise HTTPException(status_code=502, detail=" | ".join(errors))
 
-    # ── 9. Router-Nachbewertung: War die finale Antwort ein Gap? ─────────────
-    # Nur auslösen wenn KEIN Tool verfügbar war (echter Gap) — nicht wenn ein
-    # Tool existiert aber technisch fehlschlug (Tool-Fehler ≠ fehlende Fähigkeit).
-    is_tool_error = routing.needs_tools and bool(routing.tool_keys)
-    if not assess_response(response_text) and not is_tool_error:
-        gap_response = await _handle_gap(
-            message=req.message,
-            intent=routing.intent,
-            customer_id=customer_id,
-            db=db,
-        )
-        # Memory trotzdem extrahieren
-        _push_short_term_memory(customer_id, req.message, gap_response.response)
-        try:
-            from tasks.memory_manager import process_memory
-            process_memory.delay(customer_id)
-        except Exception as e:
-            _log.warning("Memory Manager konnte nicht gestartet werden: %s", e)
-        return gap_response
-
-    # ── 10. Beide Turns persistieren ─────────────────────────────────────────
+    # 8. Beide Turns persistieren
     user_msg = ChatMessage(
-        customer_id=customer_id,
-        role="user",
-        content=req.message,
-        provider=provider,
-        model=model_name,
+        customer_id=customer_id, role="user", content=req.message,
+        provider=provider, model=model_name,
     )
     assistant_msg = ChatMessage(
-        customer_id=customer_id,
-        role="assistant",
-        content=response_text,
-        provider=provider,
-        model=model_name,
-        tokens_used=tokens_used,
+        customer_id=customer_id, role="assistant", content=response_text,
+        provider=provider, model=model_name, tokens_used=tokens_used,
     )
     db.add(user_msg)
     db.add(assistant_msg)
     await db.commit()
     await db.refresh(assistant_msg)
 
-    # ── 11. Token-Quota abrechnen ─────────────────────────────────────────────
+    # 9. Token-Quota abrechnen
     if tokens_used > 0:
         try:
             await check_and_bill_tokens(customer, tokens_used, db)
         except Exception as e:
             _log.warning("Token-Billing fehlgeschlagen: %s", e)
 
-    # ── 12. Memory-Extraktion im Hintergrund (Memory Manager via Celery) ────────
+    # 10. Memory-Extraktion im Hintergrund
     _push_short_term_memory(customer_id, req.message, response_text)
     try:
         from tasks.memory_manager import process_memory
@@ -419,69 +304,6 @@ async def send_message(
         provider=provider,
         model=model_name,
         image_urls=generated_image_urls if generated_image_urls else None,
-    )
-
-
-async def _handle_gap(
-    message: str,
-    intent: str,
-    customer_id: str,
-    db: AsyncSession,
-) -> "ChatResponse":
-    """
-    Erstellt einen Capability Request und gibt eine freundliche Antwort zurück.
-    Nutzt Gap-Deduplication um Spam zu verhindern.
-    """
-    from models.capability_request import CapabilityRequest
-    from services.entwicklung_engine import schedule_capability_analysis
-
-    gap_response = (
-        f"Das ist eine interessante Anfrage! 🚀\n\n"
-        f"Diese Fähigkeit ist noch nicht in meinem Uhrwerk verfügbar, aber ich habe "
-        f"das Entwicklungsteam bereits informiert. Sie arbeiten daran — "
-        f"ich melde mich sobald ich dir dabei helfen kann."
-    )
-
-    # Gap-Deduplication: nicht für jeden Kunden einen neuen Request erstellen
-    if should_create_gap(intent, message):
-        cap_req = CapabilityRequest(
-            customer_id=customer_id,
-            original_message=message,
-            detected_intent=intent,
-            status="pending",
-            dialog=[{
-                "role": "uhrwerk",
-                "content": (
-                    f"Neue Anfrage erkannt: \"{message[:120]}{'...' if len(message) > 120 else ''}\"\n"
-                    f"Intent: {intent}\n"
-                    f"Gap erkannt durch Router-Nachbewertung — Analyse gestartet..."
-                ),
-                "created_at": datetime.utcnow().isoformat(),
-            }],
-        )
-        db.add(cap_req)
-        await db.commit()
-        await db.refresh(cap_req)
-        schedule_capability_analysis(str(cap_req.id))
-
-    user_msg = ChatMessage(
-        customer_id=customer_id,
-        role="user", content=message, provider="system", model="gap-detection",
-    )
-    assistant_msg = ChatMessage(
-        customer_id=customer_id,
-        role="assistant", content=gap_response, provider="system", model="gap-detection",
-    )
-    db.add(user_msg)
-    db.add(assistant_msg)
-    await db.commit()
-    await db.refresh(assistant_msg)
-
-    return ChatResponse(
-        message_id=str(assistant_msg.id),
-        response=gap_response,
-        provider="system",
-        model="entwicklung",
     )
 
 
@@ -500,11 +322,8 @@ async def get_history(
     msgs = list(reversed(result.scalars().all()))
     return [
         MessageOut(
-            id=str(m.id),
-            role=m.role,
-            content=m.content,
-            provider=m.provider,
-            model=m.model,
+            id=str(m.id), role=m.role, content=m.content,
+            provider=m.provider, model=m.model,
             created_at=m.created_at.isoformat(),
         )
         for m in msgs
@@ -523,10 +342,8 @@ async def get_memories(
     )
     return [
         MemoryOut(
-            id=str(m.id),
-            content=m.content,
-            importance=m.importance,
-            created_at=m.created_at.isoformat(),
+            id=str(m.id), content=m.content,
+            importance=m.importance, created_at=m.created_at.isoformat(),
         )
         for m in result.scalars().all()
     ]
@@ -561,7 +378,6 @@ async def text_to_speech(
     req: TTSRequest,
     customer: Customer = Depends(get_current_user),
 ):
-    """Konvertiert Text zu Sprache via ElevenLabs. Gibt audio/mpeg zurück."""
     from services.elevenlabs_client import synthesize
     from fastapi.responses import Response
     try:
@@ -578,10 +394,6 @@ async def transcribe_audio(
     file: UploadFile = File(...),
     customer: Customer = Depends(get_current_user),
 ):
-    """
-    Transkribiert eine Audio-Datei via OpenAI Whisper.
-    Unterstützt: mp3, mp4, mpeg, mpga, m4a, wav, webm, ogg
-    """
     if not settings.openai_api_key:
         raise HTTPException(status_code=503, detail="Whisper nicht verfügbar (kein OpenAI API Key).")
 
