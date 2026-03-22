@@ -36,11 +36,17 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 mkdir -p "${BACKUP_DIR}"
 
-# ── .env.infisical sichern (KRITISCH) ────────────────────────────────────────
+# ── .env Dateien sichern ─────────────────────────────────────────────────────
 echo ""
-echo "🔐 Sichere .env.infisical..."
-cp "${PROJECT_DIR}/.env.infisical" "${BACKUP_DIR}/.env.infisical"
-echo "   ✓ .env.infisical"
+echo "🔐 Sichere .env Dateien..."
+for ENV_FILE in ".env" ".env.infisical"; do
+  if [ -f "${PROJECT_DIR}/${ENV_FILE}" ]; then
+    cp "${PROJECT_DIR}/${ENV_FILE}" "${BACKUP_DIR}/${ENV_FILE}"
+    echo "   ✓ ${ENV_FILE}"
+  else
+    echo "   ⚠ ${ENV_FILE} nicht gefunden, übersprungen"
+  fi
+done
 
 # ── Docker Volumes sichern ───────────────────────────────────────────────────
 echo ""
