@@ -95,7 +95,8 @@ def _evp_bytes_to_key(password: bytes, salt: bytes, key_len: int, iv_len: int):
 def _decrypt_n8n_credential(encrypted_b64: str) -> dict:
     """Entschlüsselt einen n8n-Credential-Datensatz (AES-256-CBC, OpenSSL-Format)."""
     raw = base64.b64decode(encrypted_b64)
-    assert raw[:8] == b"Salted__", "Kein Salted__-Prefix"
+    if raw[:8] != b"Salted__":
+        raise ValueError("Ungültiges Credential-Format: Salted__-Prefix fehlt")
     salt = raw[8:16]
     ciphertext = raw[16:]
     key, iv = _evp_bytes_to_key(N8N_ENCRYPTION_KEY.encode(), salt, 32, 16)
