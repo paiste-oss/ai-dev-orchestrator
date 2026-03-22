@@ -14,6 +14,7 @@ Flow pro Request:
   9.  Memory-Extraktion im Hintergrund
 """
 import json
+import re
 from datetime import datetime
 
 import redis as redis_lib
@@ -193,6 +194,15 @@ async def send_message(
             "Sage NIEMALS 'Ich habe diese Fähigkeit nicht'."
         )
 
+    system_parts.append(
+        "\nFEHLENDE FÄHIGKEITEN: Wenn der Kunde etwas möchte, das grundsätzlich "
+        "nicht möglich ist (kein Tool-Fehler, sondern eine fehlende Funktion wie z.B. "
+        "Kalender-Integration, E-Mail senden, Bestellung aufgeben etc.), antworte "
+        "freundlich und füge am Ende deiner Antwort exakt diese Zeile hinzu:\n"
+        "[FÄHIGKEIT_FEHLT: <einzeilige Beschreibung was fehlt>]\n"
+        "Dieser Marker ist nur für das System, er wird dem Kunden nicht angezeigt."
+    )
+
     if relevant:
         system_parts.append(f"\nWas du über {first_name} weißt:\n" + "\n".join(f"- {m}" for m in relevant))
 
@@ -311,6 +321,20 @@ async def send_message(
     if response_text is None:
         raise HTTPException(status_code=502, detail=" | ".join(errors))
 
+    # 7b. Fehlende-Fähigkeit-Marker erkennen und CapabilityRequest erstellen
+    _capability_intent: str | None = None
+    if response_text:
+        _marker_match = re.search(r"\[FÄHIGKEIT_FEHLT:\s*(.+?)\]", response_text, re.IGNORECASE)
+        if _marker_match:
+            _capability_intent = _marker_match.group(1).strip()
+            # Marker aus der Antwort entfernen (Kunde sieht ihn nicht)
+            response_text = re.sub(r"\s*\[FÄHIGKEIT_FEHLT:[^\]]+\]", "", response_text).strip()
+            # Freundlicher Hinweis anhängen
+            response_text += (
+                "\n\nIch habe deine Anfrage notiert und an unser Entwicklungsteam weitergegeben. "
+                "Wir schauen uns das an und melden uns wenn diese Funktion verfügbar ist. 🛠️"
+            )
+
     # 8. Beide Turns persistieren
     user_msg = ChatMessage(
         customer_id=customer_id, role="user", content=req.message,
@@ -331,6 +355,36 @@ async def send_message(
             await check_and_bill_tokens(customer, tokens_used, db)
         except Exception as e:
             _log.warning("Token-Billing fehlgeschlagen: %s", e)
+
+    # 9b. CapabilityRequest im Hintergrund anlegen
+    if _capability_intent:
+        try:
+            from models.capability_request import CapabilityRequest
+            cap_req = CapabilityRequest(
+                customer_id=customer_id,
+                buddy_id=None,
+                original_message=req.message,
+                detected_intent=_capability_intent,
+                status="pending",
+                dialog=[{
+                    "role": "uhrwerk",
+                    "content": (
+                        f"Neue Anfrage eingegangen: \"{req.message[:120]}{'...' if len(req.message) > 120 else ''}\"\n"
+                        f"Erkannter Intent: {_capability_intent}\n"
+                        "Ich analysiere was dafür benötigt wird..."
+                    ),
+                    "created_at": datetime.utcnow().isoformat(),
+                }],
+            )
+            db.add(cap_req)
+            await db.commit()
+            _log.info("CapabilityRequest erstellt: %s", _capability_intent)
+            # Uhrwerk-Analyse im Hintergrund starten
+            from services.entwicklung_engine import analyse_capability_request
+            import asyncio
+            asyncio.ensure_future(analyse_capability_request(str(cap_req.id)))
+        except Exception as e:
+            _log.warning("CapabilityRequest konnte nicht erstellt werden: %s", e)
 
     # 10. Memory-Extraktion im Hintergrund
     _push_short_term_memory(customer_id, req.message, response_text)
