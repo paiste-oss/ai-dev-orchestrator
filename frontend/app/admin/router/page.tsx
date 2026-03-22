@@ -5,102 +5,76 @@ import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import AdminSidebar from "@/components/AdminSidebar";
 
-interface Tool {
-  key: string;
-}
-
-interface Intent {
-  intent: string;
+interface Category {
+  id: string;
   label: string;
-  tool_key: string | null;
-  tool_name: string | null;
-  status: "tool" | "vision" | "llm" | "gap" | "blocked";
-  method: string;
-}
-
-interface RouteScore {
-  intent: string;
-  route: string;
-  score: number;
-}
-
-interface EngineStage {
-  order: number;
-  name: string;
   description: string;
-  latency_ms: string;
-  seed_examples?: number;
-  threshold?: number;
-  qdrant_ok?: boolean;
+  examples: string[];
+  severity: "critical" | "high" | "medium";
 }
 
-interface EngineInfo {
-  type: string;
-  stages: EngineStage[];
-  fallback: string;
+interface GuardInfo {
+  active: boolean;
+  mode: string;
+  categories: Category[];
+  total_patterns: number;
 }
 
-const STATUS_STYLE: Record<string, string> = {
-  tool:    "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
-  vision:  "bg-violet-500/15 text-violet-300 border border-violet-500/30",
-  llm:     "bg-blue-500/15 text-blue-300 border border-blue-500/30",
-  gap:     "bg-amber-500/15 text-amber-300 border border-amber-500/30",
-  blocked: "bg-red-500/15 text-red-300 border border-red-500/30",
+interface TestResult {
+  blocked: boolean;
+  matched_pattern: string | null;
+  matched_category: string | null;
+  message_preview: string;
+}
+
+const SEVERITY_STYLE: Record<string, string> = {
+  critical: "bg-red-500/15 text-red-300 border border-red-500/30",
+  high:     "bg-amber-500/15 text-amber-300 border border-amber-500/30",
+  medium:   "bg-yellow-500/15 text-yellow-300 border border-yellow-500/30",
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  tool:    "Tool aktiv",
-  vision:  "Vision / LLM",
-  llm:     "Direkt LLM",
-  gap:     "Kein Tool",
-  blocked: "Blockiert",
+const SEVERITY_LABEL: Record<string, string> = {
+  critical: "Kritisch",
+  high:     "Hoch",
+  medium:   "Mittel",
 };
 
 export default function RouterAdminPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [tools, setTools]       = useState<Tool[]>([]);
-  const [intents, setIntents]   = useState<Intent[]>([]);
-  const [dynTools, setDynTools] = useState<string[]>([]);
-  const [scores, setScores]     = useState<RouteScore[]>([]);
-  const [engine, setEngine]     = useState<EngineInfo | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [tab, setTab]           = useState<"intents" | "scores" | "engine">("intents");
+  const [guard, setGuard]     = useState<GuardInfo | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    load();
-  }, []);
+  const [testMsg, setTestMsg]       = useState("");
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [testing, setTesting]       = useState(false);
+
+  useEffect(() => { load(); }, []);
 
   async function load() {
     setLoading(true);
     try {
-      const [overviewRes, scoresRes, engineRes] = await Promise.all([
-        apiFetch(`${BACKEND_URL}/v1/admin/router/overview`),
-        apiFetch(`${BACKEND_URL}/v1/admin/router/scores`),
-        apiFetch(`${BACKEND_URL}/v1/admin/router/engine`),
-      ]);
-      if (overviewRes.ok) {
-        const d = await overviewRes.json();
-        setTools(d.tools);
-        setIntents(d.intents);
-        setDynTools(d.dynamic_tools);
-      }
-      if (scoresRes.ok) {
-        const d = await scoresRes.json();
-        setScores(d.scores ?? []);
-      }
-      if (engineRes.ok) {
-        setEngine(await engineRes.json());
-      }
+      const res = await apiFetch(`${BACKEND_URL}/v1/admin/router/content-guard`);
+      if (res.ok) setGuard(await res.json());
     } finally {
       setLoading(false);
     }
   }
 
-  const TABS = [
-    { key: "intents", label: `Intents (${intents.length})`, icon: "⚡" },
-    { key: "scores",  label: `Route-Scores (${scores.length})`, icon: "📊" },
-    { key: "engine",  label: "Routing-Engine",              icon: "🔀" },
-  ] as const;
+  async function runTest() {
+    if (!testMsg.trim()) return;
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/admin/router/test`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: testMsg }),
+      });
+      if (res.ok) setTestResult(await res.json());
+    } finally {
+      setTesting(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex">
@@ -110,18 +84,19 @@ export default function RouterAdminPage() {
         {/* Mobile Header */}
         <header className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-gray-950/90 backdrop-blur md:hidden">
           <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white">☰</button>
-          <span className="font-bold text-sm text-yellow-400">⚡ Router</span>
+          <span className="font-bold text-sm text-red-400">🛡 Content Guard</span>
         </header>
 
-        <div className="p-6 max-w-6xl mx-auto space-y-6">
+        <div className="p-6 max-w-4xl mx-auto space-y-6">
+
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                ⚡ Agent-Router
+                🛡 Content Guard
               </h1>
               <p className="text-gray-400 text-sm mt-0.5">
-                Hybrid-Routing · Regex + Semantik · Tool-Katalog · Feedback-Scores
+                Regex-Blockliste — schützt vor illegalen Inhalten vor jedem API-Aufruf
               </p>
             </div>
             <button
@@ -132,238 +107,126 @@ export default function RouterAdminPage() {
             </button>
           </div>
 
-          {/* KPI Row */}
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: "Intents",          value: intents.length,                                  color: "text-blue-400" },
-              { label: "Gaps (kein Tool)", value: intents.filter(i => i.status === "gap").length,  color: "text-amber-400" },
-              { label: "Feedback-Scores",  value: scores.length,                                   color: "text-violet-400" },
-            ].map(kpi => (
-              <div key={kpi.label} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                <p className={`text-2xl font-bold ${kpi.color}`}>{loading ? "…" : kpi.value}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{kpi.label}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Link zu Tool-Katalog */}
-          <a
-            href="/admin/uhrwerk/tools"
-            className="flex items-center justify-between bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl px-5 py-3.5 transition-colors group"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-lg">🔧</span>
-              <div>
-                <p className="text-sm font-semibold text-white">
-                  Tool-Katalog
-                  {!loading && <span className="ml-2 text-xs text-emerald-400 font-normal">{tools.length} Tools registriert</span>}
+          {/* Status Banner */}
+          <div className={`flex items-center gap-4 rounded-xl px-5 py-4 border ${
+            guard?.active
+              ? "bg-emerald-500/10 border-emerald-500/30"
+              : "bg-red-500/10 border-red-500/30"
+          }`}>
+            <div className={`w-3 h-3 rounded-full shrink-0 ${guard?.active ? "bg-emerald-400" : "bg-red-400"} shadow-lg`} />
+            <div className="flex-1">
+              <p className={`font-semibold ${guard?.active ? "text-emerald-300" : "text-red-300"}`}>
+                {loading ? "Lade…" : guard?.active ? "Content Guard aktiv" : "Content Guard inaktiv"}
+              </p>
+              {guard && (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Modus: <span className="text-gray-400">{guard.mode.toUpperCase()}</span>
+                  {" · "}
+                  {guard.total_patterns} Muster in {guard.categories.length} Kategorien
+                  {" · "}
+                  Latenz: &lt;1 ms
                 </p>
-                <p className="text-xs text-gray-500">Details, API-Status und Anthropic Tool-Definitionen</p>
-              </div>
-            </div>
-            <span className="text-gray-600 group-hover:text-gray-400 text-sm">→</span>
-          </a>
-
-          {/* Dynamic tools notice */}
-          {dynTools.length > 0 && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 flex items-start gap-3">
-              <span className="text-amber-400 mt-0.5">⚡</span>
-              <div>
-                <p className="text-sm font-semibold text-amber-300">Dynamische Tools aktiv</p>
-                <p className="text-xs text-amber-400/70 mt-0.5">{dynTools.join(", ")} — via Entwicklung deployed</p>
-              </div>
-            </div>
-          )}
-
-          {/* Tabs */}
-          <div className="flex gap-1 border-b border-gray-800">
-            {TABS.map(t => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-                  tab === t.key
-                    ? "bg-gray-900 text-white border border-b-gray-900 border-gray-800 -mb-px"
-                    : "text-gray-500 hover:text-gray-300"
-                }`}
-              >
-                {t.icon} {t.label}
-              </button>
-            ))}
-          </div>
-
-          {/* ── Tab: Intents ── */}
-          {tab === "intents" && (
-            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-gray-800 text-left">
-                    <th className="px-4 py-3 text-xs text-gray-500 font-medium">Intent</th>
-                    <th className="px-4 py-3 text-xs text-gray-500 font-medium">Label</th>
-                    <th className="px-4 py-3 text-xs text-gray-500 font-medium">Tool</th>
-                    <th className="px-4 py-3 text-xs text-gray-500 font-medium">Methode</th>
-                    <th className="px-4 py-3 text-xs text-gray-500 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {intents.map((intent, i) => (
-                    <tr key={intent.intent} className={`border-b border-gray-800/50 ${i % 2 === 0 ? "" : "bg-gray-800/20"}`}>
-                      <td className="px-4 py-3">
-                        <code className="text-xs text-gray-400">{intent.intent}</code>
-                      </td>
-                      <td className="px-4 py-3 text-gray-200">{intent.label}</td>
-                      <td className="px-4 py-3">
-                        {intent.tool_name ? (
-                          <span className="text-emerald-400 text-xs">{intent.tool_name}</span>
-                        ) : (
-                          <span className="text-gray-600 text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <code className="text-xs text-sky-400/80">{intent.method}</code>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_STYLE[intent.status]}`}>
-                          {STATUS_LABEL[intent.status]}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* ── Tab: Route-Scores ── */}
-          {tab === "scores" && (
-            <div className="space-y-4">
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3 text-xs text-blue-300">
-                💡 Feedback-Scores zeigen welche Tool-Route für welchen Intent bisher erfolgreich war.
-                Sie werden automatisch nach jeder Antwort aktualisiert — kein manuelles Eingreifen nötig.
-              </div>
-
-              {scores.length === 0 ? (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center">
-                  <p className="text-gray-500 text-sm">Noch keine Feedback-Scores vorhanden.</p>
-                  <p className="text-gray-600 text-xs mt-1">Scores füllen sich nach den ersten Chat-Anfragen automatisch.</p>
-                </div>
-              ) : (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-800 text-left">
-                        <th className="px-4 py-3 text-xs text-gray-500 font-medium">Intent</th>
-                        <th className="px-4 py-3 text-xs text-gray-500 font-medium">Route (Tool)</th>
-                        <th className="px-4 py-3 text-xs text-gray-500 font-medium">Score</th>
-                        <th className="px-4 py-3 text-xs text-gray-500 font-medium">Bewertung</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {scores.map((r, i) => (
-                        <tr key={`${r.intent}-${r.route}`} className={`border-b border-gray-800/50 ${i % 2 === 0 ? "" : "bg-gray-800/20"}`}>
-                          <td className="px-4 py-3">
-                            <code className="text-xs text-gray-400">{r.intent}</code>
-                          </td>
-                          <td className="px-4 py-3 text-gray-200">{r.route}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-20 bg-gray-800 rounded-full h-1.5">
-                                <div
-                                  className="h-1.5 rounded-full bg-emerald-500"
-                                  style={{ width: `${Math.max(0, Math.min(100, r.score * 100))}%` }}
-                                />
-                              </div>
-                              <span className="text-xs text-gray-400">{r.score}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`text-xs ${r.score >= 0.5 ? "text-emerald-400" : r.score >= 0 ? "text-gray-400" : "text-red-400"}`}>
-                              {r.score >= 0.5 ? "Bevorzugt" : r.score >= 0 ? "Neutral" : "Vermieden"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
               )}
             </div>
-          )}
+          </div>
 
-          {/* ── Tab: Routing-Engine ── */}
-          {tab === "engine" && (
-            <div className="space-y-4">
-              {engine ? (
-                <>
-                  <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 flex items-center gap-3">
-                    <span className="text-2xl">🔀</span>
-                    <div>
-                      <p className="font-semibold text-white">{engine.type}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Fallback: {engine.fallback}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    {engine.stages.map(stage => (
-                      <div key={stage.order} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <span className="w-7 h-7 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center text-xs font-bold text-gray-300">
-                              {stage.order}
-                            </span>
-                            <div>
-                              <p className="font-semibold text-white">{stage.name}</p>
-                              <p className="text-sm text-gray-400 mt-0.5">{stage.description}</p>
-                            </div>
-                          </div>
-                          <span className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded shrink-0">
-                            {stage.latency_ms} ms
+          {/* Kategorien */}
+          {guard && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Blockierte Kategorien</h2>
+              <div className="grid gap-3">
+                {guard.categories.map(cat => (
+                  <div key={cat.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-white">{cat.label}</p>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${SEVERITY_STYLE[cat.severity]}`}>
+                            {SEVERITY_LABEL[cat.severity]}
                           </span>
                         </div>
-
-                        {/* Semantic stage extra info */}
-                        {stage.seed_examples !== undefined && (
-                          <div className="mt-3 pt-3 border-t border-gray-800 grid grid-cols-3 gap-3">
-                            <div>
-                              <p className="text-xs text-gray-500">Seed-Beispiele</p>
-                              <p className="text-sm font-semibold text-white mt-0.5">{stage.seed_examples}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500">Min. Score</p>
-                              <p className="text-sm font-semibold text-white mt-0.5">{stage.threshold}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500">Qdrant</p>
-                              <p className={`text-sm font-semibold mt-0.5 ${stage.qdrant_ok ? "text-emerald-400" : "text-red-400"}`}>
-                                {stage.qdrant_ok ? "Online" : "Offline"}
-                              </p>
-                            </div>
-                          </div>
-                        )}
+                        <p className="text-sm text-gray-400 mt-1">{cat.description}</p>
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                    <p className="text-xs text-gray-500 mb-2">Ablauf einer Anfrage</p>
-                    <div className="flex items-center gap-2 flex-wrap text-xs">
-                      <span className="bg-red-500/15 text-red-300 border border-red-500/30 px-2 py-1 rounded">Content Guard</span>
-                      <span className="text-gray-600">→</span>
-                      <span className="bg-sky-500/15 text-sky-300 border border-sky-500/30 px-2 py-1 rounded">Regex (&lt;1ms)</span>
-                      <span className="text-gray-600">→</span>
-                      <span className="bg-violet-500/15 text-violet-300 border border-violet-500/30 px-2 py-1 rounded">Semantik (~50ms)</span>
-                      <span className="text-gray-600">→</span>
-                      <span className="bg-blue-500/15 text-blue-300 border border-blue-500/30 px-2 py-1 rounded">Claude (Fallback)</span>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {cat.examples.map(ex => (
+                        <code key={ex} className="text-xs bg-gray-800 text-gray-300 px-2 py-1 rounded border border-gray-700">
+                          {ex}
+                        </code>
+                      ))}
                     </div>
                   </div>
-                </>
-              ) : (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center">
-                  <p className="text-gray-500 text-sm">{loading ? "Lade Engine-Info…" : "Engine-Info nicht verfügbar."}</p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Test-Tool */}
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Nachricht testen</h2>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
+              <p className="text-xs text-gray-500">
+                Prüfe ob eine Nachricht vom Content Guard blockiert würde — nützlich beim Erweitern der Blockliste.
+              </p>
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={testMsg}
+                  onChange={e => setTestMsg(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && runTest()}
+                  placeholder="Testnachricht eingeben…"
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500 transition-colors"
+                />
+                <button
+                  onClick={runTest}
+                  disabled={testing || !testMsg.trim()}
+                  className="px-4 py-2.5 rounded-lg text-sm font-medium bg-gray-700 hover:bg-gray-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {testing ? "…" : "Testen"}
+                </button>
+              </div>
+
+              {testResult && (
+                <div className={`rounded-lg px-4 py-3 border ${
+                  testResult.blocked
+                    ? "bg-red-500/10 border-red-500/30"
+                    : "bg-emerald-500/10 border-emerald-500/30"
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{testResult.blocked ? "🚫" : "✅"}</span>
+                    <p className={`font-semibold text-sm ${testResult.blocked ? "text-red-300" : "text-emerald-300"}`}>
+                      {testResult.blocked ? "Blockiert" : "Erlaubt"}
+                    </p>
+                  </div>
+                  {testResult.blocked && (
+                    <div className="mt-2 space-y-1">
+                      {testResult.matched_category && (
+                        <p className="text-xs text-gray-400">
+                          Kategorie: <span className="text-red-300">{testResult.matched_category}</span>
+                        </p>
+                      )}
+                      {testResult.matched_pattern && (
+                        <p className="text-xs text-gray-400">
+                          Muster: <code className="text-red-300 bg-red-500/10 px-1 rounded">{testResult.matched_pattern}</code>
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
+          </div>
+
+          {/* Info */}
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3 text-xs text-blue-300 space-y-1">
+            <p className="font-semibold">Wie funktioniert der Content Guard?</p>
+            <p className="text-blue-400/70">
+              Jede eingehende Nachricht wird vor dem ersten API-Aufruf durch einen Regex-Filter geprüft.
+              Bei einem Treffer wird die Anfrage sofort mit HTTP 400 abgewiesen — ohne Token-Verbrauch.
+              Die Tool-Auswahl für erlaubte Nachrichten übernimmt Claude selbst (natives Tool Use).
+            </p>
+          </div>
+
         </div>
       </main>
     </div>
