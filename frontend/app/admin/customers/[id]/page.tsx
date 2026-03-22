@@ -29,11 +29,7 @@ interface CustomerDetail {
   address_zip: string | null;
   address_city: string | null;
   address_country: string | null;
-  workplace: string | null;
-  job_title: string | null;
   language: string | null;
-  notes: string | null;
-  interests: string[] | null;
 }
 
 interface BaddiRecord {
@@ -64,7 +60,7 @@ interface ServiceSchema {
   fields: ServiceField[];
 }
 
-type Tab = "profil" | "baddis" | "zugangsdaten" | "verbrauch" | "wallet";
+type Tab = "profil" | "baddis" | "zugangsdaten" | "verbrauch" | "wallet" | "notizen";
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
 
@@ -820,6 +816,113 @@ function VerbrauchTab({ customerId }: { customerId: string }) {
   );
 }
 
+// ─── Notizen Tab ──────────────────────────────────────────────────────────────
+
+interface CustomerNote {
+  id: string;
+  text: string;
+  created_at: string;
+}
+
+function NotizenTab({ customerId }: { customerId: string }) {
+  const [notes, setNotes]     = useState<CustomerNote[]>([]);
+  const [input, setInput]     = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving]   = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/customers/${customerId}/notes`);
+      if (res.ok) setNotes(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }, [customerId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const submit = async () => {
+    const text = input.trim();
+    if (!text || saving) return;
+    setSaving(true);
+    try {
+      await apiFetch(`${BACKEND_URL}/v1/customers/${customerId}/notes`, {
+        method: "POST",
+        body: JSON.stringify({ text }),
+      });
+      setInput("");
+      await load();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (noteId: string) => {
+    setDeleting(noteId);
+    try {
+      await apiFetch(`${BACKEND_URL}/v1/customers/${customerId}/notes/${noteId}`, { method: "DELETE" });
+      setNotes(prev => prev.filter(n => n.id !== noteId));
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const fmt = (iso: string) =>
+    new Date(iso).toLocaleString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div className="space-y-4">
+      {/* Eingabe */}
+      <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-3">
+        <textarea
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && e.ctrlKey) submit(); }}
+          rows={3}
+          placeholder="Notiz eingeben… (Ctrl+Enter zum Speichern)"
+          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-yellow-500/50 resize-none"
+        />
+        <div className="flex justify-end">
+          <button
+            onClick={submit}
+            disabled={!input.trim() || saving}
+            className="px-4 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 disabled:bg-gray-700 disabled:text-gray-500 text-gray-900 font-semibold text-sm transition-colors"
+          >
+            {saving ? "Speichern…" : "Notiz speichern"}
+          </button>
+        </div>
+      </div>
+
+      {/* Liste */}
+      {loading ? (
+        <p className="text-sm text-gray-500">Lädt…</p>
+      ) : notes.length === 0 ? (
+        <p className="text-sm text-gray-600 text-center py-8">Noch keine Notizen</p>
+      ) : (
+        <div className="space-y-2">
+          {notes.map(note => (
+            <div key={note.id} className="group bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 flex gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-600 mb-1">{fmt(note.created_at)}</p>
+                <p className="text-sm text-gray-200 whitespace-pre-wrap break-words">{note.text}</p>
+              </div>
+              <button
+                onClick={() => remove(note.id)}
+                disabled={deleting === note.id}
+                className="shrink-0 opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all text-sm mt-0.5"
+              >
+                {deleting === note.id ? "…" : "✕"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Hauptkomponente ──────────────────────────────────────────────────────────
 
 export default function CustomerDetailPage() {
@@ -852,13 +955,6 @@ export default function CustomerDetailPage() {
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("Schweiz");
 
-  // Beruf
-  const [workplace, setWorkplace] = useState("");
-  const [jobTitle, setJobTitle] = useState("");
-
-  // Interessen
-  const [interestInput, setInterestInput] = useState("");
-  const [interests, setInterests] = useState<string[]>([]);
 
   useEffect(() => {
     const u = getSession();
@@ -883,9 +979,6 @@ export default function CustomerDetailPage() {
           setZip(c.address_zip ?? "");
           setCity(c.address_city ?? "");
           setCountry(c.address_country ?? "Schweiz");
-          setWorkplace(c.workplace ?? "");
-          setJobTitle(c.job_title ?? "");
-          setInterests(c.interests ?? []);
         }
         if (sRes.ok) setStats(await sRes.json());
       } finally {
@@ -909,9 +1002,6 @@ export default function CustomerDetailPage() {
           address_zip: zip || null,
           address_city: city || null,
           address_country: country || null,
-          workplace: workplace || null,
-          job_title: jobTitle || null,
-          interests,
         }),
       });
       if (res.ok) {
@@ -954,11 +1044,6 @@ export default function CustomerDetailPage() {
     if (res.ok) setCustomer(await res.json());
   };
 
-  const addInterest = () => {
-    const v = interestInput.trim();
-    if (v && !interests.includes(v)) setInterests(prev => [...prev, v]);
-    setInterestInput("");
-  };
 
   if (loading) {
     return (
@@ -982,6 +1067,7 @@ export default function CustomerDetailPage() {
     { key: "zugangsdaten", label: "Zugangsdaten", icon: "🔑" },
     { key: "verbrauch",    label: "Verbrauch",    icon: "📊" },
     { key: "wallet",       label: "Wallet",       icon: "💳" },
+    { key: "notizen",      label: "Notizen",      icon: "📝" },
   ];
 
   return (
@@ -1123,56 +1209,6 @@ export default function CustomerDetailPage() {
                 </div>
               </div>
 
-              {/* Beruf */}
-              <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-300">Beruf & Unternehmen</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Arbeitgeber / Firma">
-                    <input value={workplace} onChange={e => setWorkplace(e.target.value)} placeholder="Muster AG" className={inputCls} />
-                  </Field>
-                  <Field label="Berufsbezeichnung">
-                    <input value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="Software Engineer" className={inputCls} />
-                  </Field>
-                </div>
-              </div>
-
-              {/* Interessen */}
-              <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-300">Interessen & Hobbys</h3>
-                <div className="flex gap-2">
-                  <input
-                    value={interestInput}
-                    onChange={e => setInterestInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addInterest(); } }}
-                    placeholder="Interesse eingeben + Enter"
-                    className={`${inputCls} flex-1`}
-                  />
-                  <button
-                    onClick={addInterest}
-                    className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm transition-colors"
-                  >
-                    +
-                  </button>
-                </div>
-                {interests.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {interests.map(tag => (
-                      <span
-                        key={tag}
-                        className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-400/15 border border-yellow-400/30 text-yellow-300 text-xs font-medium"
-                      >
-                        {tag}
-                        <button
-                          onClick={() => setInterests(prev => prev.filter(t => t !== tag))}
-                          className="text-yellow-400/60 hover:text-red-400 transition-colors leading-none"
-                        >
-                          ✕
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
 
 
               {/* Speichern */}
@@ -1225,6 +1261,7 @@ export default function CustomerDetailPage() {
           {tab === "zugangsdaten" && <ZugangsdatenTab customerId={customer.id} />}
           {tab === "verbrauch" && <VerbrauchTab customerId={customer.id} />}
           {tab === "wallet" && <WalletTab customerId={customer.id.toString()} />}
+          {tab === "notizen" && <NotizenTab customerId={customer.id.toString()} />}
         </div>
       </main>
 

@@ -159,6 +159,14 @@ async def init_db():
             "CREATE INDEX IF NOT EXISTS idx_memory_items_category ON memory_items(customer_id, category)",
             # Storage Add-on Tracking: aktive Stripe Subscription Items pro Kunde
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS storage_addon_items JSONB DEFAULT '[]'",
+            # Admin-Notizen pro Kunde (mit Zeitstempel)
+            """CREATE TABLE IF NOT EXISTS customer_notes (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+                text TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_customer_notes_customer ON customer_notes(customer_id, created_at DESC)",
         ]
         for sql in migrations:
             await conn.execute(text(sql))
