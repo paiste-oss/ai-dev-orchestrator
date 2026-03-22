@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 import redis as redis_lib
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
+from typing import Optional
 from core.config import settings
 from core.database import get_db
 from core.dependencies import require_admin
@@ -139,6 +140,143 @@ def _serialize(t: DevTask) -> dict:
         "started_at": t.started_at.isoformat() if t.started_at else None,
         "completed_at": t.completed_at.isoformat() if t.completed_at else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# Runner-Endpoints (WSL Claude Code Runner — geschützt via X-Runner-Secret)
+# ---------------------------------------------------------------------------
+
+def _require_runner(x_runner_secret: Optional[str] = Header(default=None)):
+    if not settings.runner_secret or x_runner_secret != settings.runner_secret:
+        raise HTTPException(status_code=401, detail="Ungültiger Runner-Secret.")
+
+
+@router.get("/runner/next")
+async def runner_next_task(
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_runner),
+):
+    """Gibt den nächsten ausstehenden Task zurück und markiert ihn als 'running'."""
+    now = datetime.utcnow()
+
+    # Erst: pausierte Tasks die retry_after überschritten haben
+    result = await db.execute(
+        select(DevTask)
+        .where(DevTask.status == "paused", DevTask.retry_after <= now)
+        .order_by(DevTask.priority, DevTask.created_at)
+        .limit(1)
+    )
+    task = result.scalar_one_or_none()
+
+    if not task:
+        result = await db.execute(
+            select(DevTask)
+            .where(DevTask.status == "pending")
+            .order_by(DevTask.priority, DevTask.created_at)
+            .limit(1)
+        )
+        task = result.scalar_one_or_none()
+
+    if not task:
+        return None
+
+    task.status = "running"
+    task.started_at = task.started_at or now
+    await db.commit()
+    return {
+        "id": str(task.id),
+        "title": task.title,
+        "description": task.description,
+        "context_snapshot": task.context_snapshot,
+    }
+
+
+class RunnerOutput(BaseModel):
+    output: str
+
+
+class RunnerComplete(BaseModel):
+    output: str
+    tokens: int = 0
+
+
+class RunnerFail(BaseModel):
+    output: str
+    error: str
+
+
+class RunnerPause(BaseModel):
+    output: str
+    retry_after_seconds: int = 60
+    context: list = []
+    tokens: int = 0
+
+
+@router.post("/runner/{task_id}/output")
+async def runner_push_output(
+    task_id: uuid.UUID,
+    body: RunnerOutput,
+    _: None = Depends(_require_runner),
+):
+    """Streamt Live-Output in Redis (sichtbar in der UI während Claude läuft)."""
+    _redis.set(f"devtask:output:{task_id}", body.output, ex=3600)
+    return {"ok": True}
+
+
+@router.post("/runner/{task_id}/complete")
+async def runner_complete(
+    task_id: uuid.UUID,
+    body: RunnerComplete,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_runner),
+):
+    """Markiert einen Task als abgeschlossen."""
+    task = await _get_or_404(db, task_id)
+    task.status = "completed"
+    task.output = body.output
+    task.token_usage = (task.token_usage or 0) + body.tokens
+    task.completed_at = datetime.utcnow()
+    task.context_snapshot = None
+    task.retry_after = None
+    await db.commit()
+    _redis.delete(f"devtask:output:{task_id}")
+    return {"ok": True}
+
+
+@router.post("/runner/{task_id}/fail")
+async def runner_fail(
+    task_id: uuid.UUID,
+    body: RunnerFail,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_runner),
+):
+    """Markiert einen Task als fehlgeschlagen."""
+    task = await _get_or_404(db, task_id)
+    task.status = "failed"
+    task.output = body.output
+    task.error = body.error
+    await db.commit()
+    _redis.delete(f"devtask:output:{task_id}")
+    return {"ok": True}
+
+
+@router.post("/runner/{task_id}/pause")
+async def runner_pause(
+    task_id: uuid.UUID,
+    body: RunnerPause,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(_require_runner),
+):
+    """Pausiert einen Task (Rate Limit) — Runner nimmt ihn nach retry_after wieder auf."""
+    task = await _get_or_404(db, task_id)
+    task.status = "paused"
+    task.output = body.output
+    task.token_usage = (task.token_usage or 0) + body.tokens
+    task.retry_after = datetime.utcnow() + timedelta(seconds=max(body.retry_after_seconds, 60))
+    task.context_snapshot = {"messages": body.context} if body.context else task.context_snapshot
+    await db.commit()
+    _redis.delete(f"devtask:output:{task_id}")
+    return {"ok": True}
 
 
 async def _get_or_404(db: AsyncSession, task_id: uuid.UUID) -> DevTask:

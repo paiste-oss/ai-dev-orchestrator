@@ -55,6 +55,8 @@ services:
       # URLs
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - PROJECT_ROOT=/project
+      # Claude Code Runner
+      - RUNNER_SECRET=${RUNNER_SECRET}
       # JWT
       - SECRET_KEY=${SECRET_KEY}
       # Stripe Billing

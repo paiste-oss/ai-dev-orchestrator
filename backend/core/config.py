@@ -92,6 +92,9 @@ class Settings(BaseSettings):
     # Dev Orchestrator — Projekt-Root im Container
     project_root: str = "/project"
 
+    # Claude Code Runner — WSL-Dienst Secret
+    runner_secret: str = ""
+
     # JWT
     secret_key: str
     algorithm: str = "HS256"

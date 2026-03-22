@@ -1,0 +1,29 @@
+[Unit]
+Description=Claude Code Runner — Dev Orchestrator WSL Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/naor/ai-dev-orchestrator
+
+# Umgebungsvariablen aus .env laden
+EnvironmentFile=/home/naor/ai-dev-orchestrator/.env
+
+# Feste Werte
+Environment=BACKEND_URL=http://172.28.224.1:8000
+Environment=PROJECT_ROOT=/home/naor/ai-dev-orchestrator
+Environment=POLL_INTERVAL=5
+
+ExecStart=/usr/bin/python3 /home/naor/ai-dev-orchestrator/scripts/claude-runner.py
+
+# Automatisch neu starten bei Absturz
+Restart=on-failure
+RestartSec=10
+
+# Logs
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=claude-runner
+
+[Install]
+WantedBy=default.target

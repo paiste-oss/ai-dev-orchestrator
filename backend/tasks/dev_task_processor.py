@@ -53,85 +53,29 @@ async def _recover_stuck():
 
 @celery_app.task(name="tasks.dev_task_processor.process_dev_tasks")
 def process_dev_tasks():
-    """Celery-Task: prüft Queue und verarbeitet nächste Aufgabe."""
-    asyncio.run(_run())
+    """Celery-Task: stellt sicher dass hängende Tasks zurückgesetzt werden.
+    Die eigentliche Ausführung übernimmt der WSL Claude Code Runner."""
+    asyncio.run(_recover_long_running())
 
 
-async def _run():
+async def _recover_long_running():
+    """Setzt Tasks zurück die seit >10 Minuten 'running' sind (Runner-Absturz)."""
     Session, engine = _make_session()
     try:
         async with Session() as db:
-            task = await _get_next_task(db)
-            if not task:
-                return
-
-            task_id = str(task.id)
-            task.status = "running"
-            task.started_at = task.started_at or datetime.utcnow()
-            await db.commit()
-
-        # Session schliessen bevor task_runner läuft (blockiert lange)
-        # Eigene Session für das Schreiben des Ergebnisses
-        def progress_callback(output: str):
-            _redis.set(f"devtask:output:{task_id}", output, ex=REDIS_OUTPUT_TTL)
-
-        try:
-            result = task_runner.run_task(
-                description=task.description,
-                messages_snapshot=task.context_snapshot.get("messages") if task.context_snapshot else None,
-                existing_output=task.output or "",
-                progress_callback=progress_callback,
+            cutoff = datetime.utcnow() - timedelta(minutes=10)
+            result = await db.execute(
+                select(DevTask).where(
+                    DevTask.status == "running",
+                    DevTask.started_at <= cutoff,
+                )
             )
-        except Exception as e:
-            async with Session() as db2:
-                res = await db2.execute(select(DevTask).where(DevTask.id == task.id))
-                t = res.scalar_one()
-                t.status = "failed"
-                t.error = str(e)
-                await db2.commit()
-            _redis.delete(f"devtask:output:{task_id}")
-            return
-
-        final_output = result.get("output") or _redis.get(f"devtask:output:{task_id}") or ""
-        _redis.delete(f"devtask:output:{task_id}")
-
-        async with Session() as db3:
-            res = await db3.execute(select(DevTask).where(DevTask.id == task.id))
-            t = res.scalar_one()
-            t.output = final_output
-            t.token_usage = (t.token_usage or 0) + result.get("tokens", 0)
-
-            if result["status"] == "paused":
-                # Mindestens 60s warten damit das TPM-Fenster (1 Minute) sicher zurückgesetzt ist
-                retry_after_s = max(result.get("retry_after_seconds", 60), 60)
-                t.status = "paused"
-                t.retry_after = datetime.utcnow() + timedelta(seconds=retry_after_s)
-                t.context_snapshot = {"messages": result.get("context", [])}
-            elif result["status"] == "completed":
-                t.status = "completed"
-                t.completed_at = datetime.utcnow()
+            stuck = result.scalars().all()
+            for t in stuck:
+                t.status = "pending"
                 t.context_snapshot = None
-                t.retry_after = None
-                # Auto-push nach Abschluss — Ergebnis im Output festhalten
-                try:
-                    push = subprocess.run(
-                        "git push",
-                        shell=True,
-                        cwd=settings.project_root,
-                        timeout=30,
-                        capture_output=True,
-                        text=True,
-                    )
-                    push_info = (push.stdout + push.stderr).strip()
-                    t.output = (t.output or "") + f"\n\n📤 git push: {push_info or 'OK'}"
-                except Exception as push_err:
-                    t.output = (t.output or "") + f"\n\n⚠️ git push fehlgeschlagen: {push_err}"
-            else:
-                t.status = "failed"
-                t.error = result.get("error", "Unbekannter Fehler")
-                t.context_snapshot = None
-
-            await db3.commit()
+            if stuck:
+                await db.commit()
     finally:
         await engine.dispose()
 
