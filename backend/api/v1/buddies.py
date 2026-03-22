@@ -8,9 +8,7 @@ from sqlalchemy import select, func
 from core.database import get_db
 from core.dependencies import require_admin, get_current_user
 from models.buddy import AiBuddy
-from models.buddy_tool import BuddyTool
 from models.customer import Customer
-from models.chat import ChatMessage
 
 router = APIRouter(prefix="/buddies", tags=["buddies"])
 
@@ -37,14 +35,6 @@ class BuddyOut(BaseModel):
     class Config:
         from_attributes = True
 
-
-class AvatarUpdate(BaseModel):
-    avatar_url: str | None = None
-
-
-class ChatRequest(BaseModel):
-    message: str
-    model: str = "auto"
 
 
 @router.get("/me", response_model=list[BuddyOut])
@@ -119,22 +109,6 @@ async def remove_buddy(
     await db.commit()
 
 
-@router.patch("/{buddy_id}/avatar", response_model=BuddyOut)
-async def update_buddy_avatar(
-    buddy_id: uuid.UUID,
-    data: AvatarUpdate,
-    db: AsyncSession = Depends(get_db),
-    _: Customer = Depends(require_admin),
-):
-    """Setzt oder entfernt die Ready Player Me Avatar-URL eines Buddys."""
-    buddy = await db.get(AiBuddy, buddy_id)
-    if not buddy:
-        raise HTTPException(status_code=404, detail="Buddy not found")
-    buddy.avatar_url = data.avatar_url
-    await db.commit()
-    await db.refresh(buddy)
-    return buddy
-
 
 @router.get("/{buddy_id}", response_model=BuddyOut)
 async def get_buddy(buddy_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
@@ -144,54 +118,3 @@ async def get_buddy(buddy_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     return buddy
 
 
-@router.post("/{buddy_id}/chat")
-async def chat_with_buddy(buddy_id: uuid.UUID, request: ChatRequest, db: AsyncSession = Depends(get_db)):
-    buddy = await db.get(AiBuddy, buddy_id)
-    if not buddy:
-        raise HTTPException(status_code=404, detail="Buddy not found")
-
-    persona = buddy.persona_config
-    system_prompt = persona.get("system_prompt_template", "Du bist {name}, ein freundlicher KI-Begleiter.").replace("{name}", buddy.name)
-
-    # Zugewiesene Tools laden
-    tools_result = await db.execute(
-        select(BuddyTool).where(BuddyTool.buddy_id == buddy_id, BuddyTool.is_active == True)
-    )
-    active_tools = tools_result.scalars().all()
-    tool_keys = [t.tool_key for t in active_tools]
-
-    try:
-        if tool_keys:
-            # Tool-fähiger Agent (Anthropic Claude mit Tool Use)
-            from services.buddy_agent import run_buddy_chat
-            result = await run_buddy_chat(
-                message=request.message,
-                buddy_name=buddy.name,
-                system_prompt=system_prompt,
-                tool_keys=tool_keys,
-                model=persona.get("fallback_model", "claude-sonnet-4-6"),
-            )
-            return {
-                "status": "success",
-                "output": result["output"],
-                "model_used": result["model_used"],
-                "buddy": buddy.name,
-                "tools_used": result["tool_calls"],
-            }
-        else:
-            # Kein Tool → Ollama direkt
-            import httpx
-            from core.config import settings as app_settings
-            model = request.model if request.model != "auto" else persona.get("preferred_model", app_settings.ollama_chat_model)
-            resp = httpx.post(
-                f"{app_settings.ollama_base_url}/api/chat",
-                json={"model": model, "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": request.message},
-                ], "stream": False},
-                timeout=60.0,
-            )
-            output = resp.json().get("message", {}).get("content", "")
-            return {"status": "success", "output": output, "model_used": model, "buddy": buddy.name, "tools_used": []}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))

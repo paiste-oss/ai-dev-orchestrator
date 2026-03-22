@@ -31,7 +31,8 @@
       "Bash(curl -s -w \"\\\\nHTTP: %{http_code}\" -X POST http://localhost:3000/webhook/n8n/stripe -H \"Content-Type: application/json\" -d '{\"\"type\"\":\"\"test\"\"}')",
       "Bash(git pull:*)",
       "Bash(docker stop:*)",
-      "Bash(docker rm:*)"
+      "Bash(docker rm:*)",
+      "Bash(grep -n \"BACKEND_URL\\\\|NEXT_PUBLIC\" /home/naor/ai-dev-orchestrator/frontend/.env*)"
     ]
   }
 }
