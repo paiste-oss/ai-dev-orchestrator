@@ -480,6 +480,10 @@ async def check_quota(customer: Customer, db: AsyncSession) -> None:
     """
     from fastapi import HTTPException
 
+    # Admins haben unbegrenzten Zugang (zum Testen)
+    if customer.role == "admin":
+        return
+
     plan: SubscriptionPlan | None = None
     if customer.subscription_plan_id:
         plan = await db.get(SubscriptionPlan, customer.subscription_plan_id)
