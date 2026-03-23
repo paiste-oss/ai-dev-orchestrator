@@ -1,777 +1,27 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getSession, apiFetch } from "@/lib/auth";
 import AdminSidebar from "@/components/AdminSidebar";
 import { BACKEND_URL } from "@/lib/config";
-import { USE_CASES } from "@/lib/usecases";
+import { CustomerDetail } from "@/lib/customer-admin-utils";
 
-// ─── Typen ────────────────────────────────────────────────────────────────────
-
-interface CustomerDetail {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  is_active: boolean;
-  memory_consent: boolean;
-  created_at: string;
-  birth_year: number | null;
-  primary_usecase_id: string | null;
-  phone: string | null;
-  phone_secondary: string | null;
-  address_street: string | null;
-  address_zip: string | null;
-  address_city: string | null;
-  address_country: string | null;
-  language: string | null;
-}
-
-interface CustomerStats {
-  threads: number;
-  messages: number;
-  total_tokens: number;
-  by_model: Record<string, { messages: number; tokens: number }>;
-}
-
-interface ServiceField {
-  key: string;
-  label: string;
-  placeholder: string;
-  type: string;
-}
-
-interface ServiceSchema {
-  label: string;
-  icon: string;
-  fields: ServiceField[];
-}
+import CustomerProfileTab     from "@/components/admin/customer/CustomerProfileTab";
+import CustomerCredentialsTab from "@/components/admin/customer/CustomerCredentialsTab";
+import CustomerWalletTab      from "@/components/admin/customer/CustomerWalletTab";
+import CustomerUsageTab       from "@/components/admin/customer/CustomerUsageTab";
+import CustomerNotesTab       from "@/components/admin/customer/CustomerNotesTab";
 
 type Tab = "profil" | "zugangsdaten" | "verbrauch" | "wallet" | "notizen";
 
-// ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
-
-
-const LANGUAGE_OPTIONS = [
-  { value: "de", label: "Deutsch" },
-  { value: "en", label: "English" },
-  { value: "fr", label: "Français" },
-  { value: "it", label: "Italiano" },
+const TABS: { key: Tab; label: string; icon: string }[] = [
+  { key: "profil",       label: "Profil",       icon: "👤" },
+  { key: "zugangsdaten", label: "Zugangsdaten", icon: "🔑" },
+  { key: "verbrauch",    label: "Verbrauch",    icon: "📊" },
+  { key: "wallet",       label: "Wallet",       icon: "💳" },
+  { key: "notizen",      label: "Notizen",      icon: "📝" },
 ];
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("de-CH", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
-      {children}
-    </div>
-  );
-}
-
-const inputCls = "w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-400 transition-colors";
-const readCls = "bg-gray-700/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300";
-
-// ─── Baddis Tab ───────────────────────────────────────────────────────────────
-
-// ─── Zugangsdaten Tab ─────────────────────────────────────────────────────────
-
-function ZugangsdatenTab({ customerId }: { customerId: string }) {
-  const [schemas, setSchemas] = useState<Record<string, ServiceSchema>>({});
-  const [configured, setConfigured] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [activeService, setActiveService] = useState<string | null>(null);
-  const [formValues, setFormValues] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/customers/${customerId}/credentials`);
-      if (res.ok) {
-        const d = await res.json();
-        setSchemas(d.services ?? {});
-        setConfigured(d.configured ?? {});
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [customerId]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const openService = (key: string) => {
-    setActiveService(key);
-    setFormValues({});
-    setMsg(null);
-  };
-
-  const save = async () => {
-    if (!activeService) return;
-    setSaving(true);
-    setMsg(null);
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/customers/${customerId}/credentials/${activeService}`, {
-        method: "PUT",
-        body: JSON.stringify({ data: formValues }),
-      });
-      if (res.ok) {
-        setMsg({ text: "Gespeichert ✓", ok: true });
-        await load();
-        setActiveService(null);
-      } else {
-        setMsg({ text: "Fehler beim Speichern", ok: false });
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const remove = async (service: string) => {
-    setDeleting(service);
-    try {
-      await apiFetch(`${BACKEND_URL}/v1/customers/${customerId}/credentials/${service}`, { method: "DELETE" });
-      await load();
-    } finally {
-      setDeleting(null);
-    }
-  };
-
-  if (loading) return <p className="text-sm text-gray-500">Wird geladen…</p>;
-
-  return (
-    <div className="space-y-5">
-      {msg && !activeService && (
-        <div className={`text-sm px-4 py-2 rounded-lg ${msg.ok ? "bg-green-500/20 text-green-300 border border-green-500/30" : "bg-red-500/20 text-red-300 border border-red-500/30"}`}>
-          {msg.text}
-        </div>
-      )}
-
-      <p className="text-sm text-gray-400">
-        Zugangsdaten werden verschlüsselt gespeichert und nie im Klartext angezeigt.
-        Der Baddi verwendet diese Daten automatisch, wenn er die entsprechenden Tools nutzt.
-      </p>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {Object.entries(schemas).map(([key, svc]) => {
-          const isConfigured = key in configured;
-          return (
-            <div
-              key={key}
-              className={`rounded-xl border p-4 space-y-2 ${
-                isConfigured ? "bg-green-500/10 border-green-500/30" : "bg-gray-800 border-gray-700"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-2xl">{svc.icon}</span>
-                {isConfigured && (
-                  <button
-                    onClick={() => remove(key)}
-                    disabled={deleting === key}
-                    className="text-xs text-gray-500 hover:text-red-400 transition-colors disabled:opacity-50"
-                  >
-                    {deleting === key ? "…" : "Entfernen"}
-                  </button>
-                )}
-              </div>
-              <p className="text-sm font-medium text-white leading-tight">{svc.label}</p>
-              {isConfigured
-                ? <p className="text-xs text-green-400">Konfiguriert</p>
-                : <p className="text-xs text-gray-500">Nicht eingerichtet</p>
-              }
-              <button
-                onClick={() => openService(key)}
-                className={`w-full text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                  isConfigured
-                    ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
-                    : "bg-yellow-400 hover:bg-yellow-300 text-gray-900"
-                }`}
-              >
-                {isConfigured ? "Bearbeiten" : "Einrichten"}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Modal */}
-      {activeService && schemas[activeService] && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 border border-gray-700 rounded-2xl p-6 w-full max-w-md space-y-5 shadow-2xl">
-            <div className="flex items-center gap-3">
-              <span className="text-3xl">{schemas[activeService].icon}</span>
-              <div>
-                <h3 className="text-base font-bold text-white">{schemas[activeService].label}</h3>
-                <p className="text-xs text-gray-400">Wird verschlüsselt gespeichert — nie im Klartext einsehbar</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {schemas[activeService].fields.map(f => (
-                <Field key={f.key} label={f.label}>
-                  <input
-                    type={f.type === "password" ? "password" : "text"}
-                    placeholder={f.placeholder || "—"}
-                    value={formValues[f.key] ?? ""}
-                    onChange={e => setFormValues(v => ({ ...v, [f.key]: e.target.value }))}
-                    className={inputCls}
-                  />
-                </Field>
-              ))}
-            </div>
-
-            {msg && (
-              <p className={`text-sm ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.text}</p>
-            )}
-
-            <div className="flex gap-3 pt-1">
-              <button
-                onClick={save}
-                disabled={saving}
-                className="flex-1 py-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold text-sm transition-colors disabled:opacity-50"
-              >
-                {saving ? "Speichern…" : "Speichern"}
-              </button>
-              <button
-                onClick={() => { setActiveService(null); setMsg(null); }}
-                className="flex-1 py-2 rounded-xl bg-gray-700 hover:bg-gray-600 text-white text-sm transition-colors"
-              >
-                Abbrechen
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Wallet Tab ───────────────────────────────────────────────────────────────
-
-interface WalletStatus {
-  balance_chf: number;
-  monthly_limit_chf: number;
-  per_tx_limit_chf: number;
-  monthly_spent_chf: number;
-  monthly_remaining_chf: number;
-  auto_topup_enabled: boolean;
-  auto_topup_threshold_chf: number;
-  auto_topup_amount_chf: number;
-  has_saved_card: boolean;
-  storage_used_bytes: number;
-  storage_limit_bytes: number;
-  storage_extra_bytes: number;
-}
-
-function fmtBytes(b: number) {
-  if (b >= 1024 * 1024 * 1024) return `${(b / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-  if (b >= 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(0)} MB`;
-  return `${(b / 1024).toFixed(0)} KB`;
-}
-
-function WalletTab({ customerId }: { customerId: string }) {
-  const [wallet, setWallet] = useState<WalletStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [creditAmount, setCreditAmount] = useState("");
-  const [creditNote, setCreditNote] = useState("Manuelle Gutschrift durch Admin");
-  const [crediting, setCrediting] = useState(false);
-  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/billing/admin/wallet/${customerId}`);
-      if (res.ok) setWallet(await res.json());
-    } finally {
-      setLoading(false);
-    }
-  }, [customerId]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const doCredit = async () => {
-    const amount = parseFloat(creditAmount);
-    if (!amount || amount <= 0) return;
-    setCrediting(true);
-    setMsg(null);
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/billing/admin/wallet/credit`, {
-        method: "POST",
-        body: JSON.stringify({ customer_id: customerId, amount_chf: amount, description: creditNote }),
-      });
-      if (res.ok) {
-        const d = await res.json();
-        setMsg({ text: `CHF ${amount.toFixed(2)} gutgeschrieben ✓  |  Rechnung: ${d.invoice_number}  |  Neues Guthaben: CHF ${d.new_balance_chf.toFixed(2)}`, ok: true });
-        setCreditAmount("");
-        await load();
-      } else {
-        const e = await res.json().catch(() => ({}));
-        setMsg({ text: e.detail ?? "Fehler beim Gutschreiben", ok: false });
-      }
-    } finally {
-      setCrediting(false);
-    }
-  };
-
-  if (loading) return <p className="text-sm text-gray-500">Wird geladen…</p>;
-  if (!wallet) return <p className="text-sm text-red-400">Wallet-Daten nicht verfügbar.</p>;
-
-  const spentPct = wallet.monthly_limit_chf > 0
-    ? Math.min(100, (wallet.monthly_spent_chf / wallet.monthly_limit_chf) * 100)
-    : 0;
-
-  return (
-    <div className="space-y-5">
-
-      {/* KPI-Übersicht */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: "Guthaben", value: `CHF ${wallet.balance_chf.toFixed(2)}`, icon: "💰", highlight: wallet.balance_chf < 5 ? "text-red-400" : "text-white" },
-          { label: "Monats-Limit", value: `CHF ${wallet.monthly_limit_chf.toFixed(2)}`, icon: "📅", highlight: "text-white" },
-          { label: "Diesen Monat", value: `CHF ${wallet.monthly_spent_chf.toFixed(2)}`, icon: "📊", highlight: "text-white" },
-          { label: "Per-Tx-Limit", value: `CHF ${wallet.per_tx_limit_chf.toFixed(2)}`, icon: "🔒", highlight: "text-white" },
-        ].map(kpi => (
-          <div key={kpi.label} className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-1">
-            <p className="text-xl">{kpi.icon}</p>
-            <p className={`text-2xl font-bold ${kpi.highlight}`}>{kpi.value}</p>
-            <p className="text-xs text-gray-400">{kpi.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Monatlicher Verbrauch */}
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-3">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-400">Monatsverbrauch</span>
-          <span className="text-gray-300 font-mono">
-            CHF {wallet.monthly_spent_chf.toFixed(2)} / {wallet.monthly_limit_chf.toFixed(2)}
-          </span>
-        </div>
-        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all ${spentPct > 80 ? "bg-red-500" : spentPct > 50 ? "bg-yellow-400" : "bg-green-400"}`}
-            style={{ width: `${spentPct}%` }}
-          />
-        </div>
-        <p className="text-xs text-gray-500">
-          Verbleibend: CHF {wallet.monthly_remaining_chf.toFixed(2)}
-          {wallet.auto_topup_enabled && (
-            <span className="ml-2 px-2 py-0.5 rounded-full bg-yellow-400/15 text-yellow-300 border border-yellow-400/30 text-xs">
-              Auto-Topup aktiv (ab CHF {wallet.auto_topup_threshold_chf.toFixed(2)} → +CHF {wallet.auto_topup_amount_chf.toFixed(2)})
-              {wallet.has_saved_card ? " · Karte gespeichert" : " · ⚠ keine Karte"}
-            </span>
-          )}
-        </p>
-      </div>
-
-      {/* Speicher */}
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-300">Speicher</h3>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-400">Belegt</span>
-          <span className="text-gray-300 font-mono">
-            {fmtBytes(wallet.storage_used_bytes)} / {fmtBytes(wallet.storage_limit_bytes + wallet.storage_extra_bytes)}
-            {wallet.storage_extra_bytes > 0 && (
-              <span className="ml-2 text-xs text-yellow-400/80">(+{fmtBytes(wallet.storage_extra_bytes)} Add-on)</span>
-            )}
-          </span>
-        </div>
-        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-          {(() => {
-            const total = wallet.storage_limit_bytes + wallet.storage_extra_bytes;
-            const pct = total > 0 ? Math.min(100, (wallet.storage_used_bytes / total) * 100) : 0;
-            return (
-              <div
-                className={`h-full rounded-full transition-all ${pct > 90 ? "bg-red-500" : pct > 70 ? "bg-orange-500" : "bg-blue-500"}`}
-                style={{ width: `${pct}%` }}
-              />
-            );
-          })()}
-        </div>
-        <p className="text-xs text-gray-500">
-          Plan-Limit: {fmtBytes(wallet.storage_limit_bytes)} · Add-on: {fmtBytes(wallet.storage_extra_bytes)} · Gesamt: {fmtBytes(wallet.storage_limit_bytes + wallet.storage_extra_bytes)}
-        </p>
-      </div>
-
-      {/* Manuell Gutschreiben */}
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-gray-300">Manuell Gutschreiben</h3>
-        <p className="text-xs text-gray-500">Wird als Rechnung erfasst (Banküberweisung-Bestätigung o.ä.).</p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label="Betrag (CHF)">
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={creditAmount}
-              onChange={e => setCreditAmount(e.target.value)}
-              placeholder="z.B. 50.00"
-              className={inputCls}
-            />
-          </Field>
-          <Field label="Beschreibung">
-            <input
-              value={creditNote}
-              onChange={e => setCreditNote(e.target.value)}
-              className={inputCls}
-            />
-          </Field>
-        </div>
-
-        {/* Schnellauswahl */}
-        <div className="flex flex-wrap gap-2">
-          {[10, 20, 50, 100, 200].map(v => (
-            <button
-              key={v}
-              onClick={() => setCreditAmount(v.toFixed(2))}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                creditAmount === v.toFixed(2)
-                  ? "bg-yellow-400 text-gray-900 border-yellow-400"
-                  : "bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600"
-              }`}
-            >
-              CHF {v}
-            </button>
-          ))}
-        </div>
-
-        {msg && (
-          <p className={`text-sm rounded-lg px-3 py-2 ${msg.ok ? "bg-green-500/15 text-green-300 border border-green-500/30" : "bg-red-500/15 text-red-300 border border-red-500/30"}`}>
-            {msg.text}
-          </p>
-        )}
-
-        <button
-          onClick={doCredit}
-          disabled={crediting || !creditAmount || parseFloat(creditAmount) <= 0}
-          className="px-5 py-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {crediting ? "Wird gebucht…" : "Gutschreiben"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Verbrauch Tab ────────────────────────────────────────────────────────────
-
-interface ModelUsage {
-  messages: number;
-  tokens: number;
-  cost_chf: number;
-  type: "api" | "lokal";
-  rate_per_1k: number;
-}
-
-interface CustomerUsage {
-  tokens: {
-    total: number;
-    this_period: number;
-    by_model: Record<string, ModelUsage>;
-    cost_chf_total: number;
-  };
-  messages: { total: number; threads: number };
-  storage: {
-    used_bytes: number;
-    limit_bytes: number;
-    plan_bytes: number;
-    extra_bytes: number;
-    documents: number;
-  };
-  memory: { entries: number };
-  compute: { note: string; local_tokens: number; api_tokens: number };
-}
-
-const MODEL_DISPLAY: Record<string, string> = {
-  "claude-sonnet-4-6":         "Claude Sonnet 4.6",
-  "claude-opus-4-6":           "Claude Opus 4.6",
-  "claude-haiku-4-5-20251001": "Claude Haiku 4.5",
-  "claude-haiku-4-5":          "Claude Haiku 4.5",
-  "gemini-2.0-flash":          "Gemini 2.0 Flash",
-  "gemini-1.5-flash":          "Gemini 1.5 Flash",
-  "gemini-1.5-pro":            "Gemini 1.5 Pro",
-  "gpt-4o":                    "GPT-4o",
-  "gpt-4o-mini":               "GPT-4o Mini",
-  "gemma3:12b":                "Gemma 3 12B (lokal)",
-  "gemma3:4b":                 "Gemma 3 4B (lokal)",
-  "mistral":                   "Mistral (lokal)",
-  "llama3":                    "Llama 3 (lokal)",
-  "unbekannt":                 "Unbekannt",
-};
-
-function VerbrauchTab({ customerId }: { customerId: string }) {
-  const [usage, setUsage] = useState<CustomerUsage | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/customers/${customerId}/usage`);
-      if (res.ok) setUsage(await res.json());
-    } finally {
-      setLoading(false);
-    }
-  }, [customerId]);
-
-  useEffect(() => { load(); }, [load]);
-
-  if (loading && !usage) return <p className="text-sm text-gray-500">Verbrauchsdaten werden geladen…</p>;
-  if (!usage) return <p className="text-sm text-gray-500">Keine Daten verfügbar.</p>;
-
-  const storagePct = usage.storage.limit_bytes > 0
-    ? Math.min(100, (usage.storage.used_bytes / usage.storage.limit_bytes) * 100) : 0;
-
-  return (
-    <div className="space-y-5">
-      <div className="flex justify-end">
-        <button
-          onClick={load}
-          disabled={loading}
-          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-white bg-white/5 hover:bg-white/8 border border-white/8 px-3 py-1.5 rounded-lg transition-all disabled:opacity-40"
-        >
-          <span className={loading ? "animate-spin" : ""}>↻</span>
-          Aktualisieren
-        </button>
-      </div>
-
-      {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: "Tokens gesamt",    value: usage.tokens.total.toLocaleString("de-CH"),             icon: "🪙" },
-          { label: "Geschätzte Kosten", value: `CHF ${usage.tokens.cost_chf_total.toFixed(4)}`,       icon: "💸" },
-          { label: "Konversationen",   value: usage.messages.threads,                                  icon: "💬" },
-          { label: "Nachrichten",      value: usage.messages.total,                                    icon: "✉️" },
-        ].map(kpi => (
-          <div key={kpi.label} className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-1">
-            <p className="text-xl">{kpi.icon}</p>
-            <p className="text-2xl font-bold text-white">{kpi.value}</p>
-            <p className="text-xs text-gray-400">{kpi.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Token-Verbrauch nach Modell */}
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-300">Token-Verbrauch nach Modell</h3>
-          <span className="text-xs text-gray-500">Dieser Zeitraum: {usage.tokens.this_period.toLocaleString("de-CH")} Tokens</span>
-        </div>
-        {Object.keys(usage.tokens.by_model).length === 0 ? (
-          <p className="text-sm text-gray-500">Noch keine Nutzung erfasst.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-700">
-                <th className="text-left py-2 text-xs text-gray-400 font-semibold uppercase">Modell</th>
-                <th className="text-left py-2 text-xs text-gray-400 font-semibold uppercase">Typ</th>
-                <th className="text-right py-2 text-xs text-gray-400 font-semibold uppercase">Nachrichten</th>
-                <th className="text-right py-2 text-xs text-gray-400 font-semibold uppercase">Tokens</th>
-                <th className="text-right py-2 text-xs text-gray-400 font-semibold uppercase">Kosten CHF</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-700/50">
-              {Object.entries(usage.tokens.by_model).map(([model, d]) => (
-                <tr key={model}>
-                  <td className="py-2 text-gray-300 text-xs">{MODEL_DISPLAY[model] ?? model}</td>
-                  <td className="py-2">
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
-                      d.type === "lokal"
-                        ? "bg-green-950/30 border-green-800/40 text-green-400"
-                        : "bg-blue-950/30 border-blue-800/40 text-blue-300"
-                    }`}>{d.type === "lokal" ? "Lokal" : "API"}</span>
-                  </td>
-                  <td className="py-2 text-right text-gray-400 text-xs">{d.messages}</td>
-                  <td className="py-2 text-right font-mono text-yellow-400 text-xs">{d.tokens.toLocaleString("de-CH")}</td>
-                  <td className="py-2 text-right font-mono text-xs text-gray-300">{d.cost_chf.toFixed(4)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-gray-600">
-                <td colSpan={2} className="py-2 font-semibold text-white text-xs">Total</td>
-                <td className="py-2 text-right font-semibold text-white text-xs">{usage.messages.total}</td>
-                <td className="py-2 text-right font-mono font-bold text-yellow-400 text-xs">{usage.tokens.total.toLocaleString("de-CH")}</td>
-                <td className="py-2 text-right font-mono font-bold text-white text-xs">CHF {usage.tokens.cost_chf_total.toFixed(4)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        )}
-        <p className="text-[10px] text-gray-600">{usage.compute.note}</p>
-      </div>
-
-      {/* Speicher */}
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-300">Speicher</h3>
-        <div className="flex justify-between text-xs text-gray-400">
-          <span>{fmtBytes(usage.storage.used_bytes)} belegt</span>
-          <span>{fmtBytes(usage.storage.limit_bytes)} gesamt</span>
-        </div>
-        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all ${storagePct > 90 ? "bg-red-500" : storagePct > 70 ? "bg-orange-500" : "bg-blue-500"}`}
-            style={{ width: `${storagePct}%` }}
-          />
-        </div>
-        <div className="grid grid-cols-3 gap-3 text-xs">
-          <div className="bg-gray-700/50 rounded-lg p-3">
-            <p className="text-gray-500">Plan-Limit</p>
-            <p className="font-semibold text-white">{fmtBytes(usage.storage.plan_bytes)}</p>
-          </div>
-          <div className="bg-gray-700/50 rounded-lg p-3">
-            <p className="text-gray-500">Add-on</p>
-            <p className="font-semibold text-white">{fmtBytes(usage.storage.extra_bytes)}</p>
-          </div>
-          <div className="bg-gray-700/50 rounded-lg p-3">
-            <p className="text-gray-500">Dokumente</p>
-            <p className="font-semibold text-white">{usage.storage.documents}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Gedächtnis & Compute */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-1">
-          <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Gedächtnis-Einträge</p>
-          <p className="text-2xl font-bold text-white">{usage.memory.entries}</p>
-          <p className="text-xs text-gray-500">Langzeit-Erinnerungen in Qdrant</p>
-        </div>
-        <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-1">
-          <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Rechenleistung</p>
-          <div className="flex gap-3 text-xs mt-1">
-            <div>
-              <p className="text-gray-500">API-Tokens</p>
-              <p className="font-semibold text-blue-300">{usage.compute.api_tokens.toLocaleString("de-CH")}</p>
-            </div>
-            <div>
-              <p className="text-gray-500">Lokal-Tokens</p>
-              <p className="font-semibold text-green-300">{usage.compute.local_tokens.toLocaleString("de-CH")}</p>
-            </div>
-          </div>
-          <p className="text-[10px] text-gray-600 mt-1">Strom/CPU-Tracking bräuchte Server-Monitoring (Prometheus)</p>
-        </div>
-      </div>
-
-    </div>
-  );
-}
-
-// ─── Notizen Tab ──────────────────────────────────────────────────────────────
-
-interface CustomerNote {
-  id: string;
-  text: string;
-  created_at: string;
-}
-
-function NotizenTab({ customerId }: { customerId: string }) {
-  const [notes, setNotes]     = useState<CustomerNote[]>([]);
-  const [input, setInput]     = useState("");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving]   = useState(false);
-  const [deleting, setDeleting] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/customers/${customerId}/notes`);
-      if (res.ok) setNotes(await res.json());
-    } finally {
-      setLoading(false);
-    }
-  }, [customerId]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const submit = async () => {
-    const text = input.trim();
-    if (!text || saving) return;
-    setSaving(true);
-    try {
-      await apiFetch(`${BACKEND_URL}/v1/customers/${customerId}/notes`, {
-        method: "POST",
-        body: JSON.stringify({ text }),
-      });
-      setInput("");
-      await load();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const remove = async (noteId: string) => {
-    setDeleting(noteId);
-    try {
-      await apiFetch(`${BACKEND_URL}/v1/customers/${customerId}/notes/${noteId}`, { method: "DELETE" });
-      setNotes(prev => prev.filter(n => n.id !== noteId));
-    } finally {
-      setDeleting(null);
-    }
-  };
-
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
-
-  return (
-    <div className="space-y-4">
-      {/* Eingabe */}
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-3">
-        <textarea
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && e.ctrlKey) submit(); }}
-          rows={3}
-          placeholder="Notiz eingeben… (Ctrl+Enter zum Speichern)"
-          className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-yellow-500/50 resize-none"
-        />
-        <div className="flex justify-end">
-          <button
-            onClick={submit}
-            disabled={!input.trim() || saving}
-            className="px-4 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 disabled:bg-gray-700 disabled:text-gray-500 text-gray-900 font-semibold text-sm transition-colors"
-          >
-            {saving ? "Speichern…" : "Notiz speichern"}
-          </button>
-        </div>
-      </div>
-
-      {/* Liste */}
-      {loading ? (
-        <p className="text-sm text-gray-500">Lädt…</p>
-      ) : notes.length === 0 ? (
-        <p className="text-sm text-gray-600 text-center py-8">Noch keine Notizen</p>
-      ) : (
-        <div className="space-y-2">
-          {notes.map(note => (
-            <div key={note.id} className="group bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 flex gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-600 mb-1">{fmt(note.created_at)}</p>
-                <p className="text-sm text-gray-200 whitespace-pre-wrap break-words">{note.text}</p>
-              </div>
-              <button
-                onClick={() => remove(note.id)}
-                disabled={deleting === note.id}
-                className="shrink-0 opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all text-sm mt-0.5"
-              >
-                {deleting === note.id ? "…" : "✕"}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Hauptkomponente ──────────────────────────────────────────────────────────
 
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -780,29 +30,10 @@ export default function CustomerDetailPage() {
   const [tab, setTab] = useState<Tab>("profil");
 
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
-  const [stats, setStats] = useState<CustomerStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [memoryRevokeOpen, setMemoryRevokeOpen] = useState(false);
   const [memoryRevokeInput, setMemoryRevokeInput] = useState("");
   const [memoryRevoking, setMemoryRevoking] = useState(false);
-
-  // Stammdaten
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [language, setLanguage] = useState("de");
-
-  // Kontakt
-  const [phone, setPhone] = useState("");
-  const [phoneSecondary, setPhoneSecondary] = useState("");
-
-  // Adresse
-  const [street, setStreet] = useState("");
-  const [zip, setZip] = useState("");
-  const [city, setCity] = useState("");
-  const [country, setCountry] = useState("Schweiz");
-
 
   useEffect(() => {
     const u = getSession();
@@ -811,58 +42,13 @@ export default function CustomerDetailPage() {
     (async () => {
       setLoading(true);
       try {
-        const [cRes, sRes] = await Promise.all([
-          apiFetch(`${BACKEND_URL}/v1/customers/${id}`),
-          apiFetch(`${BACKEND_URL}/v1/customers/${id}/stats`),
-        ]);
-        if (cRes.ok) {
-          const c: CustomerDetail = await cRes.json();
-          setCustomer(c);
-          setName(c.name ?? "");
-          setEmail(c.email ?? "");
-          setLanguage(c.language ?? "de");
-          setPhone(c.phone ?? "");
-          setPhoneSecondary(c.phone_secondary ?? "");
-          setStreet(c.address_street ?? "");
-          setZip(c.address_zip ?? "");
-          setCity(c.address_city ?? "");
-          setCountry(c.address_country ?? "Schweiz");
-        }
-        if (sRes.ok) setStats(await sRes.json());
+        const res = await apiFetch(`${BACKEND_URL}/v1/customers/${id}`);
+        if (res.ok) setCustomer(await res.json());
       } finally {
         setLoading(false);
       }
     })();
   }, [id]);
-
-  const saveProfile = async () => {
-    if (!customer) return;
-    setSaving(true);
-    setSaveMsg(null);
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/customers/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          name, email, language,
-          phone: phone || null,
-          phone_secondary: phoneSecondary || null,
-          address_street: street || null,
-          address_zip: zip || null,
-          address_city: city || null,
-          address_country: country || null,
-        }),
-      });
-      if (res.ok) {
-        setCustomer(await res.json());
-        setSaveMsg("Gespeichert ✓");
-        setTimeout(() => setSaveMsg(null), 3000);
-      } else {
-        setSaveMsg("Fehler beim Speichern");
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const toggleActive = async () => {
     if (!customer) return;
@@ -892,7 +78,6 @@ export default function CustomerDetailPage() {
     if (res.ok) setCustomer(await res.json());
   };
 
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
@@ -908,14 +93,6 @@ export default function CustomerDetailPage() {
       </div>
     );
   }
-
-  const TABS: { key: Tab; label: string; icon: string }[] = [
-    { key: "profil",       label: "Profil",       icon: "👤" },
-    { key: "zugangsdaten", label: "Zugangsdaten", icon: "🔑" },
-    { key: "verbrauch",    label: "Verbrauch",    icon: "📊" },
-    { key: "wallet",       label: "Wallet",       icon: "💳" },
-    { key: "notizen",      label: "Notizen",      icon: "📝" },
-  ];
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex">
@@ -962,26 +139,26 @@ export default function CustomerDetailPage() {
               </div>
             </div>
             <div className="flex gap-2 shrink-0">
-            <button
-              onClick={() => customer.memory_consent ? setMemoryRevokeOpen(true) : enableMemory()}
-              className={`px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
-                customer.memory_consent
-                  ? "border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
-                  : "border-gray-500/40 text-gray-400 hover:bg-gray-500/10"
-              }`}
-            >
-              {customer.memory_consent ? "🧠 Widerrufen" : "🧠 Aktivieren"}
-            </button>
-            <button
-              onClick={toggleActive}
-              className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                customer.is_active
-                  ? "border-red-500/40 text-red-400 hover:bg-red-500/10"
-                  : "border-green-500/40 text-green-400 hover:bg-green-500/10"
-              }`}
-            >
-              {customer.is_active ? "Deaktivieren" : "Aktivieren"}
-            </button>
+              <button
+                onClick={() => customer.memory_consent ? setMemoryRevokeOpen(true) : enableMemory()}
+                className={`px-3 py-2 rounded-xl text-xs font-medium border transition-colors ${
+                  customer.memory_consent
+                    ? "border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
+                    : "border-gray-500/40 text-gray-400 hover:bg-gray-500/10"
+                }`}
+              >
+                {customer.memory_consent ? "🧠 Widerrufen" : "🧠 Aktivieren"}
+              </button>
+              <button
+                onClick={toggleActive}
+                className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                  customer.is_active
+                    ? "border-red-500/40 text-red-400 hover:bg-red-500/10"
+                    : "border-green-500/40 text-green-400 hover:bg-green-500/10"
+                }`}
+              >
+                {customer.is_active ? "Deaktivieren" : "Aktivieren"}
+              </button>
             </div>
           </div>
 
@@ -1000,118 +177,16 @@ export default function CustomerDetailPage() {
             ))}
           </div>
 
-          {/* ── Profil Tab ── */}
-          {tab === "profil" && (
-            <div className="space-y-5">
-
-              {/* Stammdaten */}
-              <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-300">Stammdaten</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Name">
-                    <input value={name} onChange={e => setName(e.target.value)} className={inputCls} />
-                  </Field>
-                  <Field label="E-Mail">
-                    <input value={email} onChange={e => setEmail(e.target.value)} type="email" className={inputCls} />
-                  </Field>
-                  <Field label="Bevorzugte Sprache">
-                    <select value={language} onChange={e => setLanguage(e.target.value)} className={inputCls}>
-                      {LANGUAGE_OPTIONS.map(l => (
-                        <option key={l.value} value={l.value}>{l.label}</option>
-                      ))}
-                    </select>
-                  </Field>
-                </div>
-              </div>
-
-              {/* Kontakt */}
-              <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-300">Kontakt</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Telefon (Mobil / Haupt)">
-                    <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+41 79 000 00 00" className={inputCls} />
-                  </Field>
-                  <Field label="Telefon 2 (Festnetz / Arbeit)">
-                    <input value={phoneSecondary} onChange={e => setPhoneSecondary(e.target.value)} placeholder="+41 44 000 00 00" className={inputCls} />
-                  </Field>
-                </div>
-              </div>
-
-              {/* Adresse */}
-              <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-300">Adresse</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="Strasse & Hausnummer">
-                    <input value={street} onChange={e => setStreet(e.target.value)} placeholder="Musterstrasse 1" className={inputCls} />
-                  </Field>
-                  <Field label="Land">
-                    <input value={country} onChange={e => setCountry(e.target.value)} placeholder="Schweiz" className={inputCls} />
-                  </Field>
-                  <Field label="PLZ">
-                    <input value={zip} onChange={e => setZip(e.target.value)} placeholder="8001" className={inputCls} />
-                  </Field>
-                  <Field label="Ort">
-                    <input value={city} onChange={e => setCity(e.target.value)} placeholder="Zürich" className={inputCls} />
-                  </Field>
-                </div>
-              </div>
-
-
-
-              {/* Speichern */}
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={saveProfile}
-                  disabled={saving}
-                  className="px-5 py-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold text-sm transition-colors disabled:opacity-50"
-                >
-                  {saving ? "Speichern…" : "Speichern"}
-                </button>
-                {saveMsg && (
-                  <span className={`text-sm ${saveMsg.includes("Fehler") ? "text-red-400" : "text-green-400"}`}>
-                    {saveMsg}
-                  </span>
-                )}
-              </div>
-
-              {/* Systeminfo */}
-              <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-300">Systeminfo</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field label="ID">
-                    <p className={`font-mono text-xs ${readCls} select-all break-all`}>{customer.id}</p>
-                  </Field>
-                  <Field label="Rolle">
-                    <p className={readCls}>{customer.role}</p>
-                  </Field>
-                  <Field label="Registriert am">
-                    <p className={readCls}>{formatDate(customer.created_at)}</p>
-                  </Field>
-                  {customer.primary_usecase_id && (() => {
-                    const uc = USE_CASES.find(u => u.id === customer.primary_usecase_id);
-                    return uc ? (
-                      <Field label="Primärer Baddi">
-                        <p className={`flex items-center gap-2 ${readCls}`}>
-                          <span>{uc.icon}</span>
-                          <span className="text-gray-300">{uc.buddyName}</span>
-                          <span className="font-mono text-xs text-yellow-500 ml-auto">{uc.baddiD}</span>
-                        </p>
-                      </Field>
-                    ) : null;
-                  })()}
-                </div>
-              </div>
-            </div>
-          )}
-
-{tab === "zugangsdaten" && <ZugangsdatenTab customerId={customer.id} />}
-          {tab === "verbrauch" && <VerbrauchTab customerId={customer.id} />}
-          {tab === "wallet" && <WalletTab customerId={customer.id.toString()} />}
-          {tab === "notizen" && <NotizenTab customerId={customer.id.toString()} />}
+          {/* Tab Content */}
+          {tab === "profil"       && <CustomerProfileTab customer={customer} onCustomerUpdate={setCustomer} />}
+          {tab === "zugangsdaten" && <CustomerCredentialsTab customerId={customer.id} />}
+          {tab === "verbrauch"    && <CustomerUsageTab customerId={customer.id} />}
+          {tab === "wallet"       && <CustomerWalletTab customerId={customer.id} />}
+          {tab === "notizen"      && <CustomerNotesTab customerId={customer.id} />}
         </div>
       </main>
 
-      {/* ── Modal: Langzeitgedächtnis widerrufen ── */}
+      {/* Modal: Langzeitgedächtnis widerrufen */}
       {memoryRevokeOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => { setMemoryRevokeOpen(false); setMemoryRevokeInput(""); }} />

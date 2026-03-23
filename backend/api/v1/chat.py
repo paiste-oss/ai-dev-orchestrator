@@ -14,7 +14,7 @@ Flow pro Request:
   9.  Memory-Extraktion im Hintergrund
 """
 import json
-import re
+import logging as _logging
 from datetime import datetime
 
 import redis as redis_lib
@@ -34,14 +34,15 @@ from services.memory_service import select_relevant_context, select_style_contex
 from services.agent_router import route as agent_route
 from services.buddy_agent import run_buddy_chat
 from services.billing_service import check_and_bill_tokens
+from services.chat_system_prompt import build_system_prompt
+from services.chat_markers import process_markers
+from services.chat_analytics import record_analytics
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 _HISTORY_WINDOW = 20
 _CONTEXT_WINDOW = 10
 
-
-import logging as _logging
 _log = _logging.getLogger(__name__)
 
 _redis_client: "redis_lib.Redis | None" = None
@@ -112,6 +113,11 @@ class MemoryOut(BaseModel):
     created_at: str
 
 
+class TTSRequest(BaseModel):
+    text: str
+    voice_id: str | None = None
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @router.post("/message", response_model=ChatResponse)
@@ -165,93 +171,13 @@ async def send_message(
 
     # 5. System-Prompt aufbauen
     first_name = customer.name.split()[0] if customer.name else "du"
-
-    base_prompt = (
-        baddi_config.get("system_prompt")
-        or baddi_config.get("system_prompt_template")
-        or f"Du bist Baddi — der persönliche Begleiter von {first_name}."
-    ).strip()
-    system_parts = [base_prompt]
-
-    system_parts.append(
-        f"\nIDENTITÄT (unveränderlich):\n"
-        f"- Du bist Baddi. Nenne dich ausschliesslich 'Baddi'.\n"
-        f"- Du sprichst {first_name} natürlich an.\n"
-        f"- Du bist warm, direkt, ehrlich und empathisch."
+    system_prompt = build_system_prompt(
+        first_name=first_name,
+        baddi_config=baddi_config,
+        style_prefs=style_prefs,
+        relevant_memories=relevant,
+        ui_prefs=customer.ui_preferences or {},
     )
-
-    if style_prefs:
-        system_parts.append(
-            f"\nKOMMUNIKATIONSSTIL von {first_name} (höchste Priorität — immer befolgen):\n"
-            + "\n".join(f"- {s}" for s in style_prefs)
-        )
-
-    from services.tool_registry import TOOL_CATALOG
-    active_tools = [v["prompt_hint"] for v in TOOL_CATALOG.values() if v.get("prompt_hint")]
-    if active_tools:
-        system_parts.append(
-            f"\nDEINE AKTIVEN TOOLS (diese Fähigkeiten hast du wirklich):\n"
-            + "\n".join(f"- {t}" for t in active_tools)
-            + "\nWenn ein Tool technisch fehlschlägt, erkläre den Fehler ehrlich. "
-            "Sage NIEMALS 'Ich habe diese Fähigkeit nicht'."
-        )
-
-    system_parts.append(
-        "\nAKTIONS-BUTTONS: Wenn ein Kunde nach einer dieser Funktionen fragt oder "
-        "darauf hingewiesen werden soll, füge am Ende deiner Antwort einen oder mehrere "
-        "dieser Marker ein — sie werden als klickbare Buttons angezeigt:\n"
-        "[AKTION: Wallet aufladen | /user/wallet]\n"
-        "[AKTION: Abo anpassen | /user/billing]\n"
-        "[AKTION: Einstellungen | /user/settings]\n"
-        "Verwende diese Marker wenn jemand nach Guthaben, Tokens, Abo, Plan, "
-        "Einstellungen, Profil oder Zahlungen fragt. Nur passende Buttons einfügen. "
-        "Diese Marker sind nur für das System — der Kunde sieht nur den Button, nicht den Marker."
-    )
-
-    system_parts.append(
-        "\nFEHLENDE FÄHIGKEITEN: Wenn der Kunde etwas möchte, das du aktuell nicht "
-        "kannst aber das als digitale Funktion grundsätzlich umsetzbar wäre — "
-        "z.B. Links oder Buttons senden, Kalender-Einträge erstellen, E-Mails schreiben, "
-        "Dokumente generieren, Benachrichtigungen schicken, externe Dienste anbinden — "
-        "antworte freundlich und füge am Ende exakt diese Zeile hinzu:\n"
-        "[FÄHIGKEIT_FEHLT: <einzeilige Beschreibung was der Kunde möchte>]\n"
-        "Diesen Marker NICHT verwenden für physisch unmögliche Dinge (z.B. 'flieg für mich') "
-        "oder reine Wissensfragen. Nur für digitale Aktionen die man bauen könnte. "
-        "Dieser Marker ist nur für das System, der Kunde sieht ihn nicht."
-    )
-
-    # UI-Präferenzen laden und in System-Prompt einfügen
-    _ui_prefs: dict = customer.ui_preferences or {}
-    _buddy_name = _ui_prefs.get("buddyName", "Baddi")
-    _language = _ui_prefs.get("language", "de")
-
-    _lang_map = {"de": "Deutsch", "en": "Englisch", "fr": "Französisch", "it": "Italienisch"}
-    _lang_label = _lang_map.get(_language, "Deutsch")
-
-    system_parts.append(
-        f"\nCHAT-DESIGN — ECHTE FÄHIGKEIT (WICHTIG): Du kannst das Aussehen dieses Chats direkt steuern! "
-        f"Wenn der Kunde nach Schriftgrösse, Farbe, Hintergrund, Zeilenabstand, Sprache oder deinem Namen fragt, "
-        f"bestätige KURZ und füge ZWINGEND am Ende einen dieser unsichtbaren Marker ein — das System setzt die Änderung sofort um:\n\n"
-        f"Schriftgrösse: [UI: fontSize=small] [UI: fontSize=normal] [UI: fontSize=large] [UI: fontSize=xlarge]\n"
-        f"Farbe: [UI: accentColor=indigo] [UI: accentColor=purple] [UI: accentColor=green] [UI: accentColor=orange] [UI: accentColor=pink]\n"
-        f"Hintergrund: [UI: background=dark] [UI: background=darker] [UI: background=lighter]\n"
-        f"Zeilenabstand: [UI: lineSpacing=compact] [UI: lineSpacing=normal] [UI: lineSpacing=wide]\n"
-        f"Sprache: [UI: language=de] [UI: language=en] [UI: language=fr] [UI: language=it]\n"
-        f"Dein Name: [UI: buddyName=NeuerName]\n\n"
-        f"WICHTIG: Sage NIEMALS 'Ich kann das nicht' — du KANNST es, indem du den Marker setzt. "
-        f"Nur EINEN Marker pro Antwort. Der Marker ist für den Kunden unsichtbar.\n"
-        f"Aktuell: Name={_buddy_name}, Sprache={_lang_label}, Schrift={_ui_prefs.get('fontSize','normal')}"
-    )
-
-    system_parts.append(
-        f"\nSPRACHE: Antworte IMMER auf {_lang_label}. "
-        f"Dein Name ist '{_buddy_name}' — nenne dich ausschliesslich so."
-    )
-
-    if relevant:
-        system_parts.append(f"\nWas du über {first_name} weißt:\n" + "\n".join(f"- {m}" for m in relevant))
-
-    system_prompt = "\n".join(system_parts)
 
     # 6. Request ausführen
     provider = "claude"
@@ -264,6 +190,8 @@ async def send_message(
     structured_data: dict | None = None
     _tools_called: list[str] = []  # für Analytics
     _system_prompt_name: str = baddi_config.get("name") or baddi_config.get("system_prompt_name") or "Standard"
+
+    from services.tool_registry import TOOL_CATALOG
 
     if req.images:
         # Vision: Sonnet, keine Tools
@@ -378,50 +306,29 @@ async def send_message(
     if response_text is None:
         raise HTTPException(status_code=502, detail=" | ".join(errors))
 
-    # 7b. Aktions-Buttons aus Marker extrahieren
-    _action_buttons: list[dict] = []
-    if response_text:
-        for m in re.finditer(r"\[AKTION:\s*(.+?)\s*\|\s*(.+?)\]", response_text):
-            _action_buttons.append({"label": m.group(1).strip(), "url": m.group(2).strip()})
-        if _action_buttons:
-            response_text = re.sub(r"\s*\[AKTION:[^\]]+\]", "", response_text).strip()
-            response_type = "action_buttons"
-            structured_data = {"buttons": _action_buttons}
+    # 7b–7d. Marker verarbeiten (Aktions-Buttons, UI-Update, Fehlende Fähigkeit)
+    marker_result = process_markers(response_text)
+    response_text = marker_result.text
 
-    # 7c. UI-Marker erkennen und Präferenz in DB speichern
-    _ui_update: dict | None = None
-    if response_text:
-        _ui_match = re.search(r"\[UI:\s*(\w+)=([^\]]+)\]", response_text)
-        if _ui_match:
-            _ui_key = _ui_match.group(1).strip()
-            _ui_val = _ui_match.group(2).strip()[:30]
-            response_text = re.sub(r"\s*\[UI:[^\]]+\]", "", response_text).strip()
-            # In DB speichern
-            try:
-                import json as _json
-                _cur_prefs = dict(customer.ui_preferences or {})
-                _cur_prefs[_ui_key] = _ui_val
-                await db.execute(
-                    text("UPDATE customers SET ui_preferences = CAST(:p AS jsonb) WHERE id = :id"),
-                    {"p": _json.dumps(_cur_prefs), "id": str(customer.id)},
-                )
-                _ui_update = {_ui_key: _ui_val}
-            except Exception as _e:
-                _log.warning("UI-Präferenz konnte nicht gespeichert werden: %s", _e)
+    if marker_result.action_buttons:
+        response_type = "action_buttons"
+        structured_data = {"buttons": marker_result.action_buttons}
 
-    # 7d. Fehlende-Fähigkeit-Marker erkennen und CapabilityRequest erstellen
-    _capability_intent: str | None = None
-    if response_text:
-        _marker_match = re.search(r"\[FÄHIGKEIT_FEHLT:\s*(.+?)\]", response_text, re.IGNORECASE)
-        if _marker_match:
-            _capability_intent = _marker_match.group(1).strip()
-            # Marker aus der Antwort entfernen (Kunde sieht ihn nicht)
-            response_text = re.sub(r"\s*\[FÄHIGKEIT_FEHLT:[^\]]+\]", "", response_text).strip()
-            # Freundlicher Hinweis anhängen
-            response_text += (
-                "\n\nIch habe deine Anfrage notiert und an unser Entwicklungsteam weitergegeben. "
-                "Wir schauen uns das an und melden uns wenn diese Funktion verfügbar ist. 🛠️"
+    _ui_update = marker_result.ui_update
+    if _ui_update:
+        # UI-Präferenz in DB speichern
+        try:
+            import json as _json
+            _cur_prefs = dict(customer.ui_preferences or {})
+            _cur_prefs.update(_ui_update)
+            await db.execute(
+                text("UPDATE customers SET ui_preferences = CAST(:p AS jsonb) WHERE id = :id"),
+                {"p": _json.dumps(_cur_prefs), "id": str(customer.id)},
             )
+        except Exception as _e:
+            _log.warning("UI-Präferenz konnte nicht gespeichert werden: %s", _e)
+
+    _capability_intent = marker_result.capability_intent
 
     # 8. Beide Turns persistieren
     user_msg = ChatMessage(
@@ -438,33 +345,16 @@ async def send_message(
     await db.refresh(assistant_msg)
 
     # 8b. Anonymisierte Analytics speichern (DSG-konform)
-    try:
-        import hashlib
-        from datetime import date
-        _session_hash = hashlib.sha256(customer_id.encode()).hexdigest()[:12]
-        _now = datetime.utcnow()
-        await db.execute(
-            text(
-                "INSERT INTO chat_analytics "
-                "(session_hash, user_message, assistant_message, response_type, tokens_used, language, day, hour_of_day, system_prompt_name, tools_used) "
-                "VALUES (:sh, :um, :am, :rt, :tu, :lang, :day, :hour, :sp, :tools)"
-            ),
-            {
-                "sh": _session_hash,
-                "um": req.message,
-                "am": response_text,
-                "rt": response_type,
-                "tu": tokens_used,
-                "lang": customer.language or "de",
-                "day": _now.date(),
-                "hour": _now.hour,
-                "sp": _system_prompt_name[:100],
-                "tools": ", ".join(_tools_called)[:500] if _tools_called else "",
-            },
-        )
-        await db.commit()
-    except Exception as e:
-        _log.warning("Analytics konnte nicht gespeichert werden: %s", e)
+    await record_analytics(
+        db=db,
+        customer=customer,
+        user_message=req.message,
+        assistant_message=response_text,
+        response_type=response_type,
+        tokens_used=tokens_used,
+        system_prompt_name=_system_prompt_name,
+        tools_used=_tools_called,
+    )
 
     # 9. Token-Quota abrechnen
     if tokens_used > 0:
@@ -582,11 +472,6 @@ async def delete_memory(
         raise HTTPException(status_code=404, detail="Erinnerung nicht gefunden")
     item.is_active = False
     await db.commit()
-
-
-class TTSRequest(BaseModel):
-    text: str
-    voice_id: str | None = None
 
 
 @router.post("/tts")
