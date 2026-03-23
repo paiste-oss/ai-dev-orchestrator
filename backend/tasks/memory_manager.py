@@ -173,6 +173,15 @@ def _run(customer_id: str) -> None:
     except Exception as exc:
         _log.warning("PostgreSQL memory store failed: %s", exc)
 
+    # 6b. Extrahierte Fakten in chat_analytics eintragen (für Admin-Analyse)
+    try:
+        import hashlib
+        _session_hash = hashlib.sha256(customer_id.encode()).hexdigest()[:12]
+        _facts_text = " | ".join(facts[:5])
+        _update_analytics_memory(customer_id, _session_hash, _facts_text)
+    except Exception as exc:
+        _log.warning("Analytics memory update failed: %s", exc)
+
     # 7. Stil-Signale extrahieren (vollständiges Gespräch inkl. Assistent-Reaktionen)
     try:
         from services.memory_vector_store import get_style_memories
@@ -283,6 +292,33 @@ def _extract_facts(conversation: str, model: str, system_prompt: str, existing_f
     except Exception as exc:
         _log.warning("Ollama fact extraction failed: %s", exc)
     return []
+
+
+def _update_analytics_memory(customer_id: str, session_hash: str, facts_text: str) -> None:
+    """Trägt extrahierte Memory-Fakten in die neueste chat_analytics-Zeile ein."""
+    import asyncio
+    asyncio.run(_update_analytics_async(session_hash, facts_text))
+
+
+async def _update_analytics_async(session_hash: str, facts_text: str) -> None:
+    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+    from sqlalchemy import text as sql_text
+
+    engine = create_async_engine(settings.database_url, pool_size=1, max_overflow=0)
+    Session = async_sessionmaker(engine, expire_on_commit=False)
+    async with Session() as db:
+        await db.execute(sql_text("""
+            UPDATE chat_analytics
+            SET memory_facts = :facts
+            WHERE id = (
+                SELECT id FROM chat_analytics
+                WHERE session_hash = :sh
+                ORDER BY created_at DESC
+                LIMIT 1
+            )
+        """), {"facts": facts_text, "sh": session_hash})
+        await db.commit()
+    await engine.dispose()
 
 
 def _save_to_postgres(customer_id: str, facts: list[str], category: str = "fact") -> None:

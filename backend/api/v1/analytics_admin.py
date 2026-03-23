@@ -101,7 +101,10 @@ async def get_messages(
             tokens_used,
             language,
             day::text,
-            hour_of_day
+            hour_of_day,
+            COALESCE(system_prompt_name, 'Standard') AS system_prompt_name,
+            COALESCE(tools_used, '')                  AS tools_used,
+            COALESCE(memory_facts, '')                AS memory_facts
         FROM chat_analytics
         WHERE {where}
         ORDER BY day DESC, hour_of_day DESC

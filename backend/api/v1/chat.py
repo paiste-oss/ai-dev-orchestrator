@@ -232,6 +232,8 @@ async def send_message(
     errors: list[str] = []
     response_type = "text"
     structured_data: dict | None = None
+    _tools_called: list[str] = []  # für Analytics
+    _system_prompt_name: str = baddi_config.get("name") or baddi_config.get("system_prompt_name") or "Standard"
 
     if req.images:
         # Vision: Sonnet, keine Tools
@@ -275,6 +277,8 @@ async def send_message(
             # Bild-URLs + Structured Data aus Tool-Calls extrahieren
             for tc in uhrwerk_result.get("tool_calls", []):
                 tool_name = tc.get("tool")
+                if tool_name:
+                    _tools_called.append(tool_name)
                 result = tc.get("result")
 
                 # Bild-URLs (DALL-E + Unsplash)
@@ -383,8 +387,8 @@ async def send_message(
         await db.execute(
             text(
                 "INSERT INTO chat_analytics "
-                "(session_hash, user_message, assistant_message, response_type, tokens_used, language, day, hour_of_day) "
-                "VALUES (:sh, :um, :am, :rt, :tu, :lang, :day, :hour)"
+                "(session_hash, user_message, assistant_message, response_type, tokens_used, language, day, hour_of_day, system_prompt_name, tools_used) "
+                "VALUES (:sh, :um, :am, :rt, :tu, :lang, :day, :hour, :sp, :tools)"
             ),
             {
                 "sh": _session_hash,
@@ -395,6 +399,8 @@ async def send_message(
                 "lang": customer.language or "de",
                 "day": _now.date(),
                 "hour": _now.hour,
+                "sp": _system_prompt_name[:100],
+                "tools": ", ".join(_tools_called)[:500] if _tools_called else "",
             },
         )
         await db.commit()

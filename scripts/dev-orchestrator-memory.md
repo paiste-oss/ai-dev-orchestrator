@@ -1,11 +1,3 @@
-✓ [2026-03-22 18:24] Es bezieht sich hier im Frontend des Orchestrators. links neben meiner Eingabe k
-Das ist die **Task-Priorität** für den Dev Orchestrator.
-- **P1** = höchste Priorität
-- **P5** = mittel
-- **P10** = Standard (Default)
-- **P20** = niedrigste Priorität
-Wenn du eine Aufgabe sendest, wird der Wert mit `{ title, description, priority }` übergeben. Je nach Backend-Implementierung bestimmt die Priorität, wie dringend/früh eine Task verarbeitet wird — z.B. bei einer Queue mit mehreren parallelen Agents.
----
 ✓ [2026-03-22 19:05] Wenn ich auf dieser Seite des Orchestrator bin, wird verhindert dass ich nach ob
 Fertig. Was jetzt passiert:
 - Wenn du **oben im Verlauf scrollst**, wird `userScrolledUp = true` gesetzt → kein Auto-Scroll mehr nach unten
@@ -34,3 +26,6 @@ Fertig. Logik:
 ---
 ✓ [2026-03-22 22:13] Bitte füge auf der Chat Seite einen Button ein, der Zurück heisst und auf die Ad
 Fertig. Im Chat-Header erscheint jetzt ein "← Zurück"-Button, der nur für Admin-User sichtbar ist und direkt zur Admin-Seite navigiert.
+---
+✓ [2026-03-22 22:14] Bitte pushen
+Gepusht. Commit: `feat: Zurück-Button im Chat-Header für Admin-User`

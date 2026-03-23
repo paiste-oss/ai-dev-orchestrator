@@ -182,6 +182,10 @@ async def init_db():
             )""",
             "CREATE INDEX IF NOT EXISTS idx_chat_analytics_day ON chat_analytics(day DESC)",
             "CREATE INDEX IF NOT EXISTS idx_chat_analytics_session ON chat_analytics(session_hash)",
+            # Spalten für System-Prompt-Name und genutzte Tools (nachträgliche Migration)
+            "ALTER TABLE chat_analytics ADD COLUMN IF NOT EXISTS system_prompt_name VARCHAR(100) DEFAULT 'Standard'",
+            "ALTER TABLE chat_analytics ADD COLUMN IF NOT EXISTS tools_used VARCHAR(500) DEFAULT ''",
+            "ALTER TABLE chat_analytics ADD COLUMN IF NOT EXISTS memory_facts TEXT DEFAULT ''",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

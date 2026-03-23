@@ -35,6 +35,9 @@ interface Message {
   language: string;
   day: string;
   hour_of_day: number;
+  system_prompt_name: string;
+  tools_used: string;
+  memory_facts: string;
 }
 
 const PERIOD_OPTIONS = [7, 14, 30, 90];
@@ -263,42 +266,89 @@ export default function AnalyticsPage() {
             </div>
           </div>
 
+          {/* Grid-Header (Desktop) */}
+          <div className="hidden md:grid grid-cols-[2fr_1fr_1fr_2fr] gap-0 border-b border-white/5">
+            {["Eingabe (anonym)", "System Prompt · Zeit", "Tools / Workflow", "Antwort Baddi"].map((h, i) => (
+              <div key={i} className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-widest text-gray-600">
+                {h}
+              </div>
+            ))}
+          </div>
+
           <div className="divide-y divide-white/5">
             {messages.map(msg => (
-              <div key={msg.id} className="px-5 py-4">
-                <div
-                  className="flex items-start justify-between gap-4 cursor-pointer"
-                  onClick={() => setExpanded(expanded === msg.id ? null : msg.id)}
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white truncate">{msg.user_message}</p>
-                    {expanded !== msg.id && (
-                      <p className="text-xs text-gray-500 truncate mt-0.5">{msg.assistant_message}</p>
-                    )}
+              <div
+                key={msg.id}
+                className="cursor-pointer hover:bg-white/[0.02] transition-colors"
+                onClick={() => setExpanded(expanded === msg.id ? null : msg.id)}
+              >
+                {/* Grid-Zeile */}
+                <div className="md:grid md:grid-cols-[2fr_1fr_1fr_2fr] gap-0 px-0">
+
+                  {/* Spalte 1: Eingabe + Tag/Stunde */}
+                  <div className="px-4 py-4 min-w-0">
+                    <p className={`text-sm text-white ${expanded !== msg.id ? "line-clamp-2" : "whitespace-pre-wrap"}`}>
+                      {msg.user_message}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className="text-[10px] text-gray-600 font-mono">{msg.day}</span>
+                      <span className="text-[10px] text-gray-600">{msg.hour_of_day}:00 Uhr</span>
+                      <span className="text-[10px] font-mono text-gray-700">{msg.session_hash}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0 text-xs text-gray-500">
+
+                  {/* Spalte 2: System Prompt */}
+                  <div className="px-4 py-4 min-w-0 flex flex-col justify-start gap-1.5">
+                    <span className="inline-block text-xs text-indigo-300 bg-indigo-500/10 rounded-lg px-2.5 py-1 font-medium truncate max-w-full">
+                      {msg.system_prompt_name || "Standard"}
+                    </span>
                     <span
-                      className="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                      className="inline-block text-[10px] px-2 py-0.5 rounded-full font-medium w-fit"
                       style={{ background: rtColor(msg.response_type) + "22", color: rtColor(msg.response_type) }}
                     >
                       {msg.response_type}
                     </span>
-                    <span>{msg.tokens_used} tok</span>
-                    <span>{msg.day} {msg.hour_of_day}h</span>
-                    <span className="font-mono text-gray-600">{msg.session_hash}</span>
-                    <span className="text-gray-600">{expanded === msg.id ? "▲" : "▼"}</span>
+                    <span className="text-[10px] text-gray-600">{msg.tokens_used} Tokens</span>
+                  </div>
+
+                  {/* Spalte 3: Tools */}
+                  <div className="px-4 py-4 min-w-0">
+                    {msg.tools_used ? (
+                      <div className="flex flex-wrap gap-1">
+                        {msg.tools_used.split(",").map((t, i) => (
+                          <span key={i} className="text-[10px] bg-amber-500/10 text-amber-400 rounded px-2 py-0.5 font-mono">
+                            {t.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-gray-700">—</span>
+                    )}
+                  </div>
+
+                  {/* Spalte 4: Antwort */}
+                  <div className="px-4 py-4 min-w-0">
+                    <p className={`text-sm text-gray-300 ${expanded !== msg.id ? "line-clamp-3" : "whitespace-pre-wrap"}`}>
+                      {msg.assistant_message}
+                    </p>
+                    <span className="text-[10px] text-gray-700 mt-1 block">
+                      {expanded === msg.id ? "▲ einklappen" : "▼ aufklappen"}
+                    </span>
                   </div>
                 </div>
 
-                {expanded === msg.id && (
-                  <div className="mt-4 space-y-3">
-                    <div className="bg-gray-900/60 rounded-xl p-4">
-                      <p className="text-[10px] text-indigo-400 uppercase tracking-widest mb-2">Frage</p>
-                      <p className="text-sm text-gray-200 whitespace-pre-wrap">{msg.user_message}</p>
-                    </div>
-                    <div className="bg-gray-900/60 rounded-xl p-4">
-                      <p className="text-[10px] text-emerald-400 uppercase tracking-widest mb-2">Antwort</p>
-                      <p className="text-sm text-gray-200 whitespace-pre-wrap">{msg.assistant_message}</p>
+                {/* Memory-Facts (nur wenn aufgeklappt und vorhanden) */}
+                {expanded === msg.id && msg.memory_facts && (
+                  <div className="mx-4 mb-4 px-4 py-3 bg-purple-500/8 border border-purple-500/20 rounded-xl">
+                    <p className="text-[10px] text-purple-400 uppercase tracking-widest mb-2 font-semibold">
+                      Memory Manager — ins Langzeitgedächtnis gelegt
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {msg.memory_facts.split(" | ").filter(Boolean).map((fact, i) => (
+                        <span key={i} className="text-xs text-purple-200 bg-purple-500/10 rounded-lg px-2.5 py-1">
+                          {fact}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 )}
