@@ -72,6 +72,9 @@ services:
       - STRIPE_PRICE_STORAGE_10GB=${STRIPE_PRICE_STORAGE_10GB}
       - STRIPE_PRICE_STORAGE_50GB=${STRIPE_PRICE_STORAGE_50GB}
       - STRIPE_PRICE_STORAGE_500GB=${STRIPE_PRICE_STORAGE_500GB}
+      # Browserless.io — Web Automation
+      - BROWSERLESS_TOKEN=${BROWSERLESS_TOKEN}
+      - BROWSERLESS_URL=${BROWSERLESS_URL}
     extra_hosts:
       - "host.docker.internal:host-gateway"   # Ollama auf dem Host erreichbar
     depends_on:
