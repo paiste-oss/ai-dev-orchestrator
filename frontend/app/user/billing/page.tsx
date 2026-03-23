@@ -3,10 +3,11 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSession, getToken } from "@/lib/auth";
+import CurrentPlanCard from "@/components/user/billing/CurrentPlanCard";
+import PlanGrid from "@/components/user/billing/PlanGrid";
+import BillingHistory from "@/components/user/billing/BillingHistory";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
-// ── Typen ─────────────────────────────────────────────────────────────────────
 
 interface Plan {
   id: string;
@@ -49,133 +50,21 @@ interface Invoice {
   paid_at: string | null;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function authHeaders() {
   return { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" };
 }
-
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
-  return `${n}`;
-}
-
-function statusColor(s: string) {
-  if (s === "active") return "text-green-400 bg-green-400/10 border-green-400/20";
-  if (s === "trialing") return "text-blue-400 bg-blue-400/10 border-blue-400/20";
-  if (s === "past_due") return "text-yellow-400 bg-yellow-400/10 border-yellow-400/20";
-  if (s === "canceled") return "text-red-400 bg-red-400/10 border-red-400/20";
-  return "text-gray-400 bg-gray-400/10 border-gray-400/20";
-}
-
-function statusLabel(s: string) {
-  const map: Record<string, string> = {
-    active: "Aktiv",
-    trialing: "Testphase",
-    past_due: "Zahlung ausstehend",
-    canceled: "Gekündigt",
-    inactive: "Kein Abo",
-  };
-  return map[s] ?? s;
-}
-
-// ── Plan-Karte ────────────────────────────────────────────────────────────────
-
-function PlanCard({
-  plan,
-  isCurrentPlan,
-  cycle,
-  onSelect,
-  loading,
-}: {
-  plan: Plan;
-  isCurrentPlan: boolean;
-  cycle: "monthly" | "yearly";
-  onSelect: () => void;
-  loading: boolean;
-}) {
-  const price = cycle === "yearly" ? plan.yearly_monthly_equivalent : plan.monthly_price;
-  const highlights = plan.features?.highlights ?? [];
-
-  return (
-    <div className={`
-      relative rounded-2xl border p-5 flex flex-col gap-4 transition-all
-      ${isCurrentPlan
-        ? "border-blue-500/60 bg-blue-500/5 shadow-lg shadow-blue-500/10"
-        : "border-white/10 bg-white/2 hover:border-white/20"}
-    `}>
-      {isCurrentPlan && (
-        <span className="absolute -top-2.5 left-4 text-[10px] font-bold bg-blue-500 text-white px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-          Dein Plan
-        </span>
-      )}
-
-      <div>
-        <p className="text-base font-bold text-white">{plan.name}</p>
-        <div className="flex items-baseline gap-1 mt-1">
-          <span className="text-2xl font-black text-white">CHF {price.toFixed(2)}</span>
-          <span className="text-xs text-gray-500">/Monat</span>
-        </div>
-        {cycle === "yearly" && plan.yearly_discount_percent > 0 && (
-          <p className="text-xs text-green-400 mt-0.5">
-            −{plan.yearly_discount_percent}% bei Jahresabo (CHF {plan.yearly_price.toFixed(2)}/Jahr)
-          </p>
-        )}
-      </div>
-
-      <ul className="space-y-1.5 flex-1">
-        <li className="flex items-center gap-2 text-xs text-gray-300">
-          <span className="text-blue-400">✓</span>
-          {formatTokens(plan.included_tokens)} Tokens/Monat inklusive
-        </li>
-        <li className="flex items-center gap-2 text-xs text-gray-400">
-          <span className="text-gray-600">·</span>
-          Overage: CHF {(plan.token_overage_chf_per_1k * 100).toFixed(2)}/100k Tokens
-        </li>
-        <li className="flex items-center gap-2 text-xs text-gray-300">
-          <span className="text-blue-400">✓</span>
-          Bis zu {plan.max_buddies} {plan.max_buddies === 1 ? "Baddi" : "Baddis"}
-        </li>
-        {highlights.map((h) => (
-          <li key={h} className="flex items-center gap-2 text-xs text-gray-300">
-            <span className="text-blue-400">✓</span>
-            {h}
-          </li>
-        ))}
-      </ul>
-
-      <button
-        onClick={onSelect}
-        disabled={loading || isCurrentPlan}
-        className={`
-          w-full py-2.5 rounded-xl text-xs font-semibold transition-all border
-          ${isCurrentPlan
-            ? "border-blue-500/30 text-blue-400 cursor-default"
-            : "border-white/10 bg-white/5 text-white hover:bg-blue-500 hover:border-blue-500"}
-          disabled:opacity-50
-        `}
-      >
-        {isCurrentPlan ? "Aktueller Plan" : `${plan.name} wählen`}
-      </button>
-    </div>
-  );
-}
-
-// ── Hauptseite ────────────────────────────────────────────────────────────────
 
 function BillingPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [status, setStatus] = useState<BillingStatus | null>(null);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [cycle, setCycle] = useState<"monthly" | "yearly">("monthly");
-  const [loading, setLoading] = useState(false);
-  const [topupAmount, setTopupAmount] = useState("20");
-  const [tosChecked, setTosChecked] = useState(false);
-  const [alert, setAlert] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [plans,        setPlans]        = useState<Plan[]>([]);
+  const [status,       setStatus]       = useState<BillingStatus | null>(null);
+  const [invoices,     setInvoices]     = useState<Invoice[]>([]);
+  const [loading,      setLoading]      = useState(false);
+  const [topupAmount,  setTopupAmount]  = useState("20");
+  const [tosChecked,   setTosChecked]   = useState(false);
+  const [alert,        setAlert]        = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const token = getToken();
 
@@ -196,12 +85,10 @@ function BillingPageInner() {
     const user = getSession();
     if (!user) { router.replace("/login"); return; }
     load();
-
-    // Checkout-Rückleitung auswerten
     const s = searchParams.get("status");
-    if (s === "success") setAlert({ type: "success", text: "Zahlung erfolgreich! Dein Abo ist jetzt aktiv." });
+    if (s === "success")       setAlert({ type: "success", text: "Zahlung erfolgreich! Dein Abo ist jetzt aktiv." });
     if (s === "topup_success") setAlert({ type: "success", text: "Guthaben erfolgreich aufgeladen!" });
-    if (s === "canceled") setAlert({ type: "error", text: "Zahlung abgebrochen." });
+    if (s === "canceled")      setAlert({ type: "error",   text: "Zahlung abgebrochen." });
   }, [load, router, searchParams]);
 
   async function acceptTos() {
@@ -209,7 +96,7 @@ function BillingPageInner() {
     await load();
   }
 
-  async function startCheckout(planSlug: string) {
+  async function startCheckout(planSlug: string, cycle: "monthly" | "yearly") {
     if (!status?.tos_accepted) {
       setAlert({ type: "error", text: "Bitte akzeptiere zuerst die Nutzungsbedingungen." });
       return;
@@ -227,9 +114,7 @@ function BillingPageInner() {
       } else {
         setAlert({ type: "error", text: data.detail ?? "Fehler beim Checkout." });
       }
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
   async function startTopup() {
@@ -251,9 +136,7 @@ function BillingPageInner() {
       } else {
         setAlert({ type: "error", text: data.detail ?? "Fehler beim Aufladen." });
       }
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
   async function openPortal() {
@@ -265,14 +148,9 @@ function BillingPageInner() {
       });
       const data = await r.json();
       if (data.portal_url) window.location.href = data.portal_url;
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
-  const tokenPct = status
-    ? Math.min(100, (status.tokens_used_this_period / Math.max(1, status.tokens_included)) * 100)
-    : 0;
   const isActive = status?.subscription_status === "active" || status?.subscription_status === "trialing";
 
   return (
@@ -310,41 +188,7 @@ function BillingPageInner() {
 
         {/* Status-Übersicht */}
         {status && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white/3 border border-white/8 rounded-2xl p-4 space-y-1">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Aktueller Plan</p>
-              <p className="text-base font-bold text-white">{status.plan_name ?? "Kein Abo"}</p>
-              <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusColor(status.subscription_status)}`}>
-                {statusLabel(status.subscription_status)}
-              </span>
-            </div>
-            <div className="bg-white/3 border border-white/8 rounded-2xl p-4 space-y-2">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Tokens diesen Monat</p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-base font-bold text-white">{formatTokens(status.tokens_used_this_period)}</span>
-                <span className="text-xs text-gray-600">/ {formatTokens(status.tokens_included)}</span>
-              </div>
-              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all ${tokenPct > 90 ? "bg-red-500" : tokenPct > 70 ? "bg-yellow-500" : "bg-blue-500"}`}
-                  style={{ width: `${tokenPct}%` }}
-                />
-              </div>
-            </div>
-            <div className="bg-white/3 border border-white/8 rounded-2xl p-4 space-y-2">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Prepaid-Guthaben</p>
-              <p className="text-base font-bold text-white">CHF {status.token_balance_chf.toFixed(2)}</p>
-              <p className="text-xs text-gray-600">
-                Overage: CHF {(status.overage_rate_chf_per_1k * 100).toFixed(2)}/100k Tokens
-              </p>
-              <button
-                onClick={() => router.push("/user/wallet")}
-                className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
-              >
-                Wallet verwalten →
-              </button>
-            </div>
-          </div>
+          <CurrentPlanCard status={status} loading={loading} onOpenPortal={openPortal} />
         )}
 
         {/* ToS-Akzeptanz */}
@@ -378,43 +222,13 @@ function BillingPageInner() {
         )}
 
         {/* Plan-Auswahl */}
-        <section className="space-y-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-white">Abonnement wählen</h2>
-            {/* Monatlich / Jährlich Toggle */}
-            <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-0.5">
-              {(["monthly", "yearly"] as const).map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setCycle(c)}
-                  className={`text-xs px-4 py-1.5 rounded-lg font-medium transition-all ${
-                    cycle === c ? "bg-blue-500 text-white shadow" : "text-gray-400 hover:text-white"
-                  }`}
-                >
-                  {c === "monthly" ? "Monatlich" : "Jährlich"}
-                  {c === "yearly" && <span className="ml-1.5 text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">−20%</span>}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {plans.map((plan) => (
-              <PlanCard
-                key={plan.id}
-                plan={plan}
-                isCurrentPlan={status?.plan_slug === plan.slug && status?.subscription_status === "active"}
-                cycle={cycle}
-                onSelect={() => startCheckout(plan.slug)}
-                loading={loading}
-              />
-            ))}
-          </div>
-
-          <p className="text-xs text-gray-600 text-center">
-            Alle Preise inkl. 8.1% MwSt · Monatlich kündbar · Sichere Zahlung via Stripe
-          </p>
-        </section>
+        <PlanGrid
+          plans={plans}
+          currentPlanSlug={status?.plan_slug ?? null}
+          currentStatus={status?.subscription_status ?? ""}
+          loading={loading}
+          onSelectPlan={startCheckout}
+        />
 
         {/* Guthaben aufladen */}
         {isActive && (
@@ -456,52 +270,7 @@ function BillingPageInner() {
         )}
 
         {/* Rechnungshistorie */}
-        {invoices.length > 0 && (
-          <section className="space-y-4">
-            <h2 className="text-sm font-semibold text-white">Rechnungen</h2>
-            <div className="rounded-2xl border border-white/8 overflow-hidden">
-              <table className="w-full text-xs">
-                <thead className="bg-white/3 border-b border-white/8">
-                  <tr>
-                    <th className="text-left text-gray-500 font-medium px-4 py-3">Rechnungs-Nr.</th>
-                    <th className="text-left text-gray-500 font-medium px-4 py-3">Beschreibung</th>
-                    <th className="text-right text-gray-500 font-medium px-4 py-3">Betrag inkl. MwSt</th>
-                    <th className="text-right text-gray-500 font-medium px-4 py-3">Status</th>
-                    <th className="text-right text-gray-500 font-medium px-4 py-3">Datum</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {invoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-white/2 transition-colors">
-                      <td className="px-4 py-3 text-gray-400 font-mono">
-                        {inv.invoice_number ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 text-gray-300">{inv.description}</td>
-                      <td className="px-4 py-3 text-right text-white font-medium">
-                        CHF {inv.amount_chf.toFixed(2)}
-                        <span className="text-gray-600 ml-1">(inkl. {inv.vat_chf.toFixed(2)} MwSt)</span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className={`px-2 py-0.5 rounded-full border text-[10px] font-semibold
-                          ${inv.status === "succeeded" ? "text-green-400 bg-green-400/10 border-green-400/20"
-                          : inv.status === "failed" ? "text-red-400 bg-red-400/10 border-red-400/20"
-                          : "text-gray-400 bg-gray-400/10 border-gray-400/20"}`}>
-                          {inv.status === "succeeded" ? "Bezahlt" : inv.status === "failed" ? "Fehlgeschlagen" : inv.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-500">
-                        {new Date(inv.paid_at ?? inv.created_at).toLocaleDateString("de-CH")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="text-xs text-gray-700">
-              Rechnungen werden 10 Jahre aufbewahrt (OR Art. 958f). Bei Fragen: support@baddi.ch
-            </p>
-          </section>
-        )}
+        <BillingHistory invoices={invoices} />
 
       </div>
     </div>
