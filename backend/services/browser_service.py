@@ -27,7 +27,7 @@ _SESSION_TTL = 60 * 30  # 30 Minuten
 # ── Puppeteer-Snippets ─────────────────────────────────────────────────────────
 
 _PUPPETEER_BASE = """
-module.exports = async ({ page, context }) => {
+export default async ({ page, context }) => {
   const { url, cookies, action } = context;
 
   // Viewport setzen
@@ -45,24 +45,23 @@ module.exports = async ({ page, context }) => {
   } else if (action.type === 'click') {
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 });
     await page.mouse.click(action.x, action.y);
-    await page.waitForTimeout(1500);
+    await new Promise(r => setTimeout(r, 1500));
 
   } else if (action.type === 'type') {
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 });
     await page.keyboard.type(action.text, { delay: 40 });
     if (action.submit) {
       await page.keyboard.press('Enter');
-      await page.waitForTimeout(2000);
+      await new Promise(r => setTimeout(r, 2000));
     }
 
   } else if (action.type === 'scroll') {
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 });
     const delta = action.direction === 'down' ? 600 : -600;
     await page.evaluate((d) => window.scrollBy(0, d), delta);
-    await page.waitForTimeout(500);
+    await new Promise(r => setTimeout(r, 500));
 
   } else {
-    // Nur Screenshot (kein Goto nötig wenn URL gleich)
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 });
   }
 
@@ -128,6 +127,7 @@ async def browser_action(customer_id: str, action: dict) -> dict:
         async with httpx.AsyncClient(timeout=35.0) as client:
             resp = await client.post(
                 f"{settings.browserless_url}/function",
+                headers={"Authorization": f"Bearer {settings.browserless_token}"},
                 params={"token": settings.browserless_token},
                 json=payload,
             )
