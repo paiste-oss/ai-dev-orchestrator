@@ -62,7 +62,7 @@ async def update_preferences(
     current.update(update)
 
     await db.execute(
-        text("UPDATE customers SET ui_preferences = :prefs::jsonb WHERE id = :id"),
+        text("UPDATE customers SET ui_preferences = CAST(:prefs AS jsonb) WHERE id = :id"),
         {"prefs": __import__("json").dumps(current), "id": str(customer.id)},
     )
     await db.commit()

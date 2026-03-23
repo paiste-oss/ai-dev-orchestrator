@@ -401,7 +401,7 @@ async def send_message(
                 _cur_prefs = dict(customer.ui_preferences or {})
                 _cur_prefs[_ui_key] = _ui_val
                 await db.execute(
-                    text("UPDATE customers SET ui_preferences = :p::jsonb WHERE id = :id"),
+                    text("UPDATE customers SET ui_preferences = CAST(:p AS jsonb) WHERE id = :id"),
                     {"p": _json.dumps(_cur_prefs), "id": str(customer.id)},
                 )
                 _ui_update = {_ui_key: _ui_val}
