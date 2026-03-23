@@ -229,17 +229,18 @@ async def send_message(
     _lang_label = _lang_map.get(_language, "Deutsch")
 
     system_parts.append(
-        f"\nUI-ANPASSUNG: Der Kunde kann das Chat-Fenster per Spracheingabe anpassen. "
-        f"Wenn er etwas anpassen möchte (Schrift, Farbe, Hintergrund, Sprache, deinen Namen), "
-        f"antworte kurz bestätigend und füge am Ende exakt einen dieser Marker ein:\n"
-        f"[UI: fontSize=small] [UI: fontSize=normal] [UI: fontSize=large] [UI: fontSize=xlarge]\n"
-        f"[UI: accentColor=indigo] [UI: accentColor=purple] [UI: accentColor=green] [UI: accentColor=orange] [UI: accentColor=pink]\n"
-        f"[UI: background=dark] [UI: background=darker] [UI: background=lighter]\n"
-        f"[UI: lineSpacing=compact] [UI: lineSpacing=normal] [UI: lineSpacing=wide]\n"
-        f"[UI: language=de] [UI: language=en] [UI: language=fr] [UI: language=it]\n"
-        f"[UI: buddyName=<Name>] — ersetze <Name> durch den gewünschten Namen (max. 30 Zeichen)\n"
-        f"Nur EINEN Marker pro Antwort. Marker sind unsichtbar für den Kunden.\n"
-        f"Aktueller Name: {_buddy_name} | Aktuelle Sprache: {_lang_label}"
+        f"\nCHAT-DESIGN — ECHTE FÄHIGKEIT (WICHTIG): Du kannst das Aussehen dieses Chats direkt steuern! "
+        f"Wenn der Kunde nach Schriftgrösse, Farbe, Hintergrund, Zeilenabstand, Sprache oder deinem Namen fragt, "
+        f"bestätige KURZ und füge ZWINGEND am Ende einen dieser unsichtbaren Marker ein — das System setzt die Änderung sofort um:\n\n"
+        f"Schriftgrösse: [UI: fontSize=small] [UI: fontSize=normal] [UI: fontSize=large] [UI: fontSize=xlarge]\n"
+        f"Farbe: [UI: accentColor=indigo] [UI: accentColor=purple] [UI: accentColor=green] [UI: accentColor=orange] [UI: accentColor=pink]\n"
+        f"Hintergrund: [UI: background=dark] [UI: background=darker] [UI: background=lighter]\n"
+        f"Zeilenabstand: [UI: lineSpacing=compact] [UI: lineSpacing=normal] [UI: lineSpacing=wide]\n"
+        f"Sprache: [UI: language=de] [UI: language=en] [UI: language=fr] [UI: language=it]\n"
+        f"Dein Name: [UI: buddyName=NeuerName]\n\n"
+        f"WICHTIG: Sage NIEMALS 'Ich kann das nicht' — du KANNST es, indem du den Marker setzt. "
+        f"Nur EINEN Marker pro Antwort. Der Marker ist für den Kunden unsichtbar.\n"
+        f"Aktuell: Name={_buddy_name}, Sprache={_lang_label}, Schrift={_ui_prefs.get('fontSize','normal')}"
     )
 
     system_parts.append(
