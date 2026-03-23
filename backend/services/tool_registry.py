@@ -740,6 +740,85 @@ async def _handle_unsplash(tool_name: str, tool_input: dict) -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Browser (Browserless.io)
+# ---------------------------------------------------------------------------
+
+BROWSER_TOOL_DEFS = [
+    {
+        "name": "browser",
+        "description": (
+            "Öffnet Webseiten im Browser und steuert diese interaktiv. "
+            "Nutze dieses Tool wenn der Nutzer eine Website besuchen, etwas suchen, "
+            "auf Buttons klicken, Formulare ausfüllen oder eine Seite bedienen möchte. "
+            "Gibt einen Screenshot der aktuellen Seite zurück. "
+            "Die Session bleibt zwischen Nachrichten erhalten — du kannst mehrere Schritte machen. "
+            "Für Klicks: schätze die x/y-Koordinaten anhand des letzten Screenshots (Viewport: 1280×720)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["navigate", "click", "type", "scroll", "screenshot"],
+                    "description": "Aktion: navigate=URL öffnen, click=klicken, type=Text eingeben, scroll=scrollen, screenshot=aktuellen Stand zeigen",
+                },
+                "url": {
+                    "type": "string",
+                    "description": "URL für 'navigate' (z.B. 'https://ricardo.ch')",
+                },
+                "x": {
+                    "type": "integer",
+                    "description": "X-Koordinate für 'click' (Pixel von links, 0–1280)",
+                },
+                "y": {
+                    "type": "integer",
+                    "description": "Y-Koordinate für 'click' (Pixel von oben, 0–720)",
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Text für 'type' — wird an der aktuellen Cursorposition eingegeben",
+                },
+                "submit": {
+                    "type": "boolean",
+                    "description": "Bei 'type': Enter drücken nach der Eingabe (z.B. für Suche). Standard: false",
+                },
+                "direction": {
+                    "type": "string",
+                    "enum": ["down", "up"],
+                    "description": "Richtung für 'scroll'. Standard: down",
+                },
+            },
+            "required": ["action"],
+        },
+    },
+]
+
+
+async def _handle_browser(tool_name: str, tool_input: dict, customer_id: str | None = None) -> Any:
+    if not customer_id:
+        return {"error": "Kunden-ID fehlt."}
+    if not settings.browserless_token:
+        return {"error": "Browser-Tool nicht konfiguriert (BROWSERLESS_TOKEN fehlt)."}
+
+    from services.browser_service import browser_action
+
+    action = {"type": tool_input.get("action", "screenshot")}
+    if action["type"] == "navigate":
+        action["url"] = tool_input.get("url", "")
+    elif action["type"] == "click":
+        action["x"] = tool_input.get("x", 640)
+        action["y"] = tool_input.get("y", 360)
+    elif action["type"] == "type":
+        action["text"] = tool_input.get("text", "")
+        action["submit"] = tool_input.get("submit", False)
+    elif action["type"] == "scroll":
+        action["direction"] = tool_input.get("direction", "down")
+
+    result = await browser_action(customer_id, action)
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Tool-Katalog
 # ---------------------------------------------------------------------------
 
@@ -820,6 +899,18 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_defs": STOCK_ALERT_TOOL_DEFS,
         "tool_names": {"create_stock_alert", "list_stock_alerts", "delete_stock_alert"},
         "handler": _handle_stock_alerts,
+        "needs_customer_id": True,
+    },
+    "browser": {
+        "key": "browser",
+        "name": "Web-Browser (Browserless.io)",
+        "description": "Öffnet Webseiten und steuert den Browser interaktiv. Kunden können Seiten besuchen, suchen, klicken und Formulare ausfüllen.",
+        "prompt_hint": "Webseiten im Browser öffnen und bedienen — navigieren, klicken, tippen, scrollen",
+        "category": "productivity",
+        "tier": "pro",
+        "tool_defs": BROWSER_TOOL_DEFS,
+        "tool_names": {"browser"},
+        "handler": _handle_browser,
         "needs_customer_id": True,
     },
 }

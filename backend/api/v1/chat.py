@@ -314,6 +314,14 @@ async def send_message(
                 elif tool_name == "sbb_stationboard" and isinstance(result, dict) and "departures" in result:
                     response_type = "transport_board"
                     structured_data = result
+
+                elif tool_name == "browser" and isinstance(result, dict) and result.get("screenshot_b64"):
+                    response_type = "browser_view"
+                    structured_data = {
+                        "screenshot_b64": result["screenshot_b64"],
+                        "url": result.get("url", ""),
+                        "error": result.get("error"),
+                    }
         except Exception as e:
             errors.append(f"Uhrwerk: {e}")
 

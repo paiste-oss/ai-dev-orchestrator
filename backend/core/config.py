@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     elevenlabs_api_key: str = ""
     elevenlabs_voice_id: str = "EXAVITQu4vr4xnSDxMaL"  # "Sarah" — Standard-Stimme
 
+    # Browserless.io — Web Automation
+    browserless_token: str = ""
+    browserless_url: str = "https://chrome.browserless.io"
+
     # Exa Web Search
     exa_api_key: str = ""
 
