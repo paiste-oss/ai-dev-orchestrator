@@ -92,6 +92,9 @@ class Customer(Base):
     auto_topup_amount_chf: Mapped[float] = mapped_column(Numeric(10, 2), default=20.0)        # Betrag pro Nachzahlung
     stripe_payment_method_id: Mapped[str | None] = mapped_column(String(100), nullable=True)  # gespeicherte Karte für Auto-Topup
 
+    # UI-Präferenzen (Schriftgrösse, Farbe, Sprache, Buddy-Name)
+    ui_preferences: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=dict)
+
     subscription_plan: Mapped["SubscriptionPlan | None"] = relationship(back_populates="customers")
     buddies: Mapped[list["AiBuddy"]] = relationship(back_populates="customer")  # type: ignore
     credentials: Mapped[list["CustomerCredential"]] = relationship(back_populates="customer", cascade="all, delete-orphan")  # type: ignore
