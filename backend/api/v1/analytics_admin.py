@@ -83,7 +83,7 @@ async def get_messages(
 ):
     """Paginierte Liste der anonymisierten Q&A-Paare."""
     filters = ["day >= NOW() - (:days || ' days')::INTERVAL"]
-    params: dict = {"days": days, "limit": limit, "offset": offset}
+    params: dict = {"days": str(days), "limit": limit, "offset": offset}
 
     if response_type:
         filters.append("response_type = :rt")
