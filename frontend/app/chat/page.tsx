@@ -400,6 +400,10 @@ export default function ChatPage() {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [uiPrefs, setUiPrefs] = useState({
+    fontSize: "normal", accentColor: "indigo", background: "dark",
+    lineSpacing: "normal", language: "de", buddyName: "Baddi",
+  });
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -415,6 +419,7 @@ export default function ChatPage() {
     if (!user) { router.replace("/login"); return; }
     loadHistory();
     loadMemories();
+    loadPreferences();
   }, []);
 
   useEffect(() => {
@@ -430,6 +435,16 @@ export default function ChatPage() {
     } catch { /* ignore */ } finally {
       setHistoryLoaded(true);
     }
+  }
+
+  async function loadPreferences() {
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/user/preferences`);
+      if (res.ok) {
+        const prefs = await res.json();
+        setUiPrefs(p => ({ ...p, ...prefs }));
+      }
+    } catch { /* ignore */ }
   }
 
   async function loadMemories() {
@@ -730,6 +745,7 @@ export default function ChatPage() {
       };
       setLastProvider(data.provider);
       setMessages(prev => [...prev, assistantMsg]);
+      if (data.ui_update) setUiPrefs(p => ({ ...p, ...data.ui_update }));
       speak(stripMarkdown(data.response));
       setTimeout(loadMemories, 4000);
     } catch (err: unknown) {
@@ -768,8 +784,24 @@ export default function ChatPage() {
     setInput(prev => prev ? `${prev} ${text}` : text);
   }, []);
 
+  // UI-Präferenzen → CSS-Variablen
+  const FONT_SIZES: Record<string, string> = { small: "13px", normal: "15px", large: "17px", xlarge: "20px" };
+  const ACCENT_COLORS: Record<string, string> = {
+    indigo: "#6366f1", purple: "#a855f7", green: "#22c55e", orange: "#f97316", pink: "#ec4899",
+  };
+  const BG_COLORS: Record<string, string> = { dark: "#030712", darker: "#000000", lighter: "#111827" };
+  const LINE_SPACINGS: Record<string, string> = { compact: "1.4", normal: "1.6", wide: "2.0" };
+
+  const uiStyle: React.CSSProperties = {
+    fontSize: FONT_SIZES[uiPrefs.fontSize] ?? "15px",
+    "--accent": ACCENT_COLORS[uiPrefs.accentColor] ?? "#6366f1",
+    "--accent-dim": (ACCENT_COLORS[uiPrefs.accentColor] ?? "#6366f1") + "22",
+    backgroundColor: BG_COLORS[uiPrefs.background] ?? "#030712",
+    lineHeight: LINE_SPACINGS[uiPrefs.lineSpacing] ?? "1.6",
+  } as React.CSSProperties;
+
   return (
-    <div className="flex flex-col h-screen bg-gray-950 text-white">
+    <div className="flex flex-col h-screen text-white" style={uiStyle}>
 
       {/* ── Header ── */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900/80 backdrop-blur shrink-0">

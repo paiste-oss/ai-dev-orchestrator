@@ -186,6 +186,8 @@ async def init_db():
             "ALTER TABLE chat_analytics ADD COLUMN IF NOT EXISTS system_prompt_name VARCHAR(100) DEFAULT 'Standard'",
             "ALTER TABLE chat_analytics ADD COLUMN IF NOT EXISTS tools_used VARCHAR(500) DEFAULT ''",
             "ALTER TABLE chat_analytics ADD COLUMN IF NOT EXISTS memory_facts TEXT DEFAULT ''",
+            # UI-Präferenzen pro Kunde (Schriftgrösse, Farbe, Sprache, Buddy-Name)
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS ui_preferences JSONB DEFAULT '{}'::jsonb",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

@@ -93,6 +93,7 @@ class ChatResponse(BaseModel):
     image_urls: list[str] | None = None
     response_type: str = "text"
     structured_data: dict | None = None
+    ui_update: dict | None = None  # z.B. {"fontSize": "large"}
 
 
 class MessageOut(BaseModel):
@@ -217,6 +218,33 @@ async def send_message(
         "Diesen Marker NICHT verwenden für physisch unmögliche Dinge (z.B. 'flieg für mich') "
         "oder reine Wissensfragen. Nur für digitale Aktionen die man bauen könnte. "
         "Dieser Marker ist nur für das System, der Kunde sieht ihn nicht."
+    )
+
+    # UI-Präferenzen laden und in System-Prompt einfügen
+    _ui_prefs: dict = customer.ui_preferences or {}
+    _buddy_name = _ui_prefs.get("buddyName", "Baddi")
+    _language = _ui_prefs.get("language", "de")
+
+    _lang_map = {"de": "Deutsch", "en": "Englisch", "fr": "Französisch", "it": "Italienisch"}
+    _lang_label = _lang_map.get(_language, "Deutsch")
+
+    system_parts.append(
+        f"\nUI-ANPASSUNG: Der Kunde kann das Chat-Fenster per Spracheingabe anpassen. "
+        f"Wenn er etwas anpassen möchte (Schrift, Farbe, Hintergrund, Sprache, deinen Namen), "
+        f"antworte kurz bestätigend und füge am Ende exakt einen dieser Marker ein:\n"
+        f"[UI: fontSize=small] [UI: fontSize=normal] [UI: fontSize=large] [UI: fontSize=xlarge]\n"
+        f"[UI: accentColor=indigo] [UI: accentColor=purple] [UI: accentColor=green] [UI: accentColor=orange] [UI: accentColor=pink]\n"
+        f"[UI: background=dark] [UI: background=darker] [UI: background=lighter]\n"
+        f"[UI: lineSpacing=compact] [UI: lineSpacing=normal] [UI: lineSpacing=wide]\n"
+        f"[UI: language=de] [UI: language=en] [UI: language=fr] [UI: language=it]\n"
+        f"[UI: buddyName=<Name>] — ersetze <Name> durch den gewünschten Namen (max. 30 Zeichen)\n"
+        f"Nur EINEN Marker pro Antwort. Marker sind unsichtbar für den Kunden.\n"
+        f"Aktueller Name: {_buddy_name} | Aktuelle Sprache: {_lang_label}"
+    )
+
+    system_parts.append(
+        f"\nSPRACHE: Antworte IMMER auf {_lang_label}. "
+        f"Dein Name ist '{_buddy_name}' — nenne dich ausschliesslich so."
     )
 
     if relevant:
@@ -359,6 +387,27 @@ async def send_message(
             response_type = "action_buttons"
             structured_data = {"buttons": _action_buttons}
 
+    # 7c. UI-Marker erkennen und Präferenz in DB speichern
+    _ui_update: dict | None = None
+    if response_text:
+        _ui_match = re.search(r"\[UI:\s*(\w+)=([^\]]+)\]", response_text)
+        if _ui_match:
+            _ui_key = _ui_match.group(1).strip()
+            _ui_val = _ui_match.group(2).strip()[:30]
+            response_text = re.sub(r"\s*\[UI:[^\]]+\]", "", response_text).strip()
+            # In DB speichern
+            try:
+                import json as _json
+                _cur_prefs = dict(customer.ui_preferences or {})
+                _cur_prefs[_ui_key] = _ui_val
+                await db.execute(
+                    text("UPDATE customers SET ui_preferences = :p::jsonb WHERE id = :id"),
+                    {"p": _json.dumps(_cur_prefs), "id": str(customer.id)},
+                )
+                _ui_update = {_ui_key: _ui_val}
+            except Exception as _e:
+                _log.warning("UI-Präferenz konnte nicht gespeichert werden: %s", _e)
+
     # 7d. Fehlende-Fähigkeit-Marker erkennen und CapabilityRequest erstellen
     _capability_intent: str | None = None
     if response_text:
@@ -469,6 +518,7 @@ async def send_message(
         image_urls=generated_image_urls if generated_image_urls else None,
         response_type=response_type,
         structured_data=structured_data,
+        ui_update=_ui_update,
     )
 
 
