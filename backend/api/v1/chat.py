@@ -21,7 +21,7 @@ import redis as redis_lib
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 import httpx as _httpx
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
