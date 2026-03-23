@@ -82,17 +82,17 @@ interface MemoryItem {
   importance: number;
 }
 
-function AvatarCircle({ speaking }: { speaking: boolean }) {
+function AvatarCircle({ speaking, initial }: { speaking: boolean; initial?: string }) {
   return (
     <div
-      style={{ width: 40, height: 40 }}
+      style={{ width: 32, height: 32 }}
       className={`relative rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
         speaking
-          ? "shadow-[0_0_0_6px_rgba(99,102,241,0.35)] scale-105"
-          : "shadow-[0_0_0_3px_rgba(255,255,255,0.08)]"
+          ? "shadow-[0_0_0_4px_rgba(99,102,241,0.35)] scale-105"
+          : "shadow-[0_0_0_2px_rgba(255,255,255,0.08)]"
       }`}
     >
-      <span className="text-white font-bold text-sm select-none">B</span>
+      <span className="text-white font-bold text-xs select-none">{initial ?? "B"}</span>
       {speaking && (
         <span className="absolute inset-0 rounded-full animate-ping bg-indigo-500 opacity-20" />
       )}
@@ -400,6 +400,7 @@ export default function ChatPage() {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const [uiPrefs, setUiPrefs] = useState({
     fontSize: "normal", accentColor: "indigo", background: "dark",
     lineSpacing: "normal", language: "de", buddyName: "Baddi",
@@ -792,86 +793,590 @@ export default function ChatPage() {
   const BG_COLORS: Record<string, string> = { dark: "#030712", darker: "#000000", lighter: "#111827" };
 
   useEffect(() => {
-    document.documentElement.style.fontSize = FONT_SIZES[uiPrefs.fontSize] ?? "15px";
-    return () => { document.documentElement.style.fontSize = ""; };
+    localStorage.setItem("ui_fontSize", uiPrefs.fontSize);
   }, [uiPrefs.fontSize]);
 
   const uiStyle: React.CSSProperties = {
     backgroundColor: BG_COLORS[uiPrefs.background] ?? "#030712",
   } as React.CSSProperties;
 
-  return (
-    <div className="flex flex-col h-screen text-white" style={uiStyle}>
+  // Buddy initial for avatar
+  const buddyInitial = (uiPrefs.buddyName ?? "B").charAt(0).toUpperCase();
 
-      {/* ── Header ── */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900/80 backdrop-blur shrink-0">
-        <div className="flex items-center gap-2">
-          {user?.role === "admin" && (
-            <button
-              onClick={() => router.push("/admin")}
-              className="text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-gray-800 border border-white/5 hover:border-gray-600 px-3 py-1.5 rounded-lg transition-all"
-            >
-              ← Zurück
-            </button>
-          )}
-          {lastProvider && (
-            <span className="text-xs text-gray-600 hidden sm:block">
-              {lastProvider === "claude" ? "🟠 Claude" :
-               lastProvider === "gemini" ? "🔵 Gemini" :
-               lastProvider === "openai" ? "🟢 ChatGPT" : "🤖"}
-            </span>
-          )}
-          <button
-            onClick={() => setShowMemory(!showMemory)}
-            title="Gedächtnis"
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-              showMemory
-                ? "bg-violet-700 border-violet-600 text-white"
-                : "border-gray-700 text-gray-400 hover:text-white hover:border-gray-600"
-            }`}
-          >
-            🧠 {memories.length > 0 ? memories.length : ""}
-          </button>
+  // Provider label helper
+  function providerLabel(p: string) {
+    if (p === "claude") return "Claude";
+    if (p === "gemini") return "Gemini";
+    if (p === "openai") return "ChatGPT";
+    return p;
+  }
+
+  // Suggestion chips
+  const suggestions = [
+    "Was kannst du?",
+    "Erkläre mir etwas",
+    "Aktuelle Nachrichten",
+    "Öffne eine Webseite",
+  ];
+
+  return (
+    <div className="flex h-screen text-white overflow-hidden" style={uiStyle}>
+
+      {/* ── LEFT SIDEBAR (lg+) ── */}
+      <aside className="hidden lg:flex w-64 shrink-0 flex-col bg-gray-950 border-r border-white/5">
+        {/* Logo area */}
+        <div className="px-5 py-5 border-b border-white/5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shrink-0">
+              <span className="text-white font-bold text-sm">{buddyInitial}</span>
+            </div>
+            <span className="font-bold text-white text-base tracking-tight">Baddi</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {/* TTS Toggle */}
+
+        {/* New chat button */}
+        <div className="px-3 pt-4 pb-2">
           <button
             onClick={() => {
-              if (ttsEnabled) {
-                if (audioRef.current) audioRef.current.pause();
-              } else {
-                // Autoplay-Sperre des Browsers aufheben durch sofortigen Play-Aufruf im Click-Handler
-                const unlock = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
-                unlock.play().catch(() => {});
-              }
-              setTtsEnabled(v => !v);
+              setMessages([]);
+              setInput("");
+              setAttachedFiles([]);
             }}
-            title={ttsEnabled ? "Baddi-Stimme aus" : "Baddi-Stimme ein"}
-            className={`p-1.5 rounded-lg transition-colors text-base ${
-              ttsEnabled
-                ? "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
-                : "text-gray-500 hover:text-white hover:bg-gray-800"
-            }`}
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
           >
-            {ttsEnabled ? "🔊" : "🔇"}
-          </button>
-          <button
-            onClick={() => setSetupOpen(true)}
-            className="text-gray-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-gray-800"
-            title="Einstellungen"
-          >
-            ⚙
-          </button>
-          <button
-            onClick={() => { clearSession(); router.push("/"); }}
-            className="text-xs text-gray-500 hover:text-red-400 bg-white/5 hover:bg-red-500/5 border border-white/5 hover:border-red-500/20 px-3 py-1.5 rounded-lg transition-all"
-          >
-            Abmelden
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Neuer Chat
           </button>
         </div>
-      </header>
 
-      {/* Setup Modal */}
+        {/* Session list */}
+        <div className="flex-1 px-3 py-2 overflow-y-auto">
+          <p className="text-[11px] text-gray-600 uppercase tracking-widest px-2 mb-2 font-semibold">Gespräche</p>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/8 text-sm text-gray-200 cursor-default">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-indigo-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span className="truncate">Aktuelles Gespräch</span>
+          </div>
+        </div>
+
+        {/* Bottom: user info */}
+        <div className="px-3 py-4 border-t border-white/5">
+          <div className="flex items-center gap-3 px-2 py-1">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center shrink-0">
+              <span className="text-white text-xs font-bold">{firstName ? firstName.charAt(0).toUpperCase() : "U"}</span>
+            </div>
+            <span className="flex-1 text-sm text-gray-300 truncate">{firstName || "Benutzer"}</span>
+            <button
+              onClick={() => { clearSession(); router.push("/"); }}
+              title="Abmelden"
+              className="text-gray-600 hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-red-500/10"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── MAIN AREA ── */}
+      <div
+        className="flex-1 flex flex-col overflow-hidden relative"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+
+        {/* Drag Overlay */}
+        {isDragOver && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-indigo-950/80 border-2 border-dashed border-indigo-400 pointer-events-none">
+            <div className="text-center">
+              <p className="text-4xl mb-3">📎</p>
+              <p className="text-indigo-200 font-semibold text-lg">Datei hier ablegen</p>
+              <p className="text-indigo-400 text-sm mt-1">Bilder, Videos, PDFs, Dokumente…</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── TOP HEADER ── */}
+        <header className="shrink-0 bg-gray-950/80 backdrop-blur border-b border-white/5 px-4 py-2.5 flex items-center gap-3">
+          {/* Left: buddy name + status */}
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            {user?.role === "admin" && (
+              <button
+                onClick={() => router.push("/admin")}
+                className="text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 px-2.5 py-1.5 rounded-lg transition-all shrink-0"
+              >
+                ← Zurück
+              </button>
+            )}
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-semibold text-white text-sm truncate">{uiPrefs.buddyName}</span>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${speaking ? "bg-green-400 animate-pulse" : "bg-green-500"}`} />
+                <span className="text-xs text-gray-500 hidden sm:block">{speaking ? "antwortet…" : "Online"}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Center: provider badge */}
+          {lastProvider && (
+            <div className="hidden md:flex items-center">
+              <span className="text-xs text-gray-500 bg-white/5 border border-white/8 px-2.5 py-1 rounded-full">
+                {lastProvider === "claude" ? "🟠" : lastProvider === "gemini" ? "🔵" : lastProvider === "openai" ? "🟢" : "🤖"}{" "}
+                {providerLabel(lastProvider)}
+              </span>
+            </div>
+          )}
+
+          {/* Right: action buttons */}
+          <div className="flex items-center gap-1 shrink-0">
+            {/* Memory button */}
+            <button
+              onClick={() => setShowMemory(!showMemory)}
+              title="Gedächtnis"
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                showMemory
+                  ? "bg-violet-600/30 text-violet-300 border border-violet-500/30"
+                  : "text-gray-500 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              🧠{memories.length > 0 && <span className="text-xs">{memories.length}</span>}
+            </button>
+
+            {/* TTS Toggle */}
+            <button
+              onClick={() => {
+                if (ttsEnabled) {
+                  if (audioRef.current) audioRef.current.pause();
+                } else {
+                  const unlock = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+                  unlock.play().catch(() => {});
+                }
+                setTtsEnabled(v => !v);
+              }}
+              title={ttsEnabled ? "Baddi-Stimme aus" : "Baddi-Stimme ein"}
+              className={`p-1.5 rounded-lg transition-colors text-sm ${
+                ttsEnabled
+                  ? "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
+                  : "text-gray-500 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              {ttsEnabled ? "🔊" : "🔇"}
+            </button>
+
+            {/* Setup */}
+            <button
+              onClick={() => setSetupOpen(true)}
+              className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors text-sm"
+              title="Einstellungen"
+            >
+              ⚙
+            </button>
+
+            {/* Logout (mobile only — lg sidebar has its own) */}
+            <button
+              onClick={() => { clearSession(); router.push("/"); }}
+              className="lg:hidden text-xs text-gray-500 hover:text-red-400 bg-white/5 hover:bg-red-500/5 border border-white/5 hover:border-red-500/20 px-2.5 py-1.5 rounded-lg transition-all"
+            >
+              Abmelden
+            </button>
+          </div>
+        </header>
+
+        {/* ── MESSAGES AREA ── */}
+        <div
+          ref={scrollContainerRef}
+          className="flex-1 overflow-y-auto"
+          onScroll={() => {
+            const el = scrollContainerRef.current;
+            if (!el) return;
+            const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+            userScrolledUp.current = !atBottom;
+          }}
+        >
+          <div className="max-w-3xl mx-auto w-full px-4 py-6 space-y-6">
+
+            {/* Loading history */}
+            {!historyLoaded && (
+              <p className="text-center text-gray-600 text-sm pt-10">Lade Verlauf…</p>
+            )}
+
+            {/* Empty state */}
+            {historyLoaded && messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center">
+                <div className={`w-20 h-20 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-xl shadow-indigo-900/40 transition-all duration-300 ${
+                  speaking ? "shadow-[0_0_0_12px_rgba(99,102,241,0.2)] scale-105" : ""
+                }`}>
+                  <span className="text-white font-bold text-3xl">{buddyInitial}</span>
+                </div>
+                <div>
+                  <h2 className="font-semibold text-white text-xl">
+                    Hallo{firstName ? `, ${firstName}` : ""}!
+                  </h2>
+                  <p className="text-gray-400 text-sm mt-1.5">Wie kann ich dir heute helfen?</p>
+                </div>
+                {/* Suggestion chips */}
+                <div className="flex flex-wrap justify-center gap-2 max-w-sm">
+                  {suggestions.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setInput(s)}
+                      className="px-4 py-2 rounded-full text-sm text-gray-300 bg-white/5 hover:bg-white/10 border border-white/8 hover:border-white/15 transition-all"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Messages */}
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`group flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                {/* Assistant avatar */}
+                {msg.role === "assistant" && (
+                  <div className="shrink-0 mt-0.5">
+                    <AvatarCircle speaking={false} initial={buddyInitial} />
+                  </div>
+                )}
+
+                {msg.role === "user" ? (
+                  /* ── USER BUBBLE ── */
+                  <div className="flex flex-col items-end gap-1 max-w-[75%]">
+                    {msg.images && msg.images.length > 0 && (
+                      <div className="flex flex-wrap gap-2 justify-end">
+                        {msg.images.map((src, i) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={i} src={src} alt="Anhang" className="rounded-2xl max-w-[200px] max-h-[200px] object-cover shadow-md" />
+                        ))}
+                      </div>
+                    )}
+                    {msg.content && (
+                      <div
+                        style={{ fontSize: FONT_SIZES[uiPrefs.fontSize] ?? "15px" }}
+                        className="bg-indigo-600 text-white rounded-3xl px-4 py-2.5 leading-relaxed whitespace-pre-wrap"
+                      >
+                        {msg.content}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* ── ASSISTANT MESSAGE ── */
+                  <div className="flex-1 min-w-0">
+                    {/* Name + timestamp */}
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="text-xs font-semibold text-gray-400">{uiPrefs.buddyName}</span>
+                      <span className="text-xs text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {new Date(msg.created_at).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+
+                    {/* Message content */}
+                    <div
+                      style={{ fontSize: FONT_SIZES[uiPrefs.fontSize] ?? "15px" }}
+                      className="text-gray-100 leading-relaxed"
+                    >
+                      {msg.content === "__QUOTA_EXCEEDED__" ? (
+                        <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/8 px-4 py-4 flex flex-col gap-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl">⚠️</span>
+                            <span className="font-bold text-base text-yellow-400">Guthaben aufgebraucht</span>
+                          </div>
+                          <p className="text-sm text-gray-300 leading-relaxed">
+                            {(msg.structuredData as { message?: string })?.message ?? "Dein Kontingent und dein Wallet-Guthaben sind erschöpft."}
+                          </p>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <a
+                              href="/user/wallet"
+                              className="inline-flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-gray-900 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+                            >
+                              💳 Wallet aufladen
+                            </a>
+                            <a
+                              href="/user/billing"
+                              className="inline-flex items-center gap-2 bg-white/8 hover:bg-white/15 border border-white/15 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+                            >
+                              📋 Abo wechseln
+                            </a>
+                          </div>
+                        </div>
+                      ) : (
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                            strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+                            ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1">{children}</ol>,
+                            li: ({ children }) => <li className="text-gray-200">{children}</li>,
+                            h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2 mt-4 first:mt-0">{children}</h1>,
+                            h2: ({ children }) => <h2 className="text-base font-bold text-white mb-1.5 mt-3 first:mt-0">{children}</h2>,
+                            h3: ({ children }) => <h3 className="text-sm font-semibold text-white mb-1 mt-2 first:mt-0">{children}</h3>,
+                            code: ({ children, className }) => {
+                              const isBlock = className?.includes("language-");
+                              if (isBlock) return <code className={className}>{children}</code>;
+                              return <code className="bg-white/10 rounded px-1.5 py-0.5 text-[0.85em] font-mono text-indigo-200">{children}</code>;
+                            },
+                            pre: ({ children }) => {
+                              // Extract language from code element if present
+                              const codeEl = (children as React.ReactElement<{ className?: string; children?: React.ReactNode }>)?.props;
+                              const lang = codeEl?.className?.replace("language-", "") ?? "";
+                              const codeText = codeEl?.children ?? "";
+                              return (
+                                <div className="my-3 rounded-xl overflow-hidden border border-white/10 bg-gray-950">
+                                  <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/8">
+                                    <span className="text-xs text-gray-500 font-mono">{lang || "code"}</span>
+                                    <button
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(String(codeText));
+                                      }}
+                                      className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                                    >
+                                      Kopieren
+                                    </button>
+                                  </div>
+                                  <pre className="px-4 py-3 overflow-x-auto text-sm font-mono text-gray-300 leading-relaxed">
+                                    {children}
+                                  </pre>
+                                </div>
+                              );
+                            },
+                            blockquote: ({ children }) => (
+                              <blockquote className="border-l-2 border-indigo-500/50 pl-4 my-2 text-gray-400 italic">{children}</blockquote>
+                            ),
+                            a: ({ href, children }) => (
+                              <a href={href} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 transition-colors">{children}</a>
+                            ),
+                          }}
+                        >
+                          {msg.content}
+                        </ReactMarkdown>
+                      )}
+                    </div>
+
+                    {/* DALL-E generated images */}
+                    {msg.generatedImages && msg.generatedImages.length > 0 && !msg.structuredData && (
+                      <div className="mt-3 flex flex-wrap gap-3">
+                        {msg.generatedImages.map((src, i) => (
+                          <a key={i} href={src} target="_blank" rel="noopener noreferrer">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={src}
+                              alt="Generiertes Bild"
+                              className="rounded-2xl max-w-[280px] max-h-[280px] object-cover shadow-lg hover:scale-105 transition-transform cursor-pointer"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Structured cards */}
+                    {msg.responseType === "stock_card" && msg.structuredData && (
+                      <StockCard data={msg.structuredData as StockData} />
+                    )}
+                    {msg.responseType === "stock_history" && msg.structuredData && (
+                      <StockHistoryCard data={msg.structuredData as StockHistoryData} />
+                    )}
+                    {msg.responseType === "image_gallery" && msg.structuredData && (
+                      <ImageGalleryCard data={msg.structuredData as ImageGalleryData} />
+                    )}
+                    {msg.responseType === "transport_board" && msg.structuredData && (
+                      <TransportBoardCard data={msg.structuredData as TransportBoardData} />
+                    )}
+                    {msg.responseType === "action_buttons" && msg.structuredData && (
+                      <ActionButtonsCard data={msg.structuredData as ActionButtonsData} />
+                    )}
+                    {msg.responseType === "browser_view" && msg.structuredData && (
+                      <BrowserViewCard data={msg.structuredData as BrowserViewData} />
+                    )}
+
+                    {/* Copy button (appears on group-hover) */}
+                    {msg.content !== "__QUOTA_EXCEEDED__" && (
+                      <div className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(msg.content);
+                            setCopied(msg.id);
+                            setTimeout(() => setCopied(null), 2000);
+                          }}
+                          className="text-xs text-gray-600 hover:text-gray-400 transition-colors flex items-center gap-1"
+                        >
+                          {copied === msg.id ? (
+                            <>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                              <span className="text-emerald-500">Kopiert</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                              </svg>
+                              Kopieren
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Loading dots */}
+            {loading && (
+              <div className="flex gap-3 justify-start">
+                <div className="shrink-0 mt-0.5">
+                  <AvatarCircle speaking={true} initial={buddyInitial} />
+                </div>
+                <div className="flex items-center gap-1.5 py-3">
+                  <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                  <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                  <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                </div>
+              </div>
+            )}
+
+            <div ref={bottomRef} />
+          </div>
+        </div>
+
+        {/* ── INPUT AREA ── */}
+        <div className="shrink-0 px-4 pb-6 pt-3">
+          <div className="max-w-3xl mx-auto w-full">
+            {/* File chips above */}
+            <FileDropZone
+              files={attachedFiles}
+              onFilesChange={setAttachedFiles}
+              compact
+              className="mb-2"
+            />
+
+            {/* Glass input card */}
+            <div className="bg-gray-900/80 backdrop-blur border border-white/8 rounded-2xl shadow-xl focus-within:border-indigo-500/40 transition-colors">
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={`Nachricht an ${uiPrefs.buddyName}…`}
+                className="w-full bg-transparent resize-none outline-none text-sm text-white placeholder-gray-500 px-4 pt-3.5 pb-2 max-h-40"
+                style={{ fontSize: FONT_SIZES[uiPrefs.fontSize] ?? "15px" }}
+              />
+
+              {/* Bottom bar */}
+              <div className="flex items-center justify-between px-3 pb-3 pt-1">
+                {/* Left: attach + camera */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Datei oder Bild anhängen"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/8 transition-all"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openCamera}
+                    title="Foto aufnehmen"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/8 transition-all"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                      <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Right: voice + send */}
+                <div className="flex items-center gap-2">
+                  <VoiceButton
+                    onResult={handleVoiceResult}
+                    className="w-8 h-8"
+                  />
+                  <button
+                    onClick={sendMessage}
+                    disabled={loading || (!input.trim() && attachedFiles.length === 0)}
+                    className="w-8 h-8 flex items-center justify-center rounded-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95 text-white"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-700 mt-2 text-center">
+              Enter senden · Shift+Enter Zeilenumbruch
+            </p>
+          </div>
+        </div>
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.mp3,.wav,.m4a,.ogg,.mp4,.mov,.webm"
+          onChange={handleFileInputChange}
+        />
+      </div>
+
+      {/* ── RIGHT MEMORY PANEL ── */}
+      {showMemory && (
+        <aside className="w-80 shrink-0 border-l border-white/5 bg-gray-950 flex flex-col overflow-hidden">
+          <div className="px-4 py-3.5 border-b border-white/5 flex items-center justify-between shrink-0">
+            <div>
+              <h2 className="font-semibold text-sm text-white">🧠 Gedächtnis</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Was {uiPrefs.buddyName} über dich weiss</p>
+            </div>
+            <button
+              onClick={() => setShowMemory(false)}
+              className="text-gray-600 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/5"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
+            {memories.length === 0 && (
+              <p className="text-xs text-gray-600 pt-4 text-center leading-relaxed px-2">
+                Noch keine Erinnerungen.<br />Nach dem ersten Gespräch merkt sich {uiPrefs.buddyName} relevante Informationen.
+              </p>
+            )}
+            {memories.map((m) => (
+              <div key={m.id} className="group flex items-start gap-2 bg-white/4 hover:bg-white/6 rounded-xl px-3 py-2.5 text-xs transition-colors">
+                <span className="flex-1 text-gray-300 leading-relaxed">{m.content}</span>
+                <button
+                  onClick={() => deleteMemory(m.id)}
+                  className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all shrink-0 mt-0.5 p-0.5 rounded hover:bg-red-500/10"
+                  title="Löschen"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </aside>
+      )}
+
+      {/* ── SETUP MODAL ── */}
       {setupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setSetupOpen(false)} />
@@ -916,7 +1421,7 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* Camera Modal */}
+      {/* ── CAMERA MODAL ── */}
       {cameraOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
           <div className="relative bg-gray-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl w-full max-w-sm">
@@ -947,320 +1452,6 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* ── Main layout ── */}
-      <div className="flex flex-1 overflow-hidden">
-
-        {/* ── Sidebar (Desktop) ── */}
-        <aside className="hidden md:flex w-56 shrink-0 border-r border-gray-800 bg-gray-900/50 flex-col items-center justify-start pt-10 pb-6 gap-4">
-          <div className="flex flex-col items-center gap-3 px-4 w-full">
-            <div className={`w-24 h-24 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-4xl transition-all duration-300 ${
-              speaking ? "shadow-[0_0_0_8px_rgba(99,102,241,0.3)] scale-105" : "shadow-[0_0_0_4px_rgba(255,255,255,0.06)]"
-            }`}>
-              🤖
-            </div>
-            <div className="text-center mt-1">
-              <h2 className="font-bold text-lg text-white">Baddi</h2>
-              <div className="flex items-center justify-center gap-1.5 mt-1">
-                <span className={`w-2 h-2 rounded-full ${speaking ? "bg-green-400 animate-pulse" : "bg-green-500"}`} />
-                <span className="text-xs text-gray-400">{speaking ? "antwortet…" : "Online"}</span>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* ── Chat area ── */}
-        <div
-          className="flex-1 flex flex-col overflow-hidden relative"
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          {/* Drag-Overlay */}
-          {isDragOver && (
-            <div className="absolute inset-0 z-40 flex items-center justify-center bg-indigo-950/70 border-2 border-dashed border-indigo-400 rounded-none pointer-events-none">
-              <div className="text-center">
-                <p className="text-4xl mb-2">📎</p>
-                <p className="text-indigo-200 font-semibold text-lg">Datei hier ablegen</p>
-                <p className="text-indigo-400 text-sm mt-1">Bilder, Videos, PDFs, Dokumente…</p>
-              </div>
-            </div>
-          )}
-
-          {/* Mobile header bar */}
-          <div className="md:hidden shrink-0 border-b border-gray-800 bg-gray-900/60 flex items-center gap-3 px-4 py-3">
-            <div className={`w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-lg shrink-0 transition-all ${
-              speaking ? "ring-2 ring-indigo-500/60" : ""
-            }`}>
-              🤖
-            </div>
-            <div>
-              <p className="font-semibold text-sm text-white">Baddi</p>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${speaking ? "bg-green-400 animate-pulse" : "bg-green-500"}`} />
-                <span className="text-xs text-gray-400">{speaking ? "antwortet…" : "Online"}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div
-            ref={scrollContainerRef}
-            className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
-            onScroll={() => {
-              const el = scrollContainerRef.current;
-              if (!el) return;
-              const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-              userScrolledUp.current = !atBottom;
-            }}
-          >
-            {!historyLoaded && (
-              <p className="text-center text-gray-600 text-sm pt-10">Lade Verlauf…</p>
-            )}
-
-            {historyLoaded && messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full gap-4 text-center py-16">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-4xl shadow-xl">
-                  🤖
-                </div>
-                <div>
-                  <p className="font-semibold text-white text-lg">
-                    Hallo{firstName ? `, ${firstName}` : ""}! Ich bin dein Baddi.
-                  </p>
-                  <p className="text-gray-400 text-sm mt-1">Wie kann ich dir heute helfen?</p>
-                </div>
-              </div>
-            )}
-
-            {messages.map((msg) => (
-              <div key={msg.id} className={`flex items-end gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                {msg.role === "assistant" && (
-                  <AvatarCircle speaking={false} />
-                )}
-                <div
-                  className={`rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed shadow-sm ${
-                    msg.structuredData
-                      ? "w-full max-w-[min(480px,90vw)]"
-                      : "max-w-[78%]"
-                  } ${
-                    msg.role === "user"
-                      ? "bg-indigo-600 text-white rounded-br-md"
-                      : "bg-gray-800 text-gray-100 rounded-bl-md"
-                  }`}
-                >
-                  {/* User image attachments */}
-                  {msg.images && msg.images.length > 0 && (
-                    <div className={`flex flex-wrap gap-2 ${msg.content ? "mb-2" : ""}`}>
-                      {msg.images.map((src, i) => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img key={i} src={src} alt="Anhang" className="rounded-xl max-w-[200px] max-h-[200px] object-cover" />
-                      ))}
-                    </div>
-                  )}
-                  {/* Quota-exceeded Banner */}
-                  {msg.content === "__QUOTA_EXCEEDED__" ? (
-                    <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/8 px-4 py-4 flex flex-col gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl">⚠️</span>
-                        <span className="font-bold text-base text-yellow-400">Guthaben aufgebraucht</span>
-                      </div>
-                      <p className="text-sm text-gray-300 leading-relaxed">
-                        {(msg.structuredData as { message?: string })?.message ?? "Dein Kontingent und dein Wallet-Guthaben sind erschöpft."}
-                      </p>
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        <a
-                          href="/user/wallet"
-                          className="inline-flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-gray-900 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
-                        >
-                          💳 Wallet aufladen
-                        </a>
-                        <a
-                          href="/user/billing"
-                          className="inline-flex items-center gap-2 bg-white/8 hover:bg-white/15 border border-white/15 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
-                        >
-                          📋 Abo wechseln
-                        </a>
-                      </div>
-                    </div>
-                  ) : (
-                    <ReactMarkdown
-                      components={{
-                        p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
-                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-                        ul: ({ children }) => <ul className="list-disc pl-4 mb-1 space-y-0.5">{children}</ul>,
-                        ol: ({ children }) => <ol className="list-decimal pl-4 mb-1 space-y-0.5">{children}</ol>,
-                        li: ({ children }) => <li>{children}</li>,
-                        code: ({ children }) => <code className="bg-black/30 rounded px-1 py-0.5 text-xs font-mono">{children}</code>,
-                        pre: ({ children }) => <pre className="bg-black/30 rounded-lg p-3 overflow-x-auto text-xs font-mono my-1">{children}</pre>,
-                      }}
-                    >
-                      {msg.content}
-                    </ReactMarkdown>
-                  )}
-                  {/* DALL-E generated images */}
-                  {msg.generatedImages && msg.generatedImages.length > 0 && !msg.structuredData && (
-                    <div className="mt-3 flex flex-wrap gap-3">
-                      {msg.generatedImages.map((src, i) => (
-                        <a key={i} href={src} target="_blank" rel="noopener noreferrer">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={src}
-                            alt="Generiertes Bild"
-                            className="rounded-2xl max-w-[280px] max-h-[280px] object-cover shadow-lg hover:scale-105 transition-transform cursor-pointer"
-                          />
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                  {/* Structured cards */}
-                  {msg.responseType === "stock_card" && msg.structuredData && (
-                    <StockCard data={msg.structuredData as StockData} />
-                  )}
-                  {msg.responseType === "stock_history" && msg.structuredData && (
-                    <StockHistoryCard data={msg.structuredData as StockHistoryData} />
-                  )}
-                  {msg.responseType === "image_gallery" && msg.structuredData && (
-                    <ImageGalleryCard data={msg.structuredData as ImageGalleryData} />
-                  )}
-                  {msg.responseType === "transport_board" && msg.structuredData && (
-                    <TransportBoardCard data={msg.structuredData as TransportBoardData} />
-                  )}
-                  {msg.responseType === "action_buttons" && msg.structuredData && (
-                    <ActionButtonsCard data={msg.structuredData as ActionButtonsData} />
-                  )}
-                  {msg.responseType === "browser_view" && msg.structuredData && (
-                    <BrowserViewCard data={msg.structuredData as BrowserViewData} />
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {loading && (
-              <div className="flex items-end gap-2.5 justify-start">
-                <AvatarCircle speaking={true} />
-                <div className="bg-gray-800 rounded-2xl rounded-bl-md px-4 py-3">
-                  <span className="inline-flex gap-1.5 items-center">
-                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]" />
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <div ref={bottomRef} />
-          </div>
-
-          {/* Input */}
-          <div className="px-4 pb-4 pt-2 border-t border-gray-800 bg-gray-950 shrink-0">
-            {/* Drag-Drop wrapper + file chips */}
-            <FileDropZone
-              files={attachedFiles}
-              onFilesChange={setAttachedFiles}
-              compact
-              className="mb-1"
-            />
-
-            <div className="flex gap-2 items-end bg-gray-900 border border-gray-700 rounded-2xl px-3 py-2 focus-within:border-indigo-600 transition-colors">
-              {/* Attach button */}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                title="Datei oder Bild anhängen"
-                className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl text-gray-500 hover:text-white hover:bg-gray-700 transition-all"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-                </svg>
-              </button>
-
-              {/* Camera button */}
-              <button
-                type="button"
-                onClick={openCamera}
-                title="Foto aufnehmen"
-                className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl text-gray-500 hover:text-white hover:bg-gray-700 transition-all"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                  <circle cx="12" cy="13" r="4"/>
-                </svg>
-              </button>
-
-              {/* Textarea */}
-              <textarea
-                ref={textareaRef}
-                rows={1}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Nachricht an Baddi…"
-                className="flex-1 bg-transparent resize-none outline-none text-sm text-white placeholder-gray-600 max-h-32 py-1"
-              />
-
-              {/* Voice button */}
-              <VoiceButton
-                onResult={handleVoiceResult}
-                className="shrink-0 w-9 h-9"
-              />
-
-              {/* Send button */}
-              <button
-                onClick={sendMessage}
-                disabled={loading || (!input.trim() && attachedFiles.length === 0)}
-                className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95"
-              >
-                ↑
-              </button>
-            </div>
-
-            <p className="text-xs text-gray-700 mt-1.5 text-center">
-              Enter senden · Shift+Enter neue Zeile
-            </p>
-
-            {/* Hidden file input */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.mp3,.wav,.m4a,.ogg,.mp4,.mov,.webm"
-              onChange={handleFileInputChange}
-            />
-          </div>
-        </div>
-
-        {/* Memory Panel */}
-        {showMemory && (
-          <aside className="w-72 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden shrink-0">
-            <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
-              <div>
-                <h2 className="font-bold text-sm">🧠 Gedächtnis</h2>
-                <p className="text-xs text-gray-500 mt-0.5">Was Baddi über dich weiss</p>
-              </div>
-              <button onClick={() => setShowMemory(false)} className="text-gray-600 hover:text-white text-lg">✕</button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
-              {memories.length === 0 && (
-                <p className="text-xs text-gray-600 pt-2 text-center leading-relaxed">
-                  Noch keine Erinnerungen.<br />Nach dem ersten Gespräch merkt sich Baddi relevante Informationen.
-                </p>
-              )}
-              {memories.map((m) => (
-                <div key={m.id} className="flex items-start gap-2 bg-gray-800 rounded-xl px-3 py-2 text-xs group">
-                  <span className="flex-1 text-gray-300 leading-relaxed">{m.content}</span>
-                  <button
-                    onClick={() => deleteMemory(m.id)}
-                    className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5"
-                    title="Löschen"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          </aside>
-        )}
-      </div>
     </div>
   );
 }
