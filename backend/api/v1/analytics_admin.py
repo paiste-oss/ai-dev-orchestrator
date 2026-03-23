@@ -30,7 +30,7 @@ async def get_overview(
             COUNT(*) FILTER (WHERE day >= NOW() - INTERVAL '7 days')  AS messages_7d
         FROM chat_analytics
         WHERE day >= NOW() - (:days || ' days')::INTERVAL
-    """), {"days": days})
+    """), {"days": str(days)})
     overview = dict(result.mappings().one())
 
     # Response-Typen Verteilung
@@ -40,7 +40,7 @@ async def get_overview(
         WHERE day >= NOW() - (:days || ' days')::INTERVAL
         GROUP BY response_type
         ORDER BY cnt DESC
-    """), {"days": days})
+    """), {"days": str(days)})
     response_types = [dict(r) for r in rt.mappings().all()]
 
     # Nachrichten pro Tag (letzten 30 Tage)
@@ -50,7 +50,7 @@ async def get_overview(
         WHERE day >= NOW() - (:days || ' days')::INTERVAL
         GROUP BY day
         ORDER BY day
-    """), {"days": days})
+    """), {"days": str(days)})
     daily_counts = [dict(r) for r in daily.mappings().all()]
 
     # Aktivste Stunden
@@ -60,7 +60,7 @@ async def get_overview(
         WHERE day >= NOW() - (:days || ' days')::INTERVAL
         GROUP BY hour_of_day
         ORDER BY hour_of_day
-    """), {"days": days})
+    """), {"days": str(days)})
     hourly = [dict(r) for r in hours.mappings().all()]
 
     return {
