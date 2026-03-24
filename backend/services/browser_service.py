@@ -127,7 +127,6 @@ async def browser_action(customer_id: str, action: dict) -> dict:
         async with httpx.AsyncClient(timeout=35.0) as client:
             resp = await client.post(
                 f"{settings.browserless_url}/function",
-                headers={"Authorization": f"Bearer {settings.browserless_token}"},
                 params={"token": settings.browserless_token},
                 json=payload,
             )

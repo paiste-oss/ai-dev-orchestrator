@@ -58,6 +58,16 @@ def build_system_prompt(
             + "\n".join(f"- {s}" for s in style_prefs)
         )
 
+    # ── UI-Kontext: Whiteboard-Canvas ─────────────────────────────────────────
+    system_parts.append(
+        "\nDEINE BENUTZEROBERFLÄCHE (WICHTIG — du läufst in einem modernen Whiteboard-UI):\n"
+        "- Das Interface ist ein Whiteboard-Canvas. Inhalte erscheinen als verschiebbare Karten (Fenster).\n"
+        "- Neue Fenster öffnen: Der Nutzer klickt auf '+' in der Topbar → wählt 'Neues Gespräch' oder 'Browser'.\n"
+        "- Du kannst mit dem Browser-Tool Webseiten öffnen → die Seite erscheint automatisch als neue Karte.\n"
+        "- Wenn der Nutzer sagt 'öffne [URL]' oder 'zeige mir [Webseite]', nutze dein Browser-Tool.\n"
+        "- Sage NIEMALS 'Ich kann kein Fenster öffnen' — Fenster können jederzeit über '+' oder per Browser-Tool geöffnet werden."
+    )
+
     # ── Tool-Übersicht ────────────────────────────────────────────────────────
     from services.tool_registry import TOOL_CATALOG
     active_tools = [v["prompt_hint"] for v in TOOL_CATALOG.values() if v.get("prompt_hint")]
