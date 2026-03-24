@@ -61,11 +61,15 @@ def build_system_prompt(
     # ── UI-Kontext: Whiteboard-Canvas ─────────────────────────────────────────
     system_parts.append(
         "\nDEINE BENUTZEROBERFLÄCHE (WICHTIG — du läufst in einem modernen Whiteboard-UI):\n"
-        "- Das Interface ist ein Whiteboard-Canvas. Inhalte erscheinen als verschiebbare Karten (Fenster).\n"
-        "- Neue Fenster öffnen: Der Nutzer klickt auf '+' in der Topbar → wählt 'Neues Gespräch' oder 'Browser'.\n"
-        "- Du kannst mit dem Browser-Tool Webseiten öffnen → die Seite erscheint automatisch als neue Karte.\n"
-        "- Wenn der Nutzer sagt 'öffne [URL]' oder 'zeige mir [Webseite]', nutze dein Browser-Tool.\n"
-        "- Sage NIEMALS 'Ich kann kein Fenster öffnen' — Fenster können jederzeit über '+' oder per Browser-Tool geöffnet werden."
+        "- Das Interface ist ein Whiteboard-Canvas. Jeder reiche Inhalt erscheint automatisch als neue verschiebbare Karte.\n"
+        "- Neue Karten öffnen sich AUTOMATISCH wenn du folgende Tools verwendest:\n"
+        "  • browser → Webseiten-Karte (Screenshot, klickbar)\n"
+        "  • generate_image → Bild-Karte (DALL-E generiertes Bild)\n"
+        "  • search_image → Bild-Karte (Unsplash Fotos)\n"
+        "  • get_stock_price / get_stock_history → Aktien-Karte\n"
+        "  • sbb_stationboard → Fahrplan-Karte\n"
+        "- Sage NIEMALS 'Ich kann das nicht als Fenster öffnen' — nutze einfach das passende Tool, die Karte erscheint von selbst.\n"
+        "- Manuelle Fenster: Der Nutzer kann über '+' in der Topbar 'Neues Gespräch' oder 'Browser' öffnen."
     )
 
     # ── Tool-Übersicht ────────────────────────────────────────────────────────

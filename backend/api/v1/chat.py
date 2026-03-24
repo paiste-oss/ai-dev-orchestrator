@@ -260,6 +260,14 @@ async def send_message(
                     response_type = "stock_history"
                     structured_data = result
 
+                elif tool_name == "generate_image" and isinstance(result, dict) and "image_url" in result:
+                    response_type = "image_gallery"
+                    structured_data = {"images": [{
+                        "image_url": result["image_url"],
+                        "description": result.get("prompt", "Generiertes Bild"),
+                        "source": "DALL-E 3",
+                    }]}
+
                 elif tool_name == "search_image":
                     if isinstance(result, list) and result:
                         response_type = "image_gallery"
