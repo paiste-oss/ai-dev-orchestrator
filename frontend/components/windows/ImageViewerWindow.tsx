@@ -14,12 +14,26 @@ export default function ImageViewerWindow({ initialUrl = "" }: Props) {
   const [loaded, setLoaded] = useState(!!initialUrl);
   const [error, setError] = useState(false);
   const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const viewerRef = useRef<HTMLDivElement>(null);
+  const fitScaleRef = useRef(1);
+
+  function calcFitScale(naturalW: number, naturalH: number): number {
+    const el = viewerRef.current;
+    if (!el || !naturalW || !naturalH) return 1;
+    return Math.min(1, el.clientWidth / naturalW, el.clientHeight / naturalH);
+  }
+
+  function resetView() {
+    setScale(fitScaleRef.current);
+    setOffset({ x: 0, y: 0 });
+  }
 
   function load(target?: string) {
     const src = (target ?? inputUrl).trim();
     if (!src) return;
     setUrl(src);
     setInputUrl(src);
+    fitScaleRef.current = 1;
     setScale(1);
     setOffset({ x: 0, y: 0 });
     setLoaded(false);
@@ -88,15 +102,16 @@ export default function ImageViewerWindow({ initialUrl = "" }: Props) {
         <button onClick={() => setScale(s => Math.min(8, s + 0.25))} className="px-1.5 py-1 rounded text-gray-400 hover:text-white hover:bg-white/8 text-xs transition-colors">+</button>
         <span className="text-xs text-gray-600 w-10 text-center tabular-nums">{Math.round(scale * 100)}%</span>
         <button onClick={() => setScale(s => Math.max(0.1, s - 0.25))} className="px-1.5 py-1 rounded text-gray-400 hover:text-white hover:bg-white/8 text-xs transition-colors">−</button>
-        <button onClick={() => { setScale(1); setOffset({ x: 0, y: 0 }); }} className="px-1.5 py-1 rounded text-gray-500 hover:text-white hover:bg-white/8 text-xs transition-colors" title="Zurücksetzen">⌂</button>
+        <button onClick={resetView} className="px-1.5 py-1 rounded text-gray-500 hover:text-white hover:bg-white/8 text-xs transition-colors" title="Einpassen">⌂</button>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
       </div>
 
       {/* Viewer */}
       <div
+        ref={viewerRef}
         className="flex-1 overflow-hidden relative bg-[#0a0a0a] flex items-center justify-center"
         onWheel={handleWheel}
-        style={{ cursor: url && loaded ? "grab" : "default" }}
+        style={{ cursor: url && loaded ? (drag.current ? "grabbing" : "grab") : "default" }}
       >
         {!url && (
           <div className="flex flex-col items-center gap-3 text-center p-4">
@@ -122,7 +137,14 @@ export default function ImageViewerWindow({ initialUrl = "" }: Props) {
               transition: drag.current ? "none" : "transform 0.05s",
               opacity: loaded ? 1 : 0,
             }}
-            onLoad={() => setLoaded(true)}
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              const fit = calcFitScale(img.naturalWidth, img.naturalHeight);
+              fitScaleRef.current = fit;
+              setScale(fit);
+              setOffset({ x: 0, y: 0 });
+              setLoaded(true);
+            }}
             onError={() => { setError(true); setLoaded(true); }}
             onMouseDown={startPan}
             draggable={false}

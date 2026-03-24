@@ -226,7 +226,7 @@ export default function BrowserWindowCard({ initialUrl = "", onUrlChange }: Prop
               ref={imgRef}
               src={`data:image/jpeg;base64,${state.screenshot_b64}`}
               alt="Browser"
-              className={`w-full h-full object-cover select-none ${loading ? "opacity-60" : "cursor-crosshair"}`}
+              className={`w-full h-full object-contain select-none ${loading ? "opacity-60" : "cursor-crosshair"}`}
               onClick={handleImgClick}
               draggable={false}
             />
