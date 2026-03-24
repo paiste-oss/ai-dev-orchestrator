@@ -15,6 +15,7 @@ router = APIRouter(prefix="/user/preferences", tags=["preferences"])
 
 DEFAULTS: dict = {
     "fontSize":    "normal",   # small | normal | large | xlarge
+    "fontFamily":  "system",   # system | mono | rounded | serif
     "accentColor": "indigo",   # indigo | purple | green | orange | pink
     "background":  "dark",     # dark | darker | lighter
     "lineSpacing": "normal",   # compact | normal | wide
@@ -25,6 +26,7 @@ DEFAULTS: dict = {
 
 class PreferencesUpdate(BaseModel):
     fontSize:    str | None = None
+    fontFamily:  str | None = None
     accentColor: str | None = None
     background:  str | None = None
     lineSpacing: str | None = None

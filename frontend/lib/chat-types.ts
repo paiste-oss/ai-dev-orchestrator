@@ -71,6 +71,7 @@ export interface MemoryItem {
 
 export interface UiPrefs {
   fontSize: string;
+  fontFamily: string;
   accentColor: string;
   background: string;
   lineSpacing: string;

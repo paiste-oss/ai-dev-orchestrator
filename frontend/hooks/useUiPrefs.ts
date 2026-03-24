@@ -9,6 +9,17 @@ export const FONT_SIZES: Record<string, string> = {
   small: "13px", normal: "15px", large: "18px", xlarge: "21px",
 };
 
+export const FONT_FAMILIES: Record<string, string> = {
+  system:  '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif',
+  mono:    '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
+  rounded: '"Nunito", "Varela Round", "Quicksand", sans-serif',
+  serif:   'Georgia, "Times New Roman", serif',
+};
+
+export const LINE_SPACINGS: Record<string, string> = {
+  compact: "1.4", normal: "1.625", wide: "2",
+};
+
 export const ACCENT_COLORS: Record<string, string> = {
   indigo: "#6366f1", purple: "#a855f7", green: "#22c55e", orange: "#f97316", pink: "#ec4899",
 };
@@ -19,6 +30,7 @@ export const BG_COLORS: Record<string, string> = {
 
 const DEFAULT_PREFS: UiPrefs = {
   fontSize: "normal",
+  fontFamily: "system",
   accentColor: "indigo",
   background: "dark",
   lineSpacing: "normal",
@@ -43,5 +55,5 @@ export function useUiPrefs() {
     } catch { /* ignore */ }
   }
 
-  return { uiPrefs, setUiPrefs, loadPreferences, FONT_SIZES, ACCENT_COLORS, BG_COLORS };
+  return { uiPrefs, setUiPrefs, loadPreferences, FONT_SIZES, FONT_FAMILIES, LINE_SPACINGS, ACCENT_COLORS, BG_COLORS };
 }

@@ -18,6 +18,18 @@ import {
 const FONT_SIZES: Record<string, string> = {
   small: "13px", normal: "15px", large: "18px", xlarge: "21px",
 };
+const FONT_FAMILIES: Record<string, string> = {
+  system:  '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif',
+  mono:    '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
+  rounded: '"Nunito", "Varela Round", "Quicksand", sans-serif',
+  serif:   'Georgia, "Times New Roman", serif',
+};
+const LINE_SPACINGS: Record<string, string> = {
+  compact: "1.4", normal: "1.625", wide: "2",
+};
+const ACCENT_COLORS: Record<string, string> = {
+  indigo: "#6366f1", purple: "#a855f7", green: "#22c55e", orange: "#f97316", pink: "#ec4899",
+};
 
 interface ChatMessageProps {
   msg: Message;
@@ -29,7 +41,10 @@ interface ChatMessageProps {
 }
 
 export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial, hideRichContent = false }: ChatMessageProps) {
-  const fontSize = FONT_SIZES[uiPrefs.fontSize] ?? "15px";
+  const fontSize   = FONT_SIZES[uiPrefs.fontSize]     ?? "15px";
+  const fontFamily = FONT_FAMILIES[uiPrefs.fontFamily] ?? FONT_FAMILIES.system;
+  const lineHeight = LINE_SPACINGS[uiPrefs.lineSpacing] ?? "1.625";
+  const accentBg   = ACCENT_COLORS[uiPrefs.accentColor] ?? "#6366f1";
 
   return (
     <div className={`group flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -53,8 +68,8 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
           )}
           {msg.content && (
             <div
-              style={{ fontSize }}
-              className="bg-indigo-600 text-white rounded-3xl px-4 py-2.5 leading-relaxed whitespace-pre-wrap"
+              style={{ fontSize, fontFamily, lineHeight, background: accentBg }}
+              className="text-white rounded-3xl px-4 py-2.5 whitespace-pre-wrap"
             >
               {msg.content}
             </div>
@@ -72,7 +87,7 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
           </div>
 
           {/* Message content */}
-          <div style={{ fontSize }} className="text-gray-100 leading-relaxed">
+          <div style={{ fontSize, fontFamily, lineHeight }} className="text-gray-100">
             {msg.content === "__QUOTA_EXCEEDED__" ? (
               <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/8 px-4 py-4 flex flex-col gap-3">
                 <div className="flex items-center gap-2">

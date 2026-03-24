@@ -7,6 +7,7 @@ import { Section } from "@/components/user/settings/Section";
 
 interface UiPrefs {
   fontSize: string;
+  fontFamily: string;
   accentColor: string;
   background: string;
   lineSpacing: string;
@@ -20,6 +21,7 @@ const inputCls =
 export function ChatAppearanceSection() {
   const [uiPrefs, setUiPrefs] = useState<UiPrefs>({
     fontSize: "normal",
+    fontFamily: "system",
     accentColor: "indigo",
     background: "dark",
     lineSpacing: "normal",
@@ -119,6 +121,39 @@ export function ChatAppearanceSection() {
                 }`}
               >
                 {l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Schriftart */}
+        <div className="space-y-2">
+          <label className="text-xs text-gray-400 font-medium">Schriftart</label>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { v: "system",  l: "Standard",  sample: "Aa" },
+              { v: "mono",    l: "Monospace",  sample: "Aa" },
+              { v: "rounded", l: "Rund",       sample: "Aa" },
+              { v: "serif",   l: "Serif",      sample: "Aa" },
+            ].map(({ v, l, sample }) => (
+              <button
+                key={v}
+                onClick={() => setUiPrefs((p) => ({ ...p, fontFamily: v }))}
+                className={`py-2 px-3 rounded-xl text-xs font-medium border transition-all flex items-center gap-2 ${
+                  uiPrefs.fontFamily === v
+                    ? "bg-indigo-600 border-indigo-500 text-white"
+                    : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
+                }`}
+                style={{
+                  fontFamily:
+                    v === "system"  ? '-apple-system, BlinkMacSystemFont, "Inter", sans-serif' :
+                    v === "mono"    ? '"JetBrains Mono", "Fira Code", monospace' :
+                    v === "rounded" ? '"Nunito", "Varela Round", sans-serif' :
+                    'Georgia, "Times New Roman", serif',
+                }}
+              >
+                <span className="text-base">{sample}</span>
+                <span>{l}</span>
               </button>
             ))}
           </div>
