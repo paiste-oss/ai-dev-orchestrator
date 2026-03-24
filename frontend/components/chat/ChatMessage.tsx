@@ -138,7 +138,19 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
                     <blockquote className="border-l-2 border-indigo-500/50 pl-4 my-2 text-gray-400 italic">{children}</blockquote>
                   ),
                   a: ({ href, children }) => (
-                    <a href={href} target="_blank" rel="noopener noreferrer" className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 transition-colors">{children}</a>
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (href) window.open(href, "_blank", "noopener,noreferrer");
+                        e.preventDefault();
+                      }}
+                    >
+                      {children}
+                    </a>
                   ),
                 }}
               >
