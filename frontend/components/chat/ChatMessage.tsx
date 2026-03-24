@@ -142,12 +142,8 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
                       href={href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (href) window.open(href, "_blank", "noopener,noreferrer");
-                        e.preventDefault();
-                      }}
+                      className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 transition-colors cursor-pointer"
+                      onMouseDown={(e) => e.stopPropagation()}
                     >
                       {children}
                     </a>
