@@ -12,22 +12,54 @@ import { useCamera } from "@/hooks/useCamera";
 import { useTTS } from "@/hooks/useTTS";
 import { useUiPrefs, BG_COLORS } from "@/hooks/useUiPrefs";
 
+import TopBar from "@/components/chat/TopBar";
+import CanvasCard from "@/components/chat/CanvasCard";
 import AvatarCircle from "@/components/chat/AvatarCircle";
 import ChatMessage from "@/components/chat/ChatMessage";
 import ChatInput from "@/components/chat/ChatInput";
-import ChatSidebar from "@/components/chat/ChatSidebar";
 import MemoryPanel from "@/components/chat/MemoryPanel";
 import CameraModal from "@/components/chat/CameraModal";
 import SetupModal from "@/components/chat/SetupModal";
 
-function providerLabel(p: string) {
-  if (p === "claude") return "Claude";
-  if (p === "gemini") return "Gemini";
-  if (p === "openai") return "ChatGPT";
-  return p;
+import StockCard from "@/components/chat/StockCard";
+import StockHistoryCard from "@/components/chat/StockHistoryCard";
+import ImageGalleryCard from "@/components/chat/ImageGalleryCard";
+import TransportBoardCard from "@/components/chat/TransportBoardCard";
+import ActionButtonsCard from "@/components/chat/ActionButtonsCard";
+import BrowserViewCard from "@/components/chat/BrowserViewCard";
+
+// ── Canvas card state ─────────────────────────────────────────────────────────
+
+interface CardData {
+  id: string;
+  title: string;
+  type: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  minimized: boolean;
+  zIndex: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data?: any;
 }
 
-const suggestions = ["Was kannst du?", "Erkläre mir etwas", "Aktuelle Nachrichten", "Öffne eine Webseite"];
+function richCardMeta(responseType: string): { title: string; width: number; height: number } {
+  switch (responseType) {
+    case "stock_card":      return { title: "📈 Aktienkurs",    width: 320, height: 240 };
+    case "stock_history":   return { title: "📊 Kursverlauf",   width: 440, height: 340 };
+    case "image_gallery":   return { title: "🖼 Bilder",        width: 520, height: 380 };
+    case "transport_board": return { title: "🚆 Abfahrten",     width: 400, height: 320 };
+    case "action_buttons":  return { title: "⚡ Aktionen",      width: 320, height: 180 };
+    case "browser_view":    return { title: "🌐 Browser",       width: 560, height: 440 };
+    default:                return { title: "📦 Ergebnis",      width: 380, height: 300 };
+  }
+}
+
+const CHAT_CARD_ID = "chat";
+const suggestions = ["Was kannst du?", "Erkläre mir etwas", "Öffne eine Webseite", "Aktuelle Nachrichten"];
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ChatPage() {
   const router = useRouter();
@@ -42,8 +74,19 @@ export default function ChatPage() {
   const [lastProvider, setLastProvider] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // Canvas cards state
+  const [cards, setCards] = useState<CardData[]>([{
+    id: CHAT_CARD_ID,
+    title: "💬 Gespräch",
+    type: "chat",
+    x: 24, y: 16,
+    width: 500, height: 560,
+    minimized: false, zIndex: 1,
+  }]);
+  const topZ = useRef(2);
+  const processedMsgs = useRef(new Set<string>());
+
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,12 +107,65 @@ export default function ChatPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Auto-scroll chat card
   useEffect(() => {
     if (!userScrolledUp.current) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: "smooth" });
     }
   }, [messages, loading]);
 
+  // Spawn canvas cards for rich responses
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant" || !last.structuredData) return;
+    if (last.responseType === "text" || !last.responseType) return;
+    if (processedMsgs.current.has(last.id)) return;
+    processedMsgs.current.add(last.id);
+
+    topZ.current++;
+    const meta = richCardMeta(last.responseType);
+    const spread = (processedMsgs.current.size - 1) % 5;
+    const chatCard = cards.find(c => c.id === CHAT_CARD_ID);
+    const baseX = (chatCard ? chatCard.x + chatCard.width + 24 : 548) + spread * 16;
+    const baseY = 16 + spread * 24;
+
+    setCards(cs => [...cs, {
+      id: `rich-${last.id}`,
+      title: meta.title,
+      type: last.responseType ?? "text",
+      x: baseX, y: baseY,
+      width: meta.width, height: meta.height,
+      minimized: false,
+      zIndex: topZ.current,
+      data: last.structuredData,
+    }]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
+  // Canvas card management
+  const moveCard = useCallback((id: string, x: number, y: number) => {
+    setCards(cs => cs.map(c => c.id === id ? { ...c, x, y } : c));
+  }, []);
+
+  const resizeCard = useCallback((id: string, width: number, height: number) => {
+    setCards(cs => cs.map(c => c.id === id ? { ...c, width, height } : c));
+  }, []);
+
+  const focusCard = useCallback((id: string) => {
+    topZ.current++;
+    const z = topZ.current;
+    setCards(cs => cs.map(c => c.id === id ? { ...c, zIndex: z } : c));
+  }, []);
+
+  const closeCard = useCallback((id: string) => {
+    setCards(cs => cs.filter(c => c.id !== id));
+  }, []);
+
+  const minimizeCard = useCallback((id: string) => {
+    setCards(cs => cs.map(c => c.id === id ? { ...c, minimized: !c.minimized } : c));
+  }, []);
+
+  // Helpers
   async function loadMemories() {
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/chat/memories`);
@@ -107,7 +203,7 @@ export default function ChatPage() {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
-      if (!res.ok) throw new Error("Transkription fehlgeschlagen");
+      if (!res.ok) throw new Error();
       const data = await res.json();
       if (data.text) setInput(prev => prev ? `${prev} ${data.text}` : data.text);
     } catch {
@@ -117,43 +213,31 @@ export default function ChatPage() {
     }
   }
 
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    setIsDragOver(true);
-  }
-
+  function handleDragOver(e: React.DragEvent) { e.preventDefault(); setIsDragOver(true); }
   function handleDragLeave(e: React.DragEvent) {
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
     setIsDragOver(false);
   }
-
   async function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setIsDragOver(false);
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    for (const f of droppedFiles) {
+    e.preventDefault(); setIsDragOver(false);
+    for (const f of Array.from(e.dataTransfer.files)) {
       if (f.type.startsWith("audio/") || /\.(mp3|wav|m4a|ogg|mpeg|mpga)$/i.test(f.name)) {
         await transcribeAudio(f);
       } else {
-        setAttachedFiles(prev => [...prev, { file: f, id: `drop-${Date.now()}-${Math.random()}` }]);
+        setAttachedFiles(prev => [...prev, { file: f, id: `drop-${Date.now()}` }]);
       }
     }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   }
 
   async function handleSend() {
     const provider = await sendMessage({
-      input,
-      attachedFiles,
+      input, attachedFiles,
       onUiUpdate: (update) => setUiPrefs(p => ({ ...p, ...update })),
-      speak,
-      stripMarkdown,
+      speak, stripMarkdown,
       onAfterSend: () => { setInput(""); setAttachedFiles([]); },
       setSpeaking,
       focusTextarea: () => textareaRef.current?.focus(),
@@ -172,32 +256,60 @@ export default function ChatPage() {
     setInput(prev => prev ? `${prev} ${text}` : text);
   }, []);
 
-  const uiStyle: React.CSSProperties = {
-    backgroundColor: BG_COLORS[uiPrefs.background] ?? "#030712",
-  };
+  // Render rich content inside a canvas card
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function renderRichCard(type: string, data: any) {
+    switch (type) {
+      case "stock_card":      return <div className="h-full overflow-auto p-2"><StockCard data={data} /></div>;
+      case "stock_history":   return <div className="h-full overflow-auto p-2"><StockHistoryCard data={data} /></div>;
+      case "image_gallery":   return <div className="h-full overflow-auto p-2"><ImageGalleryCard data={data} /></div>;
+      case "transport_board": return <div className="h-full overflow-auto p-2"><TransportBoardCard data={data} /></div>;
+      case "action_buttons":  return <div className="h-full overflow-auto p-2"><ActionButtonsCard data={data} /></div>;
+      case "browser_view":    return <div className="h-full overflow-auto p-2"><BrowserViewCard data={data} /></div>;
+      default: return <div className="p-4 text-sm text-gray-400">{JSON.stringify(data, null, 2)}</div>;
+    }
+  }
+
+  const bgColor = BG_COLORS[uiPrefs.background] ?? "#030712";
 
   return (
-    <div className="flex h-screen text-white overflow-hidden" style={uiStyle}>
+    <div className="flex flex-col h-screen text-white overflow-hidden" style={{ background: bgColor }}>
 
-      {/* ── LEFT SIDEBAR ── */}
-      <ChatSidebar
-        buddyName={uiPrefs.buddyName}
+      {/* ── TOP BAR ── */}
+      <TopBar
+        buddyName={uiPrefs.buddyName ?? "Baddi"}
         buddyInitial={buddyInitial}
+        speaking={speaking}
+        ttsEnabled={ttsEnabled}
+        lastProvider={lastProvider}
+        memoriesCount={memories.length}
         firstName={firstName}
-        onNewChat={() => { setMessages([]); setInput(""); setAttachedFiles([]); }}
+        isAdmin={user?.role === "admin"}
+        onToggleTts={() => {
+          if (ttsEnabled && audioRef.current) audioRef.current.pause();
+          else unlockAudio();
+          setTtsEnabled(v => !v);
+        }}
+        onToggleMemory={() => setShowMemory(v => !v)}
+        onSettings={() => setSetupOpen(true)}
         onLogout={() => { clearSession(); router.push("/"); }}
+        onAdminBack={() => router.push("/admin")}
       />
 
-      {/* ── MAIN AREA ── */}
+      {/* ── WHITEBOARD CANVAS ── */}
       <div
-        className="flex-1 flex flex-col overflow-hidden relative"
+        className="flex-1 relative overflow-hidden"
+        style={{
+          backgroundImage: "radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px)",
+          backgroundSize: "28px 28px",
+        }}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {/* Drag Overlay */}
+        {/* Drag overlay */}
         {isDragOver && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-indigo-950/80 border-2 border-dashed border-indigo-400 pointer-events-none">
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-indigo-950/80 border-2 border-dashed border-indigo-400 pointer-events-none">
             <div className="text-center">
               <p className="text-4xl mb-3">📎</p>
               <p className="text-indigo-200 font-semibold text-lg">Datei hier ablegen</p>
@@ -206,156 +318,91 @@ export default function ChatPage() {
           </div>
         )}
 
-        {/* ── TOP HEADER ── */}
-        <header className="shrink-0 bg-gray-950/80 backdrop-blur border-b border-white/5 px-4 py-2.5 flex items-center gap-3">
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            {user?.role === "admin" && (
-              <button
-                onClick={() => router.push("/admin")}
-                className="text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 px-2.5 py-1.5 rounded-lg transition-all shrink-0"
+        {/* ── CANVAS CARDS ── */}
+        {cards.map(card => (
+          <CanvasCard
+            key={card.id}
+            id={card.id}
+            title={card.title}
+            x={card.x} y={card.y}
+            width={card.width} height={card.height}
+            minimized={card.minimized}
+            zIndex={card.zIndex}
+            closable={card.id !== CHAT_CARD_ID}
+            onMove={moveCard}
+            onResize={resizeCard}
+            onFocus={focusCard}
+            onClose={closeCard}
+            onMinimize={minimizeCard}
+          >
+            {card.type === "chat" ? (
+              /* ── Chat card content ── */
+              <div
+                ref={chatScrollRef}
+                className="h-full overflow-y-auto px-4 py-4 space-y-4"
+                onScroll={() => {
+                  const el = chatScrollRef.current;
+                  if (!el) return;
+                  userScrolledUp.current = el.scrollHeight - el.scrollTop - el.clientHeight > 80;
+                }}
               >
-                ← Zurück
-              </button>
-            )}
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="font-semibold text-white text-sm truncate">{uiPrefs.buddyName}</span>
-              <div className="flex items-center gap-1.5 shrink-0">
-                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${speaking ? "bg-green-400 animate-pulse" : "bg-green-500"}`} />
-                <span className="text-xs text-gray-500 hidden sm:block">{speaking ? "antwortet…" : "Online"}</span>
+                {!historyLoaded && (
+                  <p className="text-center text-gray-600 text-sm pt-8">Lade Verlauf…</p>
+                )}
+
+                {historyLoaded && messages.length === 0 && (
+                  <div className="flex flex-col items-center justify-center min-h-[60%] gap-5 text-center py-8">
+                    <div className={`w-16 h-16 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-xl shadow-indigo-900/40 ${speaking ? "shadow-[0_0_0_10px_rgba(99,102,241,0.2)] scale-105" : ""} transition-all`}>
+                      <span className="text-white font-bold text-2xl">{buddyInitial}</span>
+                    </div>
+                    <div>
+                      <h2 className="font-semibold text-white text-lg">
+                        Hallo{firstName ? `, ${firstName}` : ""}!
+                      </h2>
+                      <p className="text-gray-400 text-sm mt-1">Wie kann ich dir heute helfen?</p>
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-2 max-w-xs">
+                      {suggestions.map(s => (
+                        <button key={s} onClick={() => setInput(s)}
+                          className="px-3 py-1.5 rounded-full text-xs text-gray-300 bg-white/5 hover:bg-white/10 border border-white/8 hover:border-white/15 transition-all">
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {messages.map(msg => (
+                  <ChatMessage
+                    key={msg.id}
+                    msg={msg}
+                    uiPrefs={uiPrefs}
+                    copied={copied}
+                    onCopy={handleCopy}
+                    buddyInitial={buddyInitial}
+                  />
+                ))}
+
+                {loading && (
+                  <div className="flex gap-3">
+                    <AvatarCircle speaking={true} initial={buddyInitial} />
+                    <div className="flex items-center gap-1.5 py-3">
+                      <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                      <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                      <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
-
-          {lastProvider && (
-            <div className="hidden md:flex items-center">
-              <span className="text-xs text-gray-500 bg-white/5 border border-white/8 px-2.5 py-1 rounded-full">
-                {lastProvider === "claude" ? "🟠" : lastProvider === "gemini" ? "🔵" : lastProvider === "openai" ? "🟢" : "🤖"}{" "}
-                {providerLabel(lastProvider)}
-              </span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => setShowMemory(!showMemory)}
-              title="Gedächtnis"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                showMemory
-                  ? "bg-violet-600/30 text-violet-300 border border-violet-500/30"
-                  : "text-gray-500 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              🧠{memories.length > 0 && <span className="text-xs">{memories.length}</span>}
-            </button>
-
-            <button
-              onClick={() => {
-                if (ttsEnabled) {
-                  if (audioRef.current) audioRef.current.pause();
-                } else {
-                  unlockAudio();
-                }
-                setTtsEnabled(v => !v);
-              }}
-              title={ttsEnabled ? "Baddi-Stimme aus" : "Baddi-Stimme ein"}
-              className={`p-1.5 rounded-lg transition-colors text-sm ${
-                ttsEnabled
-                  ? "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
-                  : "text-gray-500 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              {ttsEnabled ? "🔊" : "🔇"}
-            </button>
-
-            <button
-              onClick={() => setSetupOpen(true)}
-              className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors text-sm"
-              title="Einstellungen"
-            >
-              ⚙
-            </button>
-
-            <button
-              onClick={() => { clearSession(); router.push("/"); }}
-              className="lg:hidden text-xs text-gray-500 hover:text-red-400 bg-white/5 hover:bg-red-500/5 border border-white/5 hover:border-red-500/20 px-2.5 py-1.5 rounded-lg transition-all"
-            >
-              Abmelden
-            </button>
-          </div>
-        </header>
-
-        {/* ── MESSAGES AREA ── */}
-        <div
-          ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto"
-          onScroll={() => {
-            const el = scrollContainerRef.current;
-            if (!el) return;
-            const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-            userScrolledUp.current = !atBottom;
-          }}
-        >
-          <div className="max-w-3xl mx-auto w-full px-4 py-6 space-y-6">
-            {!historyLoaded && (
-              <p className="text-center text-gray-600 text-sm pt-10">Lade Verlauf…</p>
+            ) : (
+              renderRichCard(card.type, card.data)
             )}
+          </CanvasCard>
+        ))}
+      </div>
 
-            {historyLoaded && messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center">
-                <div className={`w-20 h-20 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-xl shadow-indigo-900/40 transition-all duration-300 ${
-                  speaking ? "shadow-[0_0_0_12px_rgba(99,102,241,0.2)] scale-105" : ""
-                }`}>
-                  <span className="text-white font-bold text-3xl">{buddyInitial}</span>
-                </div>
-                <div>
-                  <h2 className="font-semibold text-white text-xl">
-                    Hallo{firstName ? `, ${firstName}` : ""}!
-                  </h2>
-                  <p className="text-gray-400 text-sm mt-1.5">Wie kann ich dir heute helfen?</p>
-                </div>
-                <div className="flex flex-wrap justify-center gap-2 max-w-sm">
-                  {suggestions.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setInput(s)}
-                      className="px-4 py-2 rounded-full text-sm text-gray-300 bg-white/5 hover:bg-white/10 border border-white/8 hover:border-white/15 transition-all"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {messages.map((msg) => (
-              <ChatMessage
-                key={msg.id}
-                msg={msg}
-                uiPrefs={uiPrefs}
-                copied={copied}
-                onCopy={handleCopy}
-                buddyInitial={buddyInitial}
-              />
-            ))}
-
-            {loading && (
-              <div className="flex gap-3 justify-start">
-                <div className="shrink-0 mt-0.5">
-                  <AvatarCircle speaking={true} initial={buddyInitial} />
-                </div>
-                <div className="flex items-center gap-1.5 py-3">
-                  <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                  <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                  <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]" />
-                </div>
-              </div>
-            )}
-
-            <div ref={bottomRef} />
-          </div>
-        </div>
-
-        {/* ── INPUT AREA ── */}
+      {/* ── FLOATING INPUT ── */}
+      <div className="shrink-0 px-4 pb-3 pt-2" style={{ background: "rgba(5,10,20,0.85)", backdropFilter: "blur(12px)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
         <ChatInput
           input={input}
           onChange={setInput}
@@ -371,48 +418,30 @@ export default function ChatPage() {
           fontSize={uiPrefs.fontSize}
           textareaRef={textareaRef}
         />
-
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          className="hidden"
-          accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.mp3,.wav,.m4a,.ogg,.mp4,.mov,.webm"
-          onChange={handleFileInputChange}
-        />
       </div>
 
-      {/* ── RIGHT MEMORY PANEL ── */}
+      {/* Hidden file input */}
+      <input ref={fileInputRef} type="file" multiple className="hidden"
+        accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.mp3,.wav,.m4a,.ogg,.mp4,.mov,.webm"
+        onChange={handleFileInputChange}
+      />
+
+      {/* ── OVERLAYS ── */}
       {showMemory && (
-        <MemoryPanel
-          memories={memories}
-          buddyName={uiPrefs.buddyName}
-          onDelete={deleteMemory}
-          onClose={() => setShowMemory(false)}
-        />
+        <MemoryPanel memories={memories} buddyName={uiPrefs.buddyName}
+          onDelete={deleteMemory} onClose={() => setShowMemory(false)} />
       )}
-
-      {/* ── SETUP MODAL ── */}
       {setupOpen && (
-        <SetupModal
-          onClose={() => setSetupOpen(false)}
-          onNavigate={(href) => { setSetupOpen(false); router.push(href); }}
-          onLogout={() => { clearSession(); router.push("/"); }}
-        />
+        <SetupModal onClose={() => setSetupOpen(false)}
+          onNavigate={href => { setSetupOpen(false); router.push(href); }}
+          onLogout={() => { clearSession(); router.push("/"); }} />
       )}
-
-      {/* ── CAMERA MODAL ── */}
       {cameraOpen && (
-        <CameraModal
-          videoRef={videoRef}
-          onClose={closeCamera}
-          onCapture={() => capturePhoto((file) => {
+        <CameraModal videoRef={videoRef} onClose={closeCamera}
+          onCapture={() => capturePhoto(file => {
             setAttachedFiles(prev => [...prev, { file, id: `cam-${Date.now()}` }]);
-          })}
-        />
+          })} />
       )}
-
     </div>
   );
 }
