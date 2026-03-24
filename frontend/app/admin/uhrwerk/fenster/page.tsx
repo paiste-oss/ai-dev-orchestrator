@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminSidebar from "@/components/AdminSidebar";
 import { WINDOW_MODULES, WindowModuleDefinition } from "@/lib/window-registry";
@@ -12,6 +13,7 @@ const STATUS_BADGE: Record<WindowModuleDefinition["status"], { label: string; cl
 
 export default function FensterPage() {
   const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   function openInChat(mod: WindowModuleDefinition) {
     // Canvas-State direkt in localStorage vorbereiten, dann zum Chat navigieren
@@ -37,7 +39,7 @@ export default function FensterPage() {
 
   return (
     <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
-      <AdminSidebar />
+      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <main className="flex-1 overflow-y-auto p-8">
         {/* Header */}
         <div className="mb-8">
