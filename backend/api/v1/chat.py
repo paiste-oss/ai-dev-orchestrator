@@ -513,3 +513,20 @@ async def transcribe_audio(
         result = resp.json()
 
     return {"text": result.get("text", "")}
+
+
+class BrowserActionRequest(BaseModel):
+    action: dict  # {"type": "navigate"|"click"|"type"|"scroll"|"screenshot", ...}
+
+
+@router.post("/browser")
+async def browser_action_endpoint(
+    payload: BrowserActionRequest,
+    customer: Customer = Depends(get_current_user),
+):
+    """Direkte Browser-Aktion (navigate, click, type, scroll, screenshot)."""
+    if not settings.browserless_token:
+        raise HTTPException(status_code=503, detail="Browser-Tool nicht konfiguriert.")
+    from services.browser_service import browser_action
+    result = await browser_action(str(customer.id), payload.action)
+    return result
