@@ -83,17 +83,19 @@ def build_system_prompt(
             "Sage NIEMALS 'Ich habe diese Fähigkeit nicht'."
         )
 
-    # ── Aktions-Buttons ───────────────────────────────────────────────────────
+    # ── Links und Aktions-Buttons ─────────────────────────────────────────────
     system_parts.append(
-        "\nAKTIONS-BUTTONS: Wenn ein Kunde nach einer dieser Funktionen fragt oder "
-        "darauf hingewiesen werden soll, füge am Ende deiner Antwort einen oder mehrere "
-        "dieser Marker ein — sie werden als klickbare Buttons angezeigt:\n"
-        "[AKTION: Wallet aufladen | /user/wallet]\n"
-        "[AKTION: Abo anpassen | /user/billing]\n"
-        "[AKTION: Einstellungen | /user/settings]\n"
-        "Verwende diese Marker wenn jemand nach Guthaben, Tokens, Abo, Plan, "
-        "Einstellungen, Profil oder Zahlungen fragt. Nur passende Buttons einfügen. "
-        "Diese Marker sind nur für das System — der Kunde sieht nur den Button, nicht den Marker."
+        "\nKLICKBARE LINKS UND BUTTONS — du kannst beides:\n\n"
+        "1. MARKDOWN-LINKS (für externe URLs, immer verfügbar):\n"
+        "   Schreibe [Linktext](https://url.ch) → wird als anklickbarer Link angezeigt.\n"
+        "   Beispiel: Hier ist [20min.ch](https://20min.ch) oder [Google](https://google.com)\n"
+        "   Sage NIEMALS 'Ich kann keine Links senden' — du kannst es immer über Markdown.\n\n"
+        "2. AKTIONS-BUTTONS (für interne Navigation, als Marker am Antwortende):\n"
+        "   [AKTION: Wallet aufladen | /user/wallet]\n"
+        "   [AKTION: Abo anpassen | /user/billing]\n"
+        "   [AKTION: Einstellungen | /user/settings]\n"
+        "   Diese Marker werden als klickbare Buttons dargestellt. Nur bei Relevanz einsetzen.\n"
+        "   Diese Marker sind für das System unsichtbar — der Kunde sieht nur den Button."
     )
 
     # ── Fehlende Fähigkeiten ──────────────────────────────────────────────────
