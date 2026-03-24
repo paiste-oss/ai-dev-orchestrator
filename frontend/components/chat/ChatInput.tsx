@@ -24,17 +24,18 @@ interface ChatInputProps {
   buddyName: string;
   fontSize: string;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  compact?: boolean;
 }
 
 export default function ChatInput({
   input, onChange, onSend, onKeyDown, loading,
   attachedFiles, onFilesChange, onAttachClick, onCameraClick,
-  onVoiceResult, buddyName, fontSize, textareaRef,
+  onVoiceResult, buddyName, fontSize, textareaRef, compact = false,
 }: ChatInputProps) {
   const handleVoiceResult = useCallback(onVoiceResult, [onVoiceResult]);
 
   return (
-    <div className="shrink-0 px-4 pb-6 pt-3">
+    <div className={compact ? "shrink-0 px-2 pb-2 pt-1" : "shrink-0 px-4 pb-6 pt-3"}>
       <div className="max-w-3xl mx-auto w-full">
         {/* File chips above */}
         <FileDropZone
@@ -58,7 +59,7 @@ export default function ChatInput({
           />
 
           {/* Bottom bar */}
-          <div className="flex items-center justify-between px-3 pb-3 pt-1">
+          <div className={`flex items-center justify-between px-2 pt-1 ${compact ? "pb-1.5" : "pb-3"}`}>
             {/* Left: attach + camera */}
             <div className="flex items-center gap-1">
               <button
@@ -103,9 +104,11 @@ export default function ChatInput({
           </div>
         </div>
 
-        <p className="text-xs text-gray-700 mt-2 text-center">
-          Enter senden · Shift+Enter Zeilenumbruch
-        </p>
+        {!compact && (
+          <p className="text-xs text-gray-700 mt-2 text-center">
+            Enter senden · Shift+Enter Zeilenumbruch
+          </p>
+        )}
       </div>
     </div>
   );

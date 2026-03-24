@@ -374,13 +374,13 @@ export default function ChatPage() {
           </div>
         )}
       </div>
-      <div className="shrink-0 px-3 pb-3 pt-2 border-t border-white/5" style={{ background: "rgba(5,10,20,0.95)" }}>
+      <div className="shrink-0 border-t border-white/5" style={{ background: "rgba(5,10,20,0.95)" }}>
         <ChatInput
           input={input} onChange={setInput} onSend={handleSend} onKeyDown={handleKeyDown}
           loading={loading} attachedFiles={attachedFiles} onFilesChange={setAttachedFiles}
           onAttachClick={() => fileInputRef.current?.click()} onCameraClick={openCamera}
           onVoiceResult={handleVoiceResult} buddyName={uiPrefs.buddyName}
-          fontSize={uiPrefs.fontSize} textareaRef={textareaRef}
+          fontSize={uiPrefs.fontSize} textareaRef={textareaRef} compact
         />
       </div>
       <input ref={fileInputRef} type="file" multiple className="hidden"
