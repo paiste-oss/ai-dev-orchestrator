@@ -13,12 +13,13 @@ interface BrowserState {
 interface Props {
   initialUrl?: string;
   onUrlChange?: (url: string) => void;
+  onNaturalSize?: (w: number, h: number) => void;
 }
 
 const VIEWPORT_W = 1280;
 const VIEWPORT_H = 720;
 
-export default function BrowserWindowCard({ initialUrl = "", onUrlChange }: Props) {
+export default function BrowserWindowCard({ initialUrl = "", onUrlChange, onNaturalSize }: Props) {
   const [inputUrl, setInputUrl] = useState(initialUrl);
   const [state, setState] = useState<BrowserState | null>(null);
   const [loading, setLoading] = useState(false);
@@ -28,6 +29,7 @@ export default function BrowserWindowCard({ initialUrl = "", onUrlChange }: Prop
   const imgRef = useRef<HTMLImageElement>(null);
   const urlInputRef = useRef<HTMLInputElement>(null);
   const didAutoNav = useRef(false);
+  const didResize = useRef(false);
 
   // Auto-navigate on mount if initialUrl provided (e.g. after page reload)
   useEffect(() => {
@@ -59,6 +61,10 @@ export default function BrowserWindowCard({ initialUrl = "", onUrlChange }: Prop
         setState({ screenshot_b64: data.screenshot_b64, url: newUrl, error: null });
         setInputUrl(newUrl);
         onUrlChange?.(newUrl);
+        if (!didResize.current && onNaturalSize) {
+          didResize.current = true;
+          onNaturalSize(VIEWPORT_W, VIEWPORT_H);
+        }
       }
     } catch {
       setError("Verbindungsfehler");

@@ -4,9 +4,10 @@ import { useState, useRef, useCallback } from "react";
 
 interface Props {
   initialUrl?: string;
+  onNaturalSize?: (w: number, h: number) => void;
 }
 
-export default function ImageViewerWindow({ initialUrl = "" }: Props) {
+export default function ImageViewerWindow({ initialUrl = "", onNaturalSize }: Props) {
   const [url, setUrl]           = useState(initialUrl);
   const [inputUrl, setInputUrl] = useState(initialUrl);
   const [zoom, setZoom]         = useState(1);       // 1 = "fit to window"
@@ -129,7 +130,7 @@ export default function ImageViewerWindow({ initialUrl = "" }: Props) {
               opacity: loaded ? 1 : 0,
               userSelect: "none",
             }}
-            onLoad={() => setLoaded(true)}
+            onLoad={(e) => { setLoaded(true); const img = e.currentTarget; onNaturalSize?.(img.naturalWidth, img.naturalHeight); }}
             onError={() => { setError(true); setLoaded(true); }}
             onMouseDown={startPan}
             draggable={false}

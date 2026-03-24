@@ -340,6 +340,9 @@ export default function ChatPage() {
   }
 
   async function handleSend() {
+    // Force scroll to bottom on send
+    userScrolledUp.current = false;
+    chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: "smooth" });
     const provider = await sendMessage({
       input, attachedFiles,
       onUiUpdate: (update) => setUiPrefs(p => ({ ...p, ...update })),
@@ -549,6 +552,13 @@ export default function ChatPage() {
               <BrowserWindowCard
                 initialUrl={card.data?.url ?? ""}
                 onUrlChange={(url) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, url } } : c))}
+                onNaturalSize={(w, h) => {
+                  // Maintain 16:9 screenshot aspect ratio, max 800px wide
+                  const maxW = 800;
+                  const fw = Math.min(w, maxW);
+                  const fh = Math.round(fw / w * h);
+                  resizeCard(card.id, fw, fh + 80); // +80 for URL bar + type bar
+                }}
               />
             ) : card.type === "whiteboard" ? (
               <WhiteboardWindow
@@ -556,7 +566,10 @@ export default function ChatPage() {
                 onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
               />
             ) : card.type === "image_viewer" ? (
-              <ImageViewerWindow initialUrl={card.data?.url ?? ""} />
+              <ImageViewerWindow
+                initialUrl={card.data?.url ?? ""}
+                onNaturalSize={(w, h) => resizeCard(card.id, Math.min(w, 900), Math.min(h, 640) + 44)}
+              />
             ) : card.type === "chat" ? (
               /* ── Main chat card content ── */
               <div
