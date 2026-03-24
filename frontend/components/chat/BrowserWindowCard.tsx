@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 
@@ -12,12 +12,13 @@ interface BrowserState {
 
 interface Props {
   initialUrl?: string;
+  onUrlChange?: (url: string) => void;
 }
 
 const VIEWPORT_W = 1280;
 const VIEWPORT_H = 720;
 
-export default function BrowserWindowCard({ initialUrl = "" }: Props) {
+export default function BrowserWindowCard({ initialUrl = "", onUrlChange }: Props) {
   const [inputUrl, setInputUrl] = useState(initialUrl);
   const [state, setState] = useState<BrowserState | null>(null);
   const [loading, setLoading] = useState(false);
@@ -26,6 +27,16 @@ export default function BrowserWindowCard({ initialUrl = "" }: Props) {
   const [showTypeBar, setShowTypeBar] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const urlInputRef = useRef<HTMLInputElement>(null);
+  const didAutoNav = useRef(false);
+
+  // Auto-navigate on mount if initialUrl provided (e.g. after page reload)
+  useEffect(() => {
+    if (initialUrl && !didAutoNav.current) {
+      didAutoNav.current = true;
+      doAction({ type: "navigate", url: initialUrl });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const doAction = useCallback(async (action: Record<string, unknown>) => {
     setLoading(true);
@@ -44,8 +55,10 @@ export default function BrowserWindowCard({ initialUrl = "" }: Props) {
       if (data.error) {
         setError(data.error);
       } else {
-        setState({ screenshot_b64: data.screenshot_b64, url: data.url, error: null });
-        setInputUrl(data.url ?? inputUrl);
+        const newUrl = data.url ?? inputUrl;
+        setState({ screenshot_b64: data.screenshot_b64, url: newUrl, error: null });
+        setInputUrl(newUrl);
+        onUrlChange?.(newUrl);
       }
     } catch {
       setError("Verbindungsfehler");

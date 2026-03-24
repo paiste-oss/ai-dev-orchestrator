@@ -63,6 +63,28 @@ const suggestions = ["Was kannst du?", "Erkläre mir etwas", "Öffne eine Websei
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+const CANVAS_STORAGE_KEY = "baddi_canvas_cards";
+
+// Strip large binary data before saving
+function stripForStorage(cards: CardData[]): CardData[] {
+  return cards.map(c => {
+    if (!c.data) return c;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any = { ...c.data };
+    delete data.screenshot_b64; // browser screenshots können MB gross sein
+    return { ...c, data };
+  });
+}
+
+function loadPersistedCards(): CardData[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(CANVAS_STORAGE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as CardData[];
+  } catch { return []; }
+}
+
 // Viewport-aware initial chat card size
 function initialChatCard(): CardData {
   if (typeof window === "undefined") {
@@ -76,6 +98,13 @@ function initialChatCard(): CardData {
   const w = Math.min(520, Math.max(320, Math.floor(vw * 0.5)));
   const h = Math.min(available, Math.max(400, Math.floor(vh * 0.75)));
   return { id: CHAT_CARD_ID, title: "💬 Gespräch", type: "chat", x: 24, y: 16, width: w, height: h, minimized: false, zIndex: 1 };
+}
+
+function initialCards(): CardData[] {
+  const persisted = loadPersistedCards();
+  const chatCard = persisted.find(c => c.id === CHAT_CARD_ID) ?? initialChatCard();
+  const others = persisted.filter(c => c.id !== CHAT_CARD_ID);
+  return [chatCard, ...others];
 }
 
 export default function ChatPage() {
@@ -101,8 +130,14 @@ export default function ChatPage() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  // Canvas cards state
-  const [cards, setCards] = useState<CardData[]>(() => [initialChatCard()]);
+  // Canvas cards state — restored from localStorage
+  const [cards, setCards] = useState<CardData[]>(() => initialCards());
+
+  // Persist cards to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(CANVAS_STORAGE_KEY, JSON.stringify(stripForStorage(cards)));
+  }, [cards]);
   const topZ = useRef(2);
   const processedMsgs = useRef(new Set<string>());
 
@@ -481,7 +516,10 @@ export default function ChatPage() {
                 }}
               />
             ) : card.type === "browser_window" ? (
-              <BrowserWindowCard />
+              <BrowserWindowCard
+                initialUrl={card.data?.url ?? ""}
+                onUrlChange={(url) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, url } } : c))}
+              />
             ) : card.type === "chat" ? (
               /* ── Main chat card content ── */
               <div
@@ -527,6 +565,7 @@ export default function ChatPage() {
                     copied={copied}
                     onCopy={handleCopy}
                     buddyInitial={buddyInitial}
+                    hideRichContent
                   />
                 ))}
 

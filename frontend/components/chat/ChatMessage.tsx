@@ -25,9 +25,10 @@ interface ChatMessageProps {
   copied: string | null;
   onCopy: (id: string, content: string) => void;
   buddyInitial: string;
+  hideRichContent?: boolean;
 }
 
-export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial }: ChatMessageProps) {
+export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial, hideRichContent = false }: ChatMessageProps) {
   const fontSize = FONT_SIZES[uiPrefs.fontSize] ?? "15px";
 
   return (
@@ -146,8 +147,8 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
             )}
           </div>
 
-          {/* DALL-E generated images */}
-          {msg.generatedImages && msg.generatedImages.length > 0 && !msg.structuredData && (
+          {/* DALL-E generated images — nur anzeigen wenn kein Canvas-Fenster */}
+          {!hideRichContent && msg.generatedImages && msg.generatedImages.length > 0 && !msg.structuredData && (
             <div className="mt-3 flex flex-wrap gap-3">
               {msg.generatedImages.map((src, i) => (
                 <a key={i} href={src} target="_blank" rel="noopener noreferrer">
@@ -162,23 +163,24 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
             </div>
           )}
 
-          {/* Structured cards */}
-          {msg.responseType === "stock_card" && msg.structuredData && (
+          {/* Structured cards — nur anzeigen wenn kein Canvas-Fenster */}
+          {!hideRichContent && msg.responseType === "stock_card" && msg.structuredData && (
             <StockCard data={msg.structuredData as StockData} />
           )}
-          {msg.responseType === "stock_history" && msg.structuredData && (
+          {!hideRichContent && msg.responseType === "stock_history" && msg.structuredData && (
             <StockHistoryCard data={msg.structuredData as StockHistoryData} />
           )}
-          {msg.responseType === "image_gallery" && msg.structuredData && (
+          {!hideRichContent && msg.responseType === "image_gallery" && msg.structuredData && (
             <ImageGalleryCard data={msg.structuredData as ImageGalleryData} />
           )}
-          {msg.responseType === "transport_board" && msg.structuredData && (
+          {!hideRichContent && msg.responseType === "transport_board" && msg.structuredData && (
             <TransportBoardCard data={msg.structuredData as TransportBoardData} />
           )}
+          {/* action_buttons immer anzeigen — auch auf Canvas */}
           {msg.responseType === "action_buttons" && msg.structuredData && (
             <ActionButtonsCard data={msg.structuredData as ActionButtonsData} />
           )}
-          {msg.responseType === "browser_view" && msg.structuredData && (
+          {!hideRichContent && msg.responseType === "browser_view" && msg.structuredData && (
             <BrowserViewCard data={msg.structuredData as BrowserViewData} />
           )}
 
