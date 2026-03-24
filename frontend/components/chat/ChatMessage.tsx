@@ -99,6 +99,7 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
               </div>
             ) : (
               <ReactMarkdown
+                urlTransform={(url) => url}
                 components={{
                   p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                   strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
@@ -137,17 +138,29 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
                   blockquote: ({ children }) => (
                     <blockquote className="border-l-2 border-indigo-500/50 pl-4 my-2 text-gray-400 italic">{children}</blockquote>
                   ),
-                  a: ({ href, children }) => (
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 transition-colors cursor-pointer"
-                      onMouseDown={(e) => e.stopPropagation()}
-                    >
-                      {children}
-                    </a>
-                  ),
+                  a: ({ href, children }) => {
+                    const url = href
+                      ? href.startsWith("http") ? href : `https://${href}`
+                      : null;
+                    return (
+                      <a
+                        href={url ?? undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 transition-colors cursor-pointer"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (url) {
+                            e.preventDefault();
+                            window.open(url, "_blank", "noopener,noreferrer");
+                          }
+                        }}
+                      >
+                        {children}
+                      </a>
+                    );
+                  },
                 }}
               >
                 {msg.content}
