@@ -182,6 +182,7 @@ services:
       - ./frontend:/app
     environment:
       - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+      - BACKEND_INTERNAL_URL=http://backend:8000
     depends_on:
       - backend
     networks:
