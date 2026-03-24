@@ -27,6 +27,8 @@ import ImageGalleryCard from "@/components/chat/ImageGalleryCard";
 import TransportBoardCard from "@/components/chat/TransportBoardCard";
 import ActionButtonsCard from "@/components/chat/ActionButtonsCard";
 import BrowserViewCard from "@/components/chat/BrowserViewCard";
+import ChatCardContent from "@/components/chat/ChatCardContent";
+import BrowserWindowCard from "@/components/chat/BrowserWindowCard";
 
 // ── Canvas card state ─────────────────────────────────────────────────────────
 
@@ -165,6 +167,27 @@ export default function ChatPage() {
     setCards(cs => cs.map(c => c.id === id ? { ...c, minimized: !c.minimized } : c));
   }, []);
 
+  // Spawn a new card (from "+" button or from rich content callbacks)
+  const spawnCard = useCallback((type: string, title: string, width: number, height: number, data?: unknown) => {
+    topZ.current++;
+    const offset = cards.length * 20;
+    setCards(cs => [...cs, {
+      id: `${type}-${Date.now()}`,
+      title, type,
+      x: 40 + offset, y: 40 + offset,
+      width, height,
+      minimized: false,
+      zIndex: topZ.current,
+      data,
+    }]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cards.length]);
+
+  const handleAddCard = useCallback((type: "chat" | "browser") => {
+    if (type === "chat") spawnCard("chat_secondary", "💬 Gespräch", 480, 520);
+    if (type === "browser") spawnCard("browser_window", "🌐 Browser", 600, 480);
+  }, [spawnCard]);
+
   // Helpers
   async function loadMemories() {
     try {
@@ -294,6 +317,7 @@ export default function ChatPage() {
         onSettings={() => setSetupOpen(true)}
         onLogout={() => { clearSession(); router.push("/"); }}
         onAdminBack={() => router.push("/admin")}
+        onAddCard={handleAddCard}
       />
 
       {/* ── WHITEBOARD CANVAS ── */}
@@ -335,8 +359,32 @@ export default function ChatPage() {
             onClose={closeCard}
             onMinimize={minimizeCard}
           >
-            {card.type === "chat" ? (
-              /* ── Chat card content ── */
+            {card.type === "chat_secondary" ? (
+              <ChatCardContent
+                buddyName={uiPrefs.buddyName ?? "Baddi"}
+                buddyInitial={buddyInitial}
+                uiPrefs={uiPrefs}
+                onRichContent={(rType, rData, rMsgId) => {
+                  const meta = richCardMeta(rType);
+                  topZ.current++;
+                  const chatCard = cards.find(c => c.id === card.id);
+                  setCards(cs => [...cs, {
+                    id: `rich-${rMsgId}`,
+                    title: meta.title,
+                    type: rType,
+                    x: (chatCard ? chatCard.x + chatCard.width + 24 : 548),
+                    y: chatCard?.y ?? 16,
+                    width: meta.width, height: meta.height,
+                    minimized: false,
+                    zIndex: topZ.current,
+                    data: rData,
+                  }]);
+                }}
+              />
+            ) : card.type === "browser_window" ? (
+              <BrowserWindowCard />
+            ) : card.type === "chat" ? (
+              /* ── Main chat card content ── */
               <div
                 ref={chatScrollRef}
                 className="h-full overflow-y-auto px-4 py-4 space-y-4"

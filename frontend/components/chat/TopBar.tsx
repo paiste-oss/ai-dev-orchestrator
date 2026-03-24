@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 interface TopBarProps {
   buddyName: string;
   buddyInitial: string;
@@ -14,6 +16,7 @@ interface TopBarProps {
   onSettings: () => void;
   onLogout: () => void;
   onAdminBack: () => void;
+  onAddCard?: (type: "chat" | "browser") => void;
 }
 
 function providerBadge(p: string) {
@@ -26,8 +29,10 @@ function providerBadge(p: string) {
 export default function TopBar({
   buddyName, buddyInitial, speaking, ttsEnabled, lastProvider,
   memoriesCount, firstName, isAdmin,
-  onToggleTts, onToggleMemory, onSettings, onLogout, onAdminBack,
+  onToggleTts, onToggleMemory, onSettings, onLogout, onAdminBack, onAddCard,
 }: TopBarProps) {
+  const [showAddMenu, setShowAddMenu] = useState(false);
+
   return (
     <header className="shrink-0 h-12 flex items-center gap-3 px-4 border-b border-white/5"
       style={{ background: "rgba(5,10,20,0.97)", backdropFilter: "blur(12px)" }}>
@@ -64,6 +69,39 @@ export default function TopBar({
 
       {/* Action buttons */}
       <div className="flex items-center gap-0.5 shrink-0">
+
+        {/* Add card */}
+        {onAddCard && (
+          <div className="relative">
+            <button
+              onClick={() => setShowAddMenu(v => !v)}
+              title="Fenster hinzufügen"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white hover:bg-white/5 transition-colors font-medium"
+            >
+              <span className="text-base leading-none">+</span>
+            </button>
+            {showAddMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
+                <div className="absolute right-0 top-8 z-50 min-w-[160px] rounded-xl border border-white/10 shadow-2xl overflow-hidden"
+                  style={{ background: "rgba(8,12,22,0.97)", backdropFilter: "blur(16px)" }}>
+                  <button
+                    onClick={() => { onAddCard("chat"); setShowAddMenu(false); }}
+                    className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/8 hover:text-white flex items-center gap-2 transition-colors"
+                  >
+                    💬 <span>Neues Gespräch</span>
+                  </button>
+                  <button
+                    onClick={() => { onAddCard("browser"); setShowAddMenu(false); }}
+                    className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/8 hover:text-white flex items-center gap-2 transition-colors"
+                  >
+                    🌐 <span>Browser</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Memory */}
         <button onClick={onToggleMemory} title="Gedächtnis"
