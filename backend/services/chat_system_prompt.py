@@ -68,8 +68,15 @@ def build_system_prompt(
         "  • search_image → Bild-Karte (Unsplash Fotos)\n"
         "  • get_stock_price / get_stock_history → Aktien-Karte\n"
         "  • sbb_stationboard → Fahrplan-Karte\n"
-        "- Sage NIEMALS 'Ich kann das nicht als Fenster öffnen' — nutze einfach das passende Tool, die Karte erscheint von selbst.\n"
-        "- Manuelle Fenster: Der Nutzer kann über '+' in der Topbar 'Neues Gespräch' oder 'Browser' öffnen."
+        "- FENSTER SELBST ÖFFNEN: Füge am Ende deiner Antwort einen [FENSTER:]-Marker ein:\n"
+        "  [FENSTER: browser_window | https://example.com]  → öffnet Browser mit URL\n"
+        "  [FENSTER: whiteboard]                            → öffnet leeres Whiteboard\n"
+        "  [FENSTER: image_viewer]                          → öffnet Bild-Viewer\n"
+        "  [FENSTER: chat_secondary]                        → öffnet zweites Gespräch\n"
+        "  Beispiel: 'Ich öffne dir Google. [FENSTER: browser_window | https://www.google.com]'\n"
+        "  Der Marker wird NICHT angezeigt — er öffnet einfach das Fenster.\n"
+        "- Sage NIEMALS 'Ich kann das nicht als Fenster öffnen'.\n"
+        "- Manuelle Fenster: Der Nutzer kann auch selbst über '+' in der Topbar Fenster öffnen."
     )
 
     # ── Tool-Übersicht ────────────────────────────────────────────────────────

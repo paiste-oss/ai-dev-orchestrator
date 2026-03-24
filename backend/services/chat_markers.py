@@ -5,6 +5,7 @@ Erkennt und entfernt System-Marker aus dem Antwort-Text:
   - [UI: key=value]           → UI-Präferenz-Update
   - [AKTION: label | url]     → Aktions-Buttons
   - [FÄHIGKEIT_FEHLT: ...]    → Fehlende-Fähigkeit-Hinweis
+  - [FENSTER: canvasType]     → Neues Canvas-Fenster öffnen
 """
 from __future__ import annotations
 
@@ -23,6 +24,8 @@ class MarkerResult:
     """Liste von Aktions-Buttons, z.B. [{"label": "Wallet", "url": "/user/wallet"}]."""
     capability_intent: str | None = None
     """Erkannter Intent einer fehlenden Fähigkeit."""
+    open_window: dict | None = None
+    """Fenster öffnen, z.B. {"canvasType": "browser_window", "url": "..."}."""
 
 
 def process_markers(text: str) -> MarkerResult:
@@ -45,6 +48,7 @@ def process_markers(text: str) -> MarkerResult:
     result.text, result.action_buttons = _extract_action_buttons(result.text)
     result.text, result.ui_update = _extract_ui_marker(result.text)
     result.text, result.capability_intent = _extract_capability_marker(result.text)
+    result.text, result.open_window = _extract_window_marker(result.text)
 
     return result
 
@@ -100,3 +104,27 @@ def _extract_capability_marker(text: str) -> tuple[str, str | None]:
             "Wir schauen uns das an und melden uns wenn diese Funktion verfügbar ist. 🛠️"
         )
     return text, capability_intent
+
+
+def _extract_window_marker(text: str) -> tuple[str, dict | None]:
+    """
+    Extrahiert den [FENSTER: canvasType] oder [FENSTER: canvasType | url]-Marker.
+
+    Gültige canvasTypes: browser_window, whiteboard, image_viewer, chat_secondary
+
+    Returns:
+        (bereinigter Text, open_window-Dict oder None)
+    """
+    VALID_TYPES = {"browser_window", "whiteboard", "image_viewer", "chat_secondary"}
+    open_window: dict | None = None
+    # Format: [FENSTER: canvasType] oder [FENSTER: canvasType | url]
+    match = re.search(r"\[FENSTER:\s*(\w+)(?:\s*\|\s*([^\]]+))?\]", text, re.IGNORECASE)
+    if match:
+        canvas_type = match.group(1).strip().lower()
+        url = match.group(2).strip() if match.group(2) else None
+        if canvas_type in VALID_TYPES:
+            open_window = {"canvasType": canvas_type}
+            if url:
+                open_window["url"] = url
+        text = re.sub(r"\s*\[FENSTER:[^\]]+\]", "", text).strip()
+    return text, open_window

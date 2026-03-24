@@ -61,6 +61,13 @@ function richCardMeta(responseType: string): { title: string; width: number; hei
   }
 }
 
+// Spawnt Fenster-Karte aus Baddi's [FENSTER:]-Marker
+function openWindowData(canvasType: string): { title: string; width: number; height: number } | null {
+  const mod = WINDOW_MODULES.find(m => m.canvasType === canvasType);
+  if (!mod) return null;
+  return { title: `${mod.icon} ${mod.label}`, width: mod.defaultWidth, height: mod.defaultHeight };
+}
+
 const CHAT_CARD_ID = "chat";
 const suggestions = ["Was kannst du?", "Erkläre mir etwas", "Öffne eine Webseite", "Aktuelle Nachrichten"];
 
@@ -181,12 +188,32 @@ export default function ChatPage() {
     processedMsgs.current.add(last.id);
 
     topZ.current++;
-    const meta = richCardMeta(last.responseType);
     const spread = (processedMsgs.current.size - 1) % 5;
     const chatCard = cards.find(c => c.id === CHAT_CARD_ID);
     const baseX = (chatCard ? chatCard.x + chatCard.width + 24 : 548) + spread * 16;
     const baseY = 16 + spread * 24;
 
+    // Baddi öffnet ein Fenster via [FENSTER:]-Marker
+    if (last.responseType === "open_window") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = last.structuredData as any;
+      const wMeta = openWindowData(d.canvasType);
+      if (wMeta) {
+        setCards(cs => [...cs, {
+          id: `win-${last.id}`,
+          title: wMeta.title,
+          type: d.canvasType,
+          x: baseX, y: baseY,
+          width: wMeta.width, height: wMeta.height,
+          minimized: false,
+          zIndex: topZ.current,
+          data: d.url ? { url: d.url } : {},
+        }]);
+      }
+      return;
+    }
+
+    const meta = richCardMeta(last.responseType);
     setCards(cs => [...cs, {
       id: `rich-${last.id}`,
       title: meta.title,
