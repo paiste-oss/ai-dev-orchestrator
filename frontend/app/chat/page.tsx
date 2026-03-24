@@ -63,6 +63,21 @@ const suggestions = ["Was kannst du?", "Erkläre mir etwas", "Öffne eine Websei
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
+// Viewport-aware initial chat card size
+function initialChatCard(): CardData {
+  if (typeof window === "undefined") {
+    return { id: CHAT_CARD_ID, title: "💬 Gespräch", type: "chat", x: 24, y: 16, width: 500, height: 560, minimized: false, zIndex: 1 };
+  }
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const topBarH = 48;
+  const inputH = 80;
+  const available = vh - topBarH - inputH - 32;
+  const w = Math.min(520, Math.max(320, Math.floor(vw * 0.5)));
+  const h = Math.min(available, Math.max(400, Math.floor(vh * 0.75)));
+  return { id: CHAT_CARD_ID, title: "💬 Gespräch", type: "chat", x: 24, y: 16, width: w, height: h, minimized: false, zIndex: 1 };
+}
+
 export default function ChatPage() {
   const router = useRouter();
   const user = getSession();
@@ -76,15 +91,18 @@ export default function ChatPage() {
   const [lastProvider, setLastProvider] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
+  // Viewport size tracking
+  const [vw, setVw] = useState<number>(() => (typeof window !== "undefined" ? window.innerWidth : 1280));
+  const isMobile = vw < 768;
+
+  useEffect(() => {
+    function onResize() { setVw(window.innerWidth); }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   // Canvas cards state
-  const [cards, setCards] = useState<CardData[]>([{
-    id: CHAT_CARD_ID,
-    title: "💬 Gespräch",
-    type: "chat",
-    x: 24, y: 16,
-    width: 500, height: 560,
-    minimized: false, zIndex: 1,
-  }]);
+  const [cards, setCards] = useState<CardData[]>(() => [initialChatCard()]);
   const topZ = useRef(2);
   const processedMsgs = useRef(new Set<string>());
 
@@ -295,8 +313,89 @@ export default function ChatPage() {
 
   const bgColor = BG_COLORS[uiPrefs.background] ?? "#030712";
 
+  // ── MOBILE LAYOUT ────────────────────────────────────────────────────────────
+  if (isMobile) return (
+    <div className="flex flex-col h-[100dvh] text-white overflow-hidden" style={{ background: bgColor }}>
+      <TopBar
+        buddyName={uiPrefs.buddyName ?? "Baddi"}
+        buddyInitial={buddyInitial}
+        speaking={speaking}
+        ttsEnabled={ttsEnabled}
+        lastProvider={lastProvider}
+        memoriesCount={memories.length}
+        firstName={firstName}
+        isAdmin={user?.role === "admin"}
+        onToggleTts={() => { if (ttsEnabled && audioRef.current) audioRef.current.pause(); else unlockAudio(); setTtsEnabled(v => !v); }}
+        onToggleMemory={() => setShowMemory(v => !v)}
+        onSettings={() => setSetupOpen(true)}
+        onLogout={() => { clearSession(); router.push("/"); }}
+        onAdminBack={() => router.push("/admin")}
+      />
+      <div
+        ref={chatScrollRef}
+        className="flex-1 overflow-y-auto px-3 py-3 space-y-3"
+        onScroll={() => {
+          const el = chatScrollRef.current;
+          if (!el) return;
+          userScrolledUp.current = el.scrollHeight - el.scrollTop - el.clientHeight > 80;
+        }}
+      >
+        {!historyLoaded && <p className="text-center text-gray-600 text-sm pt-8">Lade Verlauf…</p>}
+        {historyLoaded && messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center min-h-[60%] gap-4 text-center py-8">
+            <div className={`w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center ${speaking ? "shadow-[0_0_0_8px_rgba(99,102,241,0.2)]" : ""} transition-all`}>
+              <span className="text-white font-bold text-xl">{buddyInitial}</span>
+            </div>
+            <div>
+              <h2 className="font-semibold text-white">Hallo{firstName ? `, ${firstName}` : ""}!</h2>
+              <p className="text-gray-400 text-sm mt-1">Wie kann ich dir helfen?</p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
+              {suggestions.map(s => (
+                <button key={s} onClick={() => setInput(s)}
+                  className="px-3 py-1.5 rounded-full text-xs text-gray-300 bg-white/5 hover:bg-white/10 border border-white/8 transition-all">
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {messages.map(msg => (
+          <ChatMessage key={msg.id} msg={msg} uiPrefs={uiPrefs} copied={copied} onCopy={handleCopy} buddyInitial={buddyInitial} />
+        ))}
+        {loading && (
+          <div className="flex gap-2 items-center">
+            <AvatarCircle speaking={true} initial={buddyInitial} />
+            <div className="flex gap-1 py-2">
+              <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
+              <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
+              <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]" />
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="shrink-0 px-3 pb-3 pt-2 border-t border-white/5" style={{ background: "rgba(5,10,20,0.95)" }}>
+        <ChatInput
+          input={input} onChange={setInput} onSend={handleSend} onKeyDown={handleKeyDown}
+          loading={loading} attachedFiles={attachedFiles} onFilesChange={setAttachedFiles}
+          onAttachClick={() => fileInputRef.current?.click()} onCameraClick={openCamera}
+          onVoiceResult={handleVoiceResult} buddyName={uiPrefs.buddyName}
+          fontSize={uiPrefs.fontSize} textareaRef={textareaRef}
+        />
+      </div>
+      <input ref={fileInputRef} type="file" multiple className="hidden"
+        accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.mp3,.wav,.m4a,.ogg,.mp4,.mov,.webm"
+        onChange={handleFileInputChange}
+      />
+      {showMemory && <MemoryPanel memories={memories} buddyName={uiPrefs.buddyName} onDelete={deleteMemory} onClose={() => setShowMemory(false)} />}
+      {setupOpen && <SetupModal onClose={() => setSetupOpen(false)} onNavigate={href => { setSetupOpen(false); router.push(href); }} onLogout={() => { clearSession(); router.push("/"); }} />}
+      {cameraOpen && <CameraModal videoRef={videoRef} onClose={closeCamera} onCapture={() => capturePhoto(file => { setAttachedFiles(prev => [...prev, { file, id: `cam-${Date.now()}` }]); })} />}
+    </div>
+  );
+
+  // ── DESKTOP CANVAS LAYOUT ─────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-screen text-white overflow-hidden" style={{ background: bgColor }}>
+    <div className="flex flex-col h-[100dvh] text-white overflow-hidden" style={{ background: bgColor }}>
 
       {/* ── TOP BAR ── */}
       <TopBar
