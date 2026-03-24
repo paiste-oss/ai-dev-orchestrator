@@ -32,7 +32,9 @@
       "Bash(git pull:*)",
       "Bash(docker stop:*)",
       "Bash(docker rm:*)",
-      "Bash(grep -n \"BACKEND_URL\\\\|NEXT_PUBLIC\" /home/naor/ai-dev-orchestrator/frontend/.env*)"
+      "Bash(grep -n \"BACKEND_URL\\\\|NEXT_PUBLIC\" /home/naor/ai-dev-orchestrator/frontend/.env*)",
+      "Bash(find /home/naor/ai-dev-orchestrator -type f \\\\\\( -name \"*.py\" -o -name \"*.tsx\" -o -name \"*.ts\" -o -name \"*.json\" -o -name \"*.yaml\" -o -name \"*.yml\" \\\\\\) ! -path \"*/node_modules/*\" ! -path \"*/__pycache__/*\" ! -path \"*/.git/*\" ! -name \"*.tsbuildinfo\" -exec wc -l {} +)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://chrome.browserless.io\")"
     ]
   }
 }

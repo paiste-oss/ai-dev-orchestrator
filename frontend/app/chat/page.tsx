@@ -29,6 +29,9 @@ import ActionButtonsCard from "@/components/chat/ActionButtonsCard";
 import BrowserViewCard from "@/components/chat/BrowserViewCard";
 import ChatCardContent from "@/components/chat/ChatCardContent";
 import BrowserWindowCard from "@/components/chat/BrowserWindowCard";
+import WhiteboardWindow from "@/components/windows/WhiteboardWindow";
+import ImageViewerWindow from "@/components/windows/ImageViewerWindow";
+import { WINDOW_MODULES } from "@/lib/window-registry";
 
 // ── Canvas card state ─────────────────────────────────────────────────────────
 
@@ -236,9 +239,9 @@ export default function ChatPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cards.length]);
 
-  const handleAddCard = useCallback((type: "chat" | "browser") => {
-    if (type === "chat") spawnCard("chat_secondary", "💬 Gespräch", 480, 520);
-    if (type === "browser") spawnCard("browser_window", "🌐 Browser", 600, 480);
+  const handleAddCard = useCallback((canvasType: string) => {
+    const mod = WINDOW_MODULES.find(m => m.canvasType === canvasType);
+    if (mod) spawnCard(mod.canvasType, `${mod.icon} ${mod.label}`, mod.defaultWidth, mod.defaultHeight);
   }, [spawnCard]);
 
   // Helpers
@@ -520,6 +523,13 @@ export default function ChatPage() {
                 initialUrl={card.data?.url ?? ""}
                 onUrlChange={(url) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, url } } : c))}
               />
+            ) : card.type === "whiteboard" ? (
+              <WhiteboardWindow
+                boardId={card.data?.boardId}
+                onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
+              />
+            ) : card.type === "image_viewer" ? (
+              <ImageViewerWindow initialUrl={card.data?.url ?? ""} />
             ) : card.type === "chat" ? (
               /* ── Main chat card content ── */
               <div

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { WINDOW_MODULES } from "@/lib/window-registry";
 
 interface TopBarProps {
   buddyName: string;
@@ -16,7 +17,7 @@ interface TopBarProps {
   onSettings: () => void;
   onLogout: () => void;
   onAdminBack: () => void;
-  onAddCard?: (type: "chat" | "browser") => void;
+  onAddCard?: (canvasType: string) => void;
 }
 
 function providerBadge(p: string) {
@@ -85,18 +86,16 @@ export default function TopBar({
                 <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
                 <div className="absolute right-0 top-8 z-50 min-w-[160px] rounded-xl border border-white/10 shadow-2xl overflow-hidden"
                   style={{ background: "rgba(8,12,22,0.97)", backdropFilter: "blur(16px)" }}>
-                  <button
-                    onClick={() => { onAddCard("chat"); setShowAddMenu(false); }}
-                    className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/8 hover:text-white flex items-center gap-2 transition-colors"
-                  >
-                    💬 <span>Neues Gespräch</span>
-                  </button>
-                  <button
-                    onClick={() => { onAddCard("browser"); setShowAddMenu(false); }}
-                    className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/8 hover:text-white flex items-center gap-2 transition-colors"
-                  >
-                    🌐 <span>Browser</span>
-                  </button>
+                  {WINDOW_MODULES.filter(m => m.status !== "coming_soon").map(mod => (
+                    <button
+                      key={mod.id}
+                      onClick={() => { onAddCard(mod.canvasType); setShowAddMenu(false); }}
+                      className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/8 hover:text-white flex items-center gap-2 transition-colors"
+                    >
+                      <span>{mod.icon}</span>
+                      <span>{mod.label}</span>
+                    </button>
+                  ))}
                 </div>
               </>
             )}

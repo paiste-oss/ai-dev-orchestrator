@@ -26,7 +26,9 @@
       "Bash(python3 -m json.tool)",
       "Bash(curl -s -H \"X-N8N-API-KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmNWZiODM1YS01OGZlLTQ4NDItODgxZC1lMTJjZjZiZWFhODUiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiYWJiMDA2MGYtNTMyYi00NDFkLTg1NGUtNDMxMDM4MzA4MDdjIiwiaWF0IjoxNzczNTU3OTk5LCJleHAiOjE3ODEzMjMyMDB9.nZJLJtV1x4oRK8p7qEGMCj3bp7oDKKH_qt_RkSg-vO8\" \"http://localhost:5678/api/v1/credentials?includeData=true\")",
       "WebSearch",
-      "Bash(head -10 grep -n \"PATCH\\\\|avatar\\\\|persona\" backend/api/v1/buddies.py)"
+      "Bash(head -10 grep -n \"PATCH\\\\|avatar\\\\|persona\" backend/api/v1/buddies.py)",
+      "Bash(curl -s -X POST \"https://chrome.browserless.io/function?token=2UCd1thQSLePsgz2a1fc0cc92b7abcb50c773099be7747d09\" -H \"Content-Type: application/json\" -d '{\"\"\"\"code\"\"\"\":\"\"\"\"export default async \\({page}\\) => { await page.goto\\(\\\\\"\"\"\"https://example.com\\\\\"\"\"\"\\); return {url: page.url\\(\\)}; }\"\"\"\"}' -w \"\\\\nHTTP: %{http_code}\")",
+      "Bash(python3 -c \"import sys,json; data=sys.stdin.read\\(\\); lines=data.split\\(''''\\\\n''''\\); status=lines[-1]; body=''''\\\\n''''.join\\(lines[:-1]\\); parsed=json.loads\\(body\\); print\\(status\\); print\\(''''url:'''', parsed.get\\(''''url'''',''''''''\\)\\); print\\(''''screenshot_len:'''', len\\(parsed.get\\(''''screenshot'''',''''''''\\)\\)\\); print\\(''''error:'''', parsed.get\\(''''error'''',''''''''\\)\\)\")"
     ]
   }
 }

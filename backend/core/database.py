@@ -188,6 +188,17 @@ async def init_db():
             "ALTER TABLE chat_analytics ADD COLUMN IF NOT EXISTS memory_facts TEXT DEFAULT ''",
             # UI-Präferenzen pro Kunde (Schriftgrösse, Farbe, Sprache, Buddy-Name)
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS ui_preferences JSONB DEFAULT '{}'::jsonb",
+            # Window/Whiteboard-Boards
+            """CREATE TABLE IF NOT EXISTS window_boards (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                customer_id UUID REFERENCES customers(id) ON DELETE CASCADE,
+                name VARCHAR(200) NOT NULL DEFAULT 'Neues Board',
+                board_type VARCHAR(50) NOT NULL DEFAULT 'whiteboard',
+                data JSONB NOT NULL DEFAULT '{}',
+                created_at TIMESTAMP DEFAULT NOW(),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_window_boards_customer ON window_boards(customer_id, updated_at DESC)",
         ]
         for sql in migrations:
             await conn.execute(text(sql))
