@@ -220,13 +220,14 @@ export default function BrowserWindowCard({ initialUrl = "", onUrlChange }: Prop
 
         {/* Screenshot — interactive */}
         {state && state.screenshot_b64 && (
-          <div className="relative w-full h-full">
+          <div className="relative w-full h-full bg-black">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               ref={imgRef}
               src={`data:image/jpeg;base64,${state.screenshot_b64}`}
               alt="Browser"
-              className={`w-full h-full object-contain select-none ${loading ? "opacity-60" : "cursor-crosshair"}`}
+              style={{ width: "100%", height: "100%", objectFit: "contain", userSelect: "none" }}
+              className={loading ? "opacity-60 cursor-wait" : "cursor-crosshair"}
               onClick={handleImgClick}
               draggable={false}
             />
