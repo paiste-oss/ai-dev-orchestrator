@@ -9,6 +9,7 @@ const BACKEND_PROXY =
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  transpilePackages: ["@excalidraw/excalidraw"],
   async rewrites() {
     return [
       {
