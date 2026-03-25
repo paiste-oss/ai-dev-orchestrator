@@ -36,6 +36,16 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     canvasType: "whiteboard",
   },
   {
+    id: "netzwerk",
+    label: "Namensnetz",
+    icon: "◉",
+    description: "Personen und Netzwerke visualisieren. Daten werden im Backend gespeichert.",
+    defaultWidth: 720,
+    defaultHeight: 540,
+    status: "active",
+    canvasType: "netzwerk",
+  },
+  {
     id: "image_viewer",
     label: "Bild-Viewer",
     icon: "🖼",

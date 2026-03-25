@@ -30,6 +30,7 @@ import BrowserViewCard from "@/components/chat/BrowserViewCard";
 import BrowserWindowCard from "@/components/chat/BrowserWindowCard";
 import WhiteboardWindow from "@/components/windows/WhiteboardWindow";
 import ImageViewerWindow from "@/components/windows/ImageViewerWindow";
+import NetzwerkWindow from "@/components/windows/NetzwerkWindow";
 import { WINDOW_MODULES } from "@/lib/window-registry";
 
 // ── Canvas card state ─────────────────────────────────────────────────────────
@@ -554,6 +555,11 @@ export default function ChatPage() {
               <ImageViewerWindow
                 initialUrl={card.data?.url ?? ""}
                 onNaturalSize={(w, h) => resizeCard(card.id, Math.min(w, 900), Math.min(h, 640) + 44)}
+              />
+            ) : card.type === "netzwerk" ? (
+              <NetzwerkWindow
+                boardId={card.data?.boardId}
+                onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
               />
             ) : card.type === "chat" ? (
               /* ── Main chat card content ── */
