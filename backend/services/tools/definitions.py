@@ -367,6 +367,76 @@ UNSPLASH_TOOL_DEFS = [
 
 
 # ---------------------------------------------------------------------------
+# Trainings-Erinnerungen
+# ---------------------------------------------------------------------------
+
+TRAINING_REMINDER_TOOL_DEFS = [
+    {
+        "name": "create_training_reminder",
+        "description": (
+            "Erstellt einen personalisierten Wochentrainingsplan und richtet automatische "
+            "E-Mail-Erinnerungen ein. Nutze dieses Tool wenn der Nutzer einen Trainingsplan "
+            "erstellen, einen Workout-Kalender aufstellen oder an Training erinnert werden möchte. "
+            "Der Nutzer wird per E-Mail erinnert, bevor das Training beginnt."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "training_type": {
+                    "type": "string",
+                    "description": "Art des Trainings, z.B. 'Kraft', 'Cardio', 'Yoga', 'Laufen', 'Schwimmen'",
+                },
+                "weekly_schedule": {
+                    "type": "object",
+                    "description": (
+                        "Wochenplan als Objekt. Schlüssel = Wochentag auf Englisch (monday, tuesday, "
+                        "wednesday, thursday, friday, saturday, sunday). "
+                        "Wert = Objekt mit 'time' (HH:MM) und optionalem 'duration_minutes'. "
+                        "Beispiel: {\"monday\": {\"time\": \"07:00\", \"duration_minutes\": 60}, "
+                        "\"wednesday\": {\"time\": \"18:30\", \"duration_minutes\": 45}}"
+                    ),
+                },
+                "reminder_minutes_before": {
+                    "type": "integer",
+                    "description": "Wie viele Minuten vor dem Training die Erinnerungs-E-Mail gesendet wird. Standard: 30",
+                    "default": 30,
+                },
+                "email": {
+                    "type": "string",
+                    "description": "E-Mail-Adresse für Erinnerungen. Leer = Kunden-E-Mail verwenden.",
+                },
+                "timezone": {
+                    "type": "string",
+                    "description": "Zeitzone, z.B. 'Europe/Zurich' (Standard), 'Europe/Berlin', 'UTC'",
+                    "default": "Europe/Zurich",
+                },
+            },
+            "required": ["training_type", "weekly_schedule"],
+        },
+    },
+    {
+        "name": "list_training_reminders",
+        "description": "Zeigt alle aktiven Trainingspläne und Erinnerungen des Nutzers.",
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "delete_training_reminder",
+        "description": "Löscht einen bestehenden Trainingsplan anhand seiner ID.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "reminder_id": {
+                    "type": "string",
+                    "description": "Die ID des Trainingsplans (aus list_training_reminders)",
+                },
+            },
+            "required": ["reminder_id"],
+        },
+    },
+]
+
+
+# ---------------------------------------------------------------------------
 # Browser (Browserless.io)
 # ---------------------------------------------------------------------------
 

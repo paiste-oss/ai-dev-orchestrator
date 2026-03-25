@@ -199,6 +199,21 @@ async def init_db():
                 updated_at TIMESTAMP DEFAULT NOW()
             )""",
             "CREATE INDEX IF NOT EXISTS idx_window_boards_customer ON window_boards(customer_id, updated_at DESC)",
+            # Trainings-Erinnerungen
+            """CREATE TABLE IF NOT EXISTS training_reminders (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+                email VARCHAR(200) NOT NULL,
+                training_type VARCHAR(100) NOT NULL,
+                weekly_schedule JSONB NOT NULL DEFAULT '{}',
+                reminder_minutes_before INTEGER NOT NULL DEFAULT 30,
+                timezone VARCHAR(50) NOT NULL DEFAULT 'Europe/Zurich',
+                is_active BOOLEAN DEFAULT true,
+                last_reminded_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT NOW()
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_training_reminders_active ON training_reminders(is_active) WHERE is_active = true",
+            "CREATE INDEX IF NOT EXISTS idx_training_reminders_customer ON training_reminders(customer_id)",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

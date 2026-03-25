@@ -11,12 +11,14 @@ from services.tools.definitions import (
     STOCK_ALERT_TOOL_DEFS,
     UNSPLASH_TOOL_DEFS,
     BROWSER_TOOL_DEFS,
+    TRAINING_REMINDER_TOOL_DEFS,
 )
 from services.tools.handlers.transport import _handle_sbb
 from services.tools.handlers.web import _handle_web_fetch, _handle_web_search
 from services.tools.handlers.images import _handle_dalle, _handle_unsplash
 from services.tools.handlers.stocks import _handle_stock, _handle_stock_alerts
 from services.tools.handlers.browser import _handle_browser
+from services.tools.handlers.training import _handle_training_reminders
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +114,18 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_defs": BROWSER_TOOL_DEFS,
         "tool_names": {"browser"},
         "handler": _handle_browser,
+        "needs_customer_id": True,
+    },
+    "training_reminders": {
+        "key": "training_reminders",
+        "name": "Trainingsplan & Erinnerungen",
+        "description": "Erstellt personalisierte Wochentrainingspläne und sendet automatische E-Mail-Erinnerungen vor jedem Training.",
+        "prompt_hint": "Trainingsplan erstellen, Workout-Kalender aufstellen und per E-Mail an Training erinnern lassen",
+        "category": "productivity",
+        "tier": "free",
+        "tool_defs": TRAINING_REMINDER_TOOL_DEFS,
+        "tool_names": {"create_training_reminder", "list_training_reminders", "delete_training_reminder"},
+        "handler": _handle_training_reminders,
         "needs_customer_id": True,
     },
 }

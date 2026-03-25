@@ -12,6 +12,7 @@ celery_app = Celery(
         "tasks.dev_task_processor",
         "tasks.memory_manager",
         "tasks.stock_alerts",
+        "tasks.training_reminders",
     ],
 )
 
@@ -27,6 +28,10 @@ celery_app.conf.beat_schedule = {
     "check-stock-alerts": {
         "task": "tasks.stock_alerts.check_stock_alerts",
         "schedule": crontab(minute="*/15", hour="7-22", day_of_week="mon-fri"),
+    },
+    "check-training-reminders": {
+        "task": "tasks.training_reminders.check_training_reminders",
+        "schedule": crontab(minute="*/5"),
     },
 }
 
