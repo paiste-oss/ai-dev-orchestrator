@@ -7,6 +7,12 @@ import { Message, UiPrefs } from "@/lib/chat-types";
 import { AttachedFile } from "@/components/FileDropZone";
 import { fileToBase64, extractVideoFrames } from "@/lib/chat-utils";
 
+export interface UploadedFileInfo {
+  filename: string;
+  blobUrl: string;
+  fileType: string;
+}
+
 interface SendMessageOptions {
   input: string;
   attachedFiles: AttachedFile[];
@@ -15,6 +21,7 @@ interface SendMessageOptions {
   stripMarkdown: (text: string) => string;
   onAfterSend: () => void;
   onFilesChange: (files: AttachedFile[]) => void;
+  onFileUploaded?: (info: UploadedFileInfo) => void;
   setSpeaking: (v: boolean) => void;
   focusTextarea: () => void;
 }
@@ -35,7 +42,7 @@ export function useChatMessages() {
 
   async function sendMessage({
     input, attachedFiles, onUiUpdate, speak, stripMarkdown,
-    onAfterSend, onFilesChange, setSpeaking, focusTextarea,
+    onAfterSend, onFilesChange, onFileUploaded, setSpeaking, focusTextarea,
   }: SendMessageOptions) {
     const text = input.trim();
     if ((!text && attachedFiles.length === 0) || loading) return;
@@ -93,6 +100,9 @@ export function useChatMessages() {
       const documentIds: string[] = [];
       const uploadedStatuses = new Map<string, "done" | "error">();
       for (const df of docFiles) {
+        // Blob-URL vor dem Upload erstellen (File-Objekt ist danach noch gültig)
+        const blobUrl = URL.createObjectURL(df.file);
+        const ext = df.file.name.split(".").pop()?.toLowerCase() ?? "";
         try {
           const formData = new FormData();
           formData.append("file", df.file);
@@ -106,11 +116,15 @@ export function useChatMessages() {
             const uploaded = await uploadRes.json();
             documentIds.push(uploaded.document_id);
             uploadedStatuses.set(df.id, "done");
+            // Fenster öffnen
+            onFileUploaded?.({ filename: df.file.name, blobUrl, fileType: ext });
           } else {
             uploadedStatuses.set(df.id, "error");
+            URL.revokeObjectURL(blobUrl);
           }
         } catch {
           uploadedStatuses.set(df.id, "error");
+          URL.revokeObjectURL(blobUrl);
         }
       }
       // Status kurz als "done"/"error" anzeigen, dann Files leeren

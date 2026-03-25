@@ -56,6 +56,16 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     canvasType: "image_viewer",
   },
   {
+    id: "file_viewer",
+    label: "Datei-Viewer",
+    icon: "📄",
+    description: "Dateien und PDFs direkt im Fenster anzeigen.",
+    defaultWidth: 680,
+    defaultHeight: 560,
+    status: "active",
+    canvasType: "file_viewer",
+  },
+  {
     id: "documents",
     label: "Dokumente",
     icon: "📁",

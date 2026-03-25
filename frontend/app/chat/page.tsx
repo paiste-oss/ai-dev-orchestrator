@@ -7,7 +7,7 @@ import { BACKEND_URL } from "@/lib/config";
 import { AttachedFile } from "@/components/FileDropZone";
 import { MemoryItem } from "@/lib/chat-types";
 
-import { useChatMessages } from "@/hooks/useChatMessages";
+import { useChatMessages, UploadedFileInfo } from "@/hooks/useChatMessages";
 import { useCamera } from "@/hooks/useCamera";
 import { useTTS } from "@/hooks/useTTS";
 import { useUiPrefs, BG_COLORS } from "@/hooks/useUiPrefs";
@@ -32,6 +32,7 @@ import WhiteboardWindow from "@/components/windows/WhiteboardWindow";
 import ImageViewerWindow from "@/components/windows/ImageViewerWindow";
 import NetzwerkWindow from "@/components/windows/NetzwerkWindow";
 import DocumentsWindow from "@/components/windows/DocumentsWindow";
+import FileViewerWindow from "@/components/windows/FileViewerWindow";
 import { WINDOW_MODULES } from "@/lib/window-registry";
 
 // ── Canvas card state ─────────────────────────────────────────────────────────
@@ -359,6 +360,9 @@ export default function ChatPage() {
       speak, stripMarkdown,
       onAfterSend: () => setInput(""),
       onFilesChange: setAttachedFiles,
+      onFileUploaded: ({ filename, blobUrl, fileType }: UploadedFileInfo) => {
+        spawnCard("file_viewer", `📄 ${filename}`, 680, 560, { url: blobUrl, filename, fileType });
+      },
       setSpeaking,
       focusTextarea: () => textareaRef.current?.focus(),
     });
@@ -566,6 +570,12 @@ export default function ChatPage() {
               />
             ) : card.type === "documents" ? (
               <DocumentsWindow />
+            ) : card.type === "file_viewer" ? (
+              <FileViewerWindow
+                url={card.data?.url ?? ""}
+                filename={card.data?.filename ?? "Datei"}
+                fileType={card.data?.fileType}
+              />
             ) : card.type === "chat" ? (
               /* ── Main chat card content ── */
               <div
