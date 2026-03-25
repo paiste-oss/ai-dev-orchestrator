@@ -56,6 +56,16 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     canvasType: "image_viewer",
   },
   {
+    id: "documents",
+    label: "Dokumente",
+    icon: "📁",
+    description: "Hochgeladene Dateien verwalten, löschen und neue Dokumente hochladen.",
+    defaultWidth: 620,
+    defaultHeight: 520,
+    status: "active",
+    canvasType: "documents",
+  },
+  {
     id: "3d_renderer",
     label: "3D-Renderer",
     icon: "🧊",
