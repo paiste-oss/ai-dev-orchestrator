@@ -24,23 +24,30 @@ export default function CanvasCard({
   id, title, x, y, width, height, minimized, zIndex, closable = true, children,
   onMove, onResize, onFocus, onClose, onMinimize,
 }: Props) {
-  const drag = useRef<{ mx: number; my: number; cx: number; cy: number } | null>(null);
-  const resize = useRef<{ mx: number; my: number; cw: number; ch: number } | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ mx: number; my: number; cx: number; cy: number; lx: number; ly: number } | null>(null);
+  const resize = useRef<{ mx: number; my: number; cw: number; ch: number; lw: number; lh: number } | null>(null);
 
   function startDrag(e: React.MouseEvent) {
     if (e.button !== 0) return;
     e.preventDefault();
     onFocus(id);
-    drag.current = { mx: e.clientX, my: e.clientY, cx: x, cy: y };
+    drag.current = { mx: e.clientX, my: e.clientY, cx: x, cy: y, lx: x, ly: y };
 
     function onMouseMove(ev: MouseEvent) {
-      if (!drag.current) return;
-      onMove(id,
-        Math.max(0, drag.current.cx + ev.clientX - drag.current.mx),
-        Math.max(0, drag.current.cy + ev.clientY - drag.current.my),
-      );
+      if (!drag.current || !cardRef.current) return;
+      const nx = Math.max(0, drag.current.cx + ev.clientX - drag.current.mx);
+      const ny = Math.max(0, drag.current.cy + ev.clientY - drag.current.my);
+      drag.current.lx = nx;
+      drag.current.ly = ny;
+      // DOM direkt bewegen — kein React re-render während Drag
+      cardRef.current.style.left = `${nx}px`;
+      cardRef.current.style.top = `${ny}px`;
     }
     function onMouseUp() {
+      if (drag.current) {
+        onMove(id, drag.current.lx, drag.current.ly);
+      }
       drag.current = null;
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
@@ -53,16 +60,22 @@ export default function CanvasCard({
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    resize.current = { mx: e.clientX, my: e.clientY, cw: width, ch: height };
+    resize.current = { mx: e.clientX, my: e.clientY, cw: width, ch: height, lw: width, lh: height };
 
     function onMouseMove(ev: MouseEvent) {
-      if (!resize.current) return;
-      onResize(id,
-        Math.max(280, resize.current.cw + ev.clientX - resize.current.mx),
-        Math.max(140, resize.current.ch + ev.clientY - resize.current.my),
-      );
+      if (!resize.current || !cardRef.current) return;
+      const nw = Math.max(280, resize.current.cw + ev.clientX - resize.current.mx);
+      const nh = Math.max(140, resize.current.ch + ev.clientY - resize.current.my);
+      resize.current.lw = nw;
+      resize.current.lh = nh;
+      // DOM direkt anpassen — kein React re-render während Resize
+      cardRef.current.style.width = `${nw}px`;
+      if (!minimized) cardRef.current.style.height = `${nh}px`;
     }
     function onMouseUp() {
+      if (resize.current) {
+        onResize(id, resize.current.lw, resize.current.lh);
+      }
       resize.current = null;
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
@@ -73,6 +86,7 @@ export default function CanvasCard({
 
   return (
     <div
+      ref={cardRef}
       style={{
         position: "absolute", left: x, top: y,
         width, height: minimized ? "auto" : height,

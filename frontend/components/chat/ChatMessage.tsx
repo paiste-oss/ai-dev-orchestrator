@@ -116,11 +116,11 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
               <ReactMarkdown
                 urlTransform={(url) => url}
                 components={{
-                  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                  p: ({ children }) => <p className="mb-2 last:mb-0" style={{ fontFamily, fontSize, lineHeight }}>{children}</p>,
                   strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
-                  ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1">{children}</ul>,
-                  ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1">{children}</ol>,
-                  li: ({ children }) => <li className="text-gray-200">{children}</li>,
+                  ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1" style={{ fontFamily, fontSize, lineHeight }}>{children}</ul>,
+                  ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1" style={{ fontFamily, fontSize, lineHeight }}>{children}</ol>,
+                  li: ({ children }) => <li className="text-gray-200" style={{ fontFamily, fontSize, lineHeight }}>{children}</li>,
                   h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2 mt-4 first:mt-0">{children}</h1>,
                   h2: ({ children }) => <h2 className="text-base font-bold text-white mb-1.5 mt-3 first:mt-0">{children}</h2>,
                   h3: ({ children }) => <h3 className="text-sm font-semibold text-white mb-1 mt-2 first:mt-0">{children}</h3>,
