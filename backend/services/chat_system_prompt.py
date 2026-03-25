@@ -13,6 +13,8 @@ Baut den vollständigen System-Prompt aus allen Teilbereichen zusammen:
 """
 from __future__ import annotations
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Any
 
 
@@ -143,6 +145,15 @@ def build_system_prompt(
         f"WICHTIG: Sage NIEMALS 'Ich kann das nicht' — du KANNST es, indem du den Marker setzt. "
         f"Nur EINEN Marker pro Antwort. Der Marker ist für den Kunden unsichtbar.\n"
         f"Aktuell: Name={_buddy_name}, Sprache={_lang_label}, Schrift={ui_prefs.get('fontSize', 'normal')}"
+    )
+
+    # ── Aktuelle Zeit ─────────────────────────────────────────────────────────
+    _now = datetime.now(ZoneInfo("Europe/Zurich"))
+    _weekdays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+    _weekday = _weekdays[_now.weekday()]
+    system_parts.append(
+        f"\nAKTUELLE ZEIT (verlässlich, vom Server): "
+        f"{_weekday}, {_now.strftime('%d.%m.%Y')}, {_now.strftime('%H:%M')} Uhr (Schweizer Zeit)."
     )
 
     # ── Sprache ───────────────────────────────────────────────────────────────
