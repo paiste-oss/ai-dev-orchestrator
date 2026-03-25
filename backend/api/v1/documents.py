@@ -16,6 +16,7 @@ from sqlalchemy import select
 
 from sqlalchemy import update as sa_update
 from core.database import get_db
+from core.dependencies import get_current_user
 from models.document import CustomerDocument
 from models.customer import Customer
 from services.file_parser import parse_file, is_supported, get_file_extension, SUPPORTED_EXTENSIONS
@@ -164,6 +165,49 @@ async def upload_document(
             print(f"[Documents] Qdrant-Speicherung fehlgeschlagen: {e}")
 
     return doc
+
+
+# ─── Eigene Dokumente (auth) ──────────────────────────────────────────────────
+
+@router.get("/mine", response_model=list[DocumentOut])
+async def list_my_documents(
+    customer: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Gibt alle aktiven Dokumente des eingeloggten Kunden zurück."""
+    result = await db.execute(
+        select(CustomerDocument).where(
+            CustomerDocument.customer_id == customer.id,
+            CustomerDocument.is_active == True,
+        ).order_by(CustomerDocument.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.delete("/mine/{doc_id}")
+async def delete_my_document(
+    doc_id: uuid.UUID,
+    customer: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Löscht ein Dokument des eingeloggten Kunden."""
+    doc = await db.get(CustomerDocument, doc_id)
+    if not doc or not doc.is_active or doc.customer_id != customer.id:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+
+    if doc.stored_in_qdrant and doc.qdrant_collection:
+        delete_document_vectors(str(doc_id), doc.qdrant_collection)
+
+    doc.is_active = False
+    await db.commit()
+
+    await db.execute(
+        sa_update(Customer)
+        .where(Customer.id == customer.id)
+        .values(storage_used_bytes=Customer.storage_used_bytes - doc.file_size_bytes)
+    )
+    await db.commit()
+    return {"status": "deleted", "id": str(doc_id)}
 
 
 # ─── List Documents ───────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ interface SetupModalProps {
 const MENU_ITEMS = [
   { icon: "💳", label: "Wallet & Guthaben",  desc: "Guthaben aufladen, Limits, Auto-Topup", href: "/user/wallet" },
   { icon: "📋", label: "Abonnement",          desc: "Plan wechseln, Rechnungen ansehen",     href: "/user/billing" },
+  { icon: "📁", label: "Dokumente",           desc: "Hochgeladene Dateien verwalten",        href: "/user/documents" },
   { icon: "⚙",  label: "Einstellungen",       desc: "Profil, Sprache, Benachrichtigungen",  href: "/user/settings" },
 ];
 
