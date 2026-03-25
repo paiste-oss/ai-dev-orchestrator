@@ -18,6 +18,6 @@ export const API_ROUTES = {
   agentEventsStream: (customerId: string) => `${BACKEND_URL}/v1/agent/events/stream?customer_id=${customerId}`,
   agentEvents:       (customerId: string) => `${BACKEND_URL}/v1/agent/events?customer_id=${customerId}`,
   customerLookup:    (email: string) => `${BACKEND_URL}/v1/customers/lookup?email=${encodeURIComponent(email)}`,
-  customers:         `${BACKEND_URL}/v1/customers`,
+  customers:         `${BACKEND_URL}/v1/customers/`,
   documents:         `${BACKEND_URL}/v1/documents`,
 } as const;
