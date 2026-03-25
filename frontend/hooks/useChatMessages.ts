@@ -14,6 +14,7 @@ interface SendMessageOptions {
   speak: (text: string) => void;
   stripMarkdown: (text: string) => string;
   onAfterSend: () => void;
+  onFilesChange: (files: AttachedFile[]) => void;
   setSpeaking: (v: boolean) => void;
   focusTextarea: () => void;
 }
@@ -34,7 +35,7 @@ export function useChatMessages() {
 
   async function sendMessage({
     input, attachedFiles, onUiUpdate, speak, stripMarkdown,
-    onAfterSend, setSpeaking, focusTextarea,
+    onAfterSend, onFilesChange, setSpeaking, focusTextarea,
   }: SendMessageOptions) {
     const text = input.trim();
     if ((!text && attachedFiles.length === 0) || loading) return;
@@ -65,7 +66,11 @@ export function useChatMessages() {
       created_at: new Date().toISOString(),
     };
     setMessages(prev => [...prev, optimistic]);
-    onAfterSend();
+    onAfterSend();  // Input leeren
+    // DocFiles als "uploading" markieren (bleiben sichtbar bis Upload fertig)
+    if (docFiles.length > 0) {
+      onFilesChange(docFiles.map(f => ({ ...f, status: "uploading" as const })));
+    }
     setLoading(true);
     setSpeaking(true);
 
@@ -86,6 +91,7 @@ export function useChatMessages() {
 
       // Dokumente hochladen und document_ids sammeln
       const documentIds: string[] = [];
+      const uploadedStatuses = new Map<string, "done" | "error">();
       for (const df of docFiles) {
         try {
           const formData = new FormData();
@@ -99,8 +105,18 @@ export function useChatMessages() {
           if (uploadRes.ok) {
             const uploaded = await uploadRes.json();
             documentIds.push(uploaded.document_id);
+            uploadedStatuses.set(df.id, "done");
+          } else {
+            uploadedStatuses.set(df.id, "error");
           }
-        } catch { /* ignore */ }
+        } catch {
+          uploadedStatuses.set(df.id, "error");
+        }
+      }
+      // Status kurz als "done"/"error" anzeigen, dann Files leeren
+      if (docFiles.length > 0) {
+        onFilesChange(docFiles.map(f => ({ ...f, status: uploadedStatuses.get(f.id) ?? "error" })));
+        setTimeout(() => onFilesChange([]), 1200);
       }
 
       const fullMessage = [

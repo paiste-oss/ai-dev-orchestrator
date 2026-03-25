@@ -356,7 +356,8 @@ export default function ChatPage() {
       input, attachedFiles,
       onUiUpdate: (update) => setUiPrefs(p => ({ ...p, ...update })),
       speak, stripMarkdown,
-      onAfterSend: () => { setInput(""); setAttachedFiles([]); },
+      onAfterSend: () => setInput(""),
+      onFilesChange: setAttachedFiles,
       setSpeaking,
       focusTextarea: () => textareaRef.current?.focus(),
     });

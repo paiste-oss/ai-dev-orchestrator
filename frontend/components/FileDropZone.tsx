@@ -66,7 +66,8 @@ function isValidFile(file: File): boolean {
 interface AttachedFile {
   file: File;
   id: string;
-  preview?: string;  // Für Text-Preview
+  preview?: string;
+  status?: "uploading" | "done" | "error";
 }
 
 interface FileDropZoneProps {
@@ -162,12 +163,27 @@ export default function FileDropZone({
             <div className="flex flex-wrap gap-2 px-3 pt-2">
               {files.map((af) => {
                 const isImage = af.file.type.startsWith("image/");
+                const isUploading = af.status === "uploading";
+                const isError = af.status === "error";
                 return (
                 <div
                   key={af.id}
-                  className="flex items-center gap-1.5 bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-xs text-white max-w-[200px]"
+                  className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-white max-w-[200px] border transition-colors ${
+                    isError
+                      ? "bg-red-500/15 border-red-500/40"
+                      : isUploading
+                      ? "bg-indigo-500/15 border-indigo-500/30"
+                      : "bg-white/10 border-white/20"
+                  }`}
                 >
-                  {isImage ? (
+                  {isUploading ? (
+                    <svg className="w-4 h-4 shrink-0 text-indigo-400 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
+                    </svg>
+                  ) : isError ? (
+                    <span className="text-base leading-none">⚠️</span>
+                  ) : isImage ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={URL.createObjectURL(af.file)}
@@ -177,15 +193,21 @@ export default function FileDropZone({
                   ) : (
                     <span className="text-base leading-none">{getFileIcon(af.file.name)}</span>
                   )}
-                  <span className="truncate max-w-[120px]">{af.file.name}</span>
-                  <span className="text-gray-400 shrink-0">{formatBytes(af.file.size)}</span>
-                  <button
-                    onClick={() => removeFile(af.id)}
-                    className="text-gray-400 hover:text-red-400 transition-colors ml-1 shrink-0"
-                    title="Entfernen"
-                  >
-                    ×
-                  </button>
+                  <span className="truncate max-w-[120px]">
+                    {isUploading ? "Wird hochgeladen…" : isError ? "Fehler" : af.file.name}
+                  </span>
+                  {!isUploading && (
+                    <>
+                      {!isError && <span className="text-gray-400 shrink-0">{formatBytes(af.file.size)}</span>}
+                      <button
+                        onClick={() => removeFile(af.id)}
+                        className="text-gray-400 hover:text-red-400 transition-colors ml-1 shrink-0"
+                        title="Entfernen"
+                      >
+                        ×
+                      </button>
+                    </>
+                  )}
                 </div>
               )})}
             </div>
