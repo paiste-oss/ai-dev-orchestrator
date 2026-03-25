@@ -27,7 +27,6 @@ import ImageGalleryCard from "@/components/chat/ImageGalleryCard";
 import TransportBoardCard from "@/components/chat/TransportBoardCard";
 import ActionButtonsCard from "@/components/chat/ActionButtonsCard";
 import BrowserViewCard from "@/components/chat/BrowserViewCard";
-import ChatCardContent from "@/components/chat/ChatCardContent";
 import BrowserWindowCard from "@/components/chat/BrowserWindowCard";
 import WhiteboardWindow from "@/components/windows/WhiteboardWindow";
 import ImageViewerWindow from "@/components/windows/ImageViewerWindow";
@@ -534,29 +533,7 @@ export default function ChatPage() {
             onClose={closeCard}
             onMinimize={minimizeCard}
           >
-            {card.type === "chat_secondary" ? (
-              <ChatCardContent
-                buddyName={uiPrefs.buddyName ?? "Baddi"}
-                buddyInitial={buddyInitial}
-                uiPrefs={uiPrefs}
-                onRichContent={(rType, rData, rMsgId) => {
-                  const meta = richCardMeta(rType);
-                  topZ.current++;
-                  const chatCard = cards.find(c => c.id === card.id);
-                  setCards(cs => [...cs, {
-                    id: `rich-${rMsgId}`,
-                    title: meta.title,
-                    type: rType,
-                    x: (chatCard ? chatCard.x + chatCard.width + 24 : 548),
-                    y: chatCard?.y ?? 16,
-                    width: meta.width, height: meta.height,
-                    minimized: false,
-                    zIndex: topZ.current,
-                    data: rData,
-                  }]);
-                }}
-              />
-            ) : card.type === "browser_window" ? (
+            {card.type === "browser_window" ? (
               <BrowserWindowCard
                 initialUrl={card.data?.url ?? ""}
                 onUrlChange={(url) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, url } } : c))}

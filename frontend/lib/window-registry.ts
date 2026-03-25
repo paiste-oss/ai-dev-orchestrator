@@ -16,16 +16,6 @@ export interface WindowModuleDefinition {
 
 export const WINDOW_MODULES: WindowModuleDefinition[] = [
   {
-    id: "chat",
-    label: "Gespräch",
-    icon: "💬",
-    description: "Unterhaltung mit Baddi — jedes Fenster hat einen eigenen Gesprächsverlauf.",
-    defaultWidth: 480,
-    defaultHeight: 520,
-    status: "active",
-    canvasType: "chat_secondary",
-  },
-  {
     id: "browser",
     label: "Browser",
     icon: "🌐",
