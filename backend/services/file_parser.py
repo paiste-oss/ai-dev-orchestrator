@@ -27,6 +27,7 @@ def parse_pdf(content: bytes) -> ParseResult:
         import fitz  # PyMuPDF
         doc = fitz.open(stream=content, filetype="pdf")
         pages = []
+        page_count = len(doc)
         for page_num, page in enumerate(doc):
             text = page.get_text("text")
             if text.strip():
@@ -35,8 +36,8 @@ def parse_pdf(content: bytes) -> ParseResult:
         full_text = "\n\n".join(pages)
         return ParseResult(
             text=full_text,
-            page_count=len(doc),
-            metadata={"pdf_pages": len(doc)}
+            page_count=page_count,
+            metadata={"pdf_pages": page_count}
         )
     except Exception as e:
         return ParseResult(text=f"[PDF-Parsing-Fehler: {e}]", page_count=0, metadata={})
