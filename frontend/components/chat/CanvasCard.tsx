@@ -129,15 +129,19 @@ export default function CanvasCard({
       {!minimized && (
         <div className="flex-1 overflow-hidden relative">
           {children}
-          {/* Resize grip */}
-          <div
-            className="absolute bottom-0 right-0 w-5 h-5 cursor-nwse-resize flex items-end justify-end pb-1 pr-1 opacity-25 hover:opacity-60 transition-opacity"
-            onMouseDown={startResize}
-          >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <path d="M9 1L1 9M9 5L5 9M9 9L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-gray-400" />
-            </svg>
-          </div>
+        </div>
+      )}
+
+      {/* Resize grip — ausserhalb des Content-Bereichs, damit Events nicht abgefangen werden */}
+      {!minimized && (
+        <div
+          style={{ position: "absolute", bottom: 0, right: 0, width: 20, height: 20, zIndex: 9999, cursor: "nwse-resize" }}
+          className="flex items-end justify-end pb-1 pr-1 opacity-25 hover:opacity-60 transition-opacity"
+          onMouseDown={startResize}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M9 1L1 9M9 5L5 9M9 9L9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-gray-400" />
+          </svg>
         </div>
       )}
     </div>

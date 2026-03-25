@@ -104,7 +104,7 @@ export default function WhiteboardWindow({ boardId: initialBoardId, onBoardId }:
   }
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="relative h-full w-full">
       {/* Speicher-Indikator */}
       {saving && (
         <div className="absolute top-2 right-3 z-10 text-[10px] text-gray-400 animate-pulse pointer-events-none">
@@ -112,7 +112,8 @@ export default function WhiteboardWindow({ boardId: initialBoardId, onBoardId }:
         </div>
       )}
 
-      <div className="flex-1">
+      {/* Excalidraw braucht absolut positionierten Container für korrekte Maus-Koordinaten */}
+      <div style={{ position: "absolute", inset: 0 }}>
         <Excalidraw
           initialData={initialData}
           theme="dark"
