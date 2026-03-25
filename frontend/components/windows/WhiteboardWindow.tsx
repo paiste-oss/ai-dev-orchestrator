@@ -1,5 +1,6 @@
 "use client";
 
+import "@excalidraw/excalidraw/index.css";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/auth";
