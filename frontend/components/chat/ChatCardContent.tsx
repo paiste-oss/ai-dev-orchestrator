@@ -45,6 +45,7 @@ export default function ChatCardContent({ buddyName, buddyInitial, uiPrefs, onRi
       speak: () => {},
       stripMarkdown: (t) => t,
       onAfterSend: () => setLocalInput(""),
+      onFilesChange: () => {},
       setSpeaking: () => {},
       focusTextarea: () => inputRef.current?.focus(),
     });
