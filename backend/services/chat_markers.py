@@ -2,10 +2,11 @@
 Marker-Prozessor für Chat-Antworten.
 
 Erkennt und entfernt System-Marker aus dem Antwort-Text:
-  - [UI: key=value]           → UI-Präferenz-Update
-  - [AKTION: label | url]     → Aktions-Buttons
-  - [FÄHIGKEIT_FEHLT: ...]    → Fehlende-Fähigkeit-Hinweis
-  - [FENSTER: canvasType]     → Neues Canvas-Fenster öffnen
+  - [UI: key=value]                   → UI-Präferenz-Update
+  - [AKTION: label | url]             → Aktions-Buttons
+  - [FÄHIGKEIT_FEHLT: ...]            → Fehlende-Fähigkeit-Hinweis
+  - [FENSTER: canvasType]             → Neues Canvas-Fenster öffnen
+  - [FENSTER_SCHLIESSEN: canvasType]  → Canvas-Fenster schließen
 """
 from __future__ import annotations
 
@@ -26,6 +27,8 @@ class MarkerResult:
     """Erkannter Intent einer fehlenden Fähigkeit."""
     open_window: dict | None = None
     """Fenster öffnen, z.B. {"canvasType": "browser_window", "url": "..."}."""
+    close_window: dict | None = None
+    """Fenster schließen, z.B. {"canvasType": "browser_window"}."""
 
 
 def process_markers(text: str) -> MarkerResult:
@@ -49,6 +52,7 @@ def process_markers(text: str) -> MarkerResult:
     result.text, result.ui_update = _extract_ui_marker(result.text)
     result.text, result.capability_intent = _extract_capability_marker(result.text)
     result.text, result.open_window = _extract_window_marker(result.text)
+    result.text, result.close_window = _extract_close_window_marker(result.text)
 
     return result
 
@@ -104,6 +108,24 @@ def _extract_capability_marker(text: str) -> tuple[str, str | None]:
             "Wir schauen uns das an und melden uns wenn diese Funktion verfügbar ist. 🛠️"
         )
     return text, capability_intent
+
+
+def _extract_close_window_marker(text: str) -> tuple[str, dict | None]:
+    """
+    Extrahiert den [FENSTER_SCHLIESSEN: canvasType]-Marker.
+
+    Returns:
+        (bereinigter Text, close_window-Dict oder None)
+    """
+    VALID_TYPES = {"browser_window", "whiteboard", "image_viewer", "chat_secondary"}
+    close_window: dict | None = None
+    match = re.search(r"\[FENSTER_SCHLIESSEN:\s*(\w+)\]", text, re.IGNORECASE)
+    if match:
+        canvas_type = match.group(1).strip().lower()
+        if canvas_type in VALID_TYPES:
+            close_window = {"canvasType": canvas_type}
+        text = re.sub(r"\s*\[FENSTER_SCHLIESSEN:[^\]]+\]", "", text).strip()
+    return text, close_window
 
 
 def _extract_window_marker(text: str) -> tuple[str, dict | None]:

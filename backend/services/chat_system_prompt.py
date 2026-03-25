@@ -74,8 +74,14 @@ def build_system_prompt(
         "  [FENSTER: image_viewer]                          → öffnet Bild-Viewer\n"
         "  [FENSTER: chat_secondary]                        → öffnet zweites Gespräch\n"
         "  Beispiel: 'Ich öffne dir Google. [FENSTER: browser_window | https://www.google.com]'\n"
-        "  Der Marker wird NICHT angezeigt — er öffnet einfach das Fenster.\n"
-        "- Sage NIEMALS 'Ich kann das nicht als Fenster öffnen'.\n"
+        "- FENSTER SELBST SCHLIESSEN: Füge am Ende deiner Antwort einen [FENSTER_SCHLIESSEN:]-Marker ein:\n"
+        "  [FENSTER_SCHLIESSEN: browser_window]  → schließt alle Browser-Fenster\n"
+        "  [FENSTER_SCHLIESSEN: whiteboard]       → schließt das Whiteboard\n"
+        "  [FENSTER_SCHLIESSEN: image_viewer]     → schließt den Bild-Viewer\n"
+        "  [FENSTER_SCHLIESSEN: chat_secondary]   → schließt das zweite Gespräch\n"
+        "  Beispiel: 'Ich schließe das Browser-Fenster. [FENSTER_SCHLIESSEN: browser_window]'\n"
+        "  Die Marker werden NICHT angezeigt — sie öffnen/schließen einfach das Fenster.\n"
+        "- Sage NIEMALS 'Ich kann das nicht als Fenster öffnen oder schließen'.\n"
         "- Manuelle Fenster: Der Nutzer kann auch selbst über '+' in der Topbar Fenster öffnen."
     )
 

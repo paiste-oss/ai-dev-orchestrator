@@ -213,6 +213,14 @@ export default function ChatPage() {
       return;
     }
 
+    // Baddi schließt ein Fenster via [FENSTER_SCHLIESSEN:]-Marker
+    if (last.responseType === "close_window") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = last.structuredData as any;
+      setCards(cs => cs.filter(c => c.id === CHAT_CARD_ID || c.type !== d.canvasType));
+      return;
+    }
+
     const meta = richCardMeta(last.responseType);
     setCards(cs => [...cs, {
       id: `rich-${last.id}`,

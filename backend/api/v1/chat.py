@@ -326,6 +326,10 @@ async def send_message(
         response_type = "open_window"
         structured_data = marker_result.open_window
 
+    if marker_result.close_window:
+        response_type = "close_window"
+        structured_data = marker_result.close_window
+
     _ui_update = marker_result.ui_update
     if _ui_update:
         # UI-Präferenz in DB speichern
