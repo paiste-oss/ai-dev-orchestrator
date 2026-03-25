@@ -16,7 +16,7 @@ const MENU_ITEMS = [
 
 export default function SetupModal({ onClose, onNavigate, onLogout }: SetupModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-gray-900 border border-white/10 rounded-2xl p-6 w-full max-w-sm space-y-2 shadow-2xl">
         <div className="flex items-center justify-between mb-4">

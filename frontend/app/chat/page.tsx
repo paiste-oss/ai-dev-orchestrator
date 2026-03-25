@@ -148,7 +148,8 @@ export default function ChatPage() {
     if (typeof window === "undefined") return;
     localStorage.setItem(CANVAS_STORAGE_KEY, JSON.stringify(stripForStorage(cards)));
   }, [cards]);
-  const topZ = useRef(2);
+  // topZ aus gespeicherten Karten initialisieren, damit neue Karten immer zuoberst erscheinen
+  const topZ = useRef(Math.max(2, ...initialCards().map(c => c.zIndex)));
   const processedMsgs = useRef(new Set<string>());
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
