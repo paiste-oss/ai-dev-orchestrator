@@ -84,6 +84,7 @@ class ImageAttachment(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     images: list[ImageAttachment] | None = None
+    document_ids: list[str] | None = None
 
 
 class ChatResponse(BaseModel):
@@ -191,6 +192,31 @@ async def send_message(
     _tools_called: list[str] = []  # für Analytics
     _system_prompt_name: str = baddi_config.get("name") or baddi_config.get("system_prompt_name") or "Standard"
 
+    # 6a. Dokumente aus DB laden und Inhalt in die Nachricht einbauen
+    user_message = req.message
+    if req.document_ids:
+        from models.document import CustomerDocument
+        doc_parts: list[str] = []
+        for doc_id in req.document_ids:
+            try:
+                import uuid as _uuid
+                doc = await db.get(CustomerDocument, _uuid.UUID(doc_id))
+                if doc and doc.customer_id == customer.id and doc.is_active and doc.extracted_text:
+                    # Auf max. 12'000 Zeichen kürzen um Token-Limit zu schonen
+                    text = doc.extracted_text
+                    truncated = ""
+                    if len(text) > 12000:
+                        text = text[:12000]
+                        truncated = "\n[... Inhalt gekürzt]"
+                    pages_info = f"{doc.page_count} Seite(n)" if doc.page_count > 1 else ""
+                    header = f'[Datei: "{doc.original_filename}"{" — " + pages_info if pages_info else ""}]'
+                    doc_parts.append(f"{header}\n{text}{truncated}")
+            except Exception as e:
+                _log.warning("Dokument %s konnte nicht geladen werden: %s", doc_id, e)
+        if doc_parts:
+            doc_block = "\n\n---\n".join(doc_parts)
+            user_message = f"{doc_block}\n\n---\n\n{req.message}" if req.message.strip() else doc_block
+
     from services.tool_registry import TOOL_CATALOG
 
     if req.images:
@@ -202,8 +228,8 @@ async def send_message(
                 "type": "image",
                 "source": {"type": "base64", "media_type": img.media_type, "data": img.data},
             })
-        if req.message.strip():
-            user_content.append({"type": "text", "text": req.message})
+        if user_message.strip():
+            user_content.append({"type": "text", "text": user_message})
         messages = prior_messages + [{"role": "user", "content": user_content}]
 
         try:
@@ -215,12 +241,12 @@ async def send_message(
 
     else:
         # Text: Haiku + ALLE Tools — Claude entscheidet selbst
-        messages = prior_messages + [{"role": "user", "content": req.message}]
+        messages = prior_messages + [{"role": "user", "content": user_message}]
         all_tool_keys = list(TOOL_CATALOG.keys())
 
         try:
             uhrwerk_result = await run_buddy_chat(
-                message=req.message,
+                message=user_message,
                 buddy_name="Baddi",
                 system_prompt=system_prompt,
                 tool_keys=all_tool_keys,
@@ -529,6 +555,78 @@ async def transcribe_audio(
         result = resp.json()
 
     return {"text": result.get("text", "")}
+
+
+@router.post("/upload-attachment")
+async def upload_attachment(
+    file: UploadFile = File(...),
+    customer: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Lädt eine Datei hoch, extrahiert den Text und speichert sie in der Kundendatenbank.
+    Gibt document_id zurück — diese kann dann in /chat/message als document_ids mitgeschickt werden.
+    """
+    from models.document import CustomerDocument
+    from services.file_parser import parse_file, is_supported, get_file_extension
+    from sqlalchemy import update as _sa_update
+
+    MAX_SIZE = 50 * 1024 * 1024
+    content = await file.read()
+
+    if len(content) > MAX_SIZE:
+        raise HTTPException(status_code=413, detail=f"Datei zu gross. Maximum: {MAX_SIZE // 1024 // 1024} MB")
+
+    filename = file.filename or "dokument"
+    mime_type = file.content_type or ""
+
+    if not is_supported(filename, mime_type):
+        ext = get_file_extension(filename)
+        raise HTTPException(status_code=415, detail=f"Dateityp '{ext}' nicht unterstützt.")
+
+    # Speicherlimit prüfen
+    total_limit = (customer.storage_limit_bytes or 0) + (customer.storage_extra_bytes or 0)
+    used = customer.storage_used_bytes or 0
+    if used + len(content) > total_limit:
+        free_mb = max(0, total_limit - used) / 1024 / 1024
+        raise HTTPException(status_code=507, detail=f"Speicherlimit erreicht. Noch verfügbar: {free_mb:.1f} MB")
+
+    parse_result = parse_file(content, filename, mime_type)
+
+    import uuid as _uuid
+    unique_filename = f"{customer.id}_{_uuid.uuid4().hex[:8]}_{filename}"
+    doc = CustomerDocument(
+        customer_id=customer.id,
+        filename=unique_filename,
+        original_filename=filename,
+        file_type=get_file_extension(filename) or "unknown",
+        file_size_bytes=len(content),
+        mime_type=mime_type,
+        extracted_text=parse_result.text,
+        page_count=parse_result.page_count,
+        char_count=len(parse_result.text),
+        stored_in_postgres=True,
+        stored_in_qdrant=False,
+        doc_metadata=parse_result.metadata,
+    )
+    db.add(doc)
+    await db.commit()
+    await db.refresh(doc)
+
+    await db.execute(
+        _sa_update(Customer)
+        .where(Customer.id == customer.id)
+        .values(storage_used_bytes=Customer.storage_used_bytes + len(content))
+    )
+    await db.commit()
+
+    return {
+        "document_id": str(doc.id),
+        "filename": filename,
+        "file_type": doc.file_type,
+        "page_count": doc.page_count,
+        "char_count": doc.char_count,
+    }
 
 
 class BrowserActionRequest(BaseModel):

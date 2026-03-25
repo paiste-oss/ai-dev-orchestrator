@@ -84,18 +84,35 @@ export function useChatMessages() {
         }
       }
 
+      // Dokumente hochladen und document_ids sammeln
+      const documentIds: string[] = [];
+      for (const df of docFiles) {
+        try {
+          const formData = new FormData();
+          formData.append("file", df.file);
+          const token = typeof window !== "undefined" ? localStorage.getItem("aibuddy_token") : null;
+          const uploadRes = await fetch(`${BACKEND_URL}/v1/chat/upload-attachment`, {
+            method: "POST",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            body: formData,
+          });
+          if (uploadRes.ok) {
+            const uploaded = await uploadRes.json();
+            documentIds.push(uploaded.document_id);
+          }
+        } catch { /* ignore */ }
+      }
+
       const fullMessage = [
         text,
         videoFiles.length > 0
           ? `[Video analysieren: ${videoFiles.map(f => f.file.name).join(", ")} — ${videoFiles.length * 4} Frames extrahiert]`
           : "",
-        docFiles.length > 0
-          ? `[Angehängte Dateien: ${docFiles.map(f => f.file.name).join(", ")}]`
-          : "",
       ].filter(Boolean).join("\n");
 
       const body: Record<string, unknown> = { message: fullMessage };
       if (imagesPayload.length > 0) body.images = imagesPayload;
+      if (documentIds.length > 0) body.document_ids = documentIds;
 
       const res = await apiFetch(`${BACKEND_URL}/v1/chat/message`, {
         method: "POST",
