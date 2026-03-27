@@ -40,7 +40,7 @@ export function getDashboardPath(user: AuthUser): string {
   return "/chat";
 }
 
-/** Fetch-Wrapper der den JWT automatisch mitsendet.
+/** Fetch-Wrapper der den JWT automatisch mitsendet (JSON).
  *  Bei 401 wird die Session gelöscht und zur Login-Seite weitergeleitet. */
 export async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const token = getToken();
@@ -51,6 +51,23 @@ export async function apiFetch(url: string, init: RequestInit = {}): Promise<Res
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init.headers ?? {}),
     },
+  });
+  if (res.status === 401 && typeof window !== "undefined") {
+    clearSession();
+    window.location.href = "/login";
+  }
+  return res;
+}
+
+/** Fetch-Wrapper für FormData/Multipart-Uploads.
+ *  Kein Content-Type Header setzen — Browser setzt multipart/boundary automatisch.
+ *  Bei 401 wird die Session gelöscht und zur Login-Seite weitergeleitet. */
+export async function apiFetchForm(url: string, formData: FormData): Promise<Response> {
+  const token = getToken();
+  const res = await fetch(url, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
   });
   if (res.status === 401 && typeof window !== "undefined") {
     clearSession();

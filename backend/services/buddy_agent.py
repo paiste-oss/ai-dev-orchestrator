@@ -11,17 +11,8 @@ import json
 import httpx
 import anthropic
 from typing import Any
-from core.config import settings
+from core.config import settings, BEDROCK_MODEL_MAP
 from services.tool_registry import get_tool_defs, call_tool
-
-# Anthropic-Modellname → Bedrock EU cross-region Modell-ID
-_BEDROCK_MODEL_MAP = {
-    "claude-haiku-4-5-20251001":  "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
-    "claude-sonnet-4-6":          "eu.anthropic.claude-sonnet-4-6-20250514-v1:0",
-    "claude-sonnet-4-5":          "eu.anthropic.claude-sonnet-4-5-20251001-v1:0",
-    "claude-3-5-haiku-20241022":  "eu.anthropic.claude-3-5-haiku-20241022-v1:0",
-    "claude-3-5-sonnet-20241022": "eu.anthropic.claude-3-5-sonnet-20241022-v2:0",
-}
 
 _ANTHROPIC_CLIENT: anthropic.Anthropic | None = None
 
@@ -69,7 +60,7 @@ async def _run_bedrock(
     customer_id: str | None = None,
 ) -> dict[str, Any]:
     """Tool Use Loop über AWS Bedrock Bearer Token (Daten bleiben in EU)."""
-    bedrock_model = _BEDROCK_MODEL_MAP.get(model, model)
+    bedrock_model = BEDROCK_MODEL_MAP.get(model, model)
     url = (
         f"https://bedrock-runtime.{settings.aws_region}.amazonaws.com"
         f"/model/{bedrock_model}/invoke"

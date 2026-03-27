@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { apiFetch } from "@/lib/auth";
+import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { Message, UiPrefs } from "@/lib/chat-types";
 import { AttachedFile } from "@/components/FileDropZone";
@@ -106,12 +106,7 @@ export function useChatMessages() {
         try {
           const formData = new FormData();
           formData.append("file", df.file);
-          const token = typeof window !== "undefined" ? localStorage.getItem("aibuddy_token") : null;
-          const uploadRes = await fetch(`${BACKEND_URL}/v1/chat/upload-attachment`, {
-            method: "POST",
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-            body: formData,
-          });
+          const uploadRes = await apiFetchForm(`${BACKEND_URL}/v1/chat/upload-attachment`, formData);
           if (uploadRes.ok) {
             const uploaded = await uploadRes.json();
             documentIds.push(uploaded.document_id);

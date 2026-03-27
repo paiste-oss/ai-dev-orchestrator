@@ -113,3 +113,14 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+# Mapping Anthropic-Modellname → Bedrock EU cross-region Modell-ID
+# Single source of truth — wird von llm_gateway und buddy_agent genutzt
+BEDROCK_MODEL_MAP: dict[str, str] = {
+    "claude-haiku-4-5-20251001":  "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "claude-sonnet-4-6":          "eu.anthropic.claude-sonnet-4-6-20250514-v1:0",
+    "claude-sonnet-4-5":          "eu.anthropic.claude-sonnet-4-5-20251001-v1:0",
+    "claude-3-5-haiku-20241022":  "eu.anthropic.claude-3-5-haiku-20241022-v1:0",
+    "claude-3-5-sonnet-20241022": "eu.anthropic.claude-3-5-sonnet-20241022-v2:0",
+}

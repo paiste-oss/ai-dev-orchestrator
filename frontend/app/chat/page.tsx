@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, clearSession, getSession } from "@/lib/auth";
+import { apiFetch, apiFetchForm, clearSession, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { AttachedFile } from "@/components/FileDropZone";
 import { MemoryItem } from "@/lib/chat-types";
@@ -314,12 +314,7 @@ export default function ChatPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const res = await fetch(`${BACKEND_URL}/v1/chat/transcribe`, {
-        method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: formData,
-      });
+      const res = await apiFetchForm(`${BACKEND_URL}/v1/chat/transcribe`, formData);
       if (!res.ok) throw new Error();
       const data = await res.json();
       if (data.text) setInput(prev => prev ? `${prev} ${data.text}` : data.text);

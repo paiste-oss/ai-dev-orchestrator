@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, getSession } from "@/lib/auth";
+import { apiFetch, apiFetchForm, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 
 interface Doc {
@@ -84,16 +84,11 @@ export default function DocumentsPage() {
     if (!files || files.length === 0) return;
     setUploadError(null);
     setUploading(true);
-    const token = typeof window !== "undefined" ? localStorage.getItem("aibuddy_token") : null;
     for (const file of Array.from(files)) {
       try {
         const formData = new FormData();
         formData.append("file", file);
-        const res = await fetch(`${BACKEND_URL}/v1/chat/upload-attachment`, {
-          method: "POST",
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          body: formData,
-        });
+        const res = await apiFetchForm(`${BACKEND_URL}/v1/chat/upload-attachment`, formData);
         if (!res.ok) {
           const err = await res.json().catch(() => ({ detail: "Fehler" }));
           setUploadError(err.detail ?? "Upload fehlgeschlagen");

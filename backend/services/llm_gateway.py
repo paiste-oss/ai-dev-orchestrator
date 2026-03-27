@@ -8,8 +8,9 @@ Bedrock-Modus: USE_BEDROCK=true → Calls über AWS eu-central-1 (Frankfurt).
 Daten verlassen die EU nicht.
 """
 import httpx
+import anthropic as _anthropic
 from dataclasses import dataclass
-from core.config import settings
+from core.config import settings, BEDROCK_MODEL_MAP
 
 
 @dataclass
@@ -23,14 +24,27 @@ class ChatResult:
         return self.input_tokens + self.output_tokens
 
 
-# Mapping Anthropic-Modellname → Bedrock-ID (EU cross-region inference)
-_BEDROCK_MODEL_MAP = {
-    "claude-haiku-4-5-20251001":  "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
-    "claude-sonnet-4-6":          "eu.anthropic.claude-sonnet-4-6-20250514-v1:0",
-    "claude-sonnet-4-5":          "eu.anthropic.claude-sonnet-4-5-20251001-v1:0",
-    "claude-3-5-haiku-20241022":  "eu.anthropic.claude-3-5-haiku-20241022-v1:0",
-    "claude-3-5-sonnet-20241022": "eu.anthropic.claude-3-5-sonnet-20241022-v2:0",
-}
+# Gecachte SDK-Clients
+_ANTHROPIC_CLIENT: _anthropic.AsyncAnthropic | None = None
+_ANTHROPIC_BEDROCK_CLIENT: _anthropic.AsyncAnthropicBedrock | None = None
+
+
+def _get_anthropic_client() -> _anthropic.AsyncAnthropic:
+    global _ANTHROPIC_CLIENT
+    if _ANTHROPIC_CLIENT is None:
+        _ANTHROPIC_CLIENT = _anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    return _ANTHROPIC_CLIENT
+
+
+def _get_bedrock_iam_client() -> _anthropic.AsyncAnthropicBedrock:
+    global _ANTHROPIC_BEDROCK_CLIENT
+    if _ANTHROPIC_BEDROCK_CLIENT is None:
+        _ANTHROPIC_BEDROCK_CLIENT = _anthropic.AsyncAnthropicBedrock(
+            aws_access_key=settings.aws_access_key_id,
+            aws_secret_key=settings.aws_secret_access_key,
+            aws_region=settings.aws_region,
+        )
+    return _ANTHROPIC_BEDROCK_CLIENT
 
 
 async def chat_with_claude(
@@ -57,33 +71,17 @@ async def _chat_anthropic_direct(
     if not settings.anthropic_api_key:
         raise ValueError("ANTHROPIC_API_KEY is not configured in the environment.")
 
-    payload: dict = {"model": model, "max_tokens": 2048, "messages": messages}
+    kwargs: dict = {"model": model, "max_tokens": 2048, "messages": messages}
     if system_prompt:
-        payload["system"] = system_prompt
+        kwargs["system"] = system_prompt
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": settings.anthropic_api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json=payload,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-    try:
-        text = data["content"][0]["text"]
-        usage = data.get("usage", {})
-        return ChatResult(
-            text=text,
-            input_tokens=usage.get("input_tokens", 0),
-            output_tokens=usage.get("output_tokens", 0),
-        )
-    except (KeyError, IndexError) as exc:
-        raise ValueError(f"Unexpected Claude response structure: {data}") from exc
+    response = await _get_anthropic_client().messages.create(**kwargs)
+    text = "".join(b.text for b in response.content if hasattr(b, "text"))
+    return ChatResult(
+        text=text,
+        input_tokens=response.usage.input_tokens,
+        output_tokens=response.usage.output_tokens,
+    )
 
 
 async def _chat_bedrock(
@@ -92,9 +90,9 @@ async def _chat_bedrock(
     model: str,
 ) -> ChatResult:
     """Sendet Chat-Request über AWS Bedrock (Daten bleiben in EU/Zürich)."""
-    bedrock_model = _BEDROCK_MODEL_MAP.get(model, model)
+    bedrock_model = BEDROCK_MODEL_MAP.get(model, model)
 
-    # Variante A: Bedrock API Key (Bearer Token — empfohlen, einfacher Setup)
+    # Variante A: Bedrock API Key (Bearer Token — einfacherer Setup)
     if settings.aws_bedrock_api_key:
         url = (
             f"https://bedrock-runtime.{settings.aws_region}.amazonaws.com"
@@ -124,24 +122,17 @@ async def _chat_bedrock(
             output_tokens=usage.get("outputTokens", 0),
         )
 
-    # Variante B: IAM Access Key + Secret (klassisch)
-    import anthropic as _anthropic
-    client_b = _anthropic.AnthropicBedrock(
-        aws_access_key=settings.aws_access_key_id,
-        aws_secret_key=settings.aws_secret_access_key,
-        aws_region=settings.aws_region,
-    )
+    # Variante B: IAM Access Key + Secret — via SDK
     kwargs: dict = {"model": bedrock_model, "max_tokens": 2048, "messages": messages}
     if system_prompt:
         kwargs["system"] = system_prompt
 
-    response = client_b.messages.create(**kwargs)
+    response = await _get_bedrock_iam_client().messages.create(**kwargs)
     text = "".join(b.text for b in response.content if hasattr(b, "text"))
-    usage = response.usage
     return ChatResult(
         text=text,
-        input_tokens=getattr(usage, "input_tokens", 0),
-        output_tokens=getattr(usage, "output_tokens", 0),
+        input_tokens=response.usage.input_tokens,
+        output_tokens=response.usage.output_tokens,
     )
 
 

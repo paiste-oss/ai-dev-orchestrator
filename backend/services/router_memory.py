@@ -18,6 +18,7 @@ import json
 import logging
 import time
 from typing import Optional
+from core.utils import safe_json_loads
 
 _log = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ def record_success(intent: str, route_key: str) -> None:
     try:
         r = _r()
         key = f"router:learned:{intent}"
-        data: dict = json.loads(r.get(key) or "{}")
+        data: dict = safe_json_loads(r.get(key))
         entry = data.get(route_key, {"count": 0, "failures": 0, "last_used": 0})
         entry["count"] += 1
         entry["last_used"] = int(time.time())
@@ -57,7 +58,7 @@ def record_failure(intent: str, route_key: str) -> None:
     try:
         r = _r()
         key = f"router:learned:{intent}"
-        data: dict = json.loads(r.get(key) or "{}")
+        data: dict = safe_json_loads(r.get(key))
         entry = data.get(route_key, {"count": 0, "failures": 0, "last_used": 0})
         entry["failures"] = entry.get("failures", 0) + 1
         entry["last_used"] = int(time.time())
@@ -79,7 +80,7 @@ def get_best_route(intent: str) -> Optional[str]:
         raw = r.get(f"router:learned:{intent}")
         if not raw:
             return None
-        data: dict = json.loads(raw)
+        data: dict = safe_json_loads(raw)
         if not data:
             return None
         best_key, best_score = None, -1
@@ -98,7 +99,7 @@ def get_learned_stats(intent: str) -> dict:
     try:
         r = _r()
         raw = r.get(f"router:learned:{intent}")
-        return json.loads(raw) if raw else {}
+        return safe_json_loads(raw)
     except Exception:
         return {}
 
@@ -124,7 +125,7 @@ def should_create_gap(intent: str, message: str) -> bool:
             }))
             return True
         # Bereits gemeldet: Counter erhöhen aber keinen neuen Request
-        data = json.loads(exists)
+        data = safe_json_loads(exists)
         data["count"] = data.get("count", 1) + 1
         r.setex(key, _GAP_TTL, json.dumps(data))
         return False
