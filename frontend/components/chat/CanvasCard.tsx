@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, memo } from "react";
 
 interface Props {
   id: string;
@@ -20,7 +20,7 @@ interface Props {
   onMinimize: (id: string) => void;
 }
 
-export default function CanvasCard({
+function CanvasCard({
   id, title, x, y, width, height, minimized, zIndex, closable = true, children,
   onMove, onResize, onFocus, onClose, onMinimize,
 }: Props) {
@@ -147,3 +147,5 @@ export default function CanvasCard({
     </div>
   );
 }
+
+export default memo(CanvasCard);

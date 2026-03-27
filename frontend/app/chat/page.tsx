@@ -282,6 +282,10 @@ export default function ChatPage() {
     if (mod) spawnCard(mod.canvasType, `${mod.icon} ${mod.label}`, mod.defaultWidth, mod.defaultHeight);
   }, [spawnCard]);
 
+  const handleOpenFile = useCallback(({ url, filename, fileType }: { url: string; filename: string; fileType: string }) => {
+    spawnCard("file_viewer", `📄 ${filename}`, 720, 600, { url, filename, fileType });
+  }, [spawnCard]);
+
   // Helpers
   async function loadMemories() {
     try {
@@ -564,11 +568,7 @@ export default function ChatPage() {
                 onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
               />
             ) : card.type === "documents" ? (
-              <DocumentsWindow
-                onOpenFile={({ url, filename, fileType }) =>
-                  spawnCard("file_viewer", `📄 ${filename}`, 720, 600, { url, filename, fileType })
-                }
-              />
+              <DocumentsWindow onOpenFile={handleOpenFile} />
             ) : card.type === "file_viewer" ? (
               <FileViewerWindow
                 url={card.data?.url ?? ""}

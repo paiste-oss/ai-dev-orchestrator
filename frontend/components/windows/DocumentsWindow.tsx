@@ -47,6 +47,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
+  const [openError, setOpenError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -67,12 +68,23 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
   async function openDoc(doc: Doc) {
     if (!onOpenFile || opening) return;
     setOpening(doc.id);
+    setOpenError(null);
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/documents/mine/${doc.id}/content`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        setOpenError(
+          err?.detail === "Datei-Inhalt nicht gespeichert"
+            ? "Vorschau nicht verfügbar — bitte Datei neu hochladen."
+            : (err?.detail ?? "Datei konnte nicht geladen werden.")
+        );
+        return;
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       onOpenFile({ url, filename: doc.original_filename, fileType: doc.file_type });
+    } catch {
+      setOpenError("Verbindungsfehler beim Öffnen.");
     } finally {
       setOpening(null);
     }
@@ -157,6 +169,13 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
         <div className="mx-3 mt-2 bg-red-950/50 border border-red-800/50 rounded-lg px-3 py-2 text-xs text-red-300 shrink-0">
           ⚠️ {uploadError}
           <button onClick={() => setUploadError(null)} className="ml-2 text-red-400 hover:text-red-200">×</button>
+        </div>
+      )}
+
+      {openError && (
+        <div className="mx-3 mt-2 bg-amber-950/50 border border-amber-800/50 rounded-lg px-3 py-2 text-xs text-amber-300 shrink-0">
+          ⚠️ {openError}
+          <button onClick={() => setOpenError(null)} className="ml-2 text-amber-400 hover:text-amber-200">×</button>
         </div>
       )}
 
