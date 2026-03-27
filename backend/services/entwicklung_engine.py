@@ -34,12 +34,11 @@ _UHRWERK_DEFAULTS = {
 def _load_uhrwerk_config() -> dict:
     """Lädt die Uhrwerk-Konfiguration aus Redis (mit Fallback auf Defaults)."""
     try:
-        import redis as redis_lib
-        from core.config import settings
-        r = redis_lib.from_url(settings.redis_url, decode_responses=True)
-        raw = r.get(_UHRWERK_CONFIG_KEY)
+        from core.redis_client import redis_sync
+        from core.utils import safe_json_loads
+        raw = redis_sync().get(_UHRWERK_CONFIG_KEY)
         if raw:
-            return {**_UHRWERK_DEFAULTS, **json.loads(raw)}
+            return {**_UHRWERK_DEFAULTS, **safe_json_loads(raw)}
     except Exception as e:
         _log.warning("Uhrwerk-Config konnte nicht geladen werden: %s", e)
     return _UHRWERK_DEFAULTS

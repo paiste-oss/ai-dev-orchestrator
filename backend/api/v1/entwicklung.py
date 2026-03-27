@@ -208,7 +208,8 @@ async def deploy_tool(
     Developed tool ins Uhrwerk deployen.
     Speichert das Tool in der Dynamic Tool Registry (Redis).
     """
-    import redis as redis_lib, json
+    import json
+    from core.redis_client import redis_sync
     from core.config import settings
 
     r = await db.get(CapabilityRequest, uuid.UUID(request_id))
@@ -217,8 +218,7 @@ async def deploy_tool(
 
     # Tool in Redis Dynamic Registry speichern
     try:
-        red = redis_lib.from_url(settings.redis_url, decode_responses=True)
-        red.hset("uhrwerk:dynamic_tools", data.tool_key, json.dumps(data.tool_proposal))
+        redis_sync().hset("uhrwerk:dynamic_tools", data.tool_key, json.dumps(data.tool_proposal))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Redis-Fehler: {e}")
 

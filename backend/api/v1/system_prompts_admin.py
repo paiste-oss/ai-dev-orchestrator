@@ -5,16 +5,14 @@ GET /admin/system-prompts          → Alle Prompts aller Agenten
 PUT /admin/system-prompts/{key}    → Prompt speichern (Redis)
 """
 import json
-import redis as redis_lib
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from core.config import settings
 from core.dependencies import require_admin
+from core.redis_client import redis_sync
+from core.utils import safe_json_loads
 from models.customer import Customer
 
 router = APIRouter(prefix="/admin/system-prompts", tags=["admin-system-prompts"])
-
-_redis = redis_lib.from_url(settings.redis_url, decode_responses=True)
 
 
 # ---------------------------------------------------------------------------
@@ -89,10 +87,10 @@ _ALL_AGENTS = _AGENTS + [_BADDI_AGENT, _MEMORY_MANAGER_AGENT]
 
 
 def _get_prompt(agent: dict) -> str:
-    raw = _redis.get(agent["redis_key"])
+    raw = redis_sync().get(agent["redis_key"])
     if raw:
         try:
-            data = json.loads(raw)
+            data = safe_json_loads(raw)
             return data.get(agent["prompt_field"]) or agent["default"]
         except Exception:
             return raw
@@ -227,12 +225,12 @@ async def update_system_prompt(
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent '{agent_key}' nicht gefunden")
 
-    raw = _redis.get(agent["redis_key"])
+    raw = redis_sync().get(agent["redis_key"])
     try:
-        data = json.loads(raw) if raw else {}
+        data = safe_json_loads(raw)
     except Exception:
         data = {}
 
     data[agent["prompt_field"]] = body.prompt
-    _redis.set(agent["redis_key"], json.dumps(data))
+    redis_sync().set(agent["redis_key"], json.dumps(data))
     return {"key": agent_key, "saved": True}

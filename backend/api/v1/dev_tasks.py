@@ -1,18 +1,15 @@
 from datetime import datetime, timedelta
 import uuid
-import redis as redis_lib
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from typing import Optional
-from core.config import settings
 from core.database import get_db
 from core.dependencies import require_admin
+from core.redis_client import redis_sync
 from models.customer import Customer
 from models.dev_task import DevTask
-
-_redis = redis_lib.from_url(settings.redis_url, decode_responses=True)
 
 router = APIRouter(prefix="/dev-tasks", tags=["dev-orchestrator"])
 
@@ -122,7 +119,7 @@ def _serialize(t: DevTask) -> dict:
     # Bei laufenden Tasks: Live-Output aus Redis holen
     output = t.output
     if t.status == "running":
-        live = _redis.get(f"devtask:output:{t.id}")
+        live = redis_sync().get(f"devtask:output:{t.id}")
         if live:
             output = live
 
@@ -219,7 +216,7 @@ async def runner_push_output(
     _: None = Depends(_require_runner),
 ):
     """Streamt Live-Output in Redis (sichtbar in der UI während Claude läuft)."""
-    _redis.set(f"devtask:output:{task_id}", body.output, ex=3600)
+    redis_sync().set(f"devtask:output:{task_id}", body.output, ex=3600)
     return {"ok": True}
 
 
@@ -239,7 +236,7 @@ async def runner_complete(
     task.context_snapshot = None
     task.retry_after = None
     await db.commit()
-    _redis.delete(f"devtask:output:{task_id}")
+    redis_sync().delete(f"devtask:output:{task_id}")
     return {"ok": True}
 
 
@@ -256,7 +253,7 @@ async def runner_fail(
     task.output = body.output
     task.error = body.error
     await db.commit()
-    _redis.delete(f"devtask:output:{task_id}")
+    redis_sync().delete(f"devtask:output:{task_id}")
     return {"ok": True}
 
 
@@ -275,7 +272,7 @@ async def runner_pause(
     task.retry_after = datetime.utcnow() + timedelta(seconds=max(body.retry_after_seconds, 60))
     task.context_snapshot = {"messages": body.context} if body.context else task.context_snapshot
     await db.commit()
-    _redis.delete(f"devtask:output:{task_id}")
+    redis_sync().delete(f"devtask:output:{task_id}")
     return {"ok": True}
 
 

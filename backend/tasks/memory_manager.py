@@ -13,9 +13,10 @@ import logging
 import time
 
 import httpx
-import redis as redis_lib
 
 from core.config import settings
+from core.redis_client import redis_sync
+from core.utils import safe_json_loads
 from tasks.celery_app import celery_app
 
 _log = logging.getLogger(__name__)
@@ -62,12 +63,12 @@ _DEFAULT_PROMPT = (
 )
 
 
-def _load_config(r: redis_lib.Redis) -> tuple[str, str]:
+def _load_config() -> tuple[str, str]:
     """Lädt Modell + Prompt aus Redis (Admin-Konfiguration)."""
     try:
-        raw = r.get(_CONFIG_KEY)
+        raw = redis_sync().get(_CONFIG_KEY)
         if raw:
-            cfg = json.loads(raw)
+            cfg = safe_json_loads(raw)
             return cfg.get("model", _DEFAULT_MODEL), cfg.get("system_prompt", _DEFAULT_PROMPT)
     except Exception:
         pass
@@ -121,13 +122,13 @@ def _run(customer_id: str) -> None:
         return
 
     # 1. Kurzzeitgedächtnis aus Redis lesen
-    r = redis_lib.from_url(settings.redis_url, decode_responses=True)
+    r = redis_sync()
     raw_msgs = r.lrange(_REDIS_KEY.format(customer_id=customer_id), 0, 11)
     if not raw_msgs:
         return
 
     # Älteste zuerst (Redis LPUSH = neueste zuerst)
-    messages = [json.loads(m) for m in reversed(raw_msgs)]
+    messages = [safe_json_loads(m) for m in reversed(raw_msgs)]
 
     # Vollständiges Gespräch (User + Assistent) für Stil-Analyse
     full_conversation = "\n".join(
@@ -141,7 +142,7 @@ def _run(customer_id: str) -> None:
     conversation = "\n".join(f"USER: {m['content']}" for m in user_messages)
 
     # 2. Konfiguration laden (Modell + Prompt aus Redis/Admin)
-    model, system_prompt = _load_config(r)
+    model, system_prompt = _load_config()
 
     # 3. Bereits bekannte Fakten laden — LLM soll nur NEUE extrahieren
     try:

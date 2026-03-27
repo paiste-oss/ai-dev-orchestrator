@@ -9,6 +9,7 @@ POST /v1/documents/search          → Semantische Suche in Kundendokumenten
 import uuid
 from datetime import datetime
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Query
+from core.exceptions import not_found, file_too_large, storage_limit_exceeded
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy import update as sa_update
 from core.database import get_db
 from core.dependencies import get_current_user
+from schemas.base import BaseAPIModel
 from models.document import CustomerDocument
 from models.customer import Customer
 from services.file_parser import parse_file, is_supported, get_file_extension, SUPPORTED_EXTENSIONS
@@ -30,7 +32,7 @@ MAX_FILE_SIZE = 50 * 1024 * 1024
 
 # ─── Response Schemas ────────────────────────────────────────────────────────
 
-class DocumentOut(BaseModel):
+class DocumentOut(BaseAPIModel):
     id: uuid.UUID
     customer_id: uuid.UUID
     filename: str
@@ -44,9 +46,6 @@ class DocumentOut(BaseModel):
     qdrant_collection: str | None
     created_at: datetime
     doc_metadata: dict | None
-
-    class Config:
-        from_attributes = True
 
 
 class DocumentWithText(DocumentOut):
@@ -84,10 +83,7 @@ async def upload_document(
     # Datei-Größe prüfen
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Datei zu groß. Maximum: {MAX_FILE_SIZE // 1024 // 1024} MB"
-        )
+        raise file_too_large()
 
     # Speicherlimit prüfen
     customer = await db.get(Customer, customer_id)
@@ -95,11 +91,7 @@ async def upload_document(
         total_limit = (customer.storage_limit_bytes or 0) + (customer.storage_extra_bytes or 0)
         used = customer.storage_used_bytes or 0
         if used + len(content) > total_limit:
-            free_mb = max(0, total_limit - used) / 1024 / 1024
-            raise HTTPException(
-                status_code=507,
-                detail=f"Speicherlimit erreicht. Noch verfügbar: {free_mb:.1f} MB. Speicher unter Konto → Speicher erweitern."
-            )
+            raise storage_limit_exceeded(max(0, total_limit - used) / 1024 / 1024)
 
     filename = file.filename or "unknown"
     mime_type = file.content_type or ""
@@ -194,7 +186,7 @@ async def get_my_document_content(
     """Gibt die Originaldatei als Binary zurück (für den File-Viewer)."""
     doc = await db.get(CustomerDocument, doc_id)
     if not doc or not doc.is_active or doc.customer_id != customer.id:
-        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+        raise not_found("Dokument")
     if not doc.file_content:
         raise HTTPException(status_code=404, detail="Datei-Inhalt nicht gespeichert")
     return Response(
@@ -213,7 +205,7 @@ async def delete_my_document(
     """Löscht ein Dokument des eingeloggten Kunden."""
     doc = await db.get(CustomerDocument, doc_id)
     if not doc or not doc.is_active or doc.customer_id != customer.id:
-        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+        raise not_found("Dokument")
 
     if doc.stored_in_qdrant and doc.qdrant_collection:
         delete_document_vectors(str(doc_id), doc.qdrant_collection)
@@ -257,7 +249,7 @@ async def get_document(
     """Gibt ein einzelnes Dokument mit dem extrahierten Text zurück."""
     doc = await db.get(CustomerDocument, doc_id)
     if not doc or not doc.is_active:
-        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+        raise not_found("Dokument")
     return doc
 
 
@@ -271,7 +263,7 @@ async def delete_document(
     """Soft-löscht ein Dokument und entfernt Qdrant-Vektoren."""
     doc = await db.get(CustomerDocument, doc_id)
     if not doc or not doc.is_active:
-        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+        raise not_found("Dokument")
 
     # Qdrant-Vektoren löschen
     if doc.stored_in_qdrant and doc.qdrant_collection:

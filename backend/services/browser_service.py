@@ -15,9 +15,10 @@ import json
 import logging
 
 import httpx
-import redis as redis_lib
 
 from core.config import settings
+from core.redis_client import redis_sync
+from core.utils import safe_json_loads
 
 _log = logging.getLogger(__name__)
 
@@ -126,21 +127,13 @@ export default async ({ page, context }) => {
 """
 
 
-def _get_redis() -> redis_lib.Redis:
-    return redis_lib.from_url(settings.redis_url, decode_responses=True)
-
-
 def _load_state(customer_id: str) -> dict:
-    r = _get_redis()
-    raw = r.get(_REDIS_KEY.format(customer_id=customer_id))
-    if raw:
-        return json.loads(raw)
-    return {"url": "about:blank", "cookies": []}
+    raw = redis_sync().get(_REDIS_KEY.format(customer_id=customer_id))
+    return safe_json_loads(raw, {"url": "about:blank", "cookies": []})
 
 
 def _save_state(customer_id: str, state: dict) -> None:
-    r = _get_redis()
-    r.set(_REDIS_KEY.format(customer_id=customer_id), json.dumps(state), ex=_SESSION_TTL)
+    redis_sync().set(_REDIS_KEY.format(customer_id=customer_id), json.dumps(state), ex=_SESSION_TTL)
 
 
 async def browser_action(customer_id: str, action: dict) -> dict:
@@ -202,5 +195,4 @@ async def browser_action(customer_id: str, action: dict) -> dict:
 
 def clear_browser_session(customer_id: str) -> None:
     """Löscht die gespeicherte Browser-Sitzung."""
-    r = _get_redis()
-    r.delete(_REDIS_KEY.format(customer_id=customer_id))
+    redis_sync().delete(_REDIS_KEY.format(customer_id=customer_id))
