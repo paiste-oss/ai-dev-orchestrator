@@ -141,8 +141,13 @@ async def trigger_ingestion(
     if not source:
         raise HTTPException(status_code=404, detail="Quelle nicht gefunden.")
     from tasks.knowledge_ingestion import ingest_source
-    task = ingest_source.delay(str(source_id))
-    return {"task_id": task.id, "status": "queued", "source": source.name}
+    # Direkt synchron ausführen (blockiert bis fertig) — für Admin-Trigger
+    # Bei grossem Datenvolumen via .delay() asynchron starten
+    try:
+        stats = ingest_source(str(source_id))
+        return {"status": "done", "source": source.name, **stats}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @router.get("/sources/{source_id}/documents")

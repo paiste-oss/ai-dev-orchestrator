@@ -13,6 +13,7 @@ celery_app = Celery(
         "tasks.memory_manager",
         "tasks.stock_alerts",
         "tasks.training_reminders",
+        "tasks.knowledge_ingestion",
     ],
 )
 
@@ -32,6 +33,10 @@ celery_app.conf.beat_schedule = {
     "check-training-reminders": {
         "task": "tasks.training_reminders.check_training_reminders",
         "schedule": crontab(minute="*/5"),
+    },
+    "refresh-knowledge": {
+        "task": "tasks.knowledge_ingestion.refresh_all_sources",
+        "schedule": crontab(hour=3, minute=0, day_of_week="sun"),  # Sonntags 03:00
     },
 }
 
