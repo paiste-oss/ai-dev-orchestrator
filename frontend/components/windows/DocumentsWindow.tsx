@@ -43,10 +43,21 @@ function formatDate(iso: string) {
 
 const ACCEPTED = ".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.xml,.html,.log";
 
-export default function DocumentsWindow() {
+interface OpenFileInfo {
+  url: string;
+  filename: string;
+  fileType: string;
+}
+
+interface Props {
+  onOpenFile?: (info: OpenFileInfo) => void;
+}
+
+export default function DocumentsWindow({ onOpenFile }: Props) {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [opening, setOpening] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -61,6 +72,20 @@ export default function DocumentsWindow() {
       if (res.ok) setDocs(await res.json());
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function openDoc(doc: Doc) {
+    if (!onOpenFile || opening) return;
+    setOpening(doc.id);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/documents/mine/${doc.id}/content`);
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      onOpenFile({ url, filename: doc.original_filename, fileType: doc.file_type });
+    } finally {
+      setOpening(null);
     }
   }
 
@@ -174,7 +199,8 @@ export default function DocumentsWindow() {
           filtered.map(doc => (
             <div
               key={doc.id}
-              className="flex items-center gap-2.5 bg-white/4 hover:bg-white/6 border border-white/6 rounded-xl px-3 py-2.5 transition-colors group"
+              onDoubleClick={() => openDoc(doc)}
+              className="flex items-center gap-2.5 bg-white/4 hover:bg-white/6 border border-white/6 rounded-xl px-3 py-2.5 transition-colors group cursor-default select-none"
             >
               <span className="text-xl shrink-0">{fileIcon(doc.file_type)}</span>
               <div className="flex-1 min-w-0">
@@ -186,6 +212,29 @@ export default function DocumentsWindow() {
                   {" · "}{formatDate(doc.created_at)}
                 </p>
               </div>
+              {/* Öffnen-Button */}
+              {onOpenFile && (
+                <button
+                  onClick={() => openDoc(doc)}
+                  disabled={opening === doc.id}
+                  className="shrink-0 opacity-0 group-hover:opacity-100 flex items-center gap-1 text-indigo-400 hover:text-indigo-300 text-[11px] font-medium px-2 py-1 rounded-lg hover:bg-indigo-500/10 transition-all disabled:opacity-40"
+                  title="Datei öffnen"
+                >
+                  {opening === doc.id ? (
+                    <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  )}
+                  {opening === doc.id ? "Lädt…" : "Öffnen"}
+                </button>
+              )}
+              {/* Löschen-Button */}
               <button
                 onClick={() => deleteDoc(doc.id)}
                 disabled={deleting === doc.id}

@@ -9,7 +9,7 @@ POST /v1/documents/search          → Semantische Suche in Kundendokumenten
 import uuid
 from datetime import datetime
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -126,6 +126,7 @@ async def upload_document(
         file_type=ext or "unknown",
         file_size_bytes=len(content),
         mime_type=mime_type,
+        file_content=content,
         extracted_text=parse_result.text if store_postgres else None,
         page_count=parse_result.page_count,
         char_count=len(parse_result.text),
@@ -182,6 +183,25 @@ async def list_my_documents(
         ).order_by(CustomerDocument.created_at.desc())
     )
     return result.scalars().all()
+
+
+@router.get("/mine/{doc_id}/content")
+async def get_my_document_content(
+    doc_id: uuid.UUID,
+    customer: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Gibt die Originaldatei als Binary zurück (für den File-Viewer)."""
+    doc = await db.get(CustomerDocument, doc_id)
+    if not doc or not doc.is_active or doc.customer_id != customer.id:
+        raise HTTPException(status_code=404, detail="Dokument nicht gefunden")
+    if not doc.file_content:
+        raise HTTPException(status_code=404, detail="Datei-Inhalt nicht gespeichert")
+    return Response(
+        content=doc.file_content,
+        media_type=doc.mime_type or "application/octet-stream",
+        headers={"Content-Disposition": f'inline; filename="{doc.original_filename}"'},
+    )
 
 
 @router.delete("/mine/{doc_id}")

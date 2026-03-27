@@ -602,6 +602,7 @@ async def upload_attachment(
         file_type=get_file_extension(filename) or "unknown",
         file_size_bytes=len(content),
         mime_type=mime_type,
+        file_content=content,
         extracted_text=parse_result.text,
         page_count=parse_result.page_count,
         char_count=len(parse_result.text),

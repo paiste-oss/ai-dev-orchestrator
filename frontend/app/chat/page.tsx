@@ -569,7 +569,11 @@ export default function ChatPage() {
                 onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
               />
             ) : card.type === "documents" ? (
-              <DocumentsWindow />
+              <DocumentsWindow
+                onOpenFile={({ url, filename, fileType }) =>
+                  spawnCard("file_viewer", `📄 ${filename}`, 720, 600, { url, filename, fileType })
+                }
+              />
             ) : card.type === "file_viewer" ? (
               <FileViewerWindow
                 url={card.data?.url ?? ""}

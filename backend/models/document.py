@@ -5,7 +5,7 @@ Qdrant-Vektor-Referenz (point_ids) wird als JSONB gespeichert.
 """
 import uuid
 from datetime import datetime
-from sqlalchemy import String, DateTime, Text, Integer, ForeignKey, Boolean
+from sqlalchemy import String, DateTime, Text, Integer, ForeignKey, Boolean, LargeBinary
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.database import Base
@@ -25,6 +25,9 @@ class CustomerDocument(Base):
     file_type: Mapped[str] = mapped_column(String(64), nullable=False)   # pdf, docx, xlsx, pptx, txt, csv, ...
     file_size_bytes: Mapped[int] = mapped_column(Integer, default=0)
     mime_type: Mapped[str] = mapped_column(String(128), nullable=False, default="application/octet-stream")
+
+    # Original-Binärdatei (für Viewer)
+    file_content: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
 
     # Extrahierter Text-Inhalt
     extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
