@@ -17,7 +17,6 @@ import json
 import logging as _logging
 from datetime import datetime
 
-import redis as redis_lib
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 import httpx as _httpx
 from pydantic import BaseModel
@@ -27,6 +26,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.config import settings
 from core.database import get_db
 from core.dependencies import get_current_user
+from core.redis_client import redis_sync
+from core.utils import safe_json_loads
 from models.chat import ChatMessage, MemoryItem
 from models.customer import Customer
 from services.llm_gateway import chat_with_claude, chat_with_gemini, chat_with_openai
@@ -45,19 +46,9 @@ _CONTEXT_WINDOW = 10
 
 _log = _logging.getLogger(__name__)
 
-_redis_client: "redis_lib.Redis | None" = None
-
-
-def _get_redis() -> "redis_lib.Redis":
-    global _redis_client
-    if _redis_client is None:
-        _redis_client = redis_lib.from_url(settings.redis_url, decode_responses=True)
-    return _redis_client
-
-
 def _push_short_term_memory(customer_id: str, user_msg: str, assistant_msg: str) -> None:
     import time
-    r = _get_redis()
+    r = redis_sync()
     key = f"chat:recent:{customer_id}"
     r.lpush(key, json.dumps({"role": "user",      "content": user_msg,      "ts": time.time()}))
     r.lpush(key, json.dumps({"role": "assistant", "content": assistant_msg, "ts": time.time()}))
@@ -67,8 +58,8 @@ def _push_short_term_memory(customer_id: str, user_msg: str, assistant_msg: str)
 
 def _load_global_baddi_config() -> dict:
     try:
-        raw = _get_redis().get("baddi:config")
-        return json.loads(raw) if raw else {}
+        raw = redis_sync().get("baddi:config")
+        return safe_json_loads(raw)
     except Exception as e:
         _log.warning("Globale Baddi-Config konnte nicht geladen werden: %s", e)
         return {}
@@ -170,6 +161,20 @@ async def send_message(
     relevant = await select_relevant_context(customer_id, req.message, db)
     style_prefs = await select_style_context(customer_id, db)
 
+    # 4b. Globale Wissensbasis durchsuchen (falls aktiviert)
+    knowledge_chunks: list[dict] = []
+    if baddi_config.get("knowledge_enabled", True):
+        try:
+            from services.knowledge_store import search_global_knowledge
+            knowledge_chunks = search_global_knowledge(
+                query=req.message,
+                top_k=int(baddi_config.get("knowledge_max_results", 3)),
+                min_score=float(baddi_config.get("knowledge_min_score", 0.72)),
+                domains=baddi_config.get("knowledge_domains") or None,
+            )
+        except Exception:
+            pass  # Wissensbasis optional — kein Hard Fail
+
     # 5. System-Prompt aufbauen
     first_name = customer.name.split()[0] if customer.name else "du"
     system_prompt = build_system_prompt(
@@ -178,6 +183,7 @@ async def send_message(
         style_prefs=style_prefs,
         relevant_memories=relevant,
         ui_prefs=customer.ui_preferences or {},
+        knowledge_chunks=knowledge_chunks or None,
     )
 
     # 6. Request ausführen

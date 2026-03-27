@@ -24,6 +24,7 @@ def build_system_prompt(
     style_prefs: list[str],
     relevant_memories: list[str],
     ui_prefs: dict,
+    knowledge_chunks: list[dict] | None = None,
 ) -> str:
     """
     Baut den System-Prompt zusammen.
@@ -161,6 +162,17 @@ def build_system_prompt(
         f"\nSPRACHE: Antworte IMMER auf {_lang_label}. "
         f"Dein Name ist '{_buddy_name}' — nenne dich ausschliesslich so."
     )
+
+    # ── Globale Wissensbasis ──────────────────────────────────────────────────
+    if knowledge_chunks:
+        chunks_text = "\n\n".join(
+            f"[{c.get('source_type', '?').upper()} — {c.get('title', 'Dokument')}]\n{c.get('text', '')}"
+            for c in knowledge_chunks
+        )
+        system_parts.append(
+            f"\nRELEVANTES HINTERGRUNDWISSEN (aus verifizierten Quellen — nutze es wenn passend):\n"
+            f"{chunks_text}"
+        )
 
     # ── Relevante Erinnerungen ────────────────────────────────────────────────
     if relevant_memories:

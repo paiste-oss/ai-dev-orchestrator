@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.database import init_db
-from api.v1 import agent, customers, buddies, workflows, credentials, oauth, dev_tasks, documents, events, auth, chat, finance, transport, buddy_tools, entwicklung, billing, router_admin, llm_admin, system_prompts_admin, tools_admin, integrations_admin, analytics_admin, user_preferences, windows
+from api.v1 import agent, customers, buddies, workflows, credentials, oauth, dev_tasks, documents, events, auth, chat, finance, transport, buddy_tools, entwicklung, billing, router_admin, llm_admin, system_prompts_admin, tools_admin, integrations_admin, analytics_admin, user_preferences, windows, knowledge
 from api.v1 import settings as portal_settings
 import models.chat      # noqa: F401 — register ChatMessage & MemoryItem with Base.metadata
 import models.finance   # noqa: F401 — register CostEntry with Base.metadata
@@ -12,6 +12,7 @@ import models.buddy_tool  # noqa: F401 — register BuddyTool with Base.metadata
 import models.capability_request  # noqa: F401 — register CapabilityRequest with Base.metadata
 import models.payment             # noqa: F401 — register Payment & InvoiceCounter with Base.metadata
 import models.window              # noqa: F401 — register WindowBoard with Base.metadata
+import models.knowledge           # noqa: F401 — register KnowledgeSource & KnowledgeDocument with Base.metadata
 
 # OpenAI-kompatibler Endpunkt für DALL-E (openai SDK)
 os.environ["OPENAI_API_KEY"] = settings.openai_api_key or "NA"
@@ -65,6 +66,7 @@ app.include_router(integrations_admin.router)
 app.include_router(analytics_admin.router, prefix="/v1")
 app.include_router(user_preferences.router, prefix="/v1")
 app.include_router(windows.router, prefix="/v1")
+app.include_router(knowledge.router, prefix="/v1")
 
 
 @app.get("/")

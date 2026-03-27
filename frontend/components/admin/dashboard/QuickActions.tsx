@@ -107,6 +107,12 @@ export default function QuickActions({ stats, statsLoading }: Props) {
           sub="Automationen & Services"
           onClick={() => router.push("/admin/workflows")}
         />
+        <QuickAction
+          icon="📚"
+          label="Wissensbasis"
+          sub="Gesetze, Literatur, Wikipedia"
+          onClick={() => router.push("/admin/knowledge")}
+        />
       </div>
     </section>
   );

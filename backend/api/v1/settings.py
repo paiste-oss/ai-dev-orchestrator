@@ -1,14 +1,13 @@
 import json
-import redis as redis_lib
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from core.config import settings as app_settings
 from core.dependencies import require_admin
+from core.redis_client import redis_sync
+from core.utils import safe_json_loads
 from models.customer import Customer
 
 router = APIRouter(prefix="/settings", tags=["settings"])
-
-_redis = redis_lib.from_url(app_settings.redis_url, decode_responses=True)
 _KEY = "portal:settings"
 _IMPRESSUM_KEY = "portal:impressum"
 
@@ -45,8 +44,8 @@ _IMPRESSUM_DEFAULTS = ImpressumSettings().model_dump()
 @router.get("/impressum")
 async def get_impressum():
     """Öffentlich — wird im Impressum-Modal gelesen."""
-    raw = _redis.get(_IMPRESSUM_KEY)
-    return json.loads(raw) if raw else _IMPRESSUM_DEFAULTS
+    raw = redis_sync().get(_IMPRESSUM_KEY)
+    return safe_json_loads(raw, _IMPRESSUM_DEFAULTS)
 
 
 @router.put("/impressum")
@@ -55,7 +54,7 @@ async def update_impressum(
     _: Customer = Depends(require_admin),
 ):
     data = body.model_dump()
-    _redis.set(_IMPRESSUM_KEY, json.dumps(data))
+    redis_sync().set(_IMPRESSUM_KEY, json.dumps(data))
     return data
 
 
@@ -70,14 +69,18 @@ class BaddiConfig(BaseModel):
     context_window: int = 10
     n8n_workflow_id: str = ""
     agents: list[str] = []  # IDs der zugewiesenen Agenten, z.B. ["ki-chat", "document"]
+    knowledge_enabled: bool = True
+    knowledge_domains: list[str] = []   # leer = alle Domains
+    knowledge_max_results: int = 3
+    knowledge_min_score: float = 0.72
 
 
 @router.get("/baddi/{baddi_id}")
 async def get_baddi_config(baddi_id: str):
     """Lädt die Konfiguration eines Baddi-Archetyps."""
-    raw = _redis.get(f"baddi:config:{baddi_id}")
+    raw = redis_sync().get(f"baddi:config:{baddi_id}")
     if raw:
-        return json.loads(raw)
+        return safe_json_loads(raw)
     return BaddiConfig().model_dump()
 
 
@@ -88,7 +91,7 @@ async def update_baddi_config(
     _: Customer = Depends(require_admin),
 ):
     data = body.model_dump()
-    _redis.set(f"baddi:config:{baddi_id}", json.dumps(data))
+    redis_sync().set(f"baddi:config:{baddi_id}", json.dumps(data))
     return data
 
 
@@ -108,15 +111,15 @@ _GLOBAL_BADDI_DEFAULTS = {
 @router.get("/baddi-global")
 async def get_global_baddi_config(_: Customer = Depends(require_admin)):
     """Lädt die globale Baddi-Konfiguration (gilt für alle Kunden)."""
-    raw = _redis.get(_GLOBAL_BADDI_KEY)
-    return json.loads(raw) if raw else _GLOBAL_BADDI_DEFAULTS
+    raw = redis_sync().get(_GLOBAL_BADDI_KEY)
+    return safe_json_loads(raw, _GLOBAL_BADDI_DEFAULTS)
 
 
 @router.put("/baddi-global")
 async def update_global_baddi_config(body: BaddiConfig, _: Customer = Depends(require_admin)):
     """Speichert die globale Baddi-Konfiguration."""
     data = body.model_dump()
-    _redis.set(_GLOBAL_BADDI_KEY, json.dumps(data))
+    redis_sync().set(_GLOBAL_BADDI_KEY, json.dumps(data))
     return data
 
 
@@ -152,8 +155,8 @@ class MemoryManagerConfig(BaseModel):
 
 @router.get("/memory-manager")
 async def get_memory_manager_config(_: Customer = Depends(require_admin)):
-    raw = _redis.get(_MEMORY_MANAGER_KEY)
-    return json.loads(raw) if raw else _MEMORY_MANAGER_DEFAULTS
+    raw = redis_sync().get(_MEMORY_MANAGER_KEY)
+    return safe_json_loads(raw, _MEMORY_MANAGER_DEFAULTS)
 
 
 @router.put("/memory-manager")
@@ -162,15 +165,15 @@ async def update_memory_manager_config(
     _: Customer = Depends(require_admin),
 ):
     data = body.model_dump()
-    _redis.set(_MEMORY_MANAGER_KEY, json.dumps(data))
+    redis_sync().set(_MEMORY_MANAGER_KEY, json.dumps(data))
     return data
 
 
 @router.get("/portal")
 async def get_portal_settings():
     """Öffentlich — wird von der Startseite gelesen."""
-    raw = _redis.get(_KEY)
-    return json.loads(raw) if raw else _DEFAULTS
+    raw = redis_sync().get(_KEY)
+    return safe_json_loads(raw, _DEFAULTS)
 
 
 @router.put("/portal")
@@ -179,5 +182,5 @@ async def update_portal_settings(
     _: Customer = Depends(require_admin),
 ):
     data = body.model_dump()
-    _redis.set(_KEY, json.dumps(data))
+    redis_sync().set(_KEY, json.dumps(data))
     return data
