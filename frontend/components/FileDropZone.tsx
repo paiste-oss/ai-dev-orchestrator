@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, DragEvent } from "react";
+import { fmtBytes as formatBytes } from "@/lib/format";
 
 // Erlaubte Dateitypen (sync mit Backend)
 const ACCEPTED_EXTENSIONS = [
@@ -48,12 +49,6 @@ function getExtension(filename: string): string {
 
 function getFileIcon(filename: string): string {
   return FILE_TYPE_ICONS[getExtension(filename)] ?? "📎";
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function isValidFile(file: File): boolean {

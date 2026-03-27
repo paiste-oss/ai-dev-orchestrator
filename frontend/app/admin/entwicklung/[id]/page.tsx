@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import AdminSidebar from "@/components/AdminSidebar";
+import { formatDateTime as formatDate } from "@/lib/format";
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
 
@@ -63,11 +64,6 @@ function StatusBadge({ status }: { status: string }) {
       {cfg.label}
     </span>
   );
-}
-
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 // ─── Haupt-Komponente ──────────────────────────────────────────────────────────

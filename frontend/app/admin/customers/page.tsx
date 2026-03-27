@@ -8,6 +8,7 @@ import { API_ROUTES } from "@/lib/config";
 import { BACKEND_URL } from "@/lib/config";
 import AdminSidebar from "@/components/AdminSidebar";
 import { USE_CASES } from "@/lib/usecases";
+import { formatDate } from "@/lib/format";
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
 
@@ -53,12 +54,6 @@ function Badge({ value, map }: { value: string; map: Record<string, { label: str
       {entry.label}
     </span>
   );
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("de-CH", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
 }
 
 // ─── Löschen-Dialog ───────────────────────────────────────────────────────────

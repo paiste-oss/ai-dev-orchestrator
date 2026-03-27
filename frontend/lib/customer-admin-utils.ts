@@ -115,17 +115,7 @@ export const MODEL_DISPLAY: Record<string, string> = {
   "unbekannt":                 "Unbekannt",
 };
 
-export function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("de-CH", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
-}
-
-export function fmtBytes(b: number) {
-  if (b >= 1024 * 1024 * 1024) return `${(b / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-  if (b >= 1024 * 1024) return `${(b / (1024 * 1024)).toFixed(0)} MB`;
-  return `${(b / 1024).toFixed(0)} KB`;
-}
+export { formatDate, fmtBytes } from "@/lib/format";
 
 export const inputCls = "w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-400 transition-colors";
 export const readCls = "bg-gray-700/50 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-300";

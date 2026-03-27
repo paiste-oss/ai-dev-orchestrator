@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
+import { fmtBytes as formatBytes, formatDate } from "@/lib/format";
 
 interface Doc {
   id: string;
@@ -27,18 +28,6 @@ const FILE_ICONS: Record<string, string> = {
 
 function fileIcon(type: string) {
   return FILE_ICONS[type?.toLowerCase()] ?? "📎";
-}
-
-function formatBytes(b: number) {
-  if (b < 1024) return `${b} B`;
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
-  return `${(b / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("de-CH", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
 }
 
 const ACCEPTED = ".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.xml,.html,.log";
