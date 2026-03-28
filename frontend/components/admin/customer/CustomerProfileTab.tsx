@@ -29,6 +29,7 @@ export default function CustomerProfileTab({ customer, onCustomerUpdate }: Props
   const [name, setName] = useState(customer.name ?? "");
   const [email, setEmail] = useState(customer.email ?? "");
   const [language, setLanguage] = useState(customer.language ?? "de");
+  const [notificationChannel, setNotificationChannel] = useState<"sms" | "email">(customer.notification_channel ?? "sms");
   const [phone, setPhone] = useState(customer.phone ?? "");
   const [phoneSecondary, setPhoneSecondary] = useState(customer.phone_secondary ?? "");
   const [street, setStreet] = useState(customer.address_street ?? "");
@@ -46,6 +47,7 @@ export default function CustomerProfileTab({ customer, onCustomerUpdate }: Props
         method: "PATCH",
         body: JSON.stringify({
           name, email, language,
+          notification_channel: notificationChannel,
           phone: phone || null,
           phone_secondary: phoneSecondary || null,
           address_street: street || null,
@@ -84,6 +86,12 @@ export default function CustomerProfileTab({ customer, onCustomerUpdate }: Props
               {LANGUAGE_OPTIONS.map(l => (
                 <option key={l.value} value={l.value}>{l.label}</option>
               ))}
+            </select>
+          </Field>
+          <Field label="Benachrichtigungskanal">
+            <select value={notificationChannel} onChange={e => setNotificationChannel(e.target.value as "sms" | "email")} className={inputCls}>
+              <option value="sms">📱 Mobile (SMS)</option>
+              <option value="email">✉️ E-Mail</option>
             </select>
           </Field>
         </div>

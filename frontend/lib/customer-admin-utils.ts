@@ -11,7 +11,6 @@ export interface CustomerDetail {
   memory_consent: boolean;
   created_at: string;
   birth_year: number | null;
-  primary_usecase_id: string | null;
   phone: string | null;
   phone_secondary: string | null;
   address_street: string | null;
@@ -19,6 +18,7 @@ export interface CustomerDetail {
   address_city: string | null;
   address_country: string | null;
   language: string | null;
+  notification_channel: "sms" | "email" | null;
 }
 
 export interface CustomerStats {

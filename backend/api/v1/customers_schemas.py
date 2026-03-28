@@ -35,6 +35,7 @@ class CustomerOut(BaseModel):
     notes: str | None = None
     interests: list | None = None
     memory_consent: bool = True
+    notification_channel: str = "sms"
     subscription_plan_name: str | None = None
     subscription_status: str | None = None
 
@@ -64,6 +65,7 @@ class CustomerUpdate(BaseModel):
     notes: str | None = None
     interests: list | None = None
     memory_consent: bool | None = None
+    notification_channel: str | None = None   # 'sms' | 'email'
 
 
 class SelfUpdateRequest(BaseModel):
