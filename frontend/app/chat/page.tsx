@@ -157,6 +157,7 @@ export default function ChatPage() {
   const processedMsgs = useRef(new Set<string>());
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const userScrolledUp = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -255,6 +256,14 @@ export default function ChatPage() {
 
   // Canvas card management
   const moveCard = useCallback((id: string, x: number, y: number) => {
+    // Snap-to-Bounds: Titelleiste muss immer sichtbar bleiben
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const cw = canvas.clientWidth;
+      const ch = canvas.clientHeight;
+      x = Math.max(-180, Math.min(cw - 60, x));  // 60px min. sichtbar rechts/links
+      y = Math.max(0, Math.min(ch - 36, y));       // Titelleiste darf nicht aus Canvas raus
+    }
     setCards(cs => cs.map(c => c.id === id ? { ...c, x, y } : c));
   }, []);
 
@@ -274,6 +283,42 @@ export default function ChatPage() {
 
   const minimizeCard = useCallback((id: string) => {
     setCards(cs => cs.map(c => c.id === id ? { ...c, minimized: !c.minimized } : c));
+  }, []);
+
+  // Auto-Layout: Fenster automatisch in Grid anordnen
+  const autoLayoutCards = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const cw = canvas.clientWidth;
+    const ch = canvas.clientHeight;
+    const pad = 12;
+
+    setCards(cs => {
+      const visible = cs.filter(c => !c.minimized);
+      const n = visible.length;
+      if (n === 0) return cs;
+
+      // Spaltenanzahl je nach Fensteranzahl
+      const cols = n === 1 ? 1 : n === 2 ? 2 : n <= 4 ? 2 : 3;
+      const rows = Math.ceil(n / cols);
+      const cellW = Math.floor((cw - pad * (cols + 1)) / cols);
+      const cellH = Math.floor((ch - pad * (rows + 1)) / rows);
+
+      let idx = 0;
+      return cs.map(c => {
+        if (c.minimized) return c;
+        const col = idx % cols;
+        const row = Math.floor(idx / cols);
+        idx++;
+        return {
+          ...c,
+          x: pad + col * (cellW + pad),
+          y: pad + row * (cellH + pad),
+          width: Math.max(cellW, 280),
+          height: Math.max(cellH, 200),
+        };
+      });
+    });
   }, []);
 
   // Spawn a new card (from "+" button or from rich content callbacks)
@@ -513,10 +558,12 @@ export default function ChatPage() {
         onLogout={() => { clearSession(); router.push("/"); }}
         onAdminBack={() => router.push("/admin")}
         onAddCard={handleAddCard}
+        onArrangeCards={autoLayoutCards}
       />
 
       {/* ── WHITEBOARD CANVAS ── */}
       <div
+        ref={canvasRef}
         className="flex-1 relative overflow-hidden"
         style={{
           backgroundImage: "radial-gradient(rgba(255,255,255,0.035) 1px, transparent 1px)",

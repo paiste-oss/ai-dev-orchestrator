@@ -16,6 +16,7 @@ interface TopBarProps {
   onLogout: () => void;
   onAdminBack: () => void;
   onAddCard?: (canvasType: string) => void;
+  onArrangeCards?: () => void;
 }
 
 function providerBadge(p: string) {
@@ -28,7 +29,7 @@ function providerBadge(p: string) {
 export default function TopBar({
   buddyName, buddyInitial, speaking, ttsEnabled, lastProvider,
   firstName, isAdmin,
-  onToggleTts, onSettings, onLogout, onAdminBack, onAddCard,
+  onToggleTts, onSettings, onLogout, onAdminBack, onAddCard, onArrangeCards,
 }: TopBarProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
 
@@ -100,6 +101,20 @@ export default function TopBar({
           </div>
         )}
 
+
+        {/* Auto-Layout */}
+        {onArrangeCards && (
+          <button
+            onClick={onArrangeCards}
+            title="Fenster automatisch anordnen"
+            className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/>
+              <rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>
+            </svg>
+          </button>
+        )}
 
         {/* TTS */}
         <button onClick={onToggleTts} title={ttsEnabled ? "Stimme aus" : "Stimme ein"}
