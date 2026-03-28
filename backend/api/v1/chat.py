@@ -31,7 +31,7 @@ from core.utils import safe_json_loads
 from models.chat import ChatMessage, MemoryItem
 from models.customer import Customer
 from services.llm_gateway import chat_with_claude, chat_with_gemini, chat_with_openai
-from services.memory_service import select_relevant_context, select_style_context
+from services.memory_vector_store import search_memories, get_style_memories
 from services.agent_router import route as agent_route
 from services.buddy_agent import run_buddy_chat
 from services.billing_service import check_and_bill_tokens
@@ -157,9 +157,27 @@ async def send_message(
         from services.billing_service import check_quota
         await check_quota(customer, db)
 
-    # 4. Relevante Memories + Kunden-Stil
-    relevant = await select_relevant_context(customer_id, req.message, db)
-    style_prefs = await select_style_context(customer_id, db)
+    # 4. Relevante Memories + Kunden-Stil (Qdrant, Fallback PostgreSQL)
+    try:
+        relevant = search_memories(customer_id, req.message, top_k=10)
+    except Exception:
+        result_mem = await db.execute(
+            select(MemoryItem)
+            .where(MemoryItem.customer_id == customer_id, MemoryItem.is_active.is_(True))
+            .order_by(MemoryItem.importance.desc()).limit(5)
+        )
+        relevant = [m.content for m in result_mem.scalars().all()]
+
+    try:
+        style_prefs = get_style_memories(customer_id)
+    except Exception:
+        result_style = await db.execute(
+            select(MemoryItem)
+            .where(MemoryItem.customer_id == customer_id, MemoryItem.is_active.is_(True),
+                   MemoryItem.category == "style")
+            .order_by(MemoryItem.importance.desc()).limit(5)
+        )
+        style_prefs = [m.content for m in result_style.scalars().all()]
 
     # 4b. Globale Wissensbasis durchsuchen (falls aktiviert)
     knowledge_chunks: list[dict] = []
@@ -441,13 +459,14 @@ async def send_message(
         except Exception as e:
             _log.warning("CapabilityRequest konnte nicht erstellt werden: %s", e)
 
-    # 10. Memory-Extraktion im Hintergrund
+    # 10. Memory-Extraktion im Hintergrund (nur bei substanziellen Nachrichten)
     _push_short_term_memory(customer_id, req.message, response_text)
-    try:
-        from tasks.memory_manager import process_memory
-        process_memory.delay(customer_id)
-    except Exception as e:
-        _log.warning("Memory Manager konnte nicht gestartet werden: %s", e)
+    if len(req.message.strip()) >= 20:
+        try:
+            from tasks.memory_manager import process_memory
+            process_memory.delay(customer_id)
+        except Exception as e:
+            _log.warning("Memory Manager konnte nicht gestartet werden: %s", e)
 
     return ChatResponse(
         message_id=str(assistant_msg.id),
