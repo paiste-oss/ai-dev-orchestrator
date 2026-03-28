@@ -8,6 +8,7 @@ from typing import Optional
 from core.database import get_db
 from core.dependencies import require_admin
 from core.redis_client import redis_sync
+from core.config import settings
 from models.customer import Customer
 from models.dev_task import DevTask
 
