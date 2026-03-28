@@ -12,6 +12,7 @@ from services.tools.definitions import (
     UNSPLASH_TOOL_DEFS,
     BROWSER_TOOL_DEFS,
     TRAINING_REMINDER_TOOL_DEFS,
+    WEATHER_TOOL_DEFS,
 )
 from services.tools.handlers.transport import _handle_sbb
 from services.tools.handlers.web import _handle_web_fetch, _handle_web_search
@@ -19,6 +20,7 @@ from services.tools.handlers.images import _handle_dalle, _handle_unsplash
 from services.tools.handlers.stocks import _handle_stock, _handle_stock_alerts
 from services.tools.handlers.browser import _handle_browser
 from services.tools.handlers.training import _handle_training_reminders
+from services.tools.handlers.weather import _handle_weather
 
 
 # ---------------------------------------------------------------------------
@@ -127,6 +129,17 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_names": {"create_training_reminder", "list_training_reminders", "delete_training_reminder"},
         "handler": _handle_training_reminders,
         "needs_customer_id": True,
+    },
+    "weather": {
+        "key": "weather",
+        "name": "Wetter (OpenWeatherMap)",
+        "description": "Aktuelles Wetter und 5-Tages-Vorhersage für beliebige Städte weltweit via OpenWeatherMap.",
+        "prompt_hint": "Aktuelles Wetter und Wettervorhersage für jede Stadt weltweit abfragen",
+        "category": "data",
+        "tier": "free",
+        "tool_defs": WEATHER_TOOL_DEFS,
+        "tool_names": {"get_current_weather", "get_weather_forecast"},
+        "handler": _handle_weather,
     },
 }
 

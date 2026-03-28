@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     # Unsplash Bildsuche
     unsplash_access_key: str = ""
 
+    # OpenWeatherMap
+    OPENWEATHER_API_KEY: str = ""
+
     # GitHub
     github_token: str = ""
     github_repo: str = "paiste-oss/ai-dev-orchestrator"

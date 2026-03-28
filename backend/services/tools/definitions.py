@@ -437,6 +437,76 @@ TRAINING_REMINDER_TOOL_DEFS = [
 
 
 # ---------------------------------------------------------------------------
+# Wetter (OpenWeatherMap)
+# ---------------------------------------------------------------------------
+
+WEATHER_TOOL_DEFS = [
+    {
+        "name": "get_current_weather",
+        "description": (
+            "Gibt das aktuelle Wetter für eine Stadt zurück. "
+            "Nutze dieses Tool wenn der Nutzer nach dem aktuellen Wetter, der Temperatur, "
+            "dem Regen oder den Wetterbedingungen an einem Ort fragt. "
+            "Gibt Temperatur, gefühlte Temperatur, Luftfeuchtigkeit, Wind, Bewölkung, "
+            "Sonnenauf- und untergang zurück."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "city": {
+                    "type": "string",
+                    "description": "Stadtname, z.B. 'Bern', 'Zürich', 'Berlin', 'London'",
+                },
+                "units": {
+                    "type": "string",
+                    "enum": ["metric", "imperial"],
+                    "description": "metric = °C und m/s (Standard), imperial = °F und mph",
+                },
+                "lang": {
+                    "type": "string",
+                    "description": "Sprache für Wetterbeschreibung, z.B. 'de' (Standard), 'en', 'fr'",
+                },
+            },
+            "required": ["city"],
+        },
+    },
+    {
+        "name": "get_weather_forecast",
+        "description": (
+            "Gibt eine Wettervorhersage für die nächsten 1–5 Tage zurück. "
+            "Nutze dieses Tool wenn der Nutzer nach dem Wetter morgen, übermorgen, "
+            "dieser Woche oder den nächsten Tagen fragt. "
+            "Gibt pro Tag: Wetterlage, Temperatur, Niederschlagswahrscheinlichkeit und Wind."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "city": {
+                    "type": "string",
+                    "description": "Stadtname, z.B. 'Bern', 'Zürich', 'Wien'",
+                },
+                "days": {
+                    "type": "integer",
+                    "description": "Anzahl Tage (1–5). Standard: 3",
+                    "default": 3,
+                },
+                "units": {
+                    "type": "string",
+                    "enum": ["metric", "imperial"],
+                    "description": "metric = °C (Standard), imperial = °F",
+                },
+                "lang": {
+                    "type": "string",
+                    "description": "Sprache, z.B. 'de' (Standard), 'en', 'fr'",
+                },
+            },
+            "required": ["city"],
+        },
+    },
+]
+
+
+# ---------------------------------------------------------------------------
 # Browser (Browserless.io)
 # ---------------------------------------------------------------------------
 
