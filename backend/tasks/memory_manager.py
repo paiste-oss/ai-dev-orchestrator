@@ -1,18 +1,19 @@
 """
 Memory Manager — Celery Task.
 
-Läuft im Hintergrund nach jeder Chat-Antwort:
-  1. Liest letzte 5-6 Nachrichten aus Redis (chat:recent:{customer_id})
-  2. Analysiert den Verlauf mit Ollama (schnelles lokales Modell)
-  3. Extrahiert dauerhafte Fakten über den Nutzer
+Läuft im Hintergrund nach jeder Chat-Antwort (nur bei Nachrichten >= 20 Zeichen):
+  1. Liest letzte 6 Turns aus Redis (chat:recent:{customer_id})
+  2. Extrahiert dauerhafte Fakten über den Nutzer via Claude Haiku
+  3. Extrahiert Kommunikationsstil-Signale via Claude Haiku
   4. Speichert Fakten als Vektoren in Qdrant (customer_memories)
-  5. Speichert Fakten auch als MemoryItems in PostgreSQL (Rückwärtskompatibilität)
+  5. Speichert Fakten auch als MemoryItems in PostgreSQL (Fallback)
+
+Claude statt Ollama: zuverlässiger, schneller, besseres Deutsch,
+kein lokaler Modell-Dependency. Routing über Bedrock EU wenn USE_BEDROCK=true.
 """
+import asyncio
 import json
 import logging
-import time
-
-import httpx
 
 from core.config import settings
 from core.redis_client import redis_sync
@@ -23,7 +24,7 @@ _log = logging.getLogger(__name__)
 
 _REDIS_KEY = "chat:recent:{customer_id}"
 _CONFIG_KEY = "memory_manager:config"
-_DEFAULT_MODEL = settings.ollama_chat_model
+_CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 _STYLE_PROMPT = (
     "Du bist ein Kommunikationsstil-Analysator für einen persönlichen KI-Assistenten.\n\n"
     "Analysiere das Gespräch und erkenne, WIE der Nutzer kommuniziert und was er bevorzugt.\n\n"
@@ -64,15 +65,15 @@ _DEFAULT_PROMPT = (
 
 
 def _load_config() -> tuple[str, str]:
-    """Lädt Modell + Prompt aus Redis (Admin-Konfiguration)."""
+    """Lädt Prompt aus Redis (Admin-Konfiguration). Modell ist immer Claude Haiku."""
     try:
         raw = redis_sync().get(_CONFIG_KEY)
         if raw:
             cfg = safe_json_loads(raw)
-            return cfg.get("model", _DEFAULT_MODEL), cfg.get("system_prompt", _DEFAULT_PROMPT)
+            return _CLAUDE_MODEL, cfg.get("system_prompt", _DEFAULT_PROMPT)
     except Exception:
         pass
-    return _DEFAULT_MODEL, _DEFAULT_PROMPT
+    return _CLAUDE_MODEL, _DEFAULT_PROMPT
 
 
 @celery_app.task(
@@ -229,8 +230,30 @@ def _deduplicate_against_existing(new_facts: list[str], existing_facts: list[str
     return result
 
 
+def _claude_extract(system_prompt: str, user_content: str) -> list[str]:
+    """Sendet einen Extraktions-Request an Claude Haiku und gibt eine Liste zurück."""
+    async def _call() -> str:
+        from services.llm_gateway import chat_with_claude
+        result = await chat_with_claude(
+            messages=[{"role": "user", "content": user_content}],
+            system_prompt=system_prompt,
+            model=_CLAUDE_MODEL,
+        )
+        return result.text
+
+    try:
+        text = asyncio.run(_call())
+        start, end = text.find("["), text.rfind("]") + 1
+        if start >= 0 and end > start:
+            items = json.loads(text[start:end])
+            return [s for s in items if isinstance(s, str) and s.strip()]
+    except Exception as exc:
+        _log.warning("Claude extraction failed: %s", exc)
+    return []
+
+
 def _extract_style(conversation: str, model: str, existing_styles: list[str] | None = None) -> list[str]:
-    """Extrahiert Kommunikationsstil-Signale aus dem Gespräch."""
+    """Extrahiert Kommunikationsstil-Signale aus dem Gespräch via Claude."""
     user_content = conversation
     if existing_styles:
         known = "\n".join(f"- {s}" for s in existing_styles[:20])
@@ -238,32 +261,11 @@ def _extract_style(conversation: str, model: str, existing_styles: list[str] | N
             f"BEREITS BEKANNTE STILVORGABEN (diese NICHT nochmals extrahieren):\n{known}\n\n"
             f"GESPRÄCH:\n{conversation}"
         )
-    try:
-        resp = httpx.post(
-            f"{settings.ollama_base_url}/api/chat",
-            json={
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": _STYLE_PROMPT},
-                    {"role": "user", "content": user_content},
-                ],
-                "stream": False,
-            },
-            timeout=45.0,
-        )
-        resp.raise_for_status()
-        text = resp.json().get("message", {}).get("content", "[]")
-        start, end = text.find("["), text.rfind("]") + 1
-        if start >= 0 and end > start:
-            signals = json.loads(text[start:end])
-            return [s for s in signals if isinstance(s, str) and s.strip()]
-    except Exception as exc:
-        _log.warning("Style extraction failed: %s", exc)
-    return []
+    return _claude_extract(_STYLE_PROMPT, user_content)
 
 
 def _extract_facts(conversation: str, model: str, system_prompt: str, existing_facts: list[str] | None = None) -> list[str]:
-    # Bestehende Fakten an LLM übergeben, damit es nichts doppelt extrahiert
+    """Extrahiert dauerhafte Fakten über den Nutzer via Claude."""
     user_content = conversation
     if existing_facts:
         known = "\n".join(f"- {f}" for f in existing_facts[:40])
@@ -271,28 +273,7 @@ def _extract_facts(conversation: str, model: str, system_prompt: str, existing_f
             f"BEREITS BEKANNTE FAKTEN (diese NICHT nochmals extrahieren):\n{known}\n\n"
             f"NEUE GESPRÄCH-AUSSCHNITTE:\n{conversation}"
         )
-    try:
-        resp = httpx.post(
-            f"{settings.ollama_base_url}/api/chat",
-            json={
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_content},
-                ],
-                "stream": False,
-            },
-            timeout=45.0,
-        )
-        resp.raise_for_status()
-        text = resp.json().get("message", {}).get("content", "[]")
-        start, end = text.find("["), text.rfind("]") + 1
-        if start >= 0 and end > start:
-            facts = json.loads(text[start:end])
-            return [f for f in facts if isinstance(f, str) and f.strip()]
-    except Exception as exc:
-        _log.warning("Ollama fact extraction failed: %s", exc)
-    return []
+    return _claude_extract(system_prompt, user_content)
 
 
 def _update_analytics_memory(customer_id: str, session_hash: str, facts_text: str) -> None:
