@@ -75,6 +75,7 @@ class SelfUpdateRequest(BaseModel):
     address_city: str | None = None
     address_country: str | None = None
     memory_consent: bool | None = None
+    notification_channel: str | None = None   # 'sms' | 'email'
 
 
 class CustomerListResponse(BaseModel):

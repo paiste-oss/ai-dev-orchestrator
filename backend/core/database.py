@@ -217,6 +217,8 @@ async def init_db():
             # 2-Faktor-Authentifizierung
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT false",
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT false",
+            # Benachrichtigungskanal
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS notification_channel VARCHAR(20) DEFAULT 'sms'",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

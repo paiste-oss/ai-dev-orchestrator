@@ -9,6 +9,7 @@ import { ProfileSection } from "@/components/user/settings/ProfileSection";
 import { PasswordSection } from "@/components/user/settings/PasswordSection";
 import { MemorySection } from "@/components/user/settings/MemorySection";
 import { TwoFASection } from "@/components/user/settings/TwoFASection";
+import { NotificationChannelSection } from "@/components/user/settings/NotificationChannelSection";
 
 interface Me {
   id: string; name: string; email: string; role: string;
@@ -16,6 +17,7 @@ interface Me {
   address_street: string | null; address_zip: string | null;
   address_city: string | null; address_country: string | null;
   two_fa_enabled: boolean; phone_verified: boolean;
+  notification_channel: "sms" | "email";
 }
 
 export default function UserSettingsPage() {
@@ -49,6 +51,10 @@ export default function UserSettingsPage() {
         <ChatAppearanceSection />
         <ProfileSection me={me} />
         <PasswordSection />
+        <NotificationChannelSection
+          current={me.notification_channel ?? "sms"}
+          onChange={channel => setMe(m => m ? { ...m, notification_channel: channel } : m)}
+        />
         <TwoFASection
           twoFaEnabled={me.two_fa_enabled}
           phoneVerified={me.phone_verified}

@@ -96,6 +96,9 @@ class Customer(Base):
     two_fa_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     phone_verified: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Benachrichtigungskanal: 'sms' | 'email'  (erweiterbar: 'whatsapp', 'push')
+    notification_channel: Mapped[str] = mapped_column(String(20), default="sms")
+
     # UI-Präferenzen (Schriftgrösse, Farbe, Sprache, Buddy-Name)
     ui_preferences: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=dict)
 

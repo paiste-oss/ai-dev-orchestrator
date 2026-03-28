@@ -5,13 +5,11 @@ Ablauf pro Durchlauf:
   1. Alle aktiven Alerts aus DB laden
   2. Pro Symbol einmal den Kurs via yfinance abrufen
   3. Schwellwert prüfen (above / below)
-  4. Bei Auslösung: E-Mail senden, Alert deaktivieren
+  4. Bei Auslösung: Benachrichtigung über Kunden-Präferenz (SMS/E-Mail), Alert deaktivieren
 """
 import asyncio
 import logging
-import smtplib
 from datetime import datetime
-from email.message import EmailMessage
 
 from tasks.celery_app import celery_app
 from core.config import settings
@@ -28,6 +26,8 @@ async def _run() -> None:
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
     from sqlalchemy import select
     from models.stock_alert import StockAlert
+    from models.customer import Customer
+    from services.notification_service import notify_customer
 
     engine = create_async_engine(settings.database_url, pool_size=2, max_overflow=0)
     Session = async_sessionmaker(engine, expire_on_commit=False)
@@ -49,7 +49,7 @@ async def _run() -> None:
             prices[symbol] = _fetch_price(symbol)
 
         # Alerts prüfen
-        triggered: list[StockAlert] = []
+        triggered = []
         for alert in alerts:
             price = prices.get(alert.symbol.upper())
             if price is None:
@@ -64,21 +64,53 @@ async def _run() -> None:
         if not triggered:
             return
 
-        # Ausgelöste Alerts deaktivieren + E-Mail versenden
+        # Ausgelöste Alerts deaktivieren + Benachrichtigung senden
         async with Session() as db:
             for alert, price in triggered:
                 db_alert = await db.get(StockAlert, alert.id)
-                if db_alert and db_alert.is_active:
-                    db_alert.is_active = False
-                    db_alert.triggered_at = datetime.utcnow()
-                    _send_email(alert, price)
-                    _log.info(
-                        "Alert ausgelöst: %s %s %.2f (Kurs: %.2f)",
-                        alert.symbol, alert.direction, alert.threshold, price,
-                    )
+                if not db_alert or not db_alert.is_active:
+                    continue
+
+                db_alert.is_active = False
+                db_alert.triggered_at = datetime.utcnow()
+
+                # Kunden laden für Kanal-Präferenz
+                customer = None
+                if alert.customer_id:
+                    customer = await db.get(Customer, alert.customer_id)
+
+                await _notify(customer, alert, price)
+                _log.info(
+                    "Alert ausgelöst: %s %s %.2f (Kurs: %.2f)",
+                    alert.symbol, alert.direction, alert.threshold, price,
+                )
             await db.commit()
     finally:
         await engine.dispose()
+
+
+async def _notify(customer, alert, price: float) -> None:
+    from services.notification_service import notify_customer
+
+    direction_de = "überschritten" if alert.direction == "above" else "unterschritten"
+    symbol = alert.symbol
+    name = alert.company_name or symbol
+    cur = alert.currency or "CHF"
+
+    subject = f"Baddi Kurs-Alert: {name} hat {alert.threshold:.2f} {cur} {direction_de}"
+    message = (
+        f"Kurs-Alert: {name} ({symbol})\n"
+        f"Schwellwert {alert.threshold:.2f} {cur} {direction_de}\n"
+        f"Aktueller Kurs: {price:.2f} {cur}\n"
+        f"{datetime.utcnow().strftime('%d.%m.%Y %H:%M')} UTC\n"
+        f"baddi.ch"
+    )
+
+    if customer:
+        await notify_customer(customer, message, subject)
+    else:
+        # Fallback: direkt per E-Mail an die hinterlegte Alert-E-Mail
+        _send_email_fallback(alert.email, subject, message)
 
 
 def _fetch_price(symbol: str) -> float | None:
@@ -92,46 +124,21 @@ def _fetch_price(symbol: str) -> float | None:
         return None
 
 
-def _send_email(alert, price: float) -> None:
-    if not settings.system_smtp_host or not settings.system_smtp_user:
-        _log.warning(
-            "SYSTEM_SMTP nicht konfiguriert — Alert für %s kann nicht per E-Mail gesendet werden.",
-            alert.symbol,
-        )
+def _send_email_fallback(to_email: str, subject: str, body: str) -> None:
+    """Fallback wenn kein Customer-Objekt verfügbar (z.B. gelöschter Account)."""
+    import smtplib
+    from email.message import EmailMessage
+    if not settings.system_smtp_host or not to_email:
         return
-
-    direction_de = "überschritten" if alert.direction == "above" else "unterschritten"
-    symbol = alert.symbol
-    name = alert.company_name or symbol
-    cur = alert.currency
-
-    subject = f"Baddi Kurs-Alert: {name} hat {alert.threshold:.2f} {cur} {direction_de}"
-    body = (
-        f"Hallo,\n\n"
-        f"dein Kurs-Alert wurde ausgelöst:\n\n"
-        f"  Titel:       {name} ({symbol})\n"
-        f"  Schwellwert: {alert.threshold:.2f} {cur} ({direction_de})\n"
-        f"  Aktueller Kurs: {price:.2f} {cur}\n"
-        f"  Zeitpunkt:   {datetime.utcnow().strftime('%d.%m.%Y %H:%M')} UTC\n\n"
-        f"Dieser Alert wurde einmalig ausgelöst und ist nun inaktiv.\n"
-        f"Du kannst jederzeit einen neuen Alert in deinem Baddi einrichten.\n\n"
-        f"Dein Baddi-Team\n"
-        f"https://baddi.ch"
-    )
-
     try:
         msg = EmailMessage()
         msg["From"] = settings.system_smtp_from
-        msg["To"] = alert.email
+        msg["To"] = to_email
         msg["Subject"] = subject
         msg.set_content(body)
-
         with smtplib.SMTP(settings.system_smtp_host, settings.system_smtp_port) as server:
-            server.ehlo()
             server.starttls()
             server.login(settings.system_smtp_user, settings.system_smtp_password)
             server.send_message(msg)
-
-        _log.info("Alert-E-Mail gesendet an %s für %s", alert.email, symbol)
     except Exception as e:
-        _log.error("E-Mail konnte nicht gesendet werden: %s", e)
+        _log.error("Fallback-E-Mail fehlgeschlagen: %s", e)
