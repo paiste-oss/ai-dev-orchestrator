@@ -51,6 +51,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadDocs(); }, []);
@@ -121,6 +122,21 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
     await loadDocs();
   }
 
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    handleUpload(e.dataTransfer.files);
+  }
+
   const filtered = docs.filter(d =>
     d.original_filename.toLowerCase().includes(search.toLowerCase()) ||
     d.file_type.toLowerCase().includes(search.toLowerCase())
@@ -129,7 +145,12 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
   const totalBytes = docs.reduce((s, d) => s + d.file_size_bytes, 0);
 
   return (
-    <div className="flex flex-col h-full text-white overflow-hidden">
+    <div
+      className={`relative flex flex-col h-full text-white overflow-hidden transition-colors ${dragOver ? "bg-indigo-950/40 ring-2 ring-indigo-500/50 ring-inset" : ""}`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/6 shrink-0">
         <span className="text-xs text-gray-500 flex-1">
@@ -164,6 +185,17 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
         <input ref={fileInputRef} type="file" multiple accept={ACCEPTED} className="hidden"
           onChange={e => handleUpload(e.target.files)} />
       </div>
+
+      {dragOver && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+          <div className="bg-indigo-600/90 text-white text-sm font-medium px-5 py-3 rounded-xl shadow-lg flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            Dateien hier ablegen
+          </div>
+        </div>
+      )}
 
       {uploadError && (
         <div className="mx-3 mt-2 bg-red-950/50 border border-red-800/50 rounded-lg px-3 py-2 text-xs text-red-300 shrink-0">
