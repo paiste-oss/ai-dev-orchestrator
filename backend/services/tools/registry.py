@@ -14,6 +14,7 @@ from services.tools.definitions import (
     TRAINING_REMINDER_TOOL_DEFS,
     WEATHER_TOOL_DEFS,
     DASHBOARD_TOOL_DEFS,
+    PORTFOLIO_TOOL_DEFS,
 )
 from services.tools.handlers.transport import _handle_sbb
 from services.tools.handlers.web import _handle_web_fetch, _handle_web_search
@@ -23,6 +24,7 @@ from services.tools.handlers.browser import _handle_browser
 from services.tools.handlers.training import _handle_training_reminders
 from services.tools.handlers.weather import _handle_weather
 from services.tools.handlers.dashboard import _handle_dashboard
+from services.tools.handlers.portfolio import _handle_portfolio
 
 
 # ---------------------------------------------------------------------------
@@ -142,6 +144,18 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_defs": WEATHER_TOOL_DEFS,
         "tool_names": {"get_current_weather", "get_weather_forecast"},
         "handler": _handle_weather,
+    },
+    "portfolio_manager": {
+        "key": "portfolio_manager",
+        "name": "Portfolio verwalten",
+        "description": "Aktien-Positionen zum persönlichen Portfolio hinzufügen, aktualisieren oder entfernen.",
+        "prompt_hint": "Aktien-Positionen zum Portfolio hinzufügen oder entfernen (Stück, Kaufkurs, Währung)",
+        "category": "data",
+        "tier": "free",
+        "tool_defs": PORTFOLIO_TOOL_DEFS,
+        "tool_names": {"portfolio_add_position", "portfolio_remove_position"},
+        "handler": _handle_portfolio,
+        "needs_customer_id": True,
     },
     "dashboard": {
         "key": "dashboard",

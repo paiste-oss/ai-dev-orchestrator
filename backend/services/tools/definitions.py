@@ -562,6 +562,63 @@ BROWSER_TOOL_DEFS = [
 
 
 # ---------------------------------------------------------------------------
+# Portfolio
+# ---------------------------------------------------------------------------
+
+PORTFOLIO_TOOL_DEFS = [
+    {
+        "name": "portfolio_add_position",
+        "description": (
+            "Fügt eine Aktienposition zum Portfolio des Nutzers hinzu oder aktualisiert sie. "
+            "Nutze dieses Tool IMMER wenn der Nutzer eine Aktie zu seinem Portfolio hinzufügen, "
+            "erfassen oder eintragen möchte — z.B. 'Füge 100 Nestlé zu meinem Portfolio hinzu' "
+            "oder 'Ich habe Apple-Aktien gekauft'. "
+            "NICHT verwenden um Kurse anzuzeigen — dafür get_stock_price verwenden."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Börsenkürzel, z.B. 'NESN.SW', 'AAPL', 'HOLN.SW'",
+                },
+                "quantity": {
+                    "type": "number",
+                    "description": "Anzahl Aktien (Stück)",
+                },
+                "buy_price": {
+                    "type": "number",
+                    "description": "Kaufpreis pro Aktie (Durchschnittlicher Einstandskurs)",
+                },
+                "buy_currency": {
+                    "type": "string",
+                    "description": "Währung des Kaufpreises, z.B. 'CHF', 'EUR', 'USD'. Standard: CHF",
+                },
+            },
+            "required": ["symbol", "quantity", "buy_price"],
+        },
+    },
+    {
+        "name": "portfolio_remove_position",
+        "description": (
+            "Entfernt eine Aktienposition aus dem Portfolio des Nutzers. "
+            "Nutze dieses Tool wenn der Nutzer eine Position löschen oder entfernen möchte."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": "Börsenkürzel der zu entfernenden Position",
+                },
+            },
+            "required": ["symbol"],
+        },
+    },
+]
+
+
+# ---------------------------------------------------------------------------
 # Dashboard
 # ---------------------------------------------------------------------------
 
