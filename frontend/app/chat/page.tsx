@@ -694,31 +694,7 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* ── Input ── */}
-        <div className="shrink-0 border-t border-white/5" style={{ background: "transparent" }}>
-          <ChatInput
-            input={input} onChange={setInput} onSend={handleSend} onKeyDown={handleKeyDown}
-            loading={loading} attachedFiles={attachedFiles} onFilesChange={setAttachedFiles}
-            onAttachClick={() => fileInputRef.current?.click()} onCameraClick={openCamera}
-            onVoiceResult={handleVoiceResult} buddyName={uiPrefs.buddyName}
-            fontSize={uiPrefs.fontSize} voiceLang={voiceLang} textareaRef={textareaRef} compact
-          />
-        </div>
-
-        {/* ── Window Tray (direkt unter Eingabe) ── */}
-        <MobileWindowTray
-          cards={nonChatCards}
-          activeWindowId={activeMobileWindowId}
-          panelOpen={mobilePanelOpen}
-          onActivate={(id) => { setActiveMobileWindowId(id); setMobilePanelOpen(true); }}
-          onClose={(id) => {
-            closeCard(id);
-            if (id === activeMobileWindowId) setMobilePanelOpen(false);
-          }}
-          onAdd={() => setShowMobileWindowPicker(true)}
-        />
-
-        {/* ── Pinned Panel (ganz unten, wächst nach oben) ── */}
+        {/* ── Pinned Panel (über dem Tray, wächst nach oben) ── */}
         {mobilePanelOpen && activeCard && (
           <MobilePinnedPanel
             card={activeCard}
@@ -731,6 +707,28 @@ export default function ChatPage() {
             {renderWindowContent(activeCard)}
           </MobilePinnedPanel>
         )}
+
+        {/* ── Window Tray (direkt über Eingabe) ── */}
+        <MobileWindowTray
+          cards={nonChatCards}
+          activeWindowId={activeMobileWindowId}
+          panelOpen={mobilePanelOpen}
+          onActivate={(id) => { setActiveMobileWindowId(id); setMobilePanelOpen(true); }}
+          onClose={(id) => {
+            closeCard(id);
+            if (id === activeMobileWindowId) setMobilePanelOpen(false);
+          }}
+          onAdd={() => setShowMobileWindowPicker(true)}
+        />
+
+        {/* ── Input (ganz unten) ── */}
+        <ChatInput
+          input={input} onChange={setInput} onSend={handleSend} onKeyDown={handleKeyDown}
+          loading={loading} attachedFiles={attachedFiles} onFilesChange={setAttachedFiles}
+          onAttachClick={() => fileInputRef.current?.click()} onCameraClick={openCamera}
+          onVoiceResult={handleVoiceResult} buddyName={uiPrefs.buddyName}
+          fontSize={uiPrefs.fontSize} voiceLang={voiceLang} textareaRef={textareaRef} compact
+        />
 
         {/* ── Hidden File Input ── */}
         <input ref={fileInputRef} type="file" multiple className="hidden"
