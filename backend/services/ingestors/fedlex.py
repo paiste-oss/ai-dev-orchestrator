@@ -21,36 +21,83 @@ _FEDLEX_API = "https://fedlex.admin.ch/api/de/search"
 
 # Wichtigste Schweizer Bundesgesetze (ELI-Pfad → Titel)
 CORE_LAWS = [
-    ("27/317_321_377", "Obligationenrecht (OR)"),
-    ("24/233_245_233", "Zivilgesetzbuch (ZGB)"),
-    ("2010/631", "Strafgesetzbuch (StGB)"),
-    ("2009/615", "Mehrwertsteuergesetz (MWSTG)"),
-    ("1966/57_57_57", "Arbeitsgesetz (ArG)"),
-    ("2003/438", "Bundesgesetz über die Ausländerinnen und Ausländer (AIG)"),
-    ("2004/669", "Datenschutzgesetz (DSG)"),
-    ("2007/569", "Bundesgesetz über die Krankenversicherung (KVG)"),
-    ("1995/3782_3790_3791", "Bundesgesetz über die Alters- und Hinterlassenenversicherung (AHVG)"),
-    ("1982/923", "Bundesgesetz über die Invalidenversicherung (IVG)"),
-    ("2007/191", "Bundesgesetz über die Unfallversicherung (UVG)"),
-    ("94/321_325_327", "Bundesgesetz über Schuldbetreibung und Konkurs (SchKG)"),
-    ("57/737_741_755", "Steuerharmonisierungsgesetz (StHG)"),
-    ("92/595_601_605", "Bundesgesetz über die direkte Bundessteuer (DBG)"),
-    ("2003/210", "Bundesgesetz über die Freizügigkeit der Personenversicherung (FZG)"),
-    ("2002/3917", "Bundesgesetz über den Schutz von Kulturmitteln im Falle eines bewaffneten Konflikts"),
-    ("2011/379", "Raumplanungsgesetz (RPG)"),
+    # ── Grundlagen ────────────────────────────────────────────────────────────
+    ("2005/707",            "Bundesverfassung der Schweizerischen Eidgenossenschaft (BV)"),
+
+    # ── Zivilrecht ────────────────────────────────────────────────────────────
+    ("24/233_245_233",      "Zivilgesetzbuch (ZGB)"),
+    ("27/317_321_377",      "Obligationenrecht (OR)"),
+    ("94/321_325_327",      "Bundesgesetz über Schuldbetreibung und Konkurs (SchKG)"),
+    ("2003/707",            "Fusionsgesetz (FusG)"),
+    ("2009/337",            "Bundesgesetz über das Internationale Privatrecht (IPRG)"),
+    ("1997/1052_1056_1064", "Bundesgesetz über das Bundesgericht (BGG)"),
+    ("62/1234_1240_1248",   "Zivilprozessordnung (ZPO)"),
+    ("2006/975",            "Strafprozessordnung (StPO)"),
+
+    # ── Strafrecht ────────────────────────────────────────────────────────────
+    ("2010/631",            "Strafgesetzbuch (StGB)"),
+
+    # ── Öffentliches Recht / Verwaltung ──────────────────────────────────────
+    ("2005/353",            "Bundesgesetz über das Verwaltungsverfahren (VwVG)"),
     ("1966/1517_1519_1519", "Bundesgesetz über das öffentliche Beschaffungswesen (BöB)"),
-    ("94/965_969_971", "Bundesgesetz über die Börsen und den Effektenhandel (BEHG)"),
-    ("2003/707", "Bundesgesetz über Fusionen, Spaltungen, Umwandlungen und Vermögensübertragungen (FusG)"),
-    ("52/467_469_471", "Bundesgesetz über das Urheberrecht und verwandte Schutzrechte (URG)"),
-    ("62/1010_1040_1046", "Markenrecht (MSchG)"),
-    ("92/1093_1095_1097", "Patentgesetz (PatG)"),
-    ("2009/337", "Bundesgesetz über das Internationale Privatrecht (IPRG)"),
-    ("1997/1052_1056_1064", "Bundesgesetz über die Bundesrechtspflege (BGG)"),
-    ("2005/707", "Bundesverfassung der Schweizerischen Eidgenossenschaft (BV)"),
-    ("99/3851_3873_3875", "Bundesgesetz über die Banken und Sparkassen (BankG)"),
-    ("2015/1507", "Bundesgesetz über die Finanzmarktinfrastrukturen (FinfraG)"),
-    ("2015/9569", "Bundesgesetz über die Finanzdienstleistungen (FIDLEG)"),
-    ("2003/723", "Bundesgesetz über das Kartellrecht (KG)"),
+    ("2011/379",            "Raumplanungsgesetz (RPG)"),
+
+    # ── Arbeitsrecht ─────────────────────────────────────────────────────────
+    ("1966/57_57_57",       "Arbeitsgesetz (ArG)"),
+    ("82/667_671_675",      "Bundesgesetz über die Arbeitsvermittlung (AVG)"),
+    ("82/915_919_921",      "Bundesgesetz über die obligatorische Arbeitslosenversicherung (AVIG)"),
+    ("2002/187",            "Berufsbildungsgesetz (BBiG)"),
+
+    # ── Sozialversicherungen ──────────────────────────────────────────────────
+    ("1995/3782_3790_3791", "Bundesgesetz über die Alters- und Hinterlassenenversicherung (AHVG)"),
+    ("1982/923",            "Bundesgesetz über die Invalidenversicherung (IVG)"),
+    ("2007/191",            "Bundesgesetz über die Unfallversicherung (UVG)"),
+    ("2007/569",            "Bundesgesetz über die Krankenversicherung (KVG)"),
+    ("2003/210",            "Freizügigkeitsgesetz (FZG)"),
+    ("93/901_905_909",      "Bundesgesetz über die berufliche Vorsorge (BVG)"),
+
+    # ── Steuern ───────────────────────────────────────────────────────────────
+    ("92/595_601_605",      "Bundesgesetz über die direkte Bundessteuer (DBG)"),
+    ("57/737_741_755",      "Steuerharmonisierungsgesetz (StHG)"),
+    ("2009/615",            "Mehrwertsteuergesetz (MWSTG)"),
+    ("66/543_549_551",      "Bundesgesetz über die Verrechnungssteuer (VStG)"),
+    ("74/897_903_905",      "Bundesgesetz über die Stempelabgaben (StG)"),
+
+    # ── Migration / Ausländer ─────────────────────────────────────────────────
+    ("2003/438",            "Ausländer- und Integrationsgesetz (AIG)"),
+    ("2005/509",            "Asylgesetz (AsylG)"),
+
+    # ── Datenschutz / IT ──────────────────────────────────────────────────────
+    ("2004/669",            "Datenschutzgesetz (DSG)"),
+    ("97/511_515_519",      "Fernmeldegesetz (FMG)"),
+
+    # ── Kapitalmarkt / Finanz ─────────────────────────────────────────────────
+    ("94/965_969_971",      "Bundesgesetz über die Börsen und den Effektenhandel (BEHG)"),
+    ("99/3851_3873_3875",   "Bundesgesetz über die Banken und Sparkassen (BankG)"),
+    ("2015/1507",           "Bundesgesetz über die Finanzmarktinfrastrukturen (FinfraG)"),
+    ("2015/9569",           "Bundesgesetz über die Finanzdienstleistungen (FIDLEG)"),
+    ("2003/723",            "Kartellgesetz (KG)"),
+
+    # ── Versicherungen ────────────────────────────────────────────────────────
+    ("2005/395",            "Versicherungsvertragsgesetz (VVG)"),
+    ("2005/339",            "Versicherungsaufsichtsgesetz (VAG)"),
+
+    # ── Geistiges Eigentum ────────────────────────────────────────────────────
+    ("52/467_469_471",      "Urheberrechtsgesetz (URG)"),
+    ("62/1010_1040_1046",   "Markenschutzgesetz (MSchG)"),
+    ("92/1093_1095_1097",   "Patentgesetz (PatG)"),
+    ("2001/544",            "Designgesetz (DesG)"),
+
+    # ── Miet- / Wohnrecht ────────────────────────────────────────────────────
+    # (im OR Art. 253–274g, kein separates Gesetz nötig)
+
+    # ── Gesundheit / Lebensmittel ─────────────────────────────────────────────
+    ("2000/313",            "Heilmittelgesetz (HMG)"),
+    ("2014/444",            "Lebensmittelgesetz (LMG)"),
+
+    # ── Umwelt / Energie ──────────────────────────────────────────────────────
+    ("83/641_645_647",      "Umweltschutzgesetz (USG)"),
+    ("98/401_403_405",      "Energiegesetz (EnG)"),
 ]
 
 

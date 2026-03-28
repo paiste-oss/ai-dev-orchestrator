@@ -20,6 +20,16 @@ interface KnowledgeSource {
   created_at: string;
 }
 
+interface KnowledgeDoc {
+  id: string;
+  title: string;
+  url: string | null;
+  language: string;
+  chunk_count: number;
+  published_at: string;
+  created_at: string;
+}
+
 interface Stats {
   qdrant: { vectors_count: number; points_count: number };
   sources: number;
@@ -57,10 +67,11 @@ export default function KnowledgePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [expandedDocs, setExpandedDocs] = useState<string | null>(null);
+  const [docs, setDocs] = useState<Record<string, KnowledgeDoc[]>>({});
+  const [loadingDocs, setLoadingDocs] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadAll();
-  }, []);
+  useEffect(() => { loadAll(); }, []);
 
   async function loadAll() {
     setLoading(true);
@@ -76,14 +87,29 @@ export default function KnowledgePage() {
     }
   }
 
+  async function toggleDocs(srcId: string) {
+    if (expandedDocs === srcId) { setExpandedDocs(null); return; }
+    setExpandedDocs(srcId);
+    if (docs[srcId]) return;
+    setLoadingDocs(srcId);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/knowledge/sources/${srcId}/documents`);
+      if (res.ok) setDocs(d => ({ ...d, [srcId]: await res.json() }));
+    } finally {
+      setLoadingDocs(null);
+    }
+  }
+
   async function ingestSource(id: string) {
     setIngesting(id);
     setIngestMsg(m => ({ ...m, [id]: "Gestartet…" }));
+    // Docs-Cache für diese Quelle leeren (wird nach Ingest neu geladen)
+    setDocs(d => { const n = { ...d }; delete n[id]; return n; });
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/knowledge/sources/${id}/ingest`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setIngestMsg(m => ({ ...m, [id]: `+${data.docs_added ?? "?"} Docs, +${data.chunks_added ?? "?"} Chunks` }));
+        setIngestMsg(m => ({ ...m, [id]: `+${data.docs_added ?? "?"} neu, ${data.docs_skipped ?? "?"} übersprungen, +${data.chunks_added ?? "?"} Chunks` }));
         await loadAll();
       } else {
         setIngestMsg(m => ({ ...m, [id]: data.detail ?? "Fehler" }));
@@ -107,6 +133,8 @@ export default function KnowledgePage() {
   async function deleteSource(id: string) {
     if (!confirm("Quelle und alle indizierten Dokumente löschen?")) return;
     await apiFetch(`${BACKEND_URL}/v1/knowledge/sources/${id}`, { method: "DELETE" });
+    setDocs(d => { const n = { ...d }; delete n[id]; return n; });
+    if (expandedDocs === id) setExpandedDocs(null);
     await loadAll();
   }
 
@@ -246,10 +274,11 @@ export default function KnowledgePage() {
             <div className="text-gray-600 text-sm py-8 text-center">Noch keine Quellen konfiguriert.</div>
           ) : (
             sources.map(src => (
-              <div key={src.id} className="bg-white/4 border border-white/8 rounded-xl px-4 py-3 space-y-2">
-                <div className="flex items-start gap-3">
+              <div key={src.id} className="bg-white/4 border border-white/8 rounded-xl overflow-hidden">
+                {/* Quelle Header */}
+                <div className="px-4 py-3 flex items-start gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-white">{src.name}</span>
                       <span className="text-[10px] bg-white/10 text-gray-400 px-1.5 py-0.5 rounded">{src.source_type}</span>
                       <span className="text-[10px] bg-white/6 text-gray-500 px-1.5 py-0.5 rounded">{src.domain}</span>
@@ -260,10 +289,21 @@ export default function KnowledgePage() {
                     {src.description && (
                       <p className="text-xs text-gray-500 mt-0.5">{src.description}</p>
                     )}
-                    <p className="text-[11px] text-gray-600 mt-1">
-                      {src.doc_count} Dokumente · {src.chunk_count} Chunks
-                      {src.last_crawled_at && ` · Zuletzt: ${fmtDate(src.last_crawled_at)}`}
-                    </p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className="text-[11px] text-gray-600">
+                        {src.doc_count} Dokumente · {src.chunk_count} Chunks
+                        {src.last_crawled_at && ` · Zuletzt: ${fmtDate(src.last_crawled_at)}`}
+                      </span>
+                      {src.doc_count > 0 && (
+                        <button
+                          onClick={() => toggleDocs(src.id)}
+                          className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1"
+                        >
+                          <span className={`transition-transform duration-150 inline-block ${expandedDocs === src.id ? "rotate-90" : ""}`}>▶</span>
+                          {expandedDocs === src.id ? "Ausblenden" : "Dokumente anzeigen"}
+                        </button>
+                      )}
+                    </div>
                     {ingestMsg[src.id] && (
                       <p className="text-[11px] text-indigo-400 mt-1">{ingestMsg[src.id]}</p>
                     )}
@@ -286,7 +326,6 @@ export default function KnowledgePage() {
                     <button
                       onClick={() => toggleActive(src)}
                       className="text-[11px] text-gray-500 hover:text-white px-2 py-1 rounded-lg hover:bg-white/5 transition-colors"
-                      title={src.is_active ? "Deaktivieren" : "Aktivieren"}
                     >
                       {src.is_active ? "Pause" : "Aktiv"}
                     </button>
@@ -298,6 +337,40 @@ export default function KnowledgePage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Dokumente aufklappbar */}
+                {expandedDocs === src.id && (
+                  <div className="border-t border-white/6 bg-black/20">
+                    {loadingDocs === src.id ? (
+                      <div className="px-4 py-3 text-[11px] text-gray-600">Lädt Dokumente…</div>
+                    ) : (docs[src.id] ?? []).length === 0 ? (
+                      <div className="px-4 py-3 text-[11px] text-gray-600">Keine Dokumente gefunden.</div>
+                    ) : (
+                      <div className="divide-y divide-white/4">
+                        {(docs[src.id] ?? []).map((doc, i) => (
+                          <div key={doc.id} className="px-4 py-2 flex items-center gap-3">
+                            <span className="text-[10px] text-gray-700 w-5 shrink-0 text-right">{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              {doc.url ? (
+                                <a
+                                  href={doc.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-gray-300 hover:text-indigo-300 transition-colors truncate block"
+                                >
+                                  {doc.title}
+                                </a>
+                              ) : (
+                                <span className="text-xs text-gray-400 truncate block">{doc.title}</span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-gray-700 shrink-0">{doc.chunk_count} Chunks</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))
           )}
