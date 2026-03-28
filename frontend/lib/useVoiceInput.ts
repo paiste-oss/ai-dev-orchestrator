@@ -25,6 +25,7 @@ function hasMediaRecorder(): boolean {
 
 export function useVoiceInput({ lang = "de-CH", onResult }: UseVoiceInputOptions) {
   const [listening, setListening] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [error, setError] = useState<VoiceError>(null);
   const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -115,6 +116,7 @@ export function useVoiceInput({ lang = "de-CH", onResult }: UseVoiceInputOptions
       formData.append("audio", blob, "recording.webm");
       formData.append("lang", lang);
 
+      setTranscribing(true);
       try {
         const res = await fetch("/v1/transcribe", {
           method: "POST",
@@ -127,6 +129,8 @@ export function useVoiceInput({ lang = "de-CH", onResult }: UseVoiceInputOptions
         else showError("no-speech");
       } catch {
         showError("network");
+      } finally {
+        setTranscribing(false);
       }
     };
 
@@ -161,5 +165,5 @@ export function useVoiceInput({ lang = "de-CH", onResult }: UseVoiceInputOptions
     else start();
   }, [listening, start, stop]);
 
-  return { listening, supported: true, error, toggle, start, stop };
+  return { listening, transcribing, supported: true, error, toggle, start, stop };
 }
