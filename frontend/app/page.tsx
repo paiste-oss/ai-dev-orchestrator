@@ -4,14 +4,24 @@ import { useRouter } from "next/navigation";
 import { getSession, getDashboardPath } from "@/lib/auth";
 import { useEffect, useState } from "react";
 import ImpressumModal from "@/components/ImpressumModal";
+import { BACKEND_URL } from "@/lib/config";
 
 export default function LandingPage() {
   const router = useRouter();
   const user = getSession();
   const [showImpressum, setShowImpressum] = useState(false);
+  const [showRegister, setShowRegister] = useState(true);
+  const [showLogin, setShowLogin] = useState(true);
 
   useEffect(() => {
     if (user) router.replace(getDashboardPath(user));
+    fetch(`${BACKEND_URL}/v1/settings/portal`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.show_register_menschen === false) setShowRegister(false);
+        if (data.show_login === false) setShowLogin(false);
+      })
+      .catch(() => {});
   }, []);
 
   return (
@@ -40,18 +50,22 @@ export default function LandingPage() {
 
             {/* Buttons */}
             <div className="space-y-3">
-              <button
-                onClick={() => router.push("/register")}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 transition-colors py-3.5 rounded-2xl font-bold text-base shadow-lg shadow-indigo-500/20"
-              >
-                Jetzt registrieren
-              </button>
-              <button
-                onClick={() => router.push("/login")}
-                className="w-full bg-white/5 hover:bg-white/10 border border-white/10 transition-colors py-3.5 rounded-2xl font-bold text-base"
-              >
-                Anmelden
-              </button>
+              {showRegister && (
+                <button
+                  onClick={() => router.push("/register")}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 transition-colors py-3.5 rounded-2xl font-bold text-base shadow-lg shadow-indigo-500/20"
+                >
+                  Jetzt registrieren
+                </button>
+              )}
+              {showLogin && (
+                <button
+                  onClick={() => router.push("/login")}
+                  className="w-full bg-white/5 hover:bg-white/10 border border-white/10 transition-colors py-3.5 rounded-2xl font-bold text-base"
+                >
+                  Anmelden
+                </button>
+              )}
             </div>
 
           </div>

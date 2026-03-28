@@ -9,7 +9,6 @@ import AdminSidebar from "@/components/AdminSidebar";
 interface PortalSettings {
   show_login: boolean;
   show_register_menschen: boolean;
-  show_register_firmen: boolean;
   show_tagline: boolean;
 }
 
@@ -74,7 +73,6 @@ export default function AdminSettings() {
   const [settings, setSettings] = useState<PortalSettings>({
     show_login: true,
     show_register_menschen: true,
-    show_register_firmen: true,
     show_tagline: true,
   });
   const [impressum, setImpressum] = useState<ImpressumSettings>(IMPRESSUM_DEFAULTS);
@@ -199,16 +197,10 @@ export default function AdminSettings() {
                     onChange={v => set("show_login", v)}
                   />
                   <Toggle
-                    label="Registrieren — Privatpersonen"
-                    description="«Jetzt registrieren» für Menschen → /register"
+                    label="Registrieren"
+                    description="«Jetzt registrieren» Button auf der Startseite"
                     checked={settings.show_register_menschen}
                     onChange={v => set("show_register_menschen", v)}
-                  />
-                  <Toggle
-                    label="Registrieren — Firmen"
-                    description="«Für Unternehmen» Button auf der Startseite"
-                    checked={settings.show_register_firmen}
-                    onChange={v => set("show_register_firmen", v)}
                   />
                 </div>
                 <div className="pt-4">
