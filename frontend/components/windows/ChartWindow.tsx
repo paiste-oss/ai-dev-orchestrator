@@ -211,7 +211,7 @@ export default function ChartWindow({ initialSymbol }: Props) {
               <Tooltip
                 contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 11 }}
                 labelStyle={{ color: "#6b7280" }}
-                formatter={(value: number, name: string) => [`${value >= 0 ? "+" : ""}${value.toFixed(2)}%`, name]}
+                formatter={(value) => { const v = Number(value); return [`${v >= 0 ? "+" : ""}${v.toFixed(2)}%`]; }}
               />
               {symbols.length > 1 && (
                 <Legend wrapperStyle={{ fontSize: 11, paddingTop: 4 }}
