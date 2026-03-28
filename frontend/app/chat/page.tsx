@@ -405,11 +405,9 @@ export default function ChatPage() {
         speaking={speaking}
         ttsEnabled={ttsEnabled}
         lastProvider={lastProvider}
-        memoriesCount={memories.length}
         firstName={firstName}
         isAdmin={user?.role === "admin"}
         onToggleTts={() => { if (ttsEnabled && audioRef.current) audioRef.current.pause(); else unlockAudio(); setTtsEnabled(v => !v); }}
-        onToggleMemory={() => setShowMemory(v => !v)}
         onSettings={() => setSetupOpen(true)}
         onLogout={() => { clearSession(); router.push("/"); }}
         onAdminBack={() => router.push("/admin")}
@@ -488,7 +486,6 @@ export default function ChatPage() {
         speaking={speaking}
         ttsEnabled={ttsEnabled}
         lastProvider={lastProvider}
-        memoriesCount={memories.length}
         firstName={firstName}
         isAdmin={user?.role === "admin"}
         onToggleTts={() => {
@@ -496,7 +493,6 @@ export default function ChatPage() {
           else unlockAudio();
           setTtsEnabled(v => !v);
         }}
-        onToggleMemory={() => setShowMemory(v => !v)}
         onSettings={() => setSetupOpen(true)}
         onLogout={() => { clearSession(); router.push("/"); }}
         onAdminBack={() => router.push("/admin")}

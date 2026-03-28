@@ -9,11 +9,9 @@ interface TopBarProps {
   speaking: boolean;
   ttsEnabled: boolean;
   lastProvider: string | null;
-  memoriesCount: number;
   firstName: string;
   isAdmin: boolean;
   onToggleTts: () => void;
-  onToggleMemory: () => void;
   onSettings: () => void;
   onLogout: () => void;
   onAdminBack: () => void;
@@ -30,8 +28,8 @@ function providerBadge(p: string) {
 
 export default function TopBar({
   buddyName, buddyInitial, speaking, ttsEnabled, lastProvider,
-  memoriesCount, firstName, isAdmin,
-  onToggleTts, onToggleMemory, onSettings, onLogout, onAdminBack, onAddCard, onBuddyClick,
+  firstName, isAdmin,
+  onToggleTts, onSettings, onLogout, onAdminBack, onAddCard, onBuddyClick,
 }: TopBarProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
 
@@ -107,14 +105,6 @@ export default function TopBar({
           </div>
         )}
 
-        {/* Memory */}
-        <button
-          onClick={() => onAddCard ? onAddCard("memory") : onToggleMemory()}
-          title="Gedächtnis"
-          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
-        >
-          🧠{memoriesCount > 0 && <span className="text-[10px] text-violet-400">{memoriesCount}</span>}
-        </button>
 
         {/* TTS */}
         <button onClick={onToggleTts} title={ttsEnabled ? "Stimme aus" : "Stimme ein"}
