@@ -19,8 +19,6 @@ interface MobileWindowTrayProps {
 export default function MobileWindowTray({
   cards, activeWindowId, panelOpen, onActivate, onClose, onAdd,
 }: MobileWindowTrayProps) {
-  if (cards.length === 0) return null;
-
   return (
     <div
       className="flex items-center gap-2 px-3 py-2 border-t border-white/5 shrink-0"
@@ -37,7 +35,7 @@ export default function MobileWindowTray({
       ))}
       <button
         onClick={onAdd}
-        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 border border-white/8 transition-colors ml-1"
+        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 border border-white/8 transition-colors"
         title="Fenster hinzufügen"
       >
         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
