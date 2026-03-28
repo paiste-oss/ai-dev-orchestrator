@@ -170,6 +170,7 @@ export default function ChatPage() {
 
   const firstName = user?.name?.split(" ")[0] ?? "";
   const buddyInitial = (uiPrefs.buddyName ?? "B").charAt(0).toUpperCase();
+  const voiceLang = ({ de: "de-CH", en: "en-US", fr: "fr-FR", it: "it-IT", gsw: "de-CH" } as Record<string, string>)[uiPrefs.language ?? "de"] ?? "de-CH";
 
   useEffect(() => {
     if (!user) { router.replace("/login"); return; }
@@ -547,7 +548,7 @@ export default function ChatPage() {
           loading={loading} attachedFiles={attachedFiles} onFilesChange={setAttachedFiles}
           onAttachClick={() => fileInputRef.current?.click()} onCameraClick={openCamera}
           onVoiceResult={handleVoiceResult} buddyName={uiPrefs.buddyName}
-          fontSize={uiPrefs.fontSize} textareaRef={textareaRef} compact
+          fontSize={uiPrefs.fontSize} voiceLang={voiceLang} textareaRef={textareaRef} compact
         />
       </div>
       <input ref={fileInputRef} type="file" multiple className="hidden"
@@ -750,6 +751,7 @@ export default function ChatPage() {
           onVoiceResult={handleVoiceResult}
           buddyName={uiPrefs.buddyName}
           fontSize={uiPrefs.fontSize}
+          voiceLang={voiceLang}
           textareaRef={textareaRef}
         />
       </div>

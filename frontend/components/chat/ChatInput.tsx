@@ -20,6 +20,7 @@ interface ChatInputProps {
   onVoiceResult: (text: string) => void;
   buddyName: string;
   fontSize: string;
+  voiceLang?: string;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   compact?: boolean;
 }
@@ -27,7 +28,7 @@ interface ChatInputProps {
 export default function ChatInput({
   input, onChange, onSend, onKeyDown, loading,
   attachedFiles, onFilesChange, onAttachClick, onCameraClick,
-  onVoiceResult, buddyName, fontSize, textareaRef, compact = false,
+  onVoiceResult, buddyName, fontSize, voiceLang, textareaRef, compact = false,
 }: ChatInputProps) {
   const handleVoiceResult = useCallback(onVoiceResult, [onVoiceResult]);
 
@@ -86,6 +87,7 @@ export default function ChatInput({
             <div className="flex items-center gap-2">
               <VoiceButton
                 onResult={handleVoiceResult}
+                lang={voiceLang}
                 className="w-8 h-8"
               />
               <button
