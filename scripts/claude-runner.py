@@ -36,11 +36,21 @@ RUNNER_SECRET  = os.environ.get("RUNNER_SECRET",  "")
 PROJECT_ROOT   = os.environ.get("PROJECT_ROOT",   "/home/naor/ai-dev-orchestrator")
 POLL_INTERVAL  = int(os.environ.get("POLL_INTERVAL", "5"))   # Sekunden zwischen Polls
 
-# Claude Binary aus VSCode Extension (oder PATH)
-CLAUDE_BIN = os.environ.get(
-    "CLAUDE_BIN",
-    "/home/naor/.vscode-server/extensions/anthropic.claude-code-2.1.81-linux-x64/resources/native-binary/claude",
-)
+# Claude Binary aus VSCode Extension (oder PATH) — dynamisch neueste Version
+def _find_claude_bin() -> str:
+    if env := os.environ.get("CLAUDE_BIN"):
+        return env
+    ext_root = os.path.expanduser("~/.vscode-server/extensions")
+    import glob
+    candidates = sorted(
+        glob.glob(f"{ext_root}/anthropic.claude-code-*/resources/native-binary/claude"),
+        reverse=True,  # neueste Version zuerst (lexikographisch)
+    )
+    if candidates:
+        return candidates[0]
+    return "claude"  # Fallback: claude im PATH
+
+CLAUDE_BIN = _find_claude_bin()
 
 # Memory-Datei: hält die letzten abgeschlossenen Tasks als Kontext
 MEMORY_FILE     = os.path.join(PROJECT_ROOT, "scripts", "dev-orchestrator-memory.md")
