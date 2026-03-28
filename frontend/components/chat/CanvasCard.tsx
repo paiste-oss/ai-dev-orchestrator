@@ -18,11 +18,13 @@ interface Props {
   onFocus: (id: string) => void;
   onClose: (id: string) => void;
   onMinimize: (id: string) => void;
+  onMaximize: (id: string) => void;
+  onHalf: (id: string) => void;
 }
 
 function CanvasCard({
   id, title, x, y, width, height, minimized, zIndex, closable = true, children,
-  onMove, onResize, onFocus, onClose, onMinimize,
+  onMove, onResize, onFocus, onClose, onMinimize, onMaximize, onHalf,
 }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ mx: number; my: number; cx: number; cy: number; lx: number; ly: number } | null>(null);
@@ -104,16 +106,8 @@ function CanvasCard({
         onMouseDown={startDrag}
         onDoubleClick={() => onMinimize(id)}
       >
-        {/* Traffic-light buttons */}
+        {/* Traffic-light buttons (links) */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {closable && (
-            <button
-              onMouseDown={e => e.stopPropagation()}
-              onClick={() => onClose(id)}
-              className="w-3 h-3 rounded-full bg-red-500/70 hover:bg-red-400 transition-colors"
-              title="Schliessen"
-            />
-          )}
           <button
             onMouseDown={e => e.stopPropagation()}
             onClick={() => onMinimize(id)}
@@ -122,7 +116,46 @@ function CanvasCard({
           />
           <div className="w-3 h-3 rounded-full bg-white/10" />
         </div>
+
         <span className="flex-1 text-xs text-gray-400 font-medium truncate pl-1">{title}</span>
+
+        {/* Rechte Steuerknöpfe */}
+        <div className="flex items-center gap-1 shrink-0" onMouseDown={e => e.stopPropagation()}>
+          {/* ½-Seite */}
+          <button
+            onClick={() => onHalf(id)}
+            title="Halbe Seite"
+            className="w-5 h-5 flex items-center justify-center rounded text-gray-600 hover:text-gray-300 hover:bg-white/8 transition-all"
+          >
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+              <rect x="0.5" y="0.5" width="4.5" height="10" rx="1" stroke="currentColor" strokeWidth="1"/>
+              <rect x="5.5" y="0.5" width="4.5" height="10" rx="1" stroke="currentColor" strokeWidth="1" strokeDasharray="2 1"/>
+            </svg>
+          </button>
+          {/* Vollbild */}
+          <button
+            onClick={() => onMaximize(id)}
+            title="Vollbild"
+            className="w-5 h-5 flex items-center justify-center rounded text-gray-600 hover:text-gray-300 hover:bg-white/8 transition-all"
+          >
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+              <rect x="0.5" y="0.5" width="10" height="10" rx="1.5" stroke="currentColor" strokeWidth="1"/>
+            </svg>
+          </button>
+          {/* Schliessen — nur wenn closable */}
+          {closable && (
+            <button
+              onClick={() => onClose(id)}
+              title="Schliessen"
+              className="w-5 h-5 flex items-center justify-center rounded text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
+            >
+              <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                <line x1="1" y1="1" x2="8" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                <line x1="8" y1="1" x2="1" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Content ── */}

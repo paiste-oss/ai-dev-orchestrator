@@ -286,6 +286,29 @@ export default function ChatPage() {
     setCards(cs => cs.map(c => c.id === id ? { ...c, minimized: !c.minimized } : c));
   }, []);
 
+  const maximizeCard = useCallback((id: string) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const pad = 8;
+    setCards(cs => cs.map(c => c.id === id
+      ? { ...c, x: pad, y: pad, width: canvas.clientWidth - pad * 2, height: canvas.clientHeight - pad * 2, minimized: false }
+      : c));
+  }, []);
+
+  const halfCard = useCallback((id: string) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const pad = 8;
+    const halfW = Math.floor((canvas.clientWidth - pad * 3) / 2);
+    const h = canvas.clientHeight - pad * 2;
+    // Abwechselnd links/rechts je nach aktueller Position
+    setCards(cs => cs.map(c => {
+      if (c.id !== id) return c;
+      const goRight = c.x > canvas.clientWidth / 2 - 50;
+      return { ...c, x: goRight ? pad * 2 + halfW : pad, y: pad, width: halfW, height: h, minimized: false };
+    }));
+  }, []);
+
   // Auto-Layout: Fenster automatisch in Grid anordnen
   const autoLayoutCards = useCallback(() => {
     const canvas = canvasRef.current;
@@ -601,6 +624,8 @@ export default function ChatPage() {
             onFocus={focusCard}
             onClose={closeCard}
             onMinimize={minimizeCard}
+            onMaximize={maximizeCard}
+            onHalf={halfCard}
           >
             {card.type === "browser_window" ? (
               <BrowserWindowCard
