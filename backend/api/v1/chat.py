@@ -464,13 +464,10 @@ async def send_message(
 @router.get("/history", response_model=list[MessageOut])
 async def get_history(
     limit: int = 50,
-    buddy_id: str | None = None,
     customer: Customer = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     q = select(ChatMessage).where(ChatMessage.customer_id == str(customer.id))
-    if buddy_id:
-        q = q.where(ChatMessage.buddy_id == buddy_id)
     q = q.order_by(ChatMessage.created_at.desc()).limit(limit)
     result = await db.execute(q)
     msgs = list(reversed(result.scalars().all()))

@@ -1,23 +1,3 @@
-✓ [2026-03-22 19:05] Wenn ich auf dieser Seite des Orchestrator bin, wird verhindert dass ich nach ob
-Fertig. Was jetzt passiert:
-- Wenn du **oben im Verlauf scrollst**, wird `userScrolledUp = true` gesetzt → kein Auto-Scroll mehr nach unten
-- Sobald du **wieder nach unten scrollst** (innerhalb 80px vom Ende), wird Auto-Scroll wieder aktiv
-- Neue Nachrichten scrollen nur noch nach unten, wenn du bereits unten warst
----
-✓ [2026-03-22 19:07] j
-Meintest du etwas bestimmtes? "j" scheint eine versehentliche Eingabe zu sein.
----
-✓ [2026-03-22 19:11] Bitte pushe die änderung auf github
-Gepusht. Commit: `fix: Auto-Scroll pausieren wenn Benutzer nach oben scrollt`
----
-✓ [2026-03-22 19:18] Es ist noch gleich wie vorher. Die Seite scrolled automatisch nach unten.
-Fertig. Das Problem war, dass die vorherige Fix auf die falsche Seite (`chat/page.tsx`) angewendet wurde. Die Devtool-Seite (mit P1/P10) hatte noch kein Scroll-Pause-Verhalten. Jetzt gilt: scrollst du nach oben → kein Auto-Scroll mehr. Scrollst du wieder nach unten → Auto-Scroll reaktiviert.
----
-✓ [2026-03-22 20:29] Schaue dir das Dashboard an, kannst du dies aktualisieren und in github puschen
-Fertig. Was geändert wurde:
-- **Backend** (`main.py`): Neuer `GET /v1/system/status` Endpoint — prüft DB (SELECT 1), Redis (PING) und ob KI-Keys konfiguriert sind. Timeout je 2 Sekunden.
-- **Frontend** (`admin/page.tsx`): System-Status wird jetzt live vom Backend geladen, mit Skeleton-Animation während des Ladens. Statt hart codiert "Online" zeigt es echte Zustände inkl. Fehlerstatus.
----
 ✓ [2026-03-22 20:41] Bitte zeige hier auf der Devtool Seite nur Einträge der letzten 72h an. Für die 
 Fertig. Logik:
 - Tasks älter als **72h** werden ausgeblendet
@@ -29,3 +9,44 @@ Fertig. Im Chat-Header erscheint jetzt ein "← Zurück"-Button, der nur für Ad
 ---
 ✓ [2026-03-22 22:14] Bitte pushen
 Gepusht. Commit: `feat: Zurück-Button im Chat-Header für Admin-User`
+---
+✓ [2026-03-25 21:16] Schaue dir den Kundenbereich in der Admin Seite Kunden an, da steht Fehler beim 
+Fertig. Das Problem war: `fetch()` zu `/v1/customers` (ohne Slash) löste einen **307 Redirect** aus. Browser-CORS-Preflights (OPTIONS) folgen keinem Redirect → Request schlägt mit "Failed to fetch" fehl.
+Fix: Trailing Slash in `config.ts` → `/v1/customers/` — kein Redirect mehr, kein CORS-Problem.
+---
+✓ [2026-03-25 21:19] Bitte github pushen
+Gepusht. Commit: `fix: Trailing Slash bei /v1/customers/ — verhindert CORS-Fehler durch 307 Redirect`
+---
+✓ [2026-03-25 21:25] Tool: Trainingsplan & Erinnerungen
+Implementiert und gepusht. Hier was gebaut wurde:
+**Neues Tool: `training_reminders`**
+| Datei | Was |
+|---|---|
+| `models/training_reminder.py` | DB-Model: Wochenplan, E-Mail, Timezone, last_reminded_at |
+| `services/tools/handlers/training.py` | 3 Tool-Actions: create / list / delete |
+| `services/tools/definitions.py` | Anthropic Tool-Definitionen (Claude wählt selbst) |
+| `services/tools/registry.py` | Tool im Katalog registriert |
+| `tasks/training_reminders.py` | Celery Task: prüft alle 5 Min, sendet E-Mail-Erinnerung |
+| `tasks/celery_app.py` | Beat-Schedule für alle 5 Minuten eingetragen |
+| `core/database.py` | DB-Migration (idempotent) |
+**Wie es funktioniert:**
+1. Nutzer sagt "Erinnere mich Montag/Mittwoch/Freitag um 07:00 an mein Krafttraining"
+2. Claude ruft `create_training_reminder` auf → Plan in DB gespeichert
+3. Celery Beat läuft alle 5 Min → prüft ob jetzt Erinnerungszeit (±5 Min Fenster)
+4. Wenn ja → E-Mail via Brevo SMTP → `last_reminded_at` gesetzt (kein Doppelsenden)
+Kein neuer API-Key nötig — nutzt den bestehenden SMTP (Brevo) aus `.env`.
+---
+✓ [2026-03-28 09:30] In der Desktop Ansicht erscheinen alle Symbole auf der Seite eher klein. Kannst 
+Fertig. Ich habe eine CSS-Regel in `globals.css` hinzugefügt die auf Desktop (≥1024px) alle SVG-Icons um ~10% vergrössert:
+| Vorher | Nachher |
+|--------|---------|
+| w-3 (12px) | 13px |
+| w-3.5 (14px) | 15px |
+| w-4 (16px) | 18px |
+| w-5 (20px) | 22px |
+| w-6 (24px) | 26px |
+| w-7 (28px) | 31px |
+Die Regel greift nur auf `<svg>`-Elemente mit diesen Klassen — keine Auswirkung auf Divs oder andere Layout-Elemente. Auf Mobile bleibt alles unverändert.
+---
+✓ [2026-03-28 09:35] Schau dir im Namensnetz die Zoom Funktion des Canvas an. Auf dem Mobile springt 
+Fertig. Der Pinch-Zoom-Faktor ist jetzt pro Frame auf **±12%** begrenzt (`rawRatio` wird auf `0.88–1.12` geclampt). Das verhindert die unkontrollierten Sprünge auf Mobile, während normale Pinch-Gesten weiterhin flüssig funktionieren.

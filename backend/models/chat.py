@@ -11,7 +11,6 @@ class ChatMessage(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     customer_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("customers.id"), nullable=False, index=True)
-    buddy_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), nullable=True)
     role: Mapped[str] = mapped_column(Text, nullable=False)            # user | assistant
     content: Mapped[str] = mapped_column(Text, nullable=False)
     provider: Mapped[str | None] = mapped_column(Text, nullable=True)  # gemini | openai | ollama

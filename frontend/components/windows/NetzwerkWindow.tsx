@@ -699,7 +699,9 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId }: P
         const sx = two.mid.x - r.left, sy = two.mid.y - r.top;
         const pm = lastPinchMid.current!;
         setViewport(v => {
-          const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * (two.dist / lastPinch.current!)));
+          const rawRatio = two.dist / lastPinch.current!;
+          const clampedRatio = Math.min(1.12, Math.max(0.88, rawRatio));
+          const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * clampedRatio));
           return { x: sx - (sx - v.x) * (nz / v.zoom) + (two.mid.x - pm.x), y: sy - (sy - v.y) * (nz / v.zoom) + (two.mid.y - pm.y), zoom: nz };
         });
         lastPinch.current = two.dist; lastPinchMid.current = two.mid;

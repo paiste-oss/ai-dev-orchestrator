@@ -4,11 +4,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.database import init_db
-from api.v1 import agent, customers, buddies, workflows, credentials, oauth, dev_tasks, documents, events, auth, chat, finance, transport, buddy_tools, entwicklung, billing, router_admin, llm_admin, system_prompts_admin, tools_admin, integrations_admin, analytics_admin, user_preferences, windows, knowledge
+from api.v1 import agent, customers, workflows, credentials, oauth, dev_tasks, documents, events, auth, chat, finance, transport, entwicklung, billing, router_admin, llm_admin, system_prompts_admin, tools_admin, integrations_admin, analytics_admin, user_preferences, windows, knowledge
 from api.v1 import settings as portal_settings
 import models.chat      # noqa: F401 — register ChatMessage & MemoryItem with Base.metadata
 import models.finance   # noqa: F401 — register CostEntry with Base.metadata
-import models.buddy_tool  # noqa: F401 — register BuddyTool with Base.metadata
 import models.capability_request  # noqa: F401 — register CapabilityRequest with Base.metadata
 import models.payment             # noqa: F401 — register Payment & InvoiceCounter with Base.metadata
 import models.window              # noqa: F401 — register WindowBoard with Base.metadata
@@ -43,7 +42,6 @@ app.add_middleware(
 
 app.include_router(agent.router)
 app.include_router(customers.router, prefix="/v1")
-app.include_router(buddies.router, prefix="/v1")
 app.include_router(workflows.router, prefix="/v1")
 app.include_router(credentials.router, prefix="/v1")
 app.include_router(oauth.router, prefix="/v1")
@@ -55,7 +53,6 @@ app.include_router(portal_settings.router, prefix="/v1")
 app.include_router(chat.router, prefix="/v1")
 app.include_router(finance.router, prefix="/v1")
 app.include_router(transport.router, prefix="/v1")
-app.include_router(buddy_tools.router, prefix="/v1")
 app.include_router(entwicklung.router, prefix="/v1")
 app.include_router(billing.router, prefix="/v1")
 app.include_router(router_admin.router, prefix="/v1")

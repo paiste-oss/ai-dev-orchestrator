@@ -18,8 +18,6 @@ class CustomerOut(BaseModel):
     created_at: datetime
     birth_year: int | None = None
     birth_date: date | None = None
-    primary_usecase_id: str | None = None
-
     # Kontakt
     phone: str | None = None
     phone_secondary: str | None = None
