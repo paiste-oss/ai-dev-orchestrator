@@ -33,7 +33,7 @@ export default function ChatInput({
   const handleVoiceResult = useCallback(onVoiceResult, [onVoiceResult]);
 
   return (
-    <div className={compact ? "shrink-0 px-2 pb-2 pt-1" : "shrink-0 px-4 pb-6 pt-3"}>
+    <div className={compact ? "shrink-0 px-2 pb-1 pt-0.5" : "shrink-0 px-4 pb-6 pt-3"}>
       <div className="max-w-3xl mx-auto w-full">
         {/* File chips above */}
         <FileDropZone
@@ -57,14 +57,14 @@ export default function ChatInput({
           />
 
           {/* Bottom bar */}
-          <div className={`flex items-center justify-between px-2 pt-1 ${compact ? "pb-1.5" : "pb-3"}`}>
+          <div className={`flex items-center justify-between px-2 ${compact ? "pt-0.5 pb-1" : "pt-1 pb-3"}`}>
             {/* Left: attach + camera */}
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={onAttachClick}
                 title="Datei oder Bild anhängen"
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/8 transition-all"
+                className={`${compact ? "w-7 h-7" : "w-8 h-8"} flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/8 transition-all`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
@@ -74,7 +74,7 @@ export default function ChatInput({
                 type="button"
                 onClick={onCameraClick}
                 title="Foto aufnehmen"
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/8 transition-all"
+                className={`${compact ? "w-7 h-7" : "w-8 h-8"} flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/8 transition-all`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -88,12 +88,12 @@ export default function ChatInput({
               <VoiceButton
                 onResult={handleVoiceResult}
                 lang={voiceLang}
-                className="w-8 h-8"
+                className={compact ? "w-7 h-7" : "w-8 h-8"}
               />
               <button
                 onClick={onSend}
                 disabled={loading || (!input.trim() && attachedFiles.length === 0)}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95 text-white"
+                className={`${compact ? "w-7 h-7" : "w-8 h-8"} flex items-center justify-center rounded-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95 text-white`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>

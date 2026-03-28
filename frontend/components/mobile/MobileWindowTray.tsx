@@ -23,7 +23,7 @@ export default function MobileWindowTray({
   const chatActive = !panelOpen;
   return (
     <div
-      className="flex items-center gap-2 px-3 py-2 border-t border-white/5 shrink-0"
+      className="flex items-center gap-2 px-3 py-1 border-t border-white/5 shrink-0"
       style={{ overflowX: "auto", scrollbarWidth: "none" }}
     >
       {/* Chat-Tab — immer sichtbar */}
