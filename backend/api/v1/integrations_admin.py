@@ -85,6 +85,21 @@ async def get_integrations(_: Customer = Depends(require_admin)):
                 ],
             },
             {
+                "category": "Kommunikation",
+                "items": [
+                    {
+                        "name": "Twilio (SMS / 2FA)",
+                        "keys": ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER"],
+                        "manage_url": "https://console.twilio.com",
+                    },
+                    {
+                        "name": "SMTP (E-Mail)",
+                        "keys": ["SYSTEM_SMTP_HOST", "SYSTEM_SMTP_USER", "SYSTEM_SMTP_PASSWORD"],
+                        "manage_url": None,
+                    },
+                ],
+            },
+            {
                 "category": "Infrastruktur",
                 "items": [
                     {
@@ -107,11 +122,6 @@ async def get_integrations(_: Customer = Depends(require_admin)):
                         "keys": ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
                         "manage_url": "https://console.cloud.google.com/apis/credentials",
                     },
-                    {
-                        "name": "SMTP (E-Mail)",
-                        "keys": ["SYSTEM_SMTP_HOST", "SYSTEM_SMTP_USER", "SYSTEM_SMTP_PASSWORD"],
-                        "manage_url": None,
-                    },
                 ],
             },
         ],
@@ -123,10 +133,11 @@ async def get_integrations(_: Customer = Depends(require_admin)):
                 "AWS_BEDROCK_API_KEY", "AWS_REGION", "EXA_API_KEY",
                 "ELEVENLABS_API_KEY", "UNSPLASH_ACCESS_KEY",
                 "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET",
+                "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER",
+                "SYSTEM_SMTP_HOST", "SYSTEM_SMTP_USER", "SYSTEM_SMTP_PASSWORD",
                 "GITHUB_TOKEN", "CLOUDFLARE_TUNNEL_TOKEN",
                 "N8N_API_KEY", "N8N_BASE_URL",
                 "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
-                "SYSTEM_SMTP_HOST", "SYSTEM_SMTP_USER", "SYSTEM_SMTP_PASSWORD",
             ]
         },
     }
