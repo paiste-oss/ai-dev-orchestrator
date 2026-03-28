@@ -79,4 +79,7 @@ export interface UiPrefs {
   lineSpacing: string;
   language: string;
   buddyName: string;
+  chatWidth: string;
+  bubbleStyle: string;
+  showTimestamps: string;
 }

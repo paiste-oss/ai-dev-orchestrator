@@ -581,7 +581,7 @@ export default function ChatPage() {
             ) : card.type === "memory" ? (
               <MemoryWindow buddyName={uiPrefs.buddyName ?? "Baddi"} />
             ) : card.type === "design" ? (
-              <DesignWindow />
+              <DesignWindow prefs={uiPrefs} onPrefsChange={patch => setUiPrefs(p => ({ ...p, ...patch }))} />
             ) : card.type === "documents" ? (
               <DocumentsWindow onOpenFile={handleOpenFile} />
             ) : card.type === "file_viewer" ? (

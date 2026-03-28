@@ -21,11 +21,14 @@ export const LINE_SPACINGS: Record<string, string> = {
 };
 
 export const ACCENT_COLORS: Record<string, string> = {
-  indigo: "#6366f1", purple: "#a855f7", green: "#22c55e", orange: "#f97316", pink: "#ec4899",
+  indigo: "#6366f1", purple: "#a855f7", sky: "#0ea5e9", green: "#22c55e",
+  teal: "#14b8a6", orange: "#f97316", pink: "#ec4899", red: "#ef4444",
+  yellow: "#eab308", white: "#e5e7eb",
 };
 
 export const BG_COLORS: Record<string, string> = {
   dark: "#030712", darker: "#000000", lighter: "#111827",
+  slate: "#0f172a", navy: "#0c1445", forest: "#0a1a0f", wine: "#1a0a12", warm: "#1a1208",
 };
 
 const DEFAULT_PREFS: UiPrefs = {
@@ -36,6 +39,9 @@ const DEFAULT_PREFS: UiPrefs = {
   lineSpacing: "normal",
   language: "de",
   buddyName: "Baddi",
+  chatWidth: "normal",
+  bubbleStyle: "rounded",
+  showTimestamps: "hover",
 };
 
 export function useUiPrefs() {
