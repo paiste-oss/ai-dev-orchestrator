@@ -34,7 +34,7 @@ export default function TopBar({
 
   return (
     <header className="shrink-0 h-12 flex items-center gap-3 px-4 border-b border-white/5"
-      style={{ background: "rgba(5,10,20,0.97)", backdropFilter: "blur(12px)", position: "relative", zIndex: 100 }}>
+      style={{ background: "rgba(5,10,20,0.97)", backdropFilter: "blur(12px)", position: "relative", zIndex: 99990 }}>
 
       {/* Left — Buddy status */}
       <div className="flex items-center gap-2.5 min-w-0">
