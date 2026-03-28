@@ -9,7 +9,6 @@ import {
   inputCls,
   readCls,
 } from "@/lib/customer-admin-utils";
-import { USE_CASES } from "@/lib/usecases";
 import { useState } from "react";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -151,18 +150,6 @@ export default function CustomerProfileTab({ customer, onCustomerUpdate }: Props
           <Field label="Registriert am">
             <p className={readCls}>{formatDate(customer.created_at)}</p>
           </Field>
-          {customer.primary_usecase_id && (() => {
-            const uc = USE_CASES.find(u => u.id === customer.primary_usecase_id);
-            return uc ? (
-              <Field label="Primärer Baddi">
-                <p className={`flex items-center gap-2 ${readCls}`}>
-                  <span>{uc.icon}</span>
-                  <span className="text-gray-300">{uc.buddyName}</span>
-                  <span className="font-mono text-xs text-yellow-500 ml-auto">{uc.baddiD}</span>
-                </p>
-              </Field>
-            ) : null;
-          })()}
         </div>
       </div>
     </div>

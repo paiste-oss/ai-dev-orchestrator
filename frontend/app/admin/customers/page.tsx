@@ -6,7 +6,6 @@ import { apiFetch } from "@/lib/auth";
 import { API_ROUTES, BACKEND_URL } from "@/lib/config";
 import { useAdminPage } from "@/hooks/useAdminPage";
 import AdminSidebar from "@/components/AdminSidebar";
-import { USE_CASES } from "@/lib/usecases";
 import { formatDate } from "@/lib/format";
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
@@ -291,10 +290,6 @@ export default function CustomersPage() {
                             <span className="font-medium text-white whitespace-nowrap">
                               {customer.name}
                             </span>
-                            {customer.role !== "admin" && customer.primary_usecase_id && (() => {
-                              const uc = USE_CASES.find(u => u.id === customer.primary_usecase_id);
-                              return uc ? <span className="font-mono text-xs text-yellow-500">{uc.baddiD}</span> : null;
-                            })()}
                           </div>
                         </div>
                       </td>

@@ -2,7 +2,6 @@
 Agent API
 POST /agent/run           → Standard-Prompt ohne Datei
 POST /agent/run-with-file → Prompt + hochgeladene Datei (Multipart)
-GET  /agent/history       → Letzte Nachrichten
 """
 import uuid
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
@@ -225,25 +224,3 @@ async def _save_document_async(
     except Exception as e:
         print(f"[Agent] Dokument-Speicherung fehlgeschlagen: {e}")
         return None
-
-
-# ─── History ──────────────────────────────────────────────────────────────────
-
-@router.get("/agent/history")
-async def get_history():
-    """Gibt die letzten 10 Nachrichten aus PostgreSQL zurück."""
-    try:
-        from sqlalchemy import text
-        from core.database import AsyncSessionLocal
-        async with AsyncSessionLocal() as session:
-            result = await session.execute(
-                text(
-                    "SELECT id, created_at AS timestamp, content AS prompt, "
-                    "model_used AS model, content AS result "
-                    "FROM messages ORDER BY created_at DESC LIMIT 10"
-                )
-            )
-            rows = result.mappings().all()
-            return {"history": [dict(r) for r in rows]}
-    except Exception:
-        return {"history": []}

@@ -64,7 +64,11 @@
       "Read(//home/naor/ai-dev-orchestrator/**)",
       "Bash(rm /home/naor/ai-dev-orchestrator/frontend/app/chat/[buddyId]/page.tsx)",
       "Bash(rmdir /home/naor/ai-dev-orchestrator/frontend/app/chat/[buddyId])",
-      "Bash(ls /home/naor/ai-dev-orchestrator/frontend/app/chat/[buddyId]/)"
+      "Bash(ls /home/naor/ai-dev-orchestrator/frontend/app/chat/[buddyId]/)",
+      "Bash(wc -l /home/naor/ai-dev-orchestrator/backend/services/*.py)",
+      "Bash(grep -r \"export.*function\\\\|export.*const\\\\|export.*interface\\\\|export.*type\" /home/naor/ai-dev-orchestrator/frontend/lib/*.ts)",
+      "Bash(grep -r \"AGENTS\\\\|getAgent\" /home/naor/ai-dev-orchestrator/frontend --include=\"*.tsx\" --include=\"*.ts\" ! -path \"*/node_modules/*\" ! -path \"*/.next/*\")",
+      "Bash(grep -rn \"^from services\\\\|^import\" /home/naor/ai-dev-orchestrator/backend/api/v1/*.py)"
     ],
     "additionalDirectories": [
       "/home/naor/ai-dev-orchestrator/frontend/app/chat/[buddyId]/"

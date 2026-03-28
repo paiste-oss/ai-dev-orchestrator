@@ -21,7 +21,6 @@ export interface Customer {
   role: string;
   is_active: boolean;
   created_at: string;
-  primary_usecase_id: string | null;
   subscription_plan_name: string | null;
   subscription_status: string | null;
 }
