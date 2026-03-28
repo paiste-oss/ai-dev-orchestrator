@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { BACKEND_URL } from "@/lib/config";
 import { saveSession, saveToken } from "@/lib/auth";
@@ -24,6 +24,16 @@ const YEARS = Array.from({ length: currentYear - 1920 - 5 }, (_, i) => currentYe
 export default function RegisterPage() {
   const router = useRouter();
   const captcha = useMathCaptcha();
+
+  // Registrierung gesperrt wenn show_register_menschen deaktiviert
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/v1/settings/portal`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.show_register_menschen === false) router.replace("/login");
+      })
+      .catch(() => {});
+  }, [router]);
 
   const [form, setForm] = useState({
     vorname: "", nachname: "",
