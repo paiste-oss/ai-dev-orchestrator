@@ -11,19 +11,22 @@ interface UseVoiceInputOptions {
 export type VoiceError = "not-allowed" | "not-supported" | "no-speech" | "network" | null;
 
 export function useVoiceInput({ lang = "de-CH", onResult, onInterim }: UseVoiceInputOptions) {
-  // Startet als false — wird nach Mount gesetzt um Hydration-Fehler zu vermeiden
-  const [supported, setSupported] = useState(false);
+  // Optimistisch true — VoiceButton ist ssr:false, kein Hydration-Risiko.
+  // useEffect setzt auf false wenn die API wirklich fehlt.
+  const [supported, setSupported] = useState(true);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<VoiceError>(null);
   const recognitionRef = useRef<any>(null);
 
-  // Support-Check nach Mount (client-only)
+  // Support-Check nach Mount
   useEffect(() => {
     const has = !!(
-      typeof window !== "undefined" &&
-      ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition ||
+      (window as any).mozSpeechRecognition ||
+      (window as any).msSpeechRecognition
     );
-    setSupported(has);
+    if (!has) setSupported(false);
   }, []);
 
   const start = useCallback(() => {
