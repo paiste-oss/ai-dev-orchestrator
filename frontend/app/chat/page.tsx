@@ -595,7 +595,7 @@ export default function ChatPage() {
         />
       );
       case "memory": return (
-        <MemoryWindow buddyName={uiPrefs.buddyName ?? "Baddi"} memories={memories} onDelete={deleteMemory} onRefresh={loadMemories} />
+        <MemoryWindow buddyName={uiPrefs.buddyName ?? "Baddi"} memories={memories} onDelete={deleteMemory} />
       );
       case "chart": return (
         <ChartWindow initialSymbol={card.data?.symbol} initialSymbols={card.data?.symbols} />
