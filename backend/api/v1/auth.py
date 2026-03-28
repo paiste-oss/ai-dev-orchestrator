@@ -22,7 +22,6 @@ class RegisterRequest(BaseModel):
     password: str
     birth_year: int | None = None
     birth_date: date | None = None
-    usecase_id: str | None = None   # wird beim Registrieren mitgeschickt → default Buddy
     tos_accepted: bool = False       # Pflicht: AGB & Datenschutz
     memory_consent: bool = True      # Optional: Langzeitgedächtnis
 
