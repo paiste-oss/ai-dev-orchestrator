@@ -75,6 +75,7 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_defs": DALLE_TOOL_DEFS,
         "tool_names": {"generate_image"},
         "handler": _handle_dalle,
+        "needs_customer_id": True,
     },
     "stock_prices": {
         "key": "stock_prices",
@@ -97,6 +98,7 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_defs": UNSPLASH_TOOL_DEFS,
         "tool_names": {"search_image"},
         "handler": _handle_unsplash,
+        "needs_customer_id": True,
     },
     "stock_alerts": {
         "key": "stock_alerts",
