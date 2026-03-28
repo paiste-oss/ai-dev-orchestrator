@@ -92,9 +92,16 @@ export default function DesignWindow({ prefs, onPrefsChange }: Props) {
     onPrefsChange(patch);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
+      // backgroundImage nur senden wenn es sich geändert hat (spart Bandbreite)
+      const { backgroundImage: _bg, ...rest } = { ...prefs, ...patch };
+      const body: Record<string, unknown> = { ...rest };
+      if ("backgroundImage" in patch) {
+        // undefined/null → "" (Signal zum Löschen); sonst den neuen Wert
+        body.backgroundImage = patch.backgroundImage ?? "";
+      }
       await apiFetch(`${BACKEND_URL}/v1/user/preferences`, {
         method: "POST",
-        body: JSON.stringify({ ...prefs, ...patch }),
+        body: JSON.stringify(body),
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
@@ -132,7 +139,7 @@ export default function DesignWindow({ prefs, onPrefsChange }: Props) {
         <OptionRow label="Hintergrund">
           <div className="grid grid-cols-4 gap-1.5">
             {BG_OPTIONS.map(bg => (
-              <button key={bg.v} onClick={() => update({ background: bg.v, backgroundImage: undefined })}
+              <button key={bg.v} onClick={() => update({ background: bg.v, backgroundImage: "" as UiPrefs["backgroundImage"] })}
                 className={`relative h-10 rounded-lg border transition-all ${
                   prefs.background === bg.v && !prefs.backgroundImage ? "border-white/40 ring-1 ring-white/20" : "border-white/8 hover:border-white/20"
                 }`}
@@ -168,7 +175,7 @@ export default function DesignWindow({ prefs, onPrefsChange }: Props) {
             </button>
             {prefs.backgroundImage && (
               <button
-                onClick={() => update({ backgroundImage: undefined })}
+                onClick={() => update({ backgroundImage: "" as UiPrefs["backgroundImage"] })}
                 className="px-3 h-10 rounded-lg border border-white/8 text-xs text-gray-400 hover:text-red-400 hover:border-red-500/30 transition-all"
               >
                 Entfernen
