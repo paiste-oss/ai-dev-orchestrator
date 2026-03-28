@@ -99,6 +99,7 @@ class PortfolioEntry(BaseModel):
     symbol: str
     quantity: float
     buy_price: float
+    buy_currency: str = "CHF"
 
 
 @router.get("/portfolio")
@@ -126,6 +127,7 @@ async def get_portfolio(
             "symbol": pos.symbol,
             "quantity": pos.quantity,
             "buy_price": pos.buy_price,
+            "buy_currency": pos.buy_currency or "CHF",
             "current_price": round(price, 2) if price else None,
             "currency": currency,
             "current_value": current_value,
@@ -154,6 +156,7 @@ async def upsert_portfolio(
     if pos:
         pos.quantity = body.quantity
         pos.buy_price = body.buy_price
+        pos.buy_currency = body.buy_currency.upper()
     else:
         db.add(StockPortfolio(
             id=uuid.uuid4().hex,
@@ -161,6 +164,7 @@ async def upsert_portfolio(
             symbol=symbol,
             quantity=body.quantity,
             buy_price=body.buy_price,
+            buy_currency=body.buy_currency.upper(),
         ))
     await db.commit()
     return {"ok": True, "symbol": symbol}

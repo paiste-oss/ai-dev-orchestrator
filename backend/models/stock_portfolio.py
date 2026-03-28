@@ -12,5 +12,6 @@ class StockPortfolio(Base):
     customer_id = Column(String, nullable=False, index=True)
     symbol = Column(String(20), nullable=False)
     quantity = Column(Float, nullable=False)
-    buy_price = Column(Float, nullable=False)   # Durchschnittlicher Einstandskurs
+    buy_price = Column(Float, nullable=False)       # Durchschnittlicher Einstandskurs
+    buy_currency = Column(String(10), nullable=False, server_default="CHF")  # Währung des Kaufkurses
     added_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

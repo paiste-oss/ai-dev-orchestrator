@@ -17,7 +17,7 @@ interface StockData {
   error?: string;
 }
 interface PortfolioPosition {
-  id: string; symbol: string; quantity: number; buy_price: number;
+  id: string; symbol: string; quantity: number; buy_price: number; buy_currency: string;
   current_price: number | null; currency: string;
   current_value: number | null; cost_basis: number;
   gain: number | null; gain_pct: number | null;
@@ -50,7 +50,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
 
   const [portfolio, setPortfolio] = useState<PortfolioPosition[]>([]);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
-  const [editPos, setEditPos] = useState<{ symbol: string; quantity: string; buy_price: string; isNew: boolean } | null>(null);
+  const [editPos, setEditPos] = useState<{ symbol: string; quantity: string; buy_price: string; buy_currency: string; isNew: boolean } | null>(null);
 
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
@@ -156,6 +156,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
         symbol: editPos.symbol,
         quantity: parseFloat(editPos.quantity),
         buy_price: parseFloat(editPos.buy_price),
+        buy_currency: editPos.buy_currency,
       }),
     });
     closeModal();
@@ -440,7 +441,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
                 </p>
               </div>
               <div className="ml-auto">
-                <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", isNew: true }); setModalSearch(""); setModalResults([]); }}
+                <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", buy_currency: "CHF", isNew: true }); setModalSearch(""); setModalResults([]); }}
                   className="px-2.5 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 transition-colors">
                   + Position
                 </button>
@@ -456,7 +457,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
               <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
                 <span className="text-4xl opacity-20">💼</span>
                 <p className="text-gray-600 leading-relaxed">Noch keine Positionen.<br />Füge Aktien mit Kauf-Kurs und Menge hinzu.</p>
-                <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", isNew: true }); setModalSearch(""); setModalResults([]); }}
+                <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", buy_currency: "CHF", isNew: true }); setModalSearch(""); setModalResults([]); }}
                   className="px-3 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 transition-colors mt-1">
                   + Erste Position hinzufügen
                 </button>
@@ -482,7 +483,9 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
                           <span className="font-mono font-semibold" style={{ color: LINE_COLORS[i % LINE_COLORS.length] }}>{pos.symbol}</span>
                         </td>
                         <td className="px-3 py-2.5 text-right text-gray-300 tabular-nums">{pos.quantity}</td>
-                        <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">{pos.buy_price.toFixed(2)}</td>
+                        <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
+                          {pos.buy_price.toFixed(2)} <span className="text-gray-700">{pos.buy_currency}</span>
+                        </td>
                         <td className="px-3 py-2.5 text-right text-gray-300 tabular-nums">
                           {pos.current_price !== null ? pos.current_price.toFixed(2) : "–"}
                           <span className="text-gray-600 ml-1">{pos.currency}</span>
@@ -496,7 +499,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
                         </td>
                         <td className="px-2 py-2.5">
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => setEditPos({ symbol: pos.symbol, quantity: String(pos.quantity), buy_price: String(pos.buy_price), isNew: false })}
+                            <button onClick={() => setEditPos({ symbol: pos.symbol, quantity: String(pos.quantity), buy_price: String(pos.buy_price), buy_currency: pos.buy_currency ?? "CHF", isNew: false })}
                               className="text-gray-600 hover:text-indigo-400 p-0.5">✏</button>
                             <button onClick={() => deletePosition(pos.symbol)}
                               className="text-gray-600 hover:text-red-400 p-0.5">×</button>
@@ -512,7 +515,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
 
           {portfolio.length > 0 && !editPos && (
             <div className="shrink-0 px-4 py-2 border-t border-white/5 flex justify-end">
-              <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", isNew: true }); setModalSearch(""); setModalResults([]); }}
+              <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", buy_currency: "CHF", isNew: true }); setModalSearch(""); setModalResults([]); }}
                 className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors">
                 + Position
               </button>
@@ -597,11 +600,23 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
                   onChange={e => setEditPos(p => p && ({ ...p, quantity: e.target.value }))}
                   className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500/50" />
               </div>
-              <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wider">Kaufpreis (pro Stück)</label>
-                <input type="number" min="0" step="any" value={editPos.buy_price}
-                  onChange={e => setEditPos(p => p && ({ ...p, buy_price: e.target.value }))}
-                  className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500/50" />
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">Kaufpreis (pro Stück)</label>
+                  <input type="number" min="0" step="any" value={editPos.buy_price}
+                    onChange={e => setEditPos(p => p && ({ ...p, buy_price: e.target.value }))}
+                    className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500/50" />
+                </div>
+                <div className="w-24">
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">Währung</label>
+                  <select value={editPos.buy_currency}
+                    onChange={e => setEditPos(p => p && ({ ...p, buy_currency: e.target.value }))}
+                    className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500/50 appearance-none">
+                    {["CHF", "EUR", "USD", "GBP", "JPY", "CAD", "AUD"].map(c => (
+                      <option key={c} value={c} className="bg-gray-900">{c}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
             <div className="flex gap-2 mt-5">
