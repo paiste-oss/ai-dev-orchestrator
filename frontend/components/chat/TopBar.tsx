@@ -16,7 +16,6 @@ interface TopBarProps {
   onLogout: () => void;
   onAdminBack: () => void;
   onAddCard?: (canvasType: string) => void;
-  onBuddyClick?: () => void;
 }
 
 function providerBadge(p: string) {
@@ -29,7 +28,7 @@ function providerBadge(p: string) {
 export default function TopBar({
   buddyName, buddyInitial, speaking, ttsEnabled, lastProvider,
   firstName, isAdmin,
-  onToggleTts, onSettings, onLogout, onAdminBack, onAddCard, onBuddyClick,
+  onToggleTts, onSettings, onLogout, onAdminBack, onAddCard,
 }: TopBarProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
 
@@ -37,12 +36,8 @@ export default function TopBar({
     <header className="shrink-0 h-12 flex items-center gap-3 px-4 border-b border-white/5"
       style={{ background: "rgba(5,10,20,0.97)", backdropFilter: "blur(12px)", position: "relative", zIndex: 100 }}>
 
-      {/* Left — Buddy status (klickbar → Gedächtnis-Fenster) */}
-      <button
-        onClick={onBuddyClick}
-        className="flex items-center gap-2.5 min-w-0 rounded-lg px-1 py-0.5 hover:bg-white/5 transition-colors"
-        title="Gedächtnis öffnen"
-      >
+      {/* Left — Buddy status */}
+      <div className="flex items-center gap-2.5 min-w-0">
         <div className={`w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0 transition-all ${speaking ? "shadow-[0_0_0_4px_rgba(99,102,241,0.3)]" : ""}`}>
           {buddyInitial}
         </div>
@@ -53,7 +48,7 @@ export default function TopBar({
             <span className="text-[11px] text-gray-500 hidden sm:block">{speaking ? "antwortet…" : "online"}</span>
           </div>
         </div>
-      </button>
+      </div>
 
       {/* Divider */}
       <div className="h-5 w-px bg-white/8 shrink-0" />

@@ -411,7 +411,6 @@ export default function ChatPage() {
         onSettings={() => setSetupOpen(true)}
         onLogout={() => { clearSession(); router.push("/"); }}
         onAdminBack={() => router.push("/admin")}
-        onBuddyClick={() => setShowMemory(v => !v)}
       />
       <div
         ref={chatScrollRef}
@@ -497,7 +496,6 @@ export default function ChatPage() {
         onLogout={() => { clearSession(); router.push("/"); }}
         onAdminBack={() => router.push("/admin")}
         onAddCard={handleAddCard}
-        onBuddyClick={() => handleAddCard("memory")}
       />
 
       {/* ── WHITEBOARD CANVAS ── */}
