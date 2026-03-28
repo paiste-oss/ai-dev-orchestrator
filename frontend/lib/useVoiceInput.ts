@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 
 interface UseVoiceInputOptions {
   lang?: string;
@@ -11,31 +11,22 @@ interface UseVoiceInputOptions {
 export type VoiceError = "not-allowed" | "not-supported" | "no-speech" | "network" | null;
 
 export function useVoiceInput({ lang = "de-CH", onResult, onInterim }: UseVoiceInputOptions) {
-  // Optimistisch true — VoiceButton ist ssr:false, kein Hydration-Risiko.
-  // useEffect setzt auf false wenn die API wirklich fehlt.
-  const [supported, setSupported] = useState(true);
+  // Immer sichtbar — kein Support-Check. Bei Klick zeigen wir Fehler statt Button zu verstecken.
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<VoiceError>(null);
   const recognitionRef = useRef<any>(null);
 
-  // Support-Check nach Mount
-  useEffect(() => {
-    const has = !!(
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition ||
-      (window as any).mozSpeechRecognition ||
-      (window as any).msSpeechRecognition
-    );
-    if (!has) setSupported(false);
-  }, []);
-
   const start = useCallback(() => {
     setError(null);
     const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition ||
+      (window as any).mozSpeechRecognition ||
+      (window as any).msSpeechRecognition;
 
     if (!SpeechRecognition) {
-      setSupported(false);
+      setError("not-supported");
+      setTimeout(() => setError(null), 3000);
       return;
     }
 
@@ -65,7 +56,6 @@ export function useVoiceInput({ lang = "de-CH", onResult, onInterim }: UseVoiceI
       } else if (code === "network") {
         setError("network");
       }
-      // Fehler nach 3s ausblenden
       setTimeout(() => setError(null), 3000);
     };
 
@@ -96,5 +86,5 @@ export function useVoiceInput({ lang = "de-CH", onResult, onInterim }: UseVoiceI
     else start();
   }, [listening, start, stop]);
 
-  return { listening, supported, error, toggle, start, stop };
+  return { listening, supported: true, error, toggle, start, stop };
 }
