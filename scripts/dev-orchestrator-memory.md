@@ -1,6 +1,3 @@
-✓ [2026-03-22 22:13] Bitte füge auf der Chat Seite einen Button ein, der Zurück heisst und auf die Ad
-Fertig. Im Chat-Header erscheint jetzt ein "← Zurück"-Button, der nur für Admin-User sichtbar ist und direkt zur Admin-Seite navigiert.
----
 ✓ [2026-03-22 22:14] Bitte pushen
 Gepusht. Commit: `feat: Zurück-Button im Chat-Header für Admin-User`
 ---
@@ -51,3 +48,6 @@ Fertig. Der Fix:
 - Sobald das Fenster kleiner wird (oder die mobile Tastatur aufgeht), scrollt er sofort ans Ende
 - Nur wenn der User manuell nach oben gescrollt hat (`userScrolledUp.current`), bleibt die Position stehen
 Das gilt für beide Layouts (Mobile & Desktop). Der Baddi-Ladeindikator bleibt jetzt immer sichtbar, weil beim Erscheinen schon der bestehende `useEffect([messages, loading])` scrollt — und beim anschliessenden Resize-Ereignis der neue Observer übernimmt.
+---
+✓ [2026-03-28 13:20] Bitte github pushen
+Gepusht. Commit: `fix: ResizeObserver hält Scroll am Ende beim Verkleinern des Fensters`

@@ -70,7 +70,27 @@
       "Bash(grep -r \"AGENTS\\\\|getAgent\" /home/naor/ai-dev-orchestrator/frontend --include=\"*.tsx\" --include=\"*.ts\" ! -path \"*/node_modules/*\" ! -path \"*/.next/*\")",
       "Bash(grep -rn \"^from services\\\\|^import\" /home/naor/ai-dev-orchestrator/backend/api/v1/*.py)",
       "Bash(ls /home/naor/ai-dev-orchestrator/frontend/app/admin/customers/[id]/)",
-      "Bash(grep -r usecases /home/naor/ai-dev-orchestrator/frontend --include=*.ts --include=*.tsx -l)"
+      "Bash(grep -r usecases /home/naor/ai-dev-orchestrator/frontend --include=*.ts --include=*.tsx -l)",
+      "Bash(/home/naor/ai-dev-orchestrator/.env:*)",
+      "Bash(git rm:*)",
+      "Bash(find /home/naor/ai-dev-orchestrator/frontend/app/chat -name *.tsx)",
+      "Bash(sudo rm:*)",
+      "Bash(docker start:*)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(find /home/naor/ai-dev-orchestrator/frontend/.next -name *.js)",
+      "Bash(python3 -c \"import sys,json; c=json.load\\(sys.stdin\\)[0]; print\\(c[''''Config''''][''''Cmd'''']\\); print\\(c[''''HostConfig''''].get\\(''''NetworkMode'''',''''''''\\)\\)\")",
+      "Bash(ip addr:*)",
+      "Bash(grep -n \"FENSTER\\\\|canvasType\\\\|stock_history\\\\|stock_card\\\\|dashboard\" /home/naor/ai-dev-orchestrator/backend/services/tools/handlers/*.py)",
+      "Bash(pip show:*)",
+      "Bash(ollama list:*)",
+      "Bash(pip list:*)",
+      "Bash(python -c \"import whisper; print\\(''''host whisper ok''''\\)\")",
+      "Read(//usr/**)",
+      "Read(//home/**)",
+      "Bash(pip3 list:*)",
+      "Bash(conda list:*)",
+      "Bash(find /home/naor/ai-dev-orchestrator/frontend -name window-registry*)",
+      "Bash(grep -n \"generate_image\\\\|image_url\\\\|imageUrl\\\\|dall\" /home/naor/ai-dev-orchestrator/backend/services/tools/handlers/*.py)"
     ],
     "additionalDirectories": [
       "/home/naor/ai-dev-orchestrator/frontend/app/chat/[buddyId]/"
