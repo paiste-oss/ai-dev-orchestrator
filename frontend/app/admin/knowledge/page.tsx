@@ -21,7 +21,7 @@ interface KnowledgeSource {
 }
 
 interface Stats {
-  total_points: number;
+  qdrant: { vectors_count: number; points_count: number };
   sources: number;
   documents: number;
 }
@@ -165,7 +165,7 @@ export default function KnowledgePage() {
           </div>
           {stats && (
             <div className="text-right text-xs text-gray-500">
-              <div>{stats.total_points.toLocaleString()} Chunks in Qdrant</div>
+              <div>{(stats.qdrant?.vectors_count ?? 0).toLocaleString()} Chunks in Qdrant</div>
               <div>{stats.documents} Dokumente · {stats.sources} Quellen</div>
             </div>
           )}
