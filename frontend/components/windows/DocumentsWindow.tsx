@@ -75,7 +75,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
         const err = await res.json().catch(() => null);
         setOpenError(
           err?.detail === "Datei-Inhalt nicht gespeichert"
-            ? "Vorschau nicht verfügbar — bitte Datei neu hochladen."
+            ? `Originaldatei nicht gespeichert — bitte "${doc.original_filename}" löschen und neu hochladen.`
             : (err?.detail ?? "Datei konnte nicht geladen werden.")
         );
         return;
