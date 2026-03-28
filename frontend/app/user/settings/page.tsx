@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import { ChatAppearanceSection } from "@/components/user/settings/ChatAppearanceSection";
 import { ProfileSection } from "@/components/user/settings/ProfileSection";
 import { PasswordSection } from "@/components/user/settings/PasswordSection";
 import { MemorySection } from "@/components/user/settings/MemorySection";
@@ -48,7 +47,6 @@ export default function UserSettingsPage() {
           </div>
         </div>
 
-        <ChatAppearanceSection />
         <ProfileSection me={me} />
         <PasswordSection />
         <NotificationChannelSection

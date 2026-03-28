@@ -86,6 +86,16 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     canvasType: "memory",
   },
   {
+    id: "design",
+    label: "Design",
+    icon: "🎨",
+    description: "Chat-Erscheinungsbild anpassen: Farben, Schriften, Layout und mehr.",
+    defaultWidth: 340,
+    defaultHeight: 560,
+    status: "active",
+    canvasType: "design",
+  },
+  {
     id: "3d_renderer",
     label: "3D-Renderer",
     icon: "🧊",

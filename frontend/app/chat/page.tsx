@@ -34,6 +34,7 @@ import NetzwerkWindow from "@/components/windows/NetzwerkWindow";
 import DocumentsWindow from "@/components/windows/DocumentsWindow";
 import FileViewerWindow from "@/components/windows/FileViewerWindow";
 import MemoryWindow from "@/components/windows/MemoryWindow";
+import DesignWindow from "@/components/windows/DesignWindow";
 import { WINDOW_MODULES } from "@/lib/window-registry";
 
 // ── Canvas card state ─────────────────────────────────────────────────────────
@@ -579,6 +580,8 @@ export default function ChatPage() {
               />
             ) : card.type === "memory" ? (
               <MemoryWindow buddyName={uiPrefs.buddyName ?? "Baddi"} />
+            ) : card.type === "design" ? (
+              <DesignWindow />
             ) : card.type === "documents" ? (
               <DocumentsWindow onOpenFile={handleOpenFile} />
             ) : card.type === "file_viewer" ? (
