@@ -106,21 +106,20 @@ function CanvasCard({
         onMouseDown={startDrag}
         onDoubleClick={() => onMinimize(id)}
       >
-        {/* Traffic-light buttons (links) */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            onMouseDown={e => e.stopPropagation()}
-            onClick={() => onMinimize(id)}
-            className="w-3 h-3 rounded-full bg-yellow-500/70 hover:bg-yellow-400 transition-colors"
-            title={minimized ? "Aufklappen" : "Minimieren"}
-          />
-          <div className="w-3 h-3 rounded-full bg-white/10" />
-        </div>
-
-        <span className="flex-1 text-xs text-gray-400 font-medium truncate pl-1">{title}</span>
+        <span className="flex-1 text-xs text-gray-400 font-medium truncate">{title}</span>
 
         {/* Rechte Steuerknöpfe */}
         <div className="flex items-center gap-1 shrink-0" onMouseDown={e => e.stopPropagation()}>
+          {/* Zuklappen */}
+          <button
+            onClick={() => onMinimize(id)}
+            title={minimized ? "Aufklappen" : "Zuklappen"}
+            className="w-5 h-5 flex items-center justify-center rounded text-gray-600 hover:text-gray-300 hover:bg-white/8 transition-all"
+          >
+            <svg width="10" height="2" viewBox="0 0 10 2" fill="none">
+              <line x1="1" y1="1" x2="9" y2="1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
           {/* ½-Seite */}
           <button
             onClick={() => onHalf(id)}
