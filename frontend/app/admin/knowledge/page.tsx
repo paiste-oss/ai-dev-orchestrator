@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
+import AdminSidebar from "@/components/AdminSidebar";
 
 interface KnowledgeSource {
   id: string;
@@ -54,6 +55,7 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export default function KnowledgePage() {
   const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sources, setSources] = useState<KnowledgeSource[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -181,11 +183,18 @@ export default function KnowledgePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className="min-h-screen bg-gray-950 text-white flex">
+      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      <main className="flex-1 overflow-y-auto">
       <div className="max-w-4xl mx-auto px-5 py-8 space-y-6">
 
         {/* Header */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="md:hidden text-gray-500 hover:text-white text-xl mr-1"
+          >☰</button>
           <button onClick={() => router.back()} className="text-gray-500 hover:text-white text-xl">←</button>
           <div className="flex-1">
             <h1 className="text-xl font-bold">Globale Wissensbasis</h1>
@@ -423,6 +432,7 @@ export default function KnowledgePage() {
         </div>
 
       </div>
+      </main>
     </div>
   );
 }
