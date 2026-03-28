@@ -94,7 +94,7 @@ export default function KnowledgePage() {
     setLoadingDocs(srcId);
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/knowledge/sources/${srcId}/documents`);
-      if (res.ok) setDocs(d => ({ ...d, [srcId]: await res.json() }));
+      if (res.ok) { const data = await res.json(); setDocs(d => ({ ...d, [srcId]: data })); }
     } finally {
       setLoadingDocs(null);
     }
