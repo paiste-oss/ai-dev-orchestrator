@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_, delete as sa_delete
+from core.pagination import paginate, PageParams
 from core.database import get_db
 from core.dependencies import require_admin, get_current_user
 from core.security import hash_password
@@ -27,8 +28,7 @@ async def list_customers(
     search: Optional[str] = Query(None, description="Suche in Name und E-Mail"),
     role: Optional[str] = Query(None, description="Filter nach Rolle: admin, customer"),
     is_active: Optional[bool] = Query(None, description="Filter nach aktivem Status"),
-    page: int = Query(1, ge=1, description="Seitennummer"),
-    page_size: int = Query(20, ge=1, le=100, description="Einträge pro Seite"),
+    p: PageParams = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Customer)
@@ -46,13 +46,9 @@ async def list_customers(
     if is_active is not None:
         query = query.where(Customer.is_active == is_active)
 
-    count_query = select(func.count()).select_from(query.subquery())
-    total = (await db.execute(count_query)).scalar_one()
-
     query = query.order_by(Customer.created_at.desc())
-    query = query.offset((page - 1) * page_size).limit(page_size)
-
-    customers = (await db.execute(query)).scalars().all()
+    customers, total = await paginate(db, query, p)
+    page, page_size = p.page, p.page_size
 
     customer_ids = [c.id for c in customers]
 

@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from core.pagination import paginate, PageParams
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
@@ -92,25 +93,19 @@ def _to_out(r: CapabilityRequest) -> CapabilityRequestOut:
 
 @router.get("", response_model=dict)
 async def list_requests(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    p: PageParams = Depends(),
     status: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     _: Customer = Depends(require_admin),
 ):
     """Alle Capability Requests — für die Admin Entwicklungs-Seite."""
-    offset = (page - 1) * page_size
     q = select(CapabilityRequest)
     if status:
         q = q.where(CapabilityRequest.status == status)
     q = q.order_by(CapabilityRequest.created_at.desc())
 
-    total_result = await db.execute(select(func.count()).select_from(q.subquery()))
-    total = total_result.scalar() or 0
-
-    q = q.offset(offset).limit(page_size)
-    result = await db.execute(q)
-    items = result.scalars().all()
+    items, total = await paginate(db, q, p)
+    page, page_size = p.page, p.page_size
 
     # Status-Zusammenfassung
     stats_result = await db.execute(
