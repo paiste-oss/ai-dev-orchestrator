@@ -463,6 +463,11 @@ export default function ChatPage() {
               img.src = URL.createObjectURL(blob);
             });
             update = { ...update, backgroundImage: dataUrl as any };
+            // base64 dauerhaft ins Backend speichern (URL würde ablaufen)
+            apiFetch(`${BACKEND_URL}/v1/user/preferences`, {
+              method: "POST",
+              body: JSON.stringify({ backgroundImage: dataUrl }),
+            }).catch(() => {});
           } catch { /* bei Fehler URL direkt verwenden */ }
         }
         setUiPrefs(p => ({ ...p, ...update }));

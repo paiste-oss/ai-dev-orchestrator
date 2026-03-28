@@ -83,7 +83,7 @@ def _extract_ui_marker(text: str) -> tuple[str, dict | None]:
     match = re.search(r"\[UI:\s*(\w+)=([^\]]+)\]", text)
     if match:
         ui_key = match.group(1).strip()
-        ui_val = match.group(2).strip()[:30]
+        ui_val = match.group(2).strip()  # kein Truncate — backgroundImage URLs sind lang
         text = re.sub(r"\s*\[UI:[^\]]+\]", "", text).strip()
         ui_update = {ui_key: ui_val}
     return text, ui_update
