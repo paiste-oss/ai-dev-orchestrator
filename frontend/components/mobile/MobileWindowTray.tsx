@@ -14,16 +14,33 @@ interface MobileWindowTrayProps {
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
   onAdd: () => void;
+  onShowChat: () => void;
 }
 
 export default function MobileWindowTray({
-  cards, activeWindowId, panelOpen, onActivate, onClose, onAdd,
+  cards, activeWindowId, panelOpen, onActivate, onClose, onAdd, onShowChat,
 }: MobileWindowTrayProps) {
+  const chatActive = !panelOpen;
   return (
     <div
       className="flex items-center gap-2 px-3 py-2 border-t border-white/5 shrink-0"
       style={{ overflowX: "auto", scrollbarWidth: "none" }}
     >
+      {/* Chat-Tab — immer sichtbar */}
+      <button
+        onClick={onShowChat}
+        className={`shrink-0 flex items-center gap-1.5 px-2.5 h-8 rounded-lg border text-xs font-medium transition-all select-none ${
+          chatActive
+            ? "bg-indigo-600/30 border-indigo-500/50 text-indigo-200"
+            : "bg-white/5 border-white/8 text-gray-400 active:bg-white/10"
+        }`}
+        title="Zum Chat"
+      >
+        <span className="text-sm leading-none">💬</span>
+        <span className="text-[11px]">Chat</span>
+      </button>
+
+      {/* Fenster-Tabs */}
       {cards.map(card => (
         <TrayItem
           key={card.id}
@@ -33,6 +50,8 @@ export default function MobileWindowTray({
           onClose={onClose}
         />
       ))}
+
+      {/* Fenster hinzufügen */}
       <button
         onClick={onAdd}
         className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 border border-white/8 transition-colors"

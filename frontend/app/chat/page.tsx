@@ -629,11 +629,7 @@ export default function ChatPage() {
   if (isMobile) {
     const nonChatCards = cards.filter(c => c.id !== CHAT_CARD_ID);
     const activeCard = activeMobileWindowId ? cards.find(c => c.id === activeMobileWindowId) : null;
-    const trayVisible = nonChatCards.length > 0;
-    const mobileAvailableH = (typeof window !== "undefined"
-      ? (window.visualViewport?.height ?? window.innerHeight)
-      : 800) - 48 - 64 - (trayVisible ? 48 : 0); // minus TopBar, Input, Tray
-    const maxPanelFraction = keyboardVisible ? 0.35 : 0.55;
+    const showChat = !mobilePanelOpen;
 
     return (
       <div className="flex flex-col h-[100dvh] text-white overflow-hidden" style={bgStyle}>
@@ -649,10 +645,10 @@ export default function ChatPage() {
           onAdminBack={() => router.push("/admin")}
         />
 
-        {/* ── Chat Scroll ── */}
+        {/* ── Chat Scroll — versteckt wenn Panel offen ── */}
         <div
           ref={chatScrollRef}
-          className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0"
+          className={`overflow-y-auto px-3 py-3 space-y-3 min-h-0 ${showChat ? "flex-1" : "hidden"}`}
           onScroll={() => {
             const el = chatScrollRef.current;
             if (!el) return;
@@ -694,15 +690,11 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* ── Pinned Panel (über dem Tray, wächst nach oben) ── */}
+        {/* ── Panel — füllt den Platz des Chats wenn offen ── */}
         {mobilePanelOpen && activeCard && (
           <MobilePinnedPanel
             card={activeCard}
-            heightFraction={mobilePanelHeight}
-            maxHeightFraction={maxPanelFraction}
-            availableHeight={mobileAvailableH}
             onClose={() => setMobilePanelOpen(false)}
-            onHeightChange={setMobilePanelHeight}
           >
             {renderWindowContent(activeCard)}
           </MobilePinnedPanel>
@@ -719,6 +711,7 @@ export default function ChatPage() {
             if (id === activeMobileWindowId) setMobilePanelOpen(false);
           }}
           onAdd={() => setShowMobileWindowPicker(true)}
+          onShowChat={() => setMobilePanelOpen(false)}
         />
 
         {/* ── Input (ganz unten) ── */}
