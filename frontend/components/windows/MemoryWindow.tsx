@@ -9,12 +9,13 @@ interface Props {
   buddyName?: string;
   memories: MemoryItem[];
   onDelete: (id: string) => void;
+  onRefresh?: () => void;
 }
 
 type CategoryFilter = "all" | "fact" | "style";
 type TimeFilter = "all" | "7d" | "30d" | "90d";
 
-export default function MemoryWindow({ buddyName = "Baddi", memories, onDelete }: Props) {
+export default function MemoryWindow({ buddyName = "Baddi", memories, onDelete, onRefresh }: Props) {
   const [catFilter, setCatFilter] = useState<CategoryFilter>("all");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
@@ -39,8 +40,16 @@ export default function MemoryWindow({ buddyName = "Baddi", memories, onDelete }
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-2.5 border-b border-white/5 shrink-0">
+      <div className="px-4 py-2.5 border-b border-white/5 shrink-0 flex items-center justify-between">
         <p className="text-xs text-gray-500">Was {buddyName} über dich weiss</p>
+        {onRefresh && (
+          <button onClick={onRefresh} title="Aktualisieren"
+            className="text-gray-600 hover:text-gray-300 transition-colors p-1 rounded hover:bg-white/5">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Filter Bar */}
