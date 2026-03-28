@@ -12,22 +12,11 @@ from core.database import get_db
 from core.dependencies import get_current_user
 from models.customer import Customer
 from models.stock_portfolio import StockPortfolio
+from services.yfinance_utils import fetch_history, fetch_price, search_symbols
 
 router = APIRouter(prefix="/stocks", tags=["stocks"])
 
 VALID_PERIODS = {"1mo", "3mo", "6mo", "1y", "2y", "5y"}
-
-
-# ── Hilfsfunktion: aktueller Kurs ─────────────────────────────────────────────
-
-def _current_price(symbol: str) -> tuple[float | None, str]:
-    """Gibt (letzter Kurs, Währung) zurück."""
-    try:
-        import yfinance as yf
-        fi = yf.Ticker(symbol).fast_info
-        return getattr(fi, "last_price", None), getattr(fi, "currency", "?")
-    except Exception:
-        return None, "?"
 
 
 # ── History ────────────────────────────────────────────────────────────────────
@@ -41,41 +30,7 @@ async def stock_history(
     symbol = symbol.upper().strip()
     if period not in VALID_PERIODS:
         period = "1y"
-    try:
-        import yfinance as yf
-        ticker = yf.Ticker(symbol)
-        interval = "1wk" if period in ("1mo", "3mo", "6mo") else "1mo"
-        hist = ticker.history(period=period, interval=interval)
-        if hist.empty:
-            return {"error": f"Keine Daten für '{symbol}'"}
-
-        closes = hist["Close"].dropna()
-        rows = []
-        for i, (date, close) in enumerate(closes.items()):
-            change_pct = None
-            if i > 0:
-                prev = closes.iloc[i - 1]
-                if prev > 0:
-                    change_pct = round((close - prev) / prev * 100, 2)
-            rows.append({"date": date.strftime("%Y-%m-%d"), "close": round(float(close), 2), "change_pct": change_pct})
-
-        first_close = float(closes.iloc[0])
-        last_close = float(closes.iloc[-1])
-        try:
-            info = ticker.info
-            name = info.get("longName") or info.get("shortName") or symbol
-        except Exception:
-            name = symbol
-
-        return {
-            "symbol": symbol, "name": name, "period": period,
-            "currency": getattr(ticker.fast_info, "currency", "?"),
-            "total_change_pct": round((last_close - first_close) / first_close * 100, 2),
-            "start_price": round(first_close, 2), "end_price": round(last_close, 2),
-            "data_points": rows,
-        }
-    except Exception as e:
-        return {"error": f"Fehler für '{symbol}': {e}"}
+    return fetch_history(symbol, period)
 
 
 # ── Search ─────────────────────────────────────────────────────────────────────
@@ -85,16 +40,8 @@ async def stock_search(
     q: str = Query(...),
     _customer: Customer = Depends(get_current_user),
 ):
-    try:
-        import yfinance as yf
-        results = yf.Search(q, max_results=6)
-        quotes = getattr(results, "quotes", []) or []
-        return [
-            {"symbol": r.get("symbol"), "name": r.get("longname") or r.get("shortname") or r.get("symbol")}
-            for r in quotes[:6] if isinstance(r, dict) and r.get("symbol")
-        ]
-    except Exception as e:
-        return {"error": str(e)}
+    results = search_symbols(q)
+    return [{"symbol": r["symbol"], "name": r["name"]} for r in results]
 
 
 # ── News ───────────────────────────────────────────────────────────────────────
@@ -169,7 +116,7 @@ async def get_portfolio(
 
     out = []
     for pos in positions:
-        price, currency = _current_price(pos.symbol)
+        price, currency = fetch_price(pos.symbol)
         current_value = round(price * pos.quantity, 2) if price else None
         cost_basis = round(pos.buy_price * pos.quantity, 2)
         gain = round(current_value - cost_basis, 2) if current_value is not None else None

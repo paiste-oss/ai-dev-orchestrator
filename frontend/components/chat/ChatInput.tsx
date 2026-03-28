@@ -3,12 +3,9 @@
 import React, { useCallback } from "react";
 import dynamic from "next/dynamic";
 import FileDropZone, { AttachedFile } from "@/components/FileDropZone";
+import { FONT_SIZES } from "@/hooks/useUiPrefs";
 
 const VoiceButton = dynamic(() => import("@/components/VoiceButton"), { ssr: false });
-
-const FONT_SIZES: Record<string, string> = {
-  small: "13px", normal: "15px", large: "18px", xlarge: "21px",
-};
 
 interface ChatInputProps {
   input: string;

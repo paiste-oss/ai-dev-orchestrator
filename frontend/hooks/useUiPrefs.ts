@@ -26,6 +26,10 @@ export const ACCENT_COLORS: Record<string, string> = {
   yellow: "#eab308", white: "#e5e7eb",
 };
 
+export const CHAT_WIDTHS: Record<string, string> = {
+  compact: "55%", normal: "75%", wide: "90%", full: "100%",
+};
+
 export const BG_COLORS: Record<string, string> = {
   dark: "#030712", darker: "#000000", lighter: "#111827",
   slate: "#0f172a", navy: "#0c1445", forest: "#0a1a0f", wine: "#1a0a12", warm: "#1a1208",

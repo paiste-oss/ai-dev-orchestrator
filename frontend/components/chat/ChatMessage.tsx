@@ -14,27 +14,7 @@ import {
   StockData, StockHistoryData, ImageGalleryData,
   TransportBoardData, ActionButtonsData, BrowserViewData,
 } from "@/lib/chat-types";
-
-const FONT_SIZES: Record<string, string> = {
-  small: "13px", normal: "15px", large: "18px", xlarge: "21px",
-};
-const FONT_FAMILIES: Record<string, string> = {
-  system:  '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif',
-  mono:    '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
-  rounded: '"Nunito", "Varela Round", "Quicksand", sans-serif',
-  serif:   'Georgia, "Times New Roman", serif',
-};
-const LINE_SPACINGS: Record<string, string> = {
-  compact: "1.4", normal: "1.625", wide: "2",
-};
-const ACCENT_COLORS: Record<string, string> = {
-  indigo: "#6366f1", purple: "#a855f7", sky: "#0ea5e9", green: "#22c55e",
-  teal: "#14b8a6", orange: "#f97316", pink: "#ec4899", red: "#ef4444",
-  yellow: "#eab308", white: "#e5e7eb",
-};
-const CHAT_WIDTHS: Record<string, string> = {
-  compact: "55%", normal: "75%", wide: "90%", full: "100%",
-};
+import { FONT_SIZES, FONT_FAMILIES, LINE_SPACINGS, ACCENT_COLORS, CHAT_WIDTHS } from "@/hooks/useUiPrefs";
 
 interface ChatMessageProps {
   msg: Message;

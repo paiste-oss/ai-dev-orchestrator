@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { MemoryItem } from "@/lib/chat-types";
 import { useState } from "react";
+import { formatDate } from "@/lib/format";
 
 interface Props {
   buddyName?: string;
@@ -34,9 +35,6 @@ export default function MemoryWindow({ buddyName = "Baddi", memories, onDelete }
         return sortDir === "desc" ? diff : -diff;
       });
   }, [memories, catFilter, timeFilter, sortDir]);
-
-  const fmt = (d: string) =>
-    new Date(d).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "2-digit" });
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -112,7 +110,7 @@ export default function MemoryWindow({ buddyName = "Baddi", memories, onDelete }
                       {m.category === "style" ? "Stil" : "Fakt"}
                     </span>
                   </td>
-                  <td className="px-2 py-2 text-gray-500 align-top whitespace-nowrap">{fmt(m.created_at)}</td>
+                  <td className="px-2 py-2 text-gray-500 align-top whitespace-nowrap">{formatDate(m.created_at)}</td>
                   <td className="px-2 py-2 text-gray-300 leading-relaxed align-top">{m.content}</td>
                   <td className="px-2 py-2 align-top">
                     <button onClick={() => onDelete(m.id)} title="Löschen"

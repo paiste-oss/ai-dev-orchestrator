@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { UiPrefs } from "@/lib/chat-types";
+import { ACCENT_COLORS as ACCENT_COLORS_MAP, BG_COLORS } from "@/hooks/useUiPrefs";
 
 interface Props {
   prefs: UiPrefs;
@@ -40,25 +41,14 @@ function Chips({ options, value, onChange }: {
   );
 }
 
-const ACCENT_COLORS = [
-  { v: "indigo", hex: "#6366f1" }, { v: "purple", hex: "#a855f7" },
-  { v: "sky",    hex: "#0ea5e9" }, { v: "green",  hex: "#22c55e" },
-  { v: "teal",   hex: "#14b8a6" }, { v: "orange", hex: "#f97316" },
-  { v: "pink",   hex: "#ec4899" }, { v: "red",    hex: "#ef4444" },
-  { v: "yellow", hex: "#eab308" }, { v: "white",  hex: "#e5e7eb" },
-];
+// Abgeleitet aus zentralem useUiPrefs — kein Duplikat
+const ACCENT_COLORS = Object.entries(ACCENT_COLORS_MAP).map(([v, hex]) => ({ v, hex }));
 
-const BG_OPTIONS = [
-  { v: "dark",    l: "Dunkel",      hex: "#030712" },
-  { v: "darker",  l: "Tiefschwarz", hex: "#000000" },
-  { v: "lighter", l: "Grau",        hex: "#111827" },
-  { v: "slate",   l: "Slate",       hex: "#0f172a" },
-  { v: "navy",    l: "Navy",        hex: "#0c1445" },
-  { v: "forest",  l: "Forest",      hex: "#0a1a0f" },
-  { v: "wine",    l: "Wine",        hex: "#1a0a12" },
-  { v: "warm",    l: "Warm",        hex: "#1a1208" },
-  { v: "white",   l: "Weiss",       hex: "#ffffff" },
-];
+const BG_LABELS: Record<string, string> = {
+  dark: "Dunkel", darker: "Tiefschwarz", lighter: "Grau",
+  slate: "Slate", navy: "Navy", forest: "Forest", wine: "Wine", warm: "Warm", white: "Weiss",
+};
+const BG_OPTIONS = Object.entries(BG_COLORS).map(([v, hex]) => ({ v, hex, l: BG_LABELS[v] ?? v }));
 
 export default function DesignWindow({ prefs, onPrefsChange }: Props) {
   const [saved, setSaved] = useState(false);

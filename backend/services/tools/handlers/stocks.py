@@ -1,6 +1,7 @@
 """Handler für Aktien-Tools: get_stock_price, search_stock_symbol, get_stock_history, stock_alerts."""
 from __future__ import annotations
 from typing import Any
+from services.yfinance_utils import fetch_history, search_symbols
 
 
 async def _handle_stock(tool_name: str, tool_input: dict) -> Any:
@@ -50,68 +51,15 @@ async def _handle_stock(tool_name: str, tool_input: dict) -> Any:
 
     if tool_name == "search_stock_symbol":
         company = tool_input.get("company_name", "")
-        try:
-            import yfinance as yf
-            results = yf.Search(company, max_results=5)
-            quotes = getattr(results, "quotes", []) or []
-            out = []
-            for q in quotes[:5]:
-                if isinstance(q, dict):
-                    out.append({
-                        "symbol": q.get("symbol"),
-                        "name": q.get("longname") or q.get("shortname"),
-                        "exchange": q.get("exchange"),
-                        "type": q.get("quoteType"),
-                    })
-            return out if out else {"message": f"Keine Ergebnisse für '{company}'"}
-        except Exception as e:
-            return {"error": f"Suche fehlgeschlagen: {e}"}
+        results = search_symbols(company, max_results=5)
+        if not results:
+            return {"message": f"Keine Ergebnisse für '{company}'"}
+        return results
 
     if tool_name == "get_stock_history":
         symbol = tool_input.get("symbol", "").upper()
         period = tool_input.get("period", "1y")
-        try:
-            import yfinance as yf
-            ticker = yf.Ticker(symbol)
-
-            # Intervall: bei kurzem Zeitraum wöchentlich, sonst monatlich
-            interval = "1wk" if period in ("1mo", "3mo", "6mo") else "1mo"
-            hist = ticker.history(period=period, interval=interval)
-
-            if hist.empty:
-                return {"error": f"Keine historischen Daten für '{symbol}'"}
-
-            # Kompakte Tabelle: Datum + Schlusskurs + Veränderung %
-            rows = []
-            closes = hist["Close"].dropna()
-            for i, (date, close) in enumerate(closes.items()):
-                change_pct = None
-                if i > 0:
-                    prev = closes.iloc[i - 1]
-                    if prev > 0:
-                        change_pct = round((close - prev) / prev * 100, 2)
-                rows.append({
-                    "date": date.strftime("%Y-%m-%d"),
-                    "close": round(float(close), 2),
-                    "change_pct": change_pct,
-                })
-
-            # Zusammenfassung
-            first_close = float(closes.iloc[0])
-            last_close = float(closes.iloc[-1])
-            total_change_pct = round((last_close - first_close) / first_close * 100, 2)
-
-            return {
-                "symbol": symbol,
-                "period": period,
-                "currency": getattr(ticker.fast_info, "currency", "?"),
-                "total_change_pct": total_change_pct,
-                "start_price": round(first_close, 2),
-                "end_price": round(last_close, 2),
-                "data_points": rows,
-            }
-        except Exception as e:
-            return {"error": f"Kursverlauf für '{symbol}' konnte nicht abgerufen werden: {e}"}
+        return fetch_history(symbol, period)
 
     return {"error": f"Unbekanntes Stock-Tool: {tool_name}"}
 
@@ -141,13 +89,9 @@ async def _handle_stock_alerts(tool_name: str, tool_input: dict, customer_id: st
             direction = tool_input.get("direction", "above")
 
             # Aktuellen Kurs für Currency ermitteln
-            currency = "CHF"
-            try:
-                import yfinance as yf
-                info = yf.Ticker(symbol).fast_info
-                currency = getattr(info, "currency", "CHF") or "CHF"
-            except Exception:
-                pass
+            from services.yfinance_utils import fetch_price
+            _, _currency = fetch_price(symbol)
+            currency = _currency if _currency != "?" else "CHF"
 
             alert = StockAlert(
                 customer_id=uuid_mod.UUID(customer_id),
