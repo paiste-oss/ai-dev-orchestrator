@@ -28,7 +28,7 @@ export default function RegisterPage() {
   const [form, setForm] = useState({
     vorname: "", nachname: "",
     geburtstag: "", geburtsmonat: "", geburtsjahr: "",
-    email: "", passwort: "", passwortBestaetigung: "",
+    email: "", mobile: "", passwort: "", passwortBestaetigung: "",
     website: "",
   });
   const [captchaInput, setCaptchaInput] = useState("");
@@ -84,6 +84,7 @@ export default function RegisterPage() {
           birth_date: birthDateString,
           tos_accepted: tosAccepted,
           memory_consent: memoryConsent,
+          phone: form.mobile.trim() || null,
         }),
       });
 
@@ -95,7 +96,7 @@ export default function RegisterPage() {
 
       saveToken(data.access_token);
       saveSession({ name: data.name, email: data.email, role: data.role });
-      router.push(`/register/plan?name=${encodeURIComponent(form.vorname)}`);
+      router.push(`/register/security?name=${encodeURIComponent(form.vorname)}`);
     } catch {
       setError("Server nicht erreichbar. Bitte später nochmals versuchen.");
     } finally {
@@ -162,6 +163,16 @@ export default function RegisterPage() {
             <input required type="email" value={form.email} onChange={(e) => set("email", e.target.value)}
               placeholder="anna@beispiel.ch"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm text-gray-400">
+              Mobilnummer <span className="text-gray-600">(für 2FA-Schutz empfohlen)</span>
+            </label>
+            <input type="tel" value={form.mobile} onChange={(e) => set("mobile", e.target.value)}
+              placeholder="+41791234567"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
+            <p className="text-xs text-gray-600">Optional — ermöglicht SMS-Sicherheitscode beim Login</p>
           </div>
 
           <div className="space-y-1">

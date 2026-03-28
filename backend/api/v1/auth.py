@@ -25,6 +25,7 @@ class RegisterRequest(BaseModel):
     birth_date: date | None = None
     tos_accepted: bool = False       # Pflicht: AGB & Datenschutz
     memory_consent: bool = True      # Optional: Langzeitgedächtnis
+    phone: str | None = None         # Mobilnummer für 2FA
 
 
 class TokenResponse(BaseModel):
@@ -114,6 +115,7 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
         role="customer",
         tos_accepted_at=datetime.utcnow(),
         memory_consent=data.memory_consent,
+        phone=data.phone or None,
     )
     db.add(user)
     await db.commit()
