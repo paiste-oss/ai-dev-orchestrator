@@ -137,16 +137,18 @@ def _extract_window_marker(text: str) -> tuple[str, dict | None]:
     Returns:
         (bereinigter Text, open_window-Dict oder None)
     """
-    VALID_TYPES = {"browser_window", "whiteboard", "image_viewer", "netzwerk"}
+    VALID_TYPES = {"browser_window", "whiteboard", "image_viewer", "netzwerk", "chart"}
     open_window: dict | None = None
-    # Format: [FENSTER: canvasType] oder [FENSTER: canvasType | url]
+    # Format: [FENSTER: canvasType] oder [FENSTER: canvasType | extra]
     match = re.search(r"\[FENSTER:\s*(\w+)(?:\s*\|\s*([^\]]+))?\]", text, re.IGNORECASE)
     if match:
         canvas_type = match.group(1).strip().lower()
-        url = match.group(2).strip() if match.group(2) else None
+        extra = match.group(2).strip() if match.group(2) else None
         if canvas_type in VALID_TYPES:
             open_window = {"canvasType": canvas_type}
-            if url:
-                open_window["url"] = url
+            if canvas_type == "chart" and extra:
+                open_window["symbol"] = extra.upper()
+            elif extra:
+                open_window["url"] = extra
         text = re.sub(r"\s*\[FENSTER:[^\]]+\]", "", text).strip()
     return text, open_window

@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.database import init_db
-from api.v1 import agent, customers, workflows, credentials, oauth, dev_tasks, documents, events, auth, chat, finance, transport, entwicklung, billing, router_admin, llm_admin, system_prompts_admin, tools_admin, integrations_admin, analytics_admin, user_preferences, windows, knowledge
+from api.v1 import agent, customers, workflows, credentials, oauth, dev_tasks, documents, events, auth, chat, finance, transport, entwicklung, billing, router_admin, llm_admin, system_prompts_admin, tools_admin, integrations_admin, analytics_admin, user_preferences, windows, knowledge, stocks
 from api.v1 import settings as portal_settings
 import models.chat      # noqa: F401 — register ChatMessage & MemoryItem with Base.metadata
 import models.finance   # noqa: F401 — register CostEntry with Base.metadata
@@ -64,6 +64,7 @@ app.include_router(analytics_admin.router, prefix="/v1")
 app.include_router(user_preferences.router, prefix="/v1")
 app.include_router(windows.router, prefix="/v1")
 app.include_router(knowledge.router, prefix="/v1")
+app.include_router(stocks.router, prefix="/v1")
 
 
 @app.get("/")

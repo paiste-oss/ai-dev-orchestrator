@@ -16,6 +16,16 @@ export interface WindowModuleDefinition {
 
 export const WINDOW_MODULES: WindowModuleDefinition[] = [
   {
+    id: "chart",
+    label: "Dashboard",
+    icon: "📊",
+    description: "Aktienkurse und Kursverlauf interaktiv vergleichen. Mehrere Symbole gleichzeitig.",
+    defaultWidth: 620,
+    defaultHeight: 420,
+    status: "active",
+    canvasType: "chart",
+  },
+  {
     id: "browser",
     label: "Browser",
     icon: "🌐",

@@ -35,6 +35,7 @@ import DocumentsWindow from "@/components/windows/DocumentsWindow";
 import FileViewerWindow from "@/components/windows/FileViewerWindow";
 import MemoryWindow from "@/components/windows/MemoryWindow";
 import DesignWindow from "@/components/windows/DesignWindow";
+import ChartWindow from "@/components/windows/ChartWindow";
 import { WINDOW_MODULES } from "@/lib/window-registry";
 
 // ── Canvas card state ─────────────────────────────────────────────────────────
@@ -226,7 +227,7 @@ export default function ChatPage() {
           width: wMeta.width, height: wMeta.height,
           minimized: false,
           zIndex: topZ.current,
-          data: d.url ? { url: d.url } : {},
+          data: d.symbol ? { symbol: d.symbol } : d.url ? { url: d.url } : {},
         }]);
       }
       return;
@@ -630,6 +631,8 @@ export default function ChatPage() {
               />
             ) : card.type === "memory" ? (
               <MemoryWindow buddyName={uiPrefs.buddyName ?? "Baddi"} memories={memories} onDelete={deleteMemory} />
+            ) : card.type === "chart" ? (
+              <ChartWindow initialSymbol={card.data?.symbol} />
             ) : card.type === "design" ? (
               <DesignWindow prefs={uiPrefs} onPrefsChange={patch => setUiPrefs(p => ({ ...p, ...patch }))} />
             ) : card.type === "documents" ? (
