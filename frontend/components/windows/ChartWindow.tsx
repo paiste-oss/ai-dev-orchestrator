@@ -50,7 +50,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
 
   const [portfolio, setPortfolio] = useState<PortfolioPosition[]>([]);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
-  const [editPos, setEditPos] = useState<{ symbol: string; quantity: string; buy_price: string } | null>(null);
+  const [editPos, setEditPos] = useState<{ symbol: string; quantity: string; buy_price: string; isNew: boolean } | null>(null);
 
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
@@ -331,7 +331,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
                 </p>
               </div>
               <div className="ml-auto">
-                <button onClick={() => setEditPos({ symbol: "", quantity: "", buy_price: "" })}
+                <button onClick={() => setEditPos({ symbol: "", quantity: "", buy_price: "", isNew: true })}
                   className="px-2.5 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 transition-colors">
                   + Position
                 </button>
@@ -347,7 +347,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
               <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
                 <span className="text-4xl opacity-20">💼</span>
                 <p className="text-gray-600 leading-relaxed">Noch keine Positionen.<br />Füge Aktien mit Kauf-Kurs und Menge hinzu.</p>
-                <button onClick={() => setEditPos({ symbol: "", quantity: "", buy_price: "" })}
+                <button onClick={() => setEditPos({ symbol: "", quantity: "", buy_price: "", isNew: true })}
                   className="px-3 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 transition-colors mt-1">
                   + Erste Position hinzufügen
                 </button>
@@ -387,7 +387,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
                         </td>
                         <td className="px-2 py-2.5">
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => setEditPos({ symbol: pos.symbol, quantity: String(pos.quantity), buy_price: String(pos.buy_price) })}
+                            <button onClick={() => setEditPos({ symbol: pos.symbol, quantity: String(pos.quantity), buy_price: String(pos.buy_price), isNew: false })}
                               className="text-gray-600 hover:text-indigo-400 p-0.5">✏</button>
                             <button onClick={() => deletePosition(pos.symbol)}
                               className="text-gray-600 hover:text-red-400 p-0.5">×</button>
@@ -403,7 +403,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
 
           {portfolio.length > 0 && !editPos && (
             <div className="shrink-0 px-4 py-2 border-t border-white/5 flex justify-end">
-              <button onClick={() => setEditPos({ symbol: "", quantity: "", buy_price: "" })}
+              <button onClick={() => setEditPos({ symbol: "", quantity: "", buy_price: "", isNew: true })}
                 className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors">
                 + Position
               </button>
@@ -456,7 +456,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
           <div className="bg-gray-900 border border-white/10 rounded-2xl p-5 w-72 shadow-2xl">
             <p className="font-semibold text-sm mb-4">{editPos.symbol ? `${editPos.symbol} bearbeiten` : "Position hinzufügen"}</p>
             <div className="space-y-3">
-              {!editPos.symbol && (
+              {editPos.isNew && (
                 <div>
                   <label className="text-[10px] text-gray-500 uppercase tracking-wider">Symbol</label>
                   <input autoFocus value={editPos.symbol} onChange={e => setEditPos(p => p && ({ ...p, symbol: e.target.value.toUpperCase() }))}
