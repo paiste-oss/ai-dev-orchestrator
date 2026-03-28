@@ -75,6 +75,10 @@ services:
       # Browserless.io — Web Automation
       - BROWSERLESS_TOKEN=${BROWSERLESS_TOKEN}
       - BROWSERLESS_URL=${BROWSERLESS_URL}
+      # Twilio (SMS / 2FA)
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER}
     extra_hosts:
       - "host.docker.internal:host-gateway"   # Ollama auf dem Host erreichbar
     depends_on:
@@ -137,6 +141,9 @@ services:
       - SYSTEM_SMTP_USER=${SYSTEM_SMTP_USER}
       - SYSTEM_SMTP_PASSWORD=${SYSTEM_SMTP_PASSWORD}
       - SYSTEM_SMTP_FROM=${SYSTEM_SMTP_FROM:-noreply@baddi.ch}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
