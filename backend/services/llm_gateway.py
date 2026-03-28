@@ -8,9 +8,9 @@ Bedrock-Modus: USE_BEDROCK=true → Calls über AWS eu-central-1 (Frankfurt).
 Daten verlassen die EU nicht.
 """
 import httpx
-import anthropic as _anthropic
 from dataclasses import dataclass
 from core.config import settings, BEDROCK_MODEL_MAP
+from core.clients import get_anthropic_async, get_bedrock_client
 
 
 @dataclass
@@ -22,29 +22,6 @@ class ChatResult:
     @property
     def total_tokens(self) -> int:
         return self.input_tokens + self.output_tokens
-
-
-# Gecachte SDK-Clients
-_ANTHROPIC_CLIENT: _anthropic.AsyncAnthropic | None = None
-_ANTHROPIC_BEDROCK_CLIENT: _anthropic.AsyncAnthropicBedrock | None = None
-
-
-def _get_anthropic_client() -> _anthropic.AsyncAnthropic:
-    global _ANTHROPIC_CLIENT
-    if _ANTHROPIC_CLIENT is None:
-        _ANTHROPIC_CLIENT = _anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
-    return _ANTHROPIC_CLIENT
-
-
-def _get_bedrock_iam_client() -> _anthropic.AsyncAnthropicBedrock:
-    global _ANTHROPIC_BEDROCK_CLIENT
-    if _ANTHROPIC_BEDROCK_CLIENT is None:
-        _ANTHROPIC_BEDROCK_CLIENT = _anthropic.AsyncAnthropicBedrock(
-            aws_access_key=settings.aws_access_key_id,
-            aws_secret_key=settings.aws_secret_access_key,
-            aws_region=settings.aws_region,
-        )
-    return _ANTHROPIC_BEDROCK_CLIENT
 
 
 async def chat_with_claude(
@@ -75,7 +52,7 @@ async def _chat_anthropic_direct(
     if system_prompt:
         kwargs["system"] = system_prompt
 
-    response = await _get_anthropic_client().messages.create(**kwargs)
+    response = await get_anthropic_async().messages.create(**kwargs)
     text = "".join(b.text for b in response.content if hasattr(b, "text"))
     return ChatResult(
         text=text,
@@ -127,7 +104,7 @@ async def _chat_bedrock(
     if system_prompt:
         kwargs["system"] = system_prompt
 
-    response = await _get_bedrock_iam_client().messages.create(**kwargs)
+    response = await get_bedrock_client().messages.create(**kwargs)
     text = "".join(b.text for b in response.content if hasattr(b, "text"))
     return ChatResult(
         text=text,

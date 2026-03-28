@@ -1,34 +1,26 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { apiFetch, getSession } from "@/lib/auth";
+import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import AdminSidebar from "@/components/AdminSidebar";
 import AnalyticsStatCards from "@/components/admin/analytics/AnalyticsStatCards";
 import AnalyticsCharts from "@/components/admin/analytics/AnalyticsCharts";
 import AnalyticsMessageTable from "@/components/admin/analytics/AnalyticsMessageTable";
-
-interface Overview {
-  total_messages: number; unique_sessions: number; total_tokens: number;
-  avg_tokens: number; messages_today: number; messages_7d: number;
-}
-interface ResponseType { response_type: string; cnt: number; }
-interface DailyCount   { day: string; cnt: number; }
-interface HourlyCount  { hour_of_day: number; cnt: number; }
-interface Message {
-  id: string; session_hash: string; user_message: string; assistant_message: string;
-  response_type: string; tokens_used: number; language: string; day: string;
-  hour_of_day: number; system_prompt_name: string; tools_used: string; memory_facts: string;
-}
+import { useAdminPage } from "@/hooks/useAdminPage";
+import type {
+  AnalyticsOverview as Overview,
+  ResponseTypeCount as ResponseType,
+  DailyCount,
+  HourlyCount,
+  AnalyticsMessage as Message,
+} from "@/lib/admin-types";
 
 const PERIOD_OPTIONS = [7, 14, 30, 90];
 const LIMIT = 20;
 
 export default function AnalyticsPage() {
-  const router = useRouter();
-  const [mounted, setMounted]       = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { mounted, sidebarOpen, setSidebarOpen } = useAdminPage();
   const [days, setDays]             = useState(30);
   const [overview, setOverview]     = useState<Overview | null>(null);
   const [rtData, setRtData]         = useState<ResponseType[]>([]);
@@ -56,7 +48,6 @@ export default function AnalyticsPage() {
     setMessages(data.items); setTotal(data.total);
   }, [days, page, rtFilter]);
 
-  useEffect(() => { setMounted(true); const u = getSession(); if (!u || u.role !== "admin") router.replace("/login"); }, []);
   useEffect(() => { loadOverview(); }, [loadOverview]);
   useEffect(() => { setPage(0); }, [days, rtFilter]);
   useEffect(() => { loadMessages(); }, [loadMessages]);

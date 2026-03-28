@@ -2,27 +2,16 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getSession } from "@/lib/auth";
 import { apiFetch } from "@/lib/auth";
-import { API_ROUTES } from "@/lib/config";
-import { BACKEND_URL } from "@/lib/config";
+import { API_ROUTES, BACKEND_URL } from "@/lib/config";
+import { useAdminPage } from "@/hooks/useAdminPage";
 import AdminSidebar from "@/components/AdminSidebar";
 import { USE_CASES } from "@/lib/usecases";
 import { formatDate } from "@/lib/format";
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
 
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  is_active: boolean;
-  created_at: string;
-  primary_usecase_id: string | null;
-  subscription_plan_name: string | null;
-  subscription_status: string | null;
-}
+import type { Customer, CustomerListResponse } from "@/lib/admin-types";
 
 const SUB_STATUS: Record<string, { label: string; color: string }> = {
   active:   { label: "Aktiv",    color: "bg-green-500/20 text-green-300 border-green-500/30"   },
@@ -31,14 +20,6 @@ const SUB_STATUS: Record<string, { label: string; color: string }> = {
   canceled: { label: "Gekündigt", color: "bg-gray-500/20 text-gray-400 border-gray-500/30"     },
   inactive: { label: "Kein Abo", color: "bg-gray-700/40 text-gray-500 border-gray-600/30"     },
 };
-
-interface CustomerListResponse {
-  items: Customer[];
-  total: number;
-  page: number;
-  page_size: number;
-}
-
 
 // ─── Hilfsfunktionen ──────────────────────────────────────────────────────────
 
@@ -97,8 +78,7 @@ function DeleteDialog({ customer, onConfirm, onCancel, loading }: {
 
 export default function CustomersPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { mounted, sidebarOpen, setSidebarOpen } = useAdminPage();
 
   const [search, setSearch]       = useState("");
   const [role, setRole]           = useState("");
@@ -119,11 +99,6 @@ export default function CustomersPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => {
-    const u = getSession();
-    setMounted(true);
-    if (!u || u.role !== "admin") router.replace("/login");
-  }, []);
 
   const fetchCustomers = useCallback(async () => {
     setLoading(true);

@@ -9,19 +9,10 @@ Unterstützt zwei Backends:
 from __future__ import annotations
 import json
 import httpx
-import anthropic
 from typing import Any
 from core.config import settings, BEDROCK_MODEL_MAP
+from core.clients import get_anthropic_sync
 from services.tool_registry import get_tool_defs, call_tool
-
-_ANTHROPIC_CLIENT: anthropic.Anthropic | None = None
-
-
-def _get_anthropic_client() -> anthropic.Anthropic:
-    global _ANTHROPIC_CLIENT
-    if _ANTHROPIC_CLIENT is None:
-        _ANTHROPIC_CLIENT = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-    return _ANTHROPIC_CLIENT
 
 
 async def run_buddy_chat(
@@ -135,7 +126,7 @@ async def _run_anthropic(
     customer_id: str | None = None,
 ) -> dict[str, Any]:
     """Tool Use Loop über Anthropic API direkt."""
-    client = _get_anthropic_client()
+    client = get_anthropic_sync()
     tool_calls_log: list[dict] = []
     total_tokens = 0
     response = None
