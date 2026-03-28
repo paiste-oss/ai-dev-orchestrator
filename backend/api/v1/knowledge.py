@@ -140,11 +140,10 @@ async def trigger_ingestion(
     source = await db.get(KnowledgeSource, source_id)
     if not source:
         raise HTTPException(status_code=404, detail="Quelle nicht gefunden.")
-    from tasks.knowledge_ingestion import ingest_source
-    # Direkt synchron ausführen (blockiert bis fertig) — für Admin-Trigger
-    # Bei grossem Datenvolumen via .delay() asynchron starten
+    # _run_ingestion direkt awaiten (kein asyncio.run() im laufenden Event-Loop)
     try:
-        stats = ingest_source(str(source_id))
+        from tasks.knowledge_ingestion import _run_ingestion
+        stats = await _run_ingestion(str(source_id))
         return {"status": "done", "source": source.name, **stats}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
