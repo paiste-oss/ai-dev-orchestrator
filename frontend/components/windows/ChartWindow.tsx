@@ -28,7 +28,7 @@ interface NewsArticle {
 }
 
 type Period = "1mo" | "3mo" | "6mo" | "1y" | "2y" | "5y";
-type Tab = "chart" | "portfolio" | "news";
+type Tab = "chart" | "overlay" | "portfolio" | "news";
 
 const PERIODS: { v: Period; l: string }[] = [
   { v: "1mo", l: "1M" }, { v: "3mo", l: "3M" }, { v: "6mo", l: "6M" },
@@ -221,9 +221,14 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
 
       {/* Tab bar */}
       <div className="shrink-0 flex border-b border-white/6">
-        {([["chart", "📊 Chart"], ["portfolio", "💼 Portfolio"], ["news", "📰 News"]] as [Tab, string][]).map(([t, l]) => (
+        {([
+          ["chart",     "📊 Chart"],
+          ["overlay",   "📈 Overlay"],
+          ["portfolio", "💼 Portfolio"],
+          ["news",      "📰 News"],
+        ] as [Tab, string][]).map(([t, l]) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2.5 text-xs font-medium transition-colors border-b-2 ${
+            className={`px-3 py-2.5 text-xs font-medium transition-colors border-b-2 ${
               tab === t ? "border-indigo-500 text-white" : "border-transparent text-gray-500 hover:text-gray-300"
             }`}>
             {l}
@@ -231,68 +236,145 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
         ))}
       </div>
 
-      {/* ── CHART TAB ── */}
+      {/* ── SHARED SYMBOL BAR (Chart + Overlay) ── */}
+      {(tab === "chart" || tab === "overlay") && (
+        <div className="shrink-0 px-3 pt-2.5 pb-2 border-b border-white/5 space-y-2">
+          <div className="flex flex-wrap gap-1.5 items-center">
+            {symbols.map((sym, i) => {
+              const sd = chartData[sym];
+              const isPos = sd && !sd.error ? sd.total_change_pct >= 0 : null;
+              return (
+                <div key={sym} className="flex items-center gap-1 px-2 py-0.5 rounded-lg border"
+                  style={{ borderColor: LINE_COLORS[i % LINE_COLORS.length] + "40", background: LINE_COLORS[i % LINE_COLORS.length] + "12" }}>
+                  <span className="font-mono font-semibold" style={{ color: LINE_COLORS[i % LINE_COLORS.length] }}>{sym}</span>
+                  {sd && !sd.error && isPos !== null && (
+                    <span className={isPos ? "text-emerald-400" : "text-red-400"}>
+                      {isPos ? "+" : ""}{sd.total_change_pct.toFixed(1)}%
+                    </span>
+                  )}
+                  {sd?.error && <span className="text-red-400" title={sd.error}>!</span>}
+                  {loadingSymbols.has(sym) && <span className="text-gray-500 animate-pulse">…</span>}
+                  <button onClick={() => removeSymbol(sym)} className="text-gray-600 hover:text-red-400 ml-0.5">×</button>
+                </div>
+              );
+            })}
+            {/* Search */}
+            <div className="relative">
+              <input value={searchInput} onChange={e => handleSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && searchInput.trim()) addSymbol(searchInput); }}
+                placeholder="+ Symbol" className="w-24 bg-white/5 border border-white/10 rounded-lg px-2 py-0.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/25" />
+              {(searchResults.length > 0 || searching) && (
+                <div className="absolute left-0 top-7 min-w-[200px] rounded-xl border border-white/10 shadow-2xl overflow-hidden z-50"
+                  style={{ background: "rgba(8,12,22,0.97)" }}>
+                  {searching && <div className="px-3 py-2 text-gray-500">Suche…</div>}
+                  {searchResults.map(r => (
+                    <button key={r.symbol} onClick={() => addSymbol(r.symbol)}
+                      className="w-full text-left px-3 py-2 hover:bg-white/8 flex gap-2">
+                      <span className="font-mono text-white">{r.symbol}</span>
+                      <span className="text-gray-500 truncate">{r.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          {/* Period selector */}
+          <div className="flex gap-1 items-center">
+            {PERIODS.map(p => (
+              <button key={p.v} onClick={() => setPeriod(p.v)}
+                className={`px-2 py-0.5 rounded transition-colors ${
+                  period === p.v ? "bg-indigo-500/20 border border-indigo-500/40 text-indigo-300" : "text-gray-500 hover:text-gray-300"
+                }`}>{p.l}</button>
+            ))}
+            {isChartLoading && <span className="text-gray-600 ml-1 animate-pulse">lädt…</span>}
+          </div>
+        </div>
+      )}
+
+      {/* ── CHART TAB — individuelle Diagramme ── */}
       {tab === "chart" && (
-        <div className="flex-1 flex flex-col min-h-0">
-          {/* Symbol bar */}
-          <div className="shrink-0 px-3 pt-2.5 pb-2 border-b border-white/5 space-y-2">
-            <div className="flex flex-wrap gap-1.5 items-center">
+        <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3">
+          {symbols.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center gap-2 text-center">
+              <span className="text-4xl opacity-20">📊</span>
+              <p className="text-gray-600">Symbol oben eingeben und Enter drücken</p>
+            </div>
+          ) : (
+            <div className="grid gap-3" style={{ gridTemplateColumns: symbols.length === 1 ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))" }}>
               {symbols.map((sym, i) => {
                 const sd = chartData[sym];
-                const isPos = sd && !sd.error ? sd.total_change_pct >= 0 : null;
+                const color = LINE_COLORS[i % LINE_COLORS.length];
+                const isPos = sd && !sd.error && sd.total_change_pct >= 0;
+                const pts = sd?.data_points?.map(p => ({ date: p.date.substring(0, 7), close: p.close })) ?? [];
                 return (
-                  <div key={sym} className="flex items-center gap-1 px-2 py-0.5 rounded-lg border"
-                    style={{ borderColor: LINE_COLORS[i % LINE_COLORS.length] + "40", background: LINE_COLORS[i % LINE_COLORS.length] + "12" }}>
-                    <span className="font-mono font-semibold" style={{ color: LINE_COLORS[i % LINE_COLORS.length] }}>{sym}</span>
-                    {sd && !sd.error && isPos !== null && (
-                      <span className={isPos ? "text-emerald-400" : "text-red-400"}>
-                        {isPos ? "+" : ""}{sd.total_change_pct.toFixed(1)}%
-                      </span>
-                    )}
-                    {sd?.error && <span className="text-red-400" title={sd.error}>!</span>}
-                    {loadingSymbols.has(sym) && <span className="text-gray-500 animate-pulse">…</span>}
-                    <button onClick={() => removeSymbol(sym)} className="text-gray-600 hover:text-red-400 ml-0.5">×</button>
+                  <div key={sym} className="rounded-xl border border-white/6 bg-white/2 overflow-hidden">
+                    {/* Card header */}
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
+                      <div>
+                        <span className="font-mono font-semibold" style={{ color }}>{sym}</span>
+                        {sd?.name && sd.name !== sym && (
+                          <span className="text-gray-600 ml-2 truncate max-w-[120px] inline-block align-bottom">{sd.name}</span>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        {sd?.data_points ? (
+                          <>
+                            <span className="text-white tabular-nums">{sd.end_price.toFixed(2)} <span className="text-gray-600">{sd.currency}</span></span>
+                            <span className={`ml-2 ${isPos ? "text-emerald-400" : "text-red-400"}`}>
+                              {isPos ? "▲" : "▼"} {Math.abs(sd.total_change_pct).toFixed(2)}%
+                            </span>
+                          </>
+                        ) : sd?.error ? (
+                          <span className="text-red-400 text-[10px]">Fehler</span>
+                        ) : (
+                          <span className="text-gray-600 animate-pulse">lädt…</span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Mini chart */}
+                    <div style={{ height: symbols.length === 1 ? 260 : 140 }}>
+                      {pts.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={pts} margin={{ top: 6, right: 6, left: -24, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                            <XAxis dataKey="date" tick={{ fontSize: 8, fill: "#4b5563" }} tickLine={false} axisLine={false}
+                              interval={Math.max(0, Math.floor(pts.length / 4) - 1)} />
+                            <YAxis tick={{ fontSize: 8, fill: "#4b5563" }} tickLine={false} axisLine={false}
+                              domain={["auto", "auto"]}
+                              tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toFixed(0)} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 11 }}
+                              labelStyle={{ color: "#6b7280" }}
+                              formatter={(value) => [`${Number(value).toFixed(2)} ${sd?.currency ?? ""}`, sym]}
+                            />
+                            <Line type="monotone" dataKey="close" stroke={color} strokeWidth={1.5}
+                              dot={false} activeDot={{ r: 3, strokeWidth: 0 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full flex items-center justify-center">
+                          {loadingSymbols.has(sym)
+                            ? <span className="text-gray-600 animate-pulse">lädt…</span>
+                            : <span className="text-gray-700">Keine Daten</span>}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
-              {/* Search */}
-              <div className="relative">
-                <input value={searchInput} onChange={e => handleSearch(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && searchInput.trim()) addSymbol(searchInput); }}
-                  placeholder="+ Symbol" className="w-24 bg-white/5 border border-white/10 rounded-lg px-2 py-0.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/25" />
-                {(searchResults.length > 0 || searching) && (
-                  <div className="absolute left-0 top-7 min-w-[200px] rounded-xl border border-white/10 shadow-2xl overflow-hidden z-50"
-                    style={{ background: "rgba(8,12,22,0.97)" }}>
-                    {searching && <div className="px-3 py-2 text-gray-500">Suche…</div>}
-                    {searchResults.map(r => (
-                      <button key={r.symbol} onClick={() => addSymbol(r.symbol)}
-                        className="w-full text-left px-3 py-2 hover:bg-white/8 flex gap-2">
-                        <span className="font-mono text-white">{r.symbol}</span>
-                        <span className="text-gray-500 truncate">{r.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
-            {/* Period selector */}
-            <div className="flex gap-1 items-center">
-              {PERIODS.map(p => (
-                <button key={p.v} onClick={() => setPeriod(p.v)}
-                  className={`px-2 py-0.5 rounded transition-colors ${
-                    period === p.v ? "bg-indigo-500/20 border border-indigo-500/40 text-indigo-300" : "text-gray-500 hover:text-gray-300"
-                  }`}>{p.l}</button>
-              ))}
-              {isChartLoading && <span className="text-gray-600 ml-1 animate-pulse">lädt…</span>}
-            </div>
-          </div>
+          )}
+        </div>
+      )}
 
-          {/* Chart */}
+      {/* ── OVERLAY TAB — normalisierter Vergleich ── */}
+      {tab === "overlay" && (
+        <div className="flex-1 flex flex-col min-h-0">
           <div className="flex-1 min-h-0 px-2 py-2">
             {symbols.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center gap-2 text-center">
-                <span className="text-4xl opacity-20">📊</span>
-                <p className="text-gray-600">Symbol eingeben und Enter drücken</p>
+                <span className="text-4xl opacity-20">📈</span>
+                <p className="text-gray-600">Symbol oben eingeben und Enter drücken</p>
               </div>
             ) : !hasChartData && !isChartLoading ? (
               <div className="h-full flex items-center justify-center">
@@ -320,8 +402,6 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
               </ResponsiveContainer>
             )}
           </div>
-
-          {/* Footer: Kursdetails */}
           {hasChartData && (
             <div className="shrink-0 border-t border-white/5 px-3 py-1.5 flex flex-wrap gap-x-4 gap-y-0.5">
               {symbols.map((sym, i) => {
