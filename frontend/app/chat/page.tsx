@@ -440,7 +440,33 @@ export default function ChatPage() {
     chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: "smooth" });
     const provider = await sendMessage({
       input, attachedFiles,
-      onUiUpdate: (update) => setUiPrefs(p => ({ ...p, ...update })),
+      onUiUpdate: async (update) => {
+        // Wenn backgroundImage eine externe URL ist → als base64 herunterladen (DALL-E URLs laufen ab)
+        if (update.backgroundImage && (update.backgroundImage as string).startsWith("http")) {
+          try {
+            const res = await fetch(update.backgroundImage as string);
+            const blob = await res.blob();
+            const dataUrl = await new Promise<string>((resolve) => {
+              const img = new Image();
+              img.onload = () => {
+                const canvas = document.createElement("canvas");
+                const maxW = 1920, maxH = 1080;
+                let { naturalWidth: w, naturalHeight: h } = img;
+                if (w > maxW || h > maxH) {
+                  const r = Math.min(maxW / w, maxH / h);
+                  w = Math.round(w * r); h = Math.round(h * r);
+                }
+                canvas.width = w; canvas.height = h;
+                canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+                resolve(canvas.toDataURL("image/jpeg", 0.80));
+              };
+              img.src = URL.createObjectURL(blob);
+            });
+            update = { ...update, backgroundImage: dataUrl as any };
+          } catch { /* bei Fehler URL direkt verwenden */ }
+        }
+        setUiPrefs(p => ({ ...p, ...update }));
+      },
       speak, stripMarkdown,
       onAfterSend: () => setInput(""),
       onFilesChange: setAttachedFiles,
