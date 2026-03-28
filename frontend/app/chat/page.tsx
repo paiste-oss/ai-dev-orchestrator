@@ -183,6 +183,19 @@ export default function ChatPage() {
     }
   }, [messages, loading]);
 
+  // Keep scroll anchored to bottom when container resizes (window resize, mobile keyboard)
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      if (!userScrolledUp.current) {
+        el.scrollTop = el.scrollHeight;
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // Spawn canvas cards for rich responses
   useEffect(() => {
     const last = messages[messages.length - 1];

@@ -1,9 +1,3 @@
-✓ [2026-03-22 20:41] Bitte zeige hier auf der Devtool Seite nur Einträge der letzten 72h an. Für die 
-Fertig. Logik:
-- Tasks älter als **72h** werden ausgeblendet
-- Die **jüngsten 5** bleiben immer sichtbar, egal wie alt
-- Gefiltert wird im Frontend nach dem Fetch, das Backend bleibt unverändert
----
 ✓ [2026-03-22 22:13] Bitte füge auf der Chat Seite einen Button ein, der Zurück heisst und auf die Ad
 Fertig. Im Chat-Header erscheint jetzt ein "← Zurück"-Button, der nur für Admin-User sichtbar ist und direkt zur Admin-Seite navigiert.
 ---
@@ -50,3 +44,10 @@ Die Regel greift nur auf `<svg>`-Elemente mit diesen Klassen — keine Auswirkun
 ---
 ✓ [2026-03-28 09:35] Schau dir im Namensnetz die Zoom Funktion des Canvas an. Auf dem Mobile springt 
 Fertig. Der Pinch-Zoom-Faktor ist jetzt pro Frame auf **±12%** begrenzt (`rawRatio` wird auf `0.88–1.12` geclampt). Das verhindert die unkontrollierten Sprünge auf Mobile, während normale Pinch-Gesten weiterhin flüssig funktionieren.
+---
+✓ [2026-03-28 13:18] Schau dir bitte das Chat Fenster im Chat an. Wenn man das Fenster verkleinert sc
+Fertig. Der Fix:
+- Ein `ResizeObserver` beobachtet den Chat-Scroll-Container
+- Sobald das Fenster kleiner wird (oder die mobile Tastatur aufgeht), scrollt er sofort ans Ende
+- Nur wenn der User manuell nach oben gescrollt hat (`userScrolledUp.current`), bleibt die Position stehen
+Das gilt für beide Layouts (Mobile & Desktop). Der Baddi-Ladeindikator bleibt jetzt immer sichtbar, weil beim Erscheinen schon der bestehende `useEffect([messages, loading])` scrollt — und beim anschliessenden Resize-Ereignis der neue Observer übernimmt.
