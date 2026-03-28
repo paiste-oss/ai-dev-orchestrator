@@ -509,7 +509,8 @@ async def get_memories(
     result = await db.execute(
         select(MemoryItem)
         .where(MemoryItem.customer_id == str(customer.id), MemoryItem.is_active.is_(True))
-        .order_by(MemoryItem.importance.desc(), MemoryItem.created_at.desc())
+        .order_by(MemoryItem.created_at.desc())
+        .limit(100)
     )
     return [
         MemoryOut(
