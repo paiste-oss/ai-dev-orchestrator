@@ -55,6 +55,10 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
 
+  const [modalSearch, setModalSearch] = useState("");
+  const [modalResults, setModalResults] = useState<{ symbol: string; name: string }[]>([]);
+  const [modalSearching, setModalSearching] = useState(false);
+
   // ── Chart data fetching ────────────────────────────────────────────────────
 
   const fetchSymbol = useCallback(async (sym: string, per: Period) => {
@@ -119,6 +123,31 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
 
   useEffect(() => { if (tab === "portfolio") loadPortfolio(); }, [tab, loadPortfolio]);
 
+  async function handleModalSearch(q: string) {
+    setModalSearch(q);
+    setEditPos(p => p && ({ ...p, symbol: q.toUpperCase() }));
+    if (q.length < 2) { setModalResults([]); return; }
+    setModalSearching(true);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/stocks/search?q=${encodeURIComponent(q)}`);
+      const json = await res.json();
+      setModalResults(Array.isArray(json) ? json.slice(0, 5) : []);
+    } catch { setModalResults([]); }
+    finally { setModalSearching(false); }
+  }
+
+  function selectModalSymbol(sym: string) {
+    setEditPos(p => p && ({ ...p, symbol: sym }));
+    setModalSearch(sym);
+    setModalResults([]);
+  }
+
+  function closeModal() {
+    setEditPos(null);
+    setModalSearch("");
+    setModalResults([]);
+  }
+
   async function savePosition() {
     if (!editPos) return;
     await apiFetch(`${BACKEND_URL}/v1/stocks/portfolio`, {
@@ -129,7 +158,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
         buy_price: parseFloat(editPos.buy_price),
       }),
     });
-    setEditPos(null);
+    closeModal();
     loadPortfolio();
   }
 
@@ -331,7 +360,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
                 </p>
               </div>
               <div className="ml-auto">
-                <button onClick={() => setEditPos({ symbol: "", quantity: "", buy_price: "", isNew: true })}
+                <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", isNew: true }); setModalSearch(""); setModalResults([]); }}
                   className="px-2.5 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 transition-colors">
                   + Position
                 </button>
@@ -347,7 +376,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
               <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
                 <span className="text-4xl opacity-20">💼</span>
                 <p className="text-gray-600 leading-relaxed">Noch keine Positionen.<br />Füge Aktien mit Kauf-Kurs und Menge hinzu.</p>
-                <button onClick={() => setEditPos({ symbol: "", quantity: "", buy_price: "", isNew: true })}
+                <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", isNew: true }); setModalSearch(""); setModalResults([]); }}
                   className="px-3 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 transition-colors mt-1">
                   + Erste Position hinzufügen
                 </button>
@@ -403,7 +432,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
 
           {portfolio.length > 0 && !editPos && (
             <div className="shrink-0 px-4 py-2 border-t border-white/5 flex justify-end">
-              <button onClick={() => setEditPos({ symbol: "", quantity: "", buy_price: "", isNew: true })}
+              <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", isNew: true }); setModalSearch(""); setModalResults([]); }}
                 className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors">
                 + Position
               </button>
@@ -457,11 +486,29 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
             <p className="font-semibold text-sm mb-4">{editPos.symbol ? `${editPos.symbol} bearbeiten` : "Position hinzufügen"}</p>
             <div className="space-y-3">
               {editPos.isNew && (
-                <div>
+                <div className="relative">
                   <label className="text-[10px] text-gray-500 uppercase tracking-wider">Symbol</label>
-                  <input autoFocus value={editPos.symbol} onChange={e => setEditPos(p => p && ({ ...p, symbol: e.target.value.toUpperCase() }))}
-                    placeholder="z.B. NESN.SW"
-                    className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500/50" />
+                  <input
+                    autoFocus
+                    value={modalSearch}
+                    onChange={e => handleModalSearch(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Escape") { setModalResults([]); } }}
+                    placeholder="z.B. NESN.SW oder Nestlé"
+                    className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500/50"
+                  />
+                  {(modalResults.length > 0 || modalSearching) && (
+                    <div className="absolute left-0 top-full mt-1 w-full rounded-xl border border-white/10 shadow-2xl overflow-hidden z-50"
+                      style={{ background: "rgba(8,12,22,0.97)" }}>
+                      {modalSearching && <div className="px-3 py-2 text-gray-500 text-xs">Suche…</div>}
+                      {modalResults.map(r => (
+                        <button key={r.symbol} type="button" onClick={() => selectModalSymbol(r.symbol)}
+                          className="w-full text-left px-3 py-2 hover:bg-white/8 flex gap-2 text-xs">
+                          <span className="font-mono text-white">{r.symbol}</span>
+                          <span className="text-gray-500 truncate">{r.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               <div>
@@ -478,7 +525,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
               </div>
             </div>
             <div className="flex gap-2 mt-5">
-              <button onClick={() => setEditPos(null)}
+              <button onClick={closeModal}
                 className="flex-1 py-1.5 rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">Abbrechen</button>
               <button onClick={savePosition}
                 disabled={!editPos.symbol || !editPos.quantity || !editPos.buy_price}
