@@ -32,6 +32,7 @@ const NAV: NavEntry[] = [
       { label: "n8n Workflows",  href: "/admin/workflows",                     icon: "⇆" },
       { label: "Backend Tasks",  href: "/admin/workflows/celery",              icon: "⏱" },
       { label: "Agenten",        href: "/admin/workflows/agents",              icon: "◈" },
+      { label: "Wissensbasis",   href: "/admin/knowledge",                     icon: "📚" },
     ],
   },
   {
