@@ -26,3 +26,21 @@ def create_access_token(subject: str, role: str) -> str:
 def decode_access_token(token: str) -> dict:
     """Raises JWTError on invalid or expired token."""
     return jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+
+
+def create_temp_token(subject: str) -> str:
+    """Kurzlebiger Token (5 Min) für den 2FA-Pending-State nach erstem Login-Schritt."""
+    expire = datetime.now(timezone.utc) + timedelta(minutes=5)
+    return jwt.encode(
+        {"sub": subject, "scope": "2fa_pending", "exp": expire},
+        settings.secret_key,
+        algorithm=settings.algorithm,
+    )
+
+
+def decode_temp_token(token: str) -> str:
+    """Gibt die E-Mail zurück oder wirft JWTError. Prüft scope=2fa_pending."""
+    payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+    if payload.get("scope") != "2fa_pending":
+        raise ValueError("Ungültiger Token-Scope")
+    return payload["sub"]

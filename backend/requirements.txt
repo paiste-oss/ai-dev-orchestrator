@@ -26,6 +26,7 @@ chardet
 pillow
 pycryptodome
 stripe
+twilio
 yfinance
 boto3
 beautifulsoup4

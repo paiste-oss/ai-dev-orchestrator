@@ -214,6 +214,9 @@ async def init_db():
             )""",
             "CREATE INDEX IF NOT EXISTS idx_training_reminders_active ON training_reminders(is_active) WHERE is_active = true",
             "CREATE INDEX IF NOT EXISTS idx_training_reminders_customer ON training_reminders(customer_id)",
+            # 2-Faktor-Authentifizierung
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS two_fa_enabled BOOLEAN DEFAULT false",
+            "ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT false",
         ]
         for sql in migrations:
             await conn.execute(text(sql))

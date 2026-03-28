@@ -8,12 +8,14 @@ import { ChatAppearanceSection } from "@/components/user/settings/ChatAppearance
 import { ProfileSection } from "@/components/user/settings/ProfileSection";
 import { PasswordSection } from "@/components/user/settings/PasswordSection";
 import { MemorySection } from "@/components/user/settings/MemorySection";
+import { TwoFASection } from "@/components/user/settings/TwoFASection";
 
 interface Me {
   id: string; name: string; email: string; role: string;
   memory_consent: boolean; language: string; phone: string | null;
   address_street: string | null; address_zip: string | null;
   address_city: string | null; address_country: string | null;
+  two_fa_enabled: boolean; phone_verified: boolean;
 }
 
 export default function UserSettingsPage() {
@@ -47,6 +49,12 @@ export default function UserSettingsPage() {
         <ChatAppearanceSection />
         <ProfileSection me={me} />
         <PasswordSection />
+        <TwoFASection
+          twoFaEnabled={me.two_fa_enabled}
+          phoneVerified={me.phone_verified}
+          phone={me.phone}
+          onStatusChange={(enabled, phone) => setMe(m => m ? { ...m, two_fa_enabled: enabled, phone } : m)}
+        />
         <MemorySection
           memoryConsent={me.memory_consent}
           onConsentChange={val => setMe(m => m ? { ...m, memory_consent: val } : m)}

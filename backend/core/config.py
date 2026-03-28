@@ -92,6 +92,11 @@ class Settings(BaseSettings):
     stripe_price_storage_50gb: str = ""
     stripe_price_storage_500gb: str = ""
 
+    # Twilio (SMS — 2FA, Benachrichtigungen)
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_from_number: str = ""   # E.164 Format z.B. +41XXXXXXXXX
+
     # System-SMTP (für automatische Benachrichtigungen: Kurs-Alerts etc.)
     # Brevo: smtp-relay.brevo.com:587, User=E-Mail, Password=API-Key
     system_smtp_host: str = ""

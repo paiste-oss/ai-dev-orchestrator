@@ -1,10 +1,11 @@
 from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException
+from jose import JWTError
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from core.database import get_db
-from core.security import hash_password, verify_password, create_access_token
+from core.security import hash_password, verify_password, create_access_token, create_temp_token, decode_temp_token
 from core.dependencies import get_current_user
 from models.customer import Customer
 
@@ -34,7 +35,15 @@ class TokenResponse(BaseModel):
     email: str
 
 
-@router.post("/login", response_model=TokenResponse)
+class TwoFAResponse(BaseModel):
+    requires_2fa: bool = True
+    temp_token: str
+    phone_hint: str   # z.B. "+41 79 ***  ** 23"
+
+
+# ─── Login ────────────────────────────────────────────────────────────────────
+
+@router.post("/login")
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Customer).where(Customer.email == data.email.lower()))
     user = result.scalar_one_or_none()
@@ -44,9 +53,48 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account deaktiviert")
 
+    # 2FA aktiv und Telefonnummer verifiziert → OTP senden
+    if user.two_fa_enabled and user.phone_verified and user.phone:
+        from services.twilio_service import generate_and_send_otp
+        generate_and_send_otp(user.phone, str(user.id))
+        temp_token = create_temp_token(user.email)
+        return TwoFAResponse(
+            temp_token=temp_token,
+            phone_hint=_mask_phone(user.phone),
+        )
+
     token = create_access_token(subject=user.email, role=user.role)
     return TokenResponse(access_token=token, role=user.role, name=user.name, email=user.email)
 
+
+# ─── 2FA Verify (zweiter Login-Schritt) ───────────────────────────────────────
+
+class Verify2FARequest(BaseModel):
+    temp_token: str
+    code: str
+
+
+@router.post("/verify-2fa", response_model=TokenResponse)
+async def verify_2fa(data: Verify2FARequest, db: AsyncSession = Depends(get_db)):
+    try:
+        email = decode_temp_token(data.temp_token)
+    except (JWTError, ValueError):
+        raise HTTPException(status_code=401, detail="Ungültiger oder abgelaufener Token")
+
+    result = await db.execute(select(Customer).where(Customer.email == email))
+    user = result.scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="Benutzer nicht gefunden")
+
+    from services.twilio_service import verify_otp
+    if not verify_otp(str(user.id), data.code):
+        raise HTTPException(status_code=401, detail="Ungültiger oder abgelaufener Code")
+
+    token = create_access_token(subject=user.email, role=user.role)
+    return TokenResponse(access_token=token, role=user.role, name=user.name, email=user.email)
+
+
+# ─── Register ─────────────────────────────────────────────────────────────────
 
 @router.post("/register", status_code=201, response_model=TokenResponse)
 async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
@@ -75,6 +123,8 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     return TokenResponse(access_token=token, role=user.role, name=user.name, email=user.email)
 
 
+# ─── Passwort ändern ──────────────────────────────────────────────────────────
+
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
@@ -94,6 +144,8 @@ async def change_password(
     await db.commit()
 
 
+# ─── Profil ───────────────────────────────────────────────────────────────────
+
 @router.get("/me")
 async def me(user: Customer = Depends(get_current_user)):
     return {
@@ -108,4 +160,73 @@ async def me(user: Customer = Depends(get_current_user)):
         "address_zip": user.address_zip,
         "address_city": user.address_city,
         "address_country": user.address_country,
+        "two_fa_enabled": user.two_fa_enabled,
+        "phone_verified": user.phone_verified,
     }
+
+
+# ─── 2FA Verwaltung ───────────────────────────────────────────────────────────
+
+class SendOtpRequest(BaseModel):
+    phone: str   # Telefonnummer für die 2FA (E.164)
+
+
+@router.post("/2fa/send-otp", status_code=204)
+async def send_otp(
+    data: SendOtpRequest,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Sendet OTP an die angegebene Nummer. Zum Verifizieren/Aktivieren der 2FA."""
+    from services.twilio_service import generate_and_send_otp
+    ok = generate_and_send_otp(data.phone, str(user.id))
+    if not ok:
+        raise HTTPException(status_code=500, detail="SMS-Versand fehlgeschlagen")
+    # Nummer vormerken (noch nicht verifiziert)
+    user.phone = data.phone
+    await db.commit()
+
+
+class EnableTwoFARequest(BaseModel):
+    code: str
+
+
+@router.post("/2fa/enable", status_code=204)
+async def enable_2fa(
+    data: EnableTwoFARequest,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Aktiviert 2FA nachdem OTP bestätigt wurde."""
+    from services.twilio_service import verify_otp
+    if not verify_otp(str(user.id), data.code):
+        raise HTTPException(status_code=400, detail="Ungültiger oder abgelaufener Code")
+    user.phone_verified = True
+    user.two_fa_enabled = True
+    await db.commit()
+
+
+class DisableTwoFARequest(BaseModel):
+    current_password: str
+
+
+@router.post("/2fa/disable", status_code=204)
+async def disable_2fa(
+    data: DisableTwoFARequest,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Deaktiviert 2FA nach Passwortbestätigung."""
+    if not verify_password(data.current_password, user.hashed_password):
+        raise HTTPException(status_code=400, detail="Passwort falsch")
+    user.two_fa_enabled = False
+    await db.commit()
+
+
+# ─── Helper ───────────────────────────────────────────────────────────────────
+
+def _mask_phone(phone: str) -> str:
+    """Maskiert Telefonnummer für Frontend-Anzeige, z.B. '+41 79 *** ** 23'."""
+    if len(phone) < 4:
+        return "***"
+    return phone[:-4].replace(phone[2:-4], "*" * len(phone[2:-4])) + phone[-2:]

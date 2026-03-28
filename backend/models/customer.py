@@ -92,6 +92,10 @@ class Customer(Base):
     auto_topup_amount_chf: Mapped[float] = mapped_column(Numeric(10, 2), default=20.0)        # Betrag pro Nachzahlung
     stripe_payment_method_id: Mapped[str | None] = mapped_column(String(100), nullable=True)  # gespeicherte Karte für Auto-Topup
 
+    # 2-Faktor-Authentifizierung
+    two_fa_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    phone_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+
     # UI-Präferenzen (Schriftgrösse, Farbe, Sprache, Buddy-Name)
     ui_preferences: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=dict)
 
