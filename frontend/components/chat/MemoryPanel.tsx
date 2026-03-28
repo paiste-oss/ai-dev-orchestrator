@@ -35,7 +35,17 @@ export default function MemoryPanel({ memories, buddyName, onDelete, onClose }: 
         )}
         {memories.map((m) => (
           <div key={m.id} className="group flex items-start gap-2 bg-white/4 hover:bg-white/6 rounded-xl px-3 py-2.5 text-xs transition-colors">
-            <span className="flex-1 text-gray-300 leading-relaxed">{m.content}</span>
+            <div className="flex-1 min-w-0">
+              <span className="text-gray-300 leading-relaxed">{m.content}</span>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${m.category === "style" ? "bg-violet-500/15 text-violet-400" : "bg-sky-500/15 text-sky-400"}`}>
+                  {m.category === "style" ? "Stil" : "Fakt"}
+                </span>
+                <span className="text-[10px] text-gray-600">
+                  {new Date(m.created_at).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+                </span>
+              </div>
+            </div>
             <button
               onClick={() => onDelete(m.id)}
               className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all shrink-0 mt-0.5 p-0.5 rounded hover:bg-red-500/10"

@@ -102,6 +102,7 @@ class MemoryOut(BaseModel):
     id: str
     content: str
     importance: float
+    category: str
     created_at: str
 
 
@@ -513,7 +514,8 @@ async def get_memories(
     return [
         MemoryOut(
             id=str(m.id), content=m.content,
-            importance=m.importance, created_at=m.created_at.isoformat(),
+            importance=m.importance, category=m.category,
+            created_at=m.created_at.isoformat(),
         )
         for m in result.scalars().all()
     ]

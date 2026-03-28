@@ -10,6 +10,14 @@ const BACKEND_PROXY =
 const nextConfig: NextConfig = {
   devIndicators: false,
   transpilePackages: ["@excalidraw/excalidraw"],
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [{ key: "Cache-Control", value: "no-store, must-revalidate" }],
+      },
+    ];
+  },
   async rewrites() {
     return [
       {

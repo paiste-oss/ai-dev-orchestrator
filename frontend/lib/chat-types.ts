@@ -67,6 +67,8 @@ export interface MemoryItem {
   id: string;
   content: string;
   importance: number;
+  category: string;
+  created_at: string;
 }
 
 export interface UiPrefs {
