@@ -281,9 +281,12 @@ export default function ChatPage() {
   useEffect(() => {
     if (!isMobile) return;
     const nonChatCards = cards.filter(c => c.id !== CHAT_CARD_ID);
-    // Ersten Render: nur initialisieren
+    // Ersten Render: Desktop-Karten aus localStorage entfernen (gehören nicht auf Mobile)
     if (prevMobileCardCountRef.current === -1) {
-      prevMobileCardCountRef.current = nonChatCards.length;
+      prevMobileCardCountRef.current = 0;
+      if (nonChatCards.length > 0) {
+        setCards(cs => cs.filter(c => c.id === CHAT_CARD_ID));
+      }
       return;
     }
     // Aktive Karte wurde entfernt → auf letzte verfügbare wechseln
@@ -626,9 +629,10 @@ export default function ChatPage() {
   if (isMobile) {
     const nonChatCards = cards.filter(c => c.id !== CHAT_CARD_ID);
     const activeCard = activeMobileWindowId ? cards.find(c => c.id === activeMobileWindowId) : null;
+    const trayVisible = nonChatCards.length > 0;
     const mobileAvailableH = (typeof window !== "undefined"
       ? (window.visualViewport?.height ?? window.innerHeight)
-      : 800) - 48; // minus TopBar
+      : 800) - 48 - 64 - (trayVisible ? 48 : 0); // minus TopBar, Input, Tray
     const maxPanelFraction = keyboardVisible ? 0.35 : 0.55;
 
     return (
@@ -645,24 +649,10 @@ export default function ChatPage() {
           onAdminBack={() => router.push("/admin")}
         />
 
-        {/* ── Pinned Panel ── */}
-        {mobilePanelOpen && activeCard && (
-          <MobilePinnedPanel
-            card={activeCard}
-            heightFraction={mobilePanelHeight}
-            maxHeightFraction={maxPanelFraction}
-            availableHeight={mobileAvailableH}
-            onClose={() => setMobilePanelOpen(false)}
-            onHeightChange={setMobilePanelHeight}
-          >
-            {renderWindowContent(activeCard)}
-          </MobilePinnedPanel>
-        )}
-
         {/* ── Chat Scroll ── */}
         <div
           ref={chatScrollRef}
-          className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0"
+          className="flex-1 overflow-y-auto px-4 py-4 space-y-4 min-h-0"
           onScroll={() => {
             const el = chatScrollRef.current;
             if (!el) return;
@@ -704,29 +694,43 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* ── Window Tray + Input ── */}
-        <div className="shrink-0" style={{ background: "transparent" }}>
-          <MobileWindowTray
-            cards={nonChatCards}
-            activeWindowId={activeMobileWindowId}
-            panelOpen={mobilePanelOpen}
-            onActivate={(id) => { setActiveMobileWindowId(id); setMobilePanelOpen(true); }}
-            onClose={(id) => {
-              closeCard(id);
-              if (id === activeMobileWindowId) setMobilePanelOpen(false);
-            }}
-            onAdd={() => setShowMobileWindowPicker(true)}
+        {/* ── Input ── */}
+        <div className="shrink-0 border-t border-white/5" style={{ background: "transparent" }}>
+          <ChatInput
+            input={input} onChange={setInput} onSend={handleSend} onKeyDown={handleKeyDown}
+            loading={loading} attachedFiles={attachedFiles} onFilesChange={setAttachedFiles}
+            onAttachClick={() => fileInputRef.current?.click()} onCameraClick={openCamera}
+            onVoiceResult={handleVoiceResult} buddyName={uiPrefs.buddyName}
+            fontSize={uiPrefs.fontSize} voiceLang={voiceLang} textareaRef={textareaRef} compact
           />
-          <div className="border-t border-white/5">
-            <ChatInput
-              input={input} onChange={setInput} onSend={handleSend} onKeyDown={handleKeyDown}
-              loading={loading} attachedFiles={attachedFiles} onFilesChange={setAttachedFiles}
-              onAttachClick={() => fileInputRef.current?.click()} onCameraClick={openCamera}
-              onVoiceResult={handleVoiceResult} buddyName={uiPrefs.buddyName}
-              fontSize={uiPrefs.fontSize} voiceLang={voiceLang} textareaRef={textareaRef} compact
-            />
-          </div>
         </div>
+
+        {/* ── Window Tray (direkt unter Eingabe) ── */}
+        <MobileWindowTray
+          cards={nonChatCards}
+          activeWindowId={activeMobileWindowId}
+          panelOpen={mobilePanelOpen}
+          onActivate={(id) => { setActiveMobileWindowId(id); setMobilePanelOpen(true); }}
+          onClose={(id) => {
+            closeCard(id);
+            if (id === activeMobileWindowId) setMobilePanelOpen(false);
+          }}
+          onAdd={() => setShowMobileWindowPicker(true)}
+        />
+
+        {/* ── Pinned Panel (ganz unten, wächst nach oben) ── */}
+        {mobilePanelOpen && activeCard && (
+          <MobilePinnedPanel
+            card={activeCard}
+            heightFraction={mobilePanelHeight}
+            maxHeightFraction={maxPanelFraction}
+            availableHeight={mobileAvailableH}
+            onClose={() => setMobilePanelOpen(false)}
+            onHeightChange={setMobilePanelHeight}
+          >
+            {renderWindowContent(activeCard)}
+          </MobilePinnedPanel>
+        )}
 
         {/* ── Hidden File Input ── */}
         <input ref={fileInputRef} type="file" multiple className="hidden"
