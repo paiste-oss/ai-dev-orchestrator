@@ -10,25 +10,35 @@ interface UseVoiceInputOptions {
 
 export type VoiceError = "not-allowed" | "not-supported" | "no-speech" | "network" | null;
 
-export function useVoiceInput({ lang = "de-CH", onResult, onInterim }: UseVoiceInputOptions) {
-  // Immer sichtbar — kein Support-Check. Bei Klick zeigen wir Fehler statt Button zu verstecken.
+/** Erkennt ob der Browser die Web Speech API unterstützt. */
+function hasSpeechApi(): boolean {
+  return !!(
+    (window as any).SpeechRecognition ||
+    (window as any).webkitSpeechRecognition
+  );
+}
+
+/** Erkennt ob der Browser MediaRecorder unterstützt (Fallback). */
+function hasMediaRecorder(): boolean {
+  return typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
+}
+
+export function useVoiceInput({ lang = "de-CH", onResult }: UseVoiceInputOptions) {
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<VoiceError>(null);
   const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
-  const start = useCallback(() => {
-    setError(null);
+  const showError = useCallback((e: VoiceError) => {
+    setError(e);
+    setTimeout(() => setError(null), 3000);
+  }, []);
+
+  // ── Web Speech API (Chrome Desktop/Android) ──────────────────────────────
+  const startSpeechApi = useCallback(() => {
     const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition ||
-      (window as any).mozSpeechRecognition ||
-      (window as any).msSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setError("not-supported");
-      setTimeout(() => setError(null), 3000);
-      return;
-    }
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (recognitionRef.current) {
       recognitionRef.current.abort();
@@ -37,47 +47,112 @@ export function useVoiceInput({ lang = "de-CH", onResult, onInterim }: UseVoiceI
 
     const recognition = new SpeechRecognition();
     recognition.lang = lang;
-    recognition.interimResults = false; // stabiler auf Mobile/iOS
+    recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     recognition.continuous = false;
     recognitionRef.current = recognition;
 
     recognition.onstart = () => { setListening(true); setError(null); };
-    recognition.onend = () => { setListening(false); recognitionRef.current = null; };
+    recognition.onend   = () => { setListening(false); recognitionRef.current = null; };
 
     recognition.onerror = (ev: any) => {
       setListening(false);
       recognitionRef.current = null;
       const code: string = ev?.error ?? "";
-      if (code === "not-allowed" || code === "permission-denied") {
-        setError("not-allowed");
-      } else if (code === "no-speech") {
-        setError("no-speech");
-      } else if (code === "network") {
-        setError("network");
-      }
-      setTimeout(() => setError(null), 3000);
+      if (code === "not-allowed" || code === "permission-denied") showError("not-allowed");
+      else if (code === "no-speech") showError("no-speech");
+      else if (code === "network")   showError("network");
     };
 
     recognition.onresult = (event: any) => {
       let final = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          final += event.results[i][0].transcript;
-        }
+        if (event.results[i].isFinal) final += event.results[i][0].transcript;
       }
       if (final) onResult(final);
     };
 
+    try { recognition.start(); } catch { setListening(false); }
+  }, [lang, onResult, showError]);
+
+  // ── MediaRecorder Fallback (Samsung Internet, Firefox, Safari iOS) ────────
+  const startMediaRecorder = useCallback(async () => {
+    let stream: MediaStream;
     try {
-      recognition.start();
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      setListening(false);
+      showError("not-allowed");
+      return;
     }
-  }, [lang, onResult, onInterim]);
+
+    chunksRef.current = [];
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : MediaRecorder.isTypeSupported("audio/mp4")
+      ? "audio/mp4"
+      : "";
+
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    mediaRecorderRef.current = recorder;
+
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+
+    recorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      setListening(false);
+
+      if (chunksRef.current.length === 0) return;
+
+      const blob = new Blob(chunksRef.current, {
+        type: mimeType || "audio/webm",
+      });
+      chunksRef.current = [];
+
+      // Ans Backend schicken
+      const formData = new FormData();
+      formData.append("audio", blob, "recording.webm");
+      formData.append("lang", lang);
+
+      try {
+        const res = await fetch("/v1/transcribe", {
+          method: "POST",
+          body: formData,
+          headers: { Authorization: `Bearer ${localStorage.getItem("token") ?? ""}` },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.text) onResult(data.text);
+        else showError("no-speech");
+      } catch {
+        showError("network");
+      }
+    };
+
+    recorder.start();
+    setListening(true);
+    setError(null);
+  }, [lang, onResult, showError]);
+
+  // ── Öffentliche API ───────────────────────────────────────────────────────
+  const start = useCallback(() => {
+    if (!hasMediaRecorder() && !hasSpeechApi()) {
+      showError("not-supported");
+      return;
+    }
+    if (hasSpeechApi()) startSpeechApi();
+    else startMediaRecorder();
+  }, [startSpeechApi, startMediaRecorder, showError]);
 
   const stop = useCallback(() => {
-    recognitionRef.current?.stop();
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.stop();
+    }
     setListening(false);
   }, []);
 

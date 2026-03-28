@@ -28,6 +28,7 @@ pycryptodome
 stripe
 twilio
 yfinance
+faster-whisper
 boto3
 beautifulsoup4
 lxml
