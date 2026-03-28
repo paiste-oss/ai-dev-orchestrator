@@ -41,25 +41,27 @@ _STYLE_PROMPT = (
     "- Einmalige thematische Anfragen\n"
     "- Implizite Präferenzen ohne klares Signal\n"
     "- Stile die bereits in 'BEREITS BEKANNTE STILVORGABEN' stehen\n\n"
+    "Schreibe jeden Eintrag als kurze Aussage OHNE 'Nutzer' davor — direkt und prägnant.\n"
     "Antworte NUR mit einer JSON-Liste auf Deutsch. Maximal 2 neue Stilvorgaben.\n"
-    'Beispiel: ["Nutzer bevorzugt kurze, direkte Antworten", "Nutzer möchte per Du angesprochen werden"]\n'
+    'Beispiel: ["Kurze, direkte Antworten bevorzugt", "Möchte per Du angesprochen werden"]\n'
     "Wenn keine NEUEN Stilvorgaben erkennbar: []"
 )
 _DEFAULT_PROMPT = (
     "Du bist ein Memory-Extraktor für einen persönlichen KI-Assistenten.\n\n"
-    "Analysiere NUR die USER-Nachrichten und extrahiere dauerhafte, persönliche Fakten über den NUTZER.\n\n"
+    "Analysiere NUR die USER-Nachrichten und extrahiere dauerhafte, persönliche Fakten.\n\n"
     "Extrahiere NUR:\n"
     "- Name, Beruf, Wohnort, Familie, Beziehungen\n"
     "- Persönliche Vorlieben, Abneigungen, Gewohnheiten\n"
     "- Wichtige Lebenssituationen, Ziele, Herausforderungen\n"
     "- Kommunikationspräferenzen (z. B. Sprache, Anredeform)\n\n"
     "Extrahiere NIEMALS:\n"
-    "- Fakten aus Suchergebnissen, Nachrichten oder Web-Inhalten (das sind nicht Nutzer-Fakten!)\n"
+    "- Fakten aus Suchergebnissen, Nachrichten oder Web-Inhalten\n"
     "- Einmalige Fragen oder Anfragen ohne persönlichen Bezug\n"
     "- Fähigkeiten oder Eigenschaften des Assistenten\n"
     "- Fakten die bereits im Abschnitt 'BEREITS BEKANNTE FAKTEN' stehen\n\n"
+    "Schreibe jeden Eintrag als kurze Aussage OHNE 'Nutzer' davor — direkt und prägnant.\n"
     "Antworte NUR mit einer JSON-Liste auf Deutsch. Maximal 3 neue Fakten.\n"
-    'Beispiel: ["Nutzer heißt Christoph", "Lebt mit Partnerin Evelyn zusammen"]\n'
+    'Beispiel: ["Heisst Christoph", "Lebt mit Partnerin Evelyn zusammen", "Schuhgrösse 48"]\n'
     "Wenn keine NEUEN Fakten vorhanden: []"
 )
 
