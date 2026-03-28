@@ -1,9 +1,9 @@
 """
 Fedlex.admin.ch Ingestor — Schweizer Bundesrecht
 
-Crawlt das Schweizerische Bundesrecht aus fedlex.admin.ch.
-Phase 1: Curated list der wichtigsten Gesetze
-Phase 2: SPARQL-basierte Vollindexierung
+Verwendet die offiziellen SR-Nummern und auflöst den korrekten ELI-Pfad
+über das Fedlex SPARQL-Endpunkt (historicalLegalId).
+Der Gesetzestext wird als HTML aus dem Fedlex-Filestore geladen.
 """
 import logging
 import re
@@ -15,219 +15,200 @@ from services.knowledge_ingestor import BaseIngestor, RawDocument
 
 _log = logging.getLogger(__name__)
 
-# Basis-URL für Gesetzes-HTML-Seiten
-_BASE_HTML = "https://www.fedlex.admin.ch/eli/cc/{path}/de/html"
-_FEDLEX_API = "https://fedlex.admin.ch/api/de/search"
+_FILESTORE = "https://fedlex.data.admin.ch"
+_SPARQL    = "https://fedlex.data.admin.ch/sparqlendpoint"
 
-# Wichtigste Schweizer Bundesgesetze (ELI-Pfad → Titel)
-CORE_LAWS = [
-    # ── Grundlagen ────────────────────────────────────────────────────────────
-    ("2005/707",            "Bundesverfassung der Schweizerischen Eidgenossenschaft (BV)"),
+# SR-Nummer → ELI-Pfad (via SPARQL historicalLegalId, Stand 2025)
+# Quelle: fedlex.data.admin.ch / Systematische Rechtssammlung
+SR_TO_ELI: dict[str, str] = {
+    "101":       "1999/404",
+    "210":       "24/233_245_233",
+    "220":       "27/317_321_377",
+    "272":       "2010/262",
+    "281.1":     "11/529_488_529",
+    "291":       "1988/1776_1776_1776",
+    "173.110":   "2006/218",
+    "221.301":   "2004/320",
+    "311.0":     "54/757_781_799",
+    "312.0":     "2010/267",
+    "172.021":   "1969/737_757_755",
+    "172.056.1": "2020/126",
+    "700":       "1979/1573_1573_1573",
+    "822.11":    "1966/57_57_57",
+    "837.0":     "1982/2184_2184_2184",
+    "412.10":    "2003/674",
+    "831.10":    "63/837_843_843",
+    "831.20":    "1959/827_857_845",
+    "832.20":    "1982/1676_1676_1676",
+    "832.10":    "1995/1328_1328_1328",
+    "831.42":    "1994/2386_2386_2386",
+    "831.40":    "1983/797_797_797",
+    "642.11":    "1991/1184_1184_1184",
+    "642.14":    "1991/1256_1256_1256",
+    "641.20":    "2009/615",
+    "642.21":    "1966/371_385_384",
+    "641.10":    "1974/11_11_11",
+    "142.20":    "2007/758",
+    "142.31":    "1999/358",
+    "235.1":     "1993/1945_1945_1945",
+    "784.10":    "1997/2187_2187_2187",
+    "954.1":     "2018/801",
+    "950.1":     "2019/758",
+    "952.0":     "51/117_121_129",
+    "251":       "1996/546_546_546",
+    "221.229.1": "24/719_735_717",
+    "961.01":    "2005/734",
+    "231.1":     "1993/1798_1798_1798",
+    "232.11":    "1993/274_274_274",
+    "232.14":    "1955/871_893_899",
+    "232.12":    "2002/226",
+    "812.21":    "2001/422",
+    "817.0":     "2017/62",
+    "814.01":    "1984/1122_1122_1122",
+    "730.0":     "2017/762",
+}
 
-    # ── Zivilrecht ────────────────────────────────────────────────────────────
-    ("24/233_245_233",      "Zivilgesetzbuch (ZGB)"),
-    ("27/317_321_377",      "Obligationenrecht (OR)"),
-    ("94/321_325_327",      "Bundesgesetz über Schuldbetreibung und Konkurs (SchKG)"),
-    ("2003/707",            "Fusionsgesetz (FusG)"),
-    ("2009/337",            "Bundesgesetz über das Internationale Privatrecht (IPRG)"),
-    ("1997/1052_1056_1064", "Bundesgesetz über das Bundesgericht (BGG)"),
-    ("62/1234_1240_1248",   "Zivilprozessordnung (ZPO)"),
-    ("2006/975",            "Strafprozessordnung (StPO)"),
-
-    # ── Strafrecht ────────────────────────────────────────────────────────────
-    ("2010/631",            "Strafgesetzbuch (StGB)"),
-
-    # ── Öffentliches Recht / Verwaltung ──────────────────────────────────────
-    ("2005/353",            "Bundesgesetz über das Verwaltungsverfahren (VwVG)"),
-    ("1966/1517_1519_1519", "Bundesgesetz über das öffentliche Beschaffungswesen (BöB)"),
-    ("2011/379",            "Raumplanungsgesetz (RPG)"),
-
-    # ── Arbeitsrecht ─────────────────────────────────────────────────────────
-    ("1966/57_57_57",       "Arbeitsgesetz (ArG)"),
-    ("82/667_671_675",      "Bundesgesetz über die Arbeitsvermittlung (AVG)"),
-    ("82/915_919_921",      "Bundesgesetz über die obligatorische Arbeitslosenversicherung (AVIG)"),
-    ("2002/187",            "Berufsbildungsgesetz (BBiG)"),
-
-    # ── Sozialversicherungen ──────────────────────────────────────────────────
-    ("1995/3782_3790_3791", "Bundesgesetz über die Alters- und Hinterlassenenversicherung (AHVG)"),
-    ("1982/923",            "Bundesgesetz über die Invalidenversicherung (IVG)"),
-    ("2007/191",            "Bundesgesetz über die Unfallversicherung (UVG)"),
-    ("2007/569",            "Bundesgesetz über die Krankenversicherung (KVG)"),
-    ("2003/210",            "Freizügigkeitsgesetz (FZG)"),
-    ("93/901_905_909",      "Bundesgesetz über die berufliche Vorsorge (BVG)"),
-
-    # ── Steuern ───────────────────────────────────────────────────────────────
-    ("92/595_601_605",      "Bundesgesetz über die direkte Bundessteuer (DBG)"),
-    ("57/737_741_755",      "Steuerharmonisierungsgesetz (StHG)"),
-    ("2009/615",            "Mehrwertsteuergesetz (MWSTG)"),
-    ("66/543_549_551",      "Bundesgesetz über die Verrechnungssteuer (VStG)"),
-    ("74/897_903_905",      "Bundesgesetz über die Stempelabgaben (StG)"),
-
-    # ── Migration / Ausländer ─────────────────────────────────────────────────
-    ("2003/438",            "Ausländer- und Integrationsgesetz (AIG)"),
-    ("2005/509",            "Asylgesetz (AsylG)"),
-
-    # ── Datenschutz / IT ──────────────────────────────────────────────────────
-    ("2004/669",            "Datenschutzgesetz (DSG)"),
-    ("97/511_515_519",      "Fernmeldegesetz (FMG)"),
-
-    # ── Kapitalmarkt / Finanz ─────────────────────────────────────────────────
-    ("94/965_969_971",      "Bundesgesetz über die Börsen und den Effektenhandel (BEHG)"),
-    ("99/3851_3873_3875",   "Bundesgesetz über die Banken und Sparkassen (BankG)"),
-    ("2015/1507",           "Bundesgesetz über die Finanzmarktinfrastrukturen (FinfraG)"),
-    ("2015/9569",           "Bundesgesetz über die Finanzdienstleistungen (FIDLEG)"),
-    ("2003/723",            "Kartellgesetz (KG)"),
-
-    # ── Versicherungen ────────────────────────────────────────────────────────
-    ("2005/395",            "Versicherungsvertragsgesetz (VVG)"),
-    ("2005/339",            "Versicherungsaufsichtsgesetz (VAG)"),
-
-    # ── Geistiges Eigentum ────────────────────────────────────────────────────
-    ("52/467_469_471",      "Urheberrechtsgesetz (URG)"),
-    ("62/1010_1040_1046",   "Markenschutzgesetz (MSchG)"),
-    ("92/1093_1095_1097",   "Patentgesetz (PatG)"),
-    ("2001/544",            "Designgesetz (DesG)"),
-
-    # ── Miet- / Wohnrecht ────────────────────────────────────────────────────
-    # (im OR Art. 253–274g, kein separates Gesetz nötig)
-
-    # ── Gesundheit / Lebensmittel ─────────────────────────────────────────────
-    ("2000/313",            "Heilmittelgesetz (HMG)"),
-    ("2014/444",            "Lebensmittelgesetz (LMG)"),
-
-    # ── Umwelt / Energie ──────────────────────────────────────────────────────
-    ("83/641_645_647",      "Umweltschutzgesetz (USG)"),
-    ("98/401_403_405",      "Energiegesetz (EnG)"),
+# SR-Nummer → Titel
+CORE_LAW_SR: list[tuple[str, str]] = [
+    ("101",      "Bundesverfassung der Schweizerischen Eidgenossenschaft (BV)"),
+    ("210",      "Zivilgesetzbuch (ZGB)"),
+    ("220",      "Obligationenrecht (OR)"),
+    ("272",      "Zivilprozessordnung (ZPO)"),
+    ("281.1",    "Bundesgesetz über Schuldbetreibung und Konkurs (SchKG)"),
+    ("291",      "Bundesgesetz über das Internationale Privatrecht (IPRG)"),
+    ("173.110",  "Bundesgesetz über das Bundesgericht (BGG)"),
+    ("221.301",  "Fusionsgesetz (FusG)"),
+    ("311.0",    "Strafgesetzbuch (StGB)"),
+    ("312.0",    "Strafprozessordnung (StPO)"),
+    ("172.021",  "Bundesgesetz über das Verwaltungsverfahren (VwVG)"),
+    ("172.056.1","Bundesgesetz über das öffentliche Beschaffungswesen (BöB)"),
+    ("700",      "Raumplanungsgesetz (RPG)"),
+    ("822.11",   "Arbeitsgesetz (ArG)"),
+    ("837.0",    "Bundesgesetz über die Arbeitslosenversicherung (AVIG)"),
+    ("412.10",   "Berufsbildungsgesetz (BBG)"),
+    ("831.10",   "Bundesgesetz über die AHV (AHVG)"),
+    ("831.20",   "Bundesgesetz über die Invalidenversicherung (IVG)"),
+    ("832.20",   "Bundesgesetz über die Unfallversicherung (UVG)"),
+    ("832.10",   "Bundesgesetz über die Krankenversicherung (KVG)"),
+    ("831.42",   "Freizügigkeitsgesetz (FZG)"),
+    ("831.40",   "Bundesgesetz über die berufliche Vorsorge (BVG)"),
+    ("642.11",   "Bundesgesetz über die direkte Bundessteuer (DBG)"),
+    ("642.14",   "Steuerharmonisierungsgesetz (StHG)"),
+    ("641.20",   "Mehrwertsteuergesetz (MWSTG)"),
+    ("642.21",   "Bundesgesetz über die Verrechnungssteuer (VStG)"),
+    ("641.10",   "Bundesgesetz über die Stempelabgaben (StG)"),
+    ("142.20",   "Ausländer- und Integrationsgesetz (AIG)"),
+    ("142.31",   "Asylgesetz (AsylG)"),
+    ("235.1",    "Bundesgesetz über den Datenschutz (DSG)"),
+    ("784.10",   "Fernmeldegesetz (FMG)"),
+    ("954.1",    "Finanzmarktinfrastrukturgesetz (FinfraG)"),
+    ("950.1",    "Finanzdienstleistungsgesetz (FIDLEG)"),
+    ("952.0",    "Bundesgesetz über die Banken und Sparkassen (BankG)"),
+    ("251",      "Kartellgesetz (KG)"),
+    ("221.229.1","Versicherungsvertragsgesetz (VVG)"),
+    ("961.01",   "Versicherungsaufsichtsgesetz (VAG)"),
+    ("231.1",    "Urheberrechtsgesetz (URG)"),
+    ("232.11",   "Markenschutzgesetz (MSchG)"),
+    ("232.14",   "Patentgesetz (PatG)"),
+    ("232.12",   "Designgesetz (DesG)"),
+    ("812.21",   "Heilmittelgesetz (HMG)"),
+    ("817.0",    "Lebensmittelgesetz (LMG)"),
+    ("814.01",   "Umweltschutzgesetz (USG)"),
+    ("730.0",    "Energiegesetz (EnG)"),
 ]
 
 
 class FedlexIngestor(BaseIngestor):
-    source_type = "law"
-    domain = "recht_ch"
-
-    def __init__(self, use_api: bool = True):
-        self.use_api = use_api
+    source_type = "fedlex"
+    domain = "recht"
 
     def discover(self, limit: int = 200) -> list[dict]:
-        """
-        Phase 1: Curated list.
-        Phase 2 (wenn use_api=True): Fedlex REST API für weitere Gesetze.
-        """
         results = []
-        for path, title in CORE_LAWS[:limit]:
+        for sr, title in CORE_LAW_SR[:limit]:
+            eli = SR_TO_ELI.get(sr)
+            if not eli:
+                _log.warning("Kein ELI-Pfad für SR %s", sr)
+                continue
             results.append({
                 "title": title,
-                "url": f"https://www.fedlex.admin.ch/eli/cc/{path}/de",
-                "html_url": _BASE_HTML.format(path=path),
-                "eli_path": path,
+                "sr_number": sr,
+                "eli_path": eli,
+                "url": f"https://www.fedlex.admin.ch/eli/cc/{eli}/de",
             })
-
-        if self.use_api and len(results) < limit:
-            try:
-                api_results = self._discover_via_api(limit - len(results))
-                # Deduplizieren
-                known_paths = {r["eli_path"] for r in results}
-                for r in api_results:
-                    if r.get("eli_path") not in known_paths:
-                        results.append(r)
-                        known_paths.add(r["eli_path"])
-            except Exception as exc:
-                _log.warning("Fedlex API discovery failed: %s", exc)
-
-        return results[:limit]
-
-    def _discover_via_api(self, limit: int = 100) -> list[dict]:
-        """Nutzt die Fedlex REST-API für weitere Gesetze."""
-        results = []
-        try:
-            resp = httpx.get(
-                _FEDLEX_API,
-                params={"q": "", "rows": min(limit, 200), "start": 0, "lang": "de", "types": "LEGAL_TEXTS"},
-                timeout=30.0,
-                headers={"Accept": "application/json"},
-            )
-            if resp.status_code != 200:
-                return []
-            data = resp.json()
-            for item in data.get("data", []):
-                attrs = item.get("attributes", {})
-                eli = attrs.get("eli", "")
-                title_obj = attrs.get("title", {})
-                title = title_obj.get("de", "") if isinstance(title_obj, dict) else str(title_obj)
-                if eli and title:
-                    path = eli.replace("https://fedlex.data.admin.ch/eli/cc/", "").strip("/")
-                    results.append({
-                        "title": title,
-                        "url": f"https://www.fedlex.admin.ch/eli/cc/{path}/de",
-                        "html_url": _BASE_HTML.format(path=path),
-                        "eli_path": path,
-                    })
-        except Exception as exc:
-            _log.warning("Fedlex API error: %s", exc)
         return results
 
     def fetch_document(self, meta: dict) -> RawDocument | None:
-        """Holt Gesetzestext als HTML und extrahiert den reinen Text."""
-        html_url = meta.get("html_url") or meta.get("url", "")
-        if not html_url.endswith("/html"):
-            html_url = html_url.rstrip("/") + "/html"
-
+        eli = meta["eli_path"]
+        html_url = _resolve_html_url(eli)
+        if not html_url:
+            _log.warning("Kein HTML-URL für ELI %s", eli)
+            return None
         try:
-            time.sleep(0.3)  # Rate limiting
-            resp = httpx.get(
-                html_url,
-                timeout=30.0,
-                follow_redirects=True,
-                headers={"Accept-Language": "de-CH,de;q=0.9"},
-            )
+            time.sleep(0.3)
+            resp = httpx.get(html_url, timeout=60.0, follow_redirects=True,
+                             headers={"Accept-Language": "de-CH,de;q=0.9"})
             if resp.status_code != 200:
-                _log.debug("Fedlex HTTP %d for %s", resp.status_code, html_url)
+                _log.debug("Fedlex HTTP %d für %s", resp.status_code, html_url)
                 return None
-
             text = _parse_fedlex_html(resp.text)
-            if not text or len(text) < 100:
+            if not text or len(text) < 200:
                 return None
-
             return RawDocument(
                 title=meta["title"],
-                url=meta.get("url", html_url),
+                url=meta["url"],
                 text=text,
                 language="de",
                 published_at="",
-                metadata={"eli_path": meta.get("eli_path", ""), "source": "fedlex.admin.ch"},
+                metadata={"sr_number": meta.get("sr_number", ""), "source": "fedlex.admin.ch"},
             )
         except Exception as exc:
-            _log.warning("Fedlex fetch failed for %s: %s", html_url, exc)
+            _log.warning("Fedlex fetch fehlgeschlagen für SR %s: %s", meta.get("sr_number"), exc)
             return None
 
 
+def _resolve_html_url(eli_path: str) -> str | None:
+    """
+    Findet die aktuellste HTML-Filestore-URL für einen ELI-Pfad.
+    Probiert die letzten Jahre bis eine Expression existiert.
+    """
+    for year in ["2025", "2024", "2023", "2022"]:
+        date = f"{year}0101"
+        turtle_url = f"{_FILESTORE}/eli/cc/{eli_path}/{date}/de/html"
+        try:
+            r = httpx.get(turtle_url, headers={"Accept": "text/turtle"},
+                          follow_redirects=True, timeout=15)
+            if r.status_code == 200:
+                urls = re.findall(r"<(https://fedlex\.data\.admin\.ch/filestore[^>]+\.html)>", r.text)
+                # Hauptdatei ohne Nummernsuffix bevorzugen
+                main = [u for u in urls if not re.search(r"-html-\d+\.html$", u)]
+                if main:
+                    return main[0]
+                if urls:
+                    return urls[0]
+        except Exception:
+            pass
+    return None
+
+
 def _parse_fedlex_html(html: str) -> str:
-    """
-    Extrahiert reinen Gesetzestext aus Fedlex-HTML.
-    Entfernt Navigation, Header, Footer — behält nur Artikeltext.
-    """
+    """Extrahiert reinen Gesetzestext aus Fedlex-Filestore-HTML."""
     try:
         from bs4 import BeautifulSoup
-        soup = BeautifulSoup(html, "html.parser")
+        soup = BeautifulSoup(html, "lxml")
 
-        # Fedlex-spezifische Selektoren
-        # Gesetze sind in <div class="law-text"> oder <div id="lawtext"> etc.
-        # Fallback: <main> oder <article>
         content = (
-            soup.find("div", class_=re.compile(r"law-text|law-body|act-text", re.I))
+            soup.find("div", id="lawcontent")
+            or soup.find("div", class_=re.compile(r"law-text|law-body|act-text", re.I))
             or soup.find("article")
             or soup.find("main")
             or soup.find("body")
         )
-
         if not content:
             return ""
 
-        # Navigations-Elemente entfernen
         for tag in content.find_all(["nav", "header", "footer", "script", "style", "button"]):
             tag.decompose()
 
-        # Text extrahieren und bereinigen
         lines = []
         for elem in content.find_all(["h1", "h2", "h3", "h4", "p", "li", "td", "th"]):
             text = elem.get_text(separator=" ").strip()
@@ -235,14 +216,11 @@ def _parse_fedlex_html(html: str) -> str:
                 lines.append(text)
 
         text = "\n".join(lines)
-
-        # Mehrfache Leerzeichen/Zeilen bereinigen
         text = re.sub(r"\n{3,}", "\n\n", text)
         text = re.sub(r" {2,}", " ", text)
-
         return text.strip()
+
     except ImportError:
-        # Fallback ohne BeautifulSoup: simpel per Regex
         text = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.I)
         text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.I)
         text = re.sub(r"<[^>]+>", " ", text)
