@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend,
@@ -42,6 +42,8 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
   const [tab, setTab] = useState<Tab>("chart");
   const [symbols, setSymbols] = useState<string[]>(initialSymbol ? [initialSymbol.toUpperCase()] : []);
   const [period, setPeriod] = useState<Period>("1y");
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [chartData, setChartData] = useState<Record<string, StockData>>({});
   const [loadingSymbols, setLoadingSymbols] = useState<Set<string>>(new Set());
   const [searchInput, setSearchInput] = useState("");
@@ -74,15 +76,52 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
     }
   }, []);
 
+  // Gespeicherte Symbole + Zeitraum beim ersten Laden holen
   useEffect(() => {
-    if (initialSymbol) fetchSymbol(initialSymbol.toUpperCase(), period);
+    async function loadPrefs() {
+      try {
+        const res = await apiFetch(`${BACKEND_URL}/v1/user/preferences`);
+        const prefs = await res.json();
+        const savedSymbols: string[] = Array.isArray(prefs.chartSymbols) ? prefs.chartSymbols : [];
+        const savedPeriod: Period = prefs.chartPeriod ?? "1y";
+        if (initialSymbol) {
+          const upper = initialSymbol.toUpperCase();
+          const merged = savedSymbols.includes(upper) ? savedSymbols : [upper, ...savedSymbols];
+          setSymbols(merged);
+          setPeriod(savedPeriod);
+          merged.forEach(s => fetchSymbol(s, savedPeriod));
+        } else if (savedSymbols.length > 0) {
+          setSymbols(savedSymbols);
+          setPeriod(savedPeriod);
+          savedSymbols.forEach(s => fetchSymbol(s, savedPeriod));
+        }
+      } catch { /* ignorieren */ }
+      setPrefsLoaded(true);
+    }
+    loadPrefs();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
+    if (!prefsLoaded) return;
     symbols.forEach(sym => fetchSymbol(sym, period));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period]);
+
+  // ── Preferences speichern (debounced) ─────────────────────────────────────
+
+  function saveChartPrefs(syms: string[], per: Period) {
+    if (!prefsLoaded) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      try {
+        await apiFetch(`${BACKEND_URL}/v1/user/preferences`, {
+          method: "POST",
+          body: JSON.stringify({ chartSymbols: syms, chartPeriod: per }),
+        });
+      } catch { /* ignorieren */ }
+    }, 800);
+  }
 
   // ── Symbol search ──────────────────────────────────────────────────────────
 
@@ -101,14 +140,23 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
   function addSymbol(sym: string) {
     const upper = sym.toUpperCase().trim();
     if (!upper || symbols.includes(upper)) { setSearchInput(""); setSearchResults([]); return; }
-    setSymbols(s => [...s, upper]);
+    const next = [...symbols, upper];
+    setSymbols(next);
     fetchSymbol(upper, period);
     setSearchInput(""); setSearchResults([]);
+    saveChartPrefs(next, period);
   }
 
   function removeSymbol(sym: string) {
-    setSymbols(s => s.filter(x => x !== sym));
+    const next = symbols.filter(x => x !== sym);
+    setSymbols(next);
     setChartData(d => { const n = { ...d }; delete n[sym]; return n; });
+    saveChartPrefs(next, period);
+  }
+
+  function changePeriod(p: Period) {
+    setPeriod(p);
+    saveChartPrefs(symbols, p);
   }
 
   // ── Portfolio ──────────────────────────────────────────────────────────────
@@ -282,7 +330,7 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
           {/* Period selector */}
           <div className="flex gap-1 items-center">
             {PERIODS.map(p => (
-              <button key={p.v} onClick={() => setPeriod(p.v)}
+              <button key={p.v} onClick={() => changePeriod(p.v)}
                 className={`px-2 py-0.5 rounded transition-colors ${
                   period === p.v ? "bg-indigo-500/20 border border-indigo-500/40 text-indigo-300" : "text-gray-500 hover:text-gray-300"
                 }`}>{p.l}</button>

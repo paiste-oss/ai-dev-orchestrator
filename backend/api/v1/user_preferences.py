@@ -24,6 +24,8 @@ DEFAULTS: dict = {
     "chatWidth":      "normal",   # compact | normal | wide | full
     "bubbleStyle":    "rounded",  # rounded | flat | minimal
     "showTimestamps": "hover",    # always | hover | never
+    "chartSymbols":   [],         # Liste der Symbole im Dashboard
+    "chartPeriod":    "1y",       # Zeitraum im Dashboard
 }
 
 
@@ -39,6 +41,8 @@ class PreferencesUpdate(BaseModel):
     bubbleStyle:     str | None = None
     showTimestamps:  str | None = None
     backgroundImage: str | None = None
+    chartSymbols:    list[str] | None = None
+    chartPeriod:     str | None = None
 
 
 @router.get("")
@@ -76,7 +80,7 @@ async def update_preferences(
             current["backgroundImage"] = update["backgroundImage"]
         del update["backgroundImage"]
 
-    current.update({k: v for k, v in update.items() if v is not None})
+    current.update({k: v for k, v in update.items() if v is not None or isinstance(v, list)})
 
     await db.execute(
         text("UPDATE customers SET ui_preferences = CAST(:prefs AS jsonb) WHERE id = :id"),
