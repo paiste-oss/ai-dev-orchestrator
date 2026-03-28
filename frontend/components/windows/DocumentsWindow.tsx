@@ -60,6 +60,27 @@ function fileIcon(type: string) {
 
 type SortKey = "name" | "category" | "format" | "date" | "size" | "pages";
 
+// ── Tabellen-Helfer (außerhalb der Komponente — sonst remount bei jedem Render) ─
+function SortIcon({ sortKey, k, sortAsc }: { sortKey: SortKey; k: SortKey; sortAsc: boolean }) {
+  if (sortKey !== k) return <span className="text-gray-700 ml-1">↕</span>;
+  return <span className="text-indigo-400 ml-1">{sortAsc ? "↑" : "↓"}</span>;
+}
+function Th({
+  label, k, className = "", sortKey, sortAsc, onSort,
+}: {
+  label: string; k: SortKey; className?: string;
+  sortKey: SortKey; sortAsc: boolean; onSort: (k: SortKey) => void;
+}) {
+  return (
+    <th
+      className={`px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-300 select-none whitespace-nowrap ${className}`}
+      onClick={() => onSort(k)}
+    >
+      {label}<SortIcon sortKey={sortKey} k={k} sortAsc={sortAsc} />
+    </th>
+  );
+}
+
 const ACCEPTED = ".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.xml,.html,.log";
 
 interface OpenFileInfo { url: string; filename: string; fileType: string; }
@@ -161,21 +182,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
 
   const totalBytes = docs.reduce((s, d) => s + d.file_size_bytes, 0);
 
-  function SortIcon({ k }: { k: SortKey }) {
-    if (sortKey !== k) return <span className="text-gray-700 ml-1">↕</span>;
-    return <span className="text-indigo-400 ml-1">{sortAsc ? "↑" : "↓"}</span>;
-  }
-
-  function Th({ label, k, className = "" }: { label: string; k: SortKey; className?: string }) {
-    return (
-      <th
-        className={`px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-300 select-none whitespace-nowrap ${className}`}
-        onClick={() => toggleSort(k)}
-      >
-        {label}<SortIcon k={k} />
-      </th>
-    );
-  }
+  const thProps = { sortKey, sortAsc, onSort: toggleSort };
 
   return (
     <div
@@ -264,17 +271,27 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
             )}
           </div>
         ) : (
-          <table className="w-full border-collapse text-xs">
+          <table className="w-full border-collapse text-xs table-fixed">
+            <colgroup>
+              <col style={{ width: 100 }} />  {/* Kategorie */}
+              <col />                          {/* Name — flex */}
+              <col style={{ width: 52 }} />   {/* Format */}
+              <col style={{ width: 50 }} />   {/* Seiten */}
+              <col style={{ width: 62 }} />   {/* Grösse */}
+              <col style={{ width: 78 }} />   {/* Datum */}
+              <col style={{ width: 120 }} />  {/* Referenz */}
+              <col style={{ width: 56 }} />   {/* Aktionen */}
+            </colgroup>
             <thead className="sticky top-0 z-10" style={{ background: "rgba(8,12,22,0.97)" }}>
               <tr className="border-b border-white/6">
-                <Th label="Kategorie" k="category" className="pl-3 w-24" />
-                <Th label="Name" k="name" className="min-w-[120px]" />
-                <Th label="Format" k="format" className="w-16" />
-                <Th label="Seiten" k="pages" className="w-14 text-right" />
-                <Th label="Grösse" k="size" className="w-16 text-right" />
-                <Th label="Datum" k="date" className="w-20" />
-                <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">Referenz</th>
-                <th className="w-16 pr-2" />
+                <Th label="Kategorie" k="category" className="pl-3" {...thProps} />
+                <Th label="Name" k="name" {...thProps} />
+                <Th label="Format" k="format" {...thProps} />
+                <Th label="Seiten" k="pages" className="text-right" {...thProps} />
+                <Th label="Grösse" k="size" className="text-right" {...thProps} />
+                <Th label="Datum" k="date" {...thProps} />
+                <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider select-none">Referenz</th>
+                <th className="pr-2" />
               </tr>
             </thead>
             <tbody>
