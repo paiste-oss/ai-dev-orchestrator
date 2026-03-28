@@ -571,7 +571,7 @@ export default function ChatPage() {
           </div>
         )}
       </div>
-      <div className="shrink-0 border-t border-white/5" style={{ background: "rgba(5,10,20,0.95)" }}>
+      <div className="shrink-0 border-t border-white/5" style={{ background: "transparent" }}>
         <ChatInput
           input={input} onChange={setInput} onSend={handleSend} onKeyDown={handleKeyDown}
           loading={loading} attachedFiles={attachedFiles} onFilesChange={setAttachedFiles}
@@ -769,7 +769,7 @@ export default function ChatPage() {
       </div>
 
       {/* ── FLOATING INPUT ── */}
-      <div className="shrink-0 px-4 pb-3 pt-2" style={{ background: "rgba(5,10,20,0.85)", backdropFilter: "blur(12px)", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+      <div className="shrink-0 px-4 pb-3 pt-2" style={{ background: "transparent", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
         <ChatInput
           input={input}
           onChange={setInput}
