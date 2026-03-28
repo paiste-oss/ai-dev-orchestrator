@@ -227,7 +227,7 @@ export default function ChatPage() {
           width: wMeta.width, height: wMeta.height,
           minimized: false,
           zIndex: topZ.current,
-          data: d.symbol ? { symbol: d.symbol } : d.url ? { url: d.url } : {},
+          data: d.symbols ? { symbols: d.symbols } : d.symbol ? { symbol: d.symbol } : d.url ? { url: d.url } : {},
         }]);
       }
       return;
@@ -657,7 +657,7 @@ export default function ChatPage() {
             ) : card.type === "memory" ? (
               <MemoryWindow buddyName={uiPrefs.buddyName ?? "Baddi"} memories={memories} onDelete={deleteMemory} />
             ) : card.type === "chart" ? (
-              <ChartWindow initialSymbol={card.data?.symbol} />
+              <ChartWindow initialSymbol={card.data?.symbol} initialSymbols={card.data?.symbols} />
             ) : card.type === "design" ? (
               <DesignWindow prefs={uiPrefs} onPrefsChange={patch => setUiPrefs(p => ({ ...p, ...patch }))} />
             ) : card.type === "documents" ? (

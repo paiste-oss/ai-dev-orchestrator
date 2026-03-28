@@ -38,9 +38,10 @@ const LINE_COLORS = ["#6366f1", "#34d399", "#f59e0b", "#f87171", "#38bdf8", "#a7
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
-export default function ChartWindow({ initialSymbol }: { initialSymbol?: string }) {
+export default function ChartWindow({ initialSymbol, initialSymbols }: { initialSymbol?: string; initialSymbols?: string[] }) {
+  const _initSyms = initialSymbols?.map(s => s.toUpperCase()) ?? (initialSymbol ? [initialSymbol.toUpperCase()] : []);
   const [tab, setTab] = useState<Tab>("chart");
-  const [symbols, setSymbols] = useState<string[]>(initialSymbol ? [initialSymbol.toUpperCase()] : []);
+  const [symbols, setSymbols] = useState<string[]>(_initSyms);
   const [period, setPeriod] = useState<Period>("1y");
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -84,9 +85,9 @@ export default function ChartWindow({ initialSymbol }: { initialSymbol?: string 
         const prefs = await res.json();
         const savedSymbols: string[] = Array.isArray(prefs.chartSymbols) ? prefs.chartSymbols : [];
         const savedPeriod: Period = prefs.chartPeriod ?? "1y";
-        if (initialSymbol) {
-          const upper = initialSymbol.toUpperCase();
-          const merged = savedSymbols.includes(upper) ? savedSymbols : [upper, ...savedSymbols];
+        if (_initSyms.length > 0) {
+          // Initiale Symbole (aus Marker) haben Vorrang — mit gespeicherten mergen
+          const merged = [...new Set([..._initSyms, ...savedSymbols])];
           setSymbols(merged);
           setPeriod(savedPeriod);
           merged.forEach(s => fetchSymbol(s, savedPeriod));

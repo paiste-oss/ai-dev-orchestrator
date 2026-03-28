@@ -559,3 +559,40 @@ BROWSER_TOOL_DEFS = [
         },
     },
 ]
+
+
+# ---------------------------------------------------------------------------
+# Dashboard
+# ---------------------------------------------------------------------------
+
+DASHBOARD_TOOL_DEFS = [
+    {
+        "name": "populate_dashboard",
+        "description": (
+            "Füllt das Aktien-Dashboard mit einer Liste von Symbolen und einem Zeitraum. "
+            "Nutze dieses Tool wenn der Nutzer möchte, dass du das Dashboard einrichtest, "
+            "befüllst, oder Aktien zum Dashboard hinzufügst. "
+            "Das Dashboard wird automatisch geöffnet und zeigt alle Symbole als Diagramm."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbols": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Liste der Börsenkürzel, z.B. ['NESN.SW', 'NOVN.SW', 'UBSG.SW']. "
+                        "Schweizer Aktien enden auf .SW (SIX), US-Aktien ohne Suffix."
+                    ),
+                },
+                "period": {
+                    "type": "string",
+                    "enum": ["1mo", "3mo", "6mo", "1y", "2y", "5y"],
+                    "description": "Zeitraum für die Kursverlauf-Anzeige. Standard: 1y",
+                },
+            },
+            "required": ["symbols"],
+        },
+    },
+]
+

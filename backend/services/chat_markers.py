@@ -147,7 +147,11 @@ def _extract_window_marker(text: str) -> tuple[str, dict | None]:
         if canvas_type in VALID_TYPES:
             open_window = {"canvasType": canvas_type}
             if canvas_type == "chart" and extra:
-                open_window["symbol"] = extra.upper()
+                syms = [s.strip().upper() for s in extra.split(",") if s.strip()]
+                if len(syms) == 1:
+                    open_window["symbol"] = syms[0]
+                else:
+                    open_window["symbols"] = syms
             elif extra:
                 open_window["url"] = extra
         text = re.sub(r"\s*\[FENSTER:[^\]]+\]", "", text).strip()

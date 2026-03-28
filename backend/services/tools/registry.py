@@ -13,6 +13,7 @@ from services.tools.definitions import (
     BROWSER_TOOL_DEFS,
     TRAINING_REMINDER_TOOL_DEFS,
     WEATHER_TOOL_DEFS,
+    DASHBOARD_TOOL_DEFS,
 )
 from services.tools.handlers.transport import _handle_sbb
 from services.tools.handlers.web import _handle_web_fetch, _handle_web_search
@@ -21,6 +22,7 @@ from services.tools.handlers.stocks import _handle_stock, _handle_stock_alerts
 from services.tools.handlers.browser import _handle_browser
 from services.tools.handlers.training import _handle_training_reminders
 from services.tools.handlers.weather import _handle_weather
+from services.tools.handlers.dashboard import _handle_dashboard
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +142,18 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_defs": WEATHER_TOOL_DEFS,
         "tool_names": {"get_current_weather", "get_weather_forecast"},
         "handler": _handle_weather,
+    },
+    "dashboard": {
+        "key": "dashboard",
+        "name": "Aktien-Dashboard befüllen",
+        "description": "Füllt das Aktien-Dashboard mit Symbolen und Zeitraum — öffnet das Chart-Fenster automatisch.",
+        "prompt_hint": "Aktien-Dashboard befüllen: mehrere Symbole auf einmal hinzufügen und Zeitraum setzen",
+        "category": "data",
+        "tier": "free",
+        "tool_defs": DASHBOARD_TOOL_DEFS,
+        "tool_names": {"populate_dashboard"},
+        "handler": _handle_dashboard,
+        "needs_customer_id": True,
     },
 }
 
