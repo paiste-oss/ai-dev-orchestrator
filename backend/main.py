@@ -12,6 +12,7 @@ import models.capability_request  # noqa: F401 — register CapabilityRequest wi
 import models.payment             # noqa: F401 — register Payment & InvoiceCounter with Base.metadata
 import models.window              # noqa: F401 — register WindowBoard with Base.metadata
 import models.knowledge           # noqa: F401 — register KnowledgeSource & KnowledgeDocument with Base.metadata
+import models.stock_portfolio     # noqa: F401 — register StockPortfolio with Base.metadata
 
 # OpenAI-kompatibler Endpunkt für DALL-E (openai SDK)
 os.environ["OPENAI_API_KEY"] = settings.openai_api_key or "NA"
