@@ -228,14 +228,14 @@ async def send_message(
                 doc = await db.get(CustomerDocument, _uuid.UUID(doc_id))
                 if doc and doc.customer_id == customer.id and doc.is_active and doc.extracted_text:
                     # Auf max. 12'000 Zeichen kürzen um Token-Limit zu schonen
-                    text = doc.extracted_text
+                    doc_text = doc.extracted_text
                     truncated = ""
-                    if len(text) > 12000:
-                        text = text[:12000]
+                    if len(doc_text) > 12000:
+                        doc_text = doc_text[:12000]
                         truncated = "\n[... Inhalt gekürzt]"
                     pages_info = f"{doc.page_count} Seite(n)" if doc.page_count > 1 else ""
                     header = f'[Datei: "{doc.original_filename}"{" — " + pages_info if pages_info else ""}]'
-                    doc_parts.append(f"{header}\n{text}{truncated}")
+                    doc_parts.append(f"{header}\n{doc_text}{truncated}")
             except Exception as e:
                 _log.warning("Dokument %s konnte nicht geladen werden: %s", doc_id, e)
         if doc_parts:

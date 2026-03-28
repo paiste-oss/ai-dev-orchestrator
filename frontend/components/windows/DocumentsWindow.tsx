@@ -79,7 +79,11 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
   const [sortAsc, setSortAsc] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { loadDocs(); }, []);
+  useEffect(() => {
+    loadDocs();
+    const interval = setInterval(loadDocs, 30_000); // Auto-Refresh alle 30s
+    return () => clearInterval(interval);
+  }, []);
 
   async function loadDocs() {
     setLoading(true);
@@ -185,6 +189,16 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
         <span className="text-xs text-gray-500 flex-1">
           {docs.length} Datei{docs.length !== 1 ? "en" : ""} · {formatBytes(totalBytes)}
         </span>
+        <button
+          onClick={loadDocs} disabled={loading}
+          title="Aktualisieren"
+          className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors disabled:opacity-40 shrink-0"
+        >
+          <svg className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+        </button>
         <input
           type="text" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Suchen…"
