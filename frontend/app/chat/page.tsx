@@ -629,7 +629,7 @@ export default function ChatPage() {
                 onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
               />
             ) : card.type === "memory" ? (
-              <MemoryWindow buddyName={uiPrefs.buddyName ?? "Baddi"} />
+              <MemoryWindow buddyName={uiPrefs.buddyName ?? "Baddi"} memories={memories} onDelete={deleteMemory} />
             ) : card.type === "design" ? (
               <DesignWindow prefs={uiPrefs} onPrefsChange={patch => setUiPrefs(p => ({ ...p, ...patch }))} />
             ) : card.type === "documents" ? (
