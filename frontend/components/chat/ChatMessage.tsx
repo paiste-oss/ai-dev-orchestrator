@@ -28,7 +28,12 @@ const LINE_SPACINGS: Record<string, string> = {
   compact: "1.4", normal: "1.625", wide: "2",
 };
 const ACCENT_COLORS: Record<string, string> = {
-  indigo: "#6366f1", purple: "#a855f7", green: "#22c55e", orange: "#f97316", pink: "#ec4899",
+  indigo: "#6366f1", purple: "#a855f7", sky: "#0ea5e9", green: "#22c55e",
+  teal: "#14b8a6", orange: "#f97316", pink: "#ec4899", red: "#ef4444",
+  yellow: "#eab308", white: "#e5e7eb",
+};
+const CHAT_WIDTHS: Record<string, string> = {
+  compact: "55%", normal: "75%", wide: "90%", full: "100%",
 };
 
 interface ChatMessageProps {
@@ -45,6 +50,9 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
   const fontFamily = FONT_FAMILIES[uiPrefs.fontFamily] ?? FONT_FAMILIES.system;
   const lineHeight = LINE_SPACINGS[uiPrefs.lineSpacing] ?? "1.625";
   const accentBg   = ACCENT_COLORS[uiPrefs.accentColor] ?? "#6366f1";
+  const maxWidth   = CHAT_WIDTHS[uiPrefs.chatWidth]    ?? "75%";
+  const ts = uiPrefs.showTimestamps ?? "hover";
+  const tsClass = ts === "always" ? "opacity-100" : ts === "never" ? "hidden" : "opacity-0 group-hover:opacity-100 transition-opacity";
 
   return (
     <div className={`group flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -57,7 +65,7 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
 
       {msg.role === "user" ? (
         /* ── USER BUBBLE ── */
-        <div className="flex flex-col items-end gap-1 max-w-[75%]">
+        <div className="flex flex-col items-end gap-1" style={{ maxWidth }}>
           {msg.images && msg.images.length > 0 && (
             <div className="flex flex-wrap gap-2 justify-end">
               {msg.images.map((src, i) => (
@@ -81,7 +89,7 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
           {/* Name + timestamp */}
           <div className="flex items-baseline gap-2 mb-1">
             <span className="text-xs font-semibold text-gray-400">{uiPrefs.buddyName}</span>
-            <span className="text-xs text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className={`text-xs text-gray-600 ${tsClass}`}>
               {new Date(msg.created_at).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}
             </span>
           </div>

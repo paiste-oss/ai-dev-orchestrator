@@ -57,11 +57,36 @@ const BG_OPTIONS = [
   { v: "forest",  l: "Forest",      hex: "#0a1a0f" },
   { v: "wine",    l: "Wine",        hex: "#1a0a12" },
   { v: "warm",    l: "Warm",        hex: "#1a1208" },
+  { v: "white",   l: "Weiss",       hex: "#ffffff" },
 ];
 
 export default function DesignWindow({ prefs, onPrefsChange }: Props) {
   const [saved, setSaved] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const canvas = document.createElement("canvas");
+    const img = new Image();
+    img.onload = () => {
+      const maxW = 1920, maxH = 1080;
+      let { width, height } = img;
+      if (width > maxW || height > maxH) {
+        const ratio = Math.min(maxW / width, maxH / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+      update({ backgroundImage: dataUrl, background: "dark" });
+    };
+    img.src = URL.createObjectURL(file);
+    e.target.value = "";
+  }
 
   const update = useCallback((patch: Partial<UiPrefs>) => {
     onPrefsChange(patch);
@@ -107,17 +132,48 @@ export default function DesignWindow({ prefs, onPrefsChange }: Props) {
         <OptionRow label="Hintergrund">
           <div className="grid grid-cols-4 gap-1.5">
             {BG_OPTIONS.map(bg => (
-              <button key={bg.v} onClick={() => update({ background: bg.v })}
+              <button key={bg.v} onClick={() => update({ background: bg.v, backgroundImage: undefined })}
                 className={`relative h-10 rounded-lg border transition-all ${
-                  prefs.background === bg.v ? "border-white/40 ring-1 ring-white/20" : "border-white/8 hover:border-white/20"
+                  prefs.background === bg.v && !prefs.backgroundImage ? "border-white/40 ring-1 ring-white/20" : "border-white/8 hover:border-white/20"
                 }`}
                 style={{ backgroundColor: bg.hex }} title={bg.l}>
-                {prefs.background === bg.v && (
+                {prefs.background === bg.v && !prefs.backgroundImage && (
                   <span className="absolute inset-0 flex items-center justify-center text-white/80">✓</span>
                 )}
                 <span className="absolute bottom-1 left-0 right-0 text-center text-[9px] text-white/50">{bg.l}</span>
               </button>
             ))}
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+          <div className="flex gap-2 mt-1.5">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className={`flex-1 flex items-center justify-center gap-2 h-10 rounded-lg border text-xs transition-all ${
+                prefs.backgroundImage ? "border-white/40 ring-1 ring-white/20 text-white" : "border-white/8 text-gray-400 hover:text-gray-200 hover:border-white/20"
+              }`}
+            >
+              {prefs.backgroundImage ? (
+                <>
+                  <img src={prefs.backgroundImage} alt="" className="w-5 h-5 rounded object-cover" />
+                  Bild aktiv
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  Bild hochladen
+                </>
+              )}
+            </button>
+            {prefs.backgroundImage && (
+              <button
+                onClick={() => update({ backgroundImage: undefined })}
+                className="px-3 h-10 rounded-lg border border-white/8 text-xs text-gray-400 hover:text-red-400 hover:border-red-500/30 transition-all"
+              >
+                Entfernen
+              </button>
+            )}
           </div>
         </OptionRow>
 

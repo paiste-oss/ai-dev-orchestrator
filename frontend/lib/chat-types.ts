@@ -82,4 +82,5 @@ export interface UiPrefs {
   chatWidth: string;
   bubbleStyle: string;
   showTimestamps: string;
+  backgroundImage?: string;
 }

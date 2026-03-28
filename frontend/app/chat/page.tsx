@@ -409,10 +409,13 @@ export default function ChatPage() {
   }
 
   const bgColor = BG_COLORS[uiPrefs.background] ?? "#030712";
+  const bgStyle = uiPrefs.backgroundImage
+    ? { backgroundImage: `url(${uiPrefs.backgroundImage})`, backgroundSize: "cover", backgroundPosition: "center" }
+    : { background: bgColor };
 
   // ── MOBILE LAYOUT ────────────────────────────────────────────────────────────
   if (isMobile) return (
-    <div className="flex flex-col h-[100dvh] text-white overflow-hidden" style={{ background: bgColor }}>
+    <div className="flex flex-col h-[100dvh] text-white overflow-hidden" style={bgStyle}>
       <TopBar
         buddyName={uiPrefs.buddyName ?? "Baddi"}
         buddyInitial={buddyInitial}
@@ -490,7 +493,7 @@ export default function ChatPage() {
 
   // ── DESKTOP CANVAS LAYOUT ─────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-[100dvh] text-white overflow-hidden" style={{ background: bgColor }}>
+    <div className="flex flex-col h-[100dvh] text-white overflow-hidden" style={bgStyle}>
 
       {/* ── TOP BAR ── */}
       <TopBar

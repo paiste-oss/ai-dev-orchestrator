@@ -29,6 +29,7 @@ export const ACCENT_COLORS: Record<string, string> = {
 export const BG_COLORS: Record<string, string> = {
   dark: "#030712", darker: "#000000", lighter: "#111827",
   slate: "#0f172a", navy: "#0c1445", forest: "#0a1a0f", wine: "#1a0a12", warm: "#1a1208",
+  white: "#ffffff",
 };
 
 const DEFAULT_PREFS: UiPrefs = {
