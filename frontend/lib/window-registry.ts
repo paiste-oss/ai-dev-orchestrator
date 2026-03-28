@@ -76,6 +76,16 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     canvasType: "documents",
   },
   {
+    id: "memory",
+    label: "Gedächtnis",
+    icon: "🧠",
+    description: "Erinnerungen verwalten — was Baddi über dich weiss.",
+    defaultWidth: 360,
+    defaultHeight: 480,
+    status: "active",
+    canvasType: "memory",
+  },
+  {
     id: "3d_renderer",
     label: "3D-Renderer",
     icon: "🧊",

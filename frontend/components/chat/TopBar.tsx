@@ -18,6 +18,7 @@ interface TopBarProps {
   onLogout: () => void;
   onAdminBack: () => void;
   onAddCard?: (canvasType: string) => void;
+  onBuddyClick?: () => void;
 }
 
 function providerBadge(p: string) {
@@ -30,7 +31,7 @@ function providerBadge(p: string) {
 export default function TopBar({
   buddyName, buddyInitial, speaking, ttsEnabled, lastProvider,
   memoriesCount, firstName, isAdmin,
-  onToggleTts, onToggleMemory, onSettings, onLogout, onAdminBack, onAddCard,
+  onToggleTts, onToggleMemory, onSettings, onLogout, onAdminBack, onAddCard, onBuddyClick,
 }: TopBarProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
 
@@ -38,8 +39,12 @@ export default function TopBar({
     <header className="shrink-0 h-12 flex items-center gap-3 px-4 border-b border-white/5"
       style={{ background: "rgba(5,10,20,0.97)", backdropFilter: "blur(12px)", position: "relative", zIndex: 100 }}>
 
-      {/* Left — Buddy status */}
-      <div className="flex items-center gap-2.5 min-w-0">
+      {/* Left — Buddy status (klickbar → Gedächtnis-Fenster) */}
+      <button
+        onClick={onBuddyClick}
+        className="flex items-center gap-2.5 min-w-0 rounded-lg px-1 py-0.5 hover:bg-white/5 transition-colors"
+        title="Gedächtnis öffnen"
+      >
         <div className={`w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0 transition-all ${speaking ? "shadow-[0_0_0_4px_rgba(99,102,241,0.3)]" : ""}`}>
           {buddyInitial}
         </div>
@@ -50,7 +55,7 @@ export default function TopBar({
             <span className="text-[11px] text-gray-500 hidden sm:block">{speaking ? "antwortet…" : "online"}</span>
           </div>
         </div>
-      </div>
+      </button>
 
       {/* Divider */}
       <div className="h-5 w-px bg-white/8 shrink-0" />
@@ -83,9 +88,9 @@ export default function TopBar({
             </button>
             {showAddMenu && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
-                <div className="absolute right-0 top-8 z-50 min-w-[160px] rounded-xl border border-white/10 shadow-2xl overflow-hidden"
-                  style={{ background: "rgba(8,12,22,0.97)", backdropFilter: "blur(16px)" }}>
+                <div className="fixed inset-0" style={{ zIndex: 99998 }} onClick={() => setShowAddMenu(false)} />
+                <div className="absolute right-0 top-8 min-w-[160px] rounded-xl border border-white/10 shadow-2xl overflow-hidden"
+                  style={{ background: "rgba(8,12,22,0.97)", backdropFilter: "blur(16px)", zIndex: 99999 }}>
                   {WINDOW_MODULES.filter(m => m.status !== "coming_soon").map(mod => (
                     <button
                       key={mod.id}
@@ -103,8 +108,11 @@ export default function TopBar({
         )}
 
         {/* Memory */}
-        <button onClick={onToggleMemory} title="Gedächtnis"
-          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-gray-500 hover:text-white hover:bg-white/5 transition-colors">
+        <button
+          onClick={() => onAddCard ? onAddCard("memory") : onToggleMemory()}
+          title="Gedächtnis"
+          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
+        >
           🧠{memoriesCount > 0 && <span className="text-[10px] text-violet-400">{memoriesCount}</span>}
         </button>
 

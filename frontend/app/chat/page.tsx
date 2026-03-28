@@ -33,6 +33,7 @@ import ImageViewerWindow from "@/components/windows/ImageViewerWindow";
 import NetzwerkWindow from "@/components/windows/NetzwerkWindow";
 import DocumentsWindow from "@/components/windows/DocumentsWindow";
 import FileViewerWindow from "@/components/windows/FileViewerWindow";
+import MemoryWindow from "@/components/windows/MemoryWindow";
 import { WINDOW_MODULES } from "@/lib/window-registry";
 
 // ── Canvas card state ─────────────────────────────────────────────────────────
@@ -412,6 +413,7 @@ export default function ChatPage() {
         onSettings={() => setSetupOpen(true)}
         onLogout={() => { clearSession(); router.push("/"); }}
         onAdminBack={() => router.push("/admin")}
+        onBuddyClick={() => setShowMemory(v => !v)}
       />
       <div
         ref={chatScrollRef}
@@ -499,6 +501,7 @@ export default function ChatPage() {
         onLogout={() => { clearSession(); router.push("/"); }}
         onAdminBack={() => router.push("/admin")}
         onAddCard={handleAddCard}
+        onBuddyClick={() => handleAddCard("memory")}
       />
 
       {/* ── WHITEBOARD CANVAS ── */}
@@ -567,6 +570,8 @@ export default function ChatPage() {
                 boardId={card.data?.boardId}
                 onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
               />
+            ) : card.type === "memory" ? (
+              <MemoryWindow buddyName={uiPrefs.buddyName ?? "Baddi"} />
             ) : card.type === "documents" ? (
               <DocumentsWindow onOpenFile={handleOpenFile} />
             ) : card.type === "file_viewer" ? (
