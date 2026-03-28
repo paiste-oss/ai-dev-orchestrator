@@ -85,19 +85,28 @@ export default async ({ page, context }) => {
     } catch (_) {}
   }
 
+  // Hilfsfunktion: goto mit Fallback auf domcontentloaded
+  async function goto(targetUrl) {
+    try {
+      await page.goto(targetUrl, { waitUntil: 'load', timeout: 25000 });
+    } catch (_) {
+      // Fallback: Screenshot trotzdem machen, Seite ist teilweise geladen
+    }
+  }
+
   // Aktion ausführen
   if (action.type === 'navigate') {
-    await page.goto(action.url, { waitUntil: 'networkidle2', timeout: 20000 });
+    await goto(action.url);
     await acceptCookieConsent();
 
   } else if (action.type === 'click') {
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 });
+    await goto(url);
     await acceptCookieConsent();
     await page.mouse.click(action.x, action.y);
     await new Promise(r => setTimeout(r, 1500));
 
   } else if (action.type === 'type') {
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 });
+    await goto(url);
     await acceptCookieConsent();
     await page.keyboard.type(action.text, { delay: 40 });
     if (action.submit) {
@@ -106,14 +115,14 @@ export default async ({ page, context }) => {
     }
 
   } else if (action.type === 'scroll') {
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 });
+    await goto(url);
     await acceptCookieConsent();
     const delta = action.direction === 'down' ? 600 : -600;
     await page.evaluate((d) => window.scrollBy(0, d), delta);
     await new Promise(r => setTimeout(r, 500));
 
   } else {
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 });
+    await goto(url);
     await acceptCookieConsent();
   }
 
