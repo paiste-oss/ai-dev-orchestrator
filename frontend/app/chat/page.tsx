@@ -37,6 +37,9 @@ import MemoryWindow from "@/components/windows/MemoryWindow";
 import DesignWindow from "@/components/windows/DesignWindow";
 import ChartWindow from "@/components/windows/ChartWindow";
 import { WINDOW_MODULES } from "@/lib/window-registry";
+import MobilePinnedPanel from "@/components/mobile/MobilePinnedPanel";
+import MobileWindowTray from "@/components/mobile/MobileWindowTray";
+import MobileWindowPickerSheet from "@/components/mobile/MobileWindowPickerSheet";
 
 // ── Canvas card state ─────────────────────────────────────────────────────────
 
@@ -139,10 +142,27 @@ export default function ChatPage() {
   const [vw, setVw] = useState<number>(() => (typeof window !== "undefined" ? window.innerWidth : 1280));
   const isMobile = vw < 768;
 
+  // Mobile Panel State
+  const [activeMobileWindowId, setActiveMobileWindowId] = useState<string | null>(null);
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const [mobilePanelHeight, setMobilePanelHeight] = useState(0.42);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [showMobileWindowPicker, setShowMobileWindowPicker] = useState(false);
+
   useEffect(() => {
     function onResize() { setVw(window.innerWidth); }
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // Keyboard-Erkennung via visualViewport (Mobile)
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) return;
+    function onVpResize() {
+      setKeyboardVisible((window.visualViewport!.height) < window.innerHeight * 0.85);
+    }
+    window.visualViewport.addEventListener("resize", onVpResize);
+    return () => window.visualViewport!.removeEventListener("resize", onVpResize);
   }, []);
 
   // Canvas cards state — restored from localStorage
@@ -156,6 +176,7 @@ export default function ChatPage() {
   // topZ aus gespeicherten Karten initialisieren, damit neue Karten immer zuoberst erscheinen
   const topZ = useRef(Math.max(2, ...initialCards().map(c => c.zIndex)));
   const processedMsgs = useRef(new Set<string>());
+  const prevMobileCardCountRef = useRef(-1);
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -255,6 +276,33 @@ export default function ChatPage() {
     }]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
+
+  // Auto-open Panel auf Mobile wenn neue Karte gespawnt wird
+  useEffect(() => {
+    if (!isMobile) return;
+    const nonChatCards = cards.filter(c => c.id !== CHAT_CARD_ID);
+    // Ersten Render: nur initialisieren
+    if (prevMobileCardCountRef.current === -1) {
+      prevMobileCardCountRef.current = nonChatCards.length;
+      return;
+    }
+    // Aktive Karte wurde entfernt → auf letzte verfügbare wechseln
+    if (activeMobileWindowId && !cards.find(c => c.id === activeMobileWindowId)) {
+      if (nonChatCards.length > 0) {
+        setActiveMobileWindowId(nonChatCards[nonChatCards.length - 1].id);
+      } else {
+        setActiveMobileWindowId(null);
+        setMobilePanelOpen(false);
+      }
+    }
+    // Neue Karte hinzugekommen → Panel öffnen
+    if (nonChatCards.length > prevMobileCardCountRef.current) {
+      setActiveMobileWindowId(nonChatCards[nonChatCards.length - 1].id);
+      setMobilePanelOpen(true);
+    }
+    prevMobileCardCountRef.current = nonChatCards.length;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cards, isMobile]);
 
   // Canvas card management
   const moveCard = useCallback((id: string, x: number, y: number) => {
@@ -364,7 +412,11 @@ export default function ChatPage() {
 
   const handleAddCard = useCallback((canvasType: string) => {
     const mod = WINDOW_MODULES.find(m => m.canvasType === canvasType);
-    if (mod) spawnCard(mod.canvasType, `${mod.icon} ${mod.label}`, mod.defaultWidth, mod.defaultHeight);
+    if (mod) {
+      spawnCard(mod.canvasType, `${mod.icon} ${mod.label}`, mod.defaultWidth, mod.defaultHeight);
+      if (canvasType === "memory") loadMemories();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spawnCard]);
 
   const handleOpenFile = useCallback(({ url, filename, fileType }: { url: string; filename: string; fileType: string }) => {
@@ -482,7 +534,8 @@ export default function ChatPage() {
       focusTextarea: () => textareaRef.current?.focus(),
     });
     if (provider) setLastProvider(provider);
-    setTimeout(loadMemories, 4000);
+    setTimeout(loadMemories, 6000);
+    setTimeout(loadMemories, 12000);
   }
 
   function handleCopy(id: string, content: string) {
@@ -509,86 +562,192 @@ export default function ChatPage() {
     }
   }
 
+  // ── Fenster-Inhalt rendern (geteilt Desktop + Mobile) ─────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function renderWindowContent(card: CardData): React.ReactNode {
+    switch (card.type) {
+      case "browser_window": return (
+        <BrowserWindowCard
+          initialUrl={card.data?.url ?? ""}
+          onUrlChange={(url) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, url } } : c))}
+          onNaturalSize={(w, h) => {
+            const maxW = 800; const fw = Math.min(w, maxW); const fh = Math.round(fw / w * h);
+            resizeCard(card.id, fw, fh + 80);
+          }}
+        />
+      );
+      case "whiteboard": return (
+        <WhiteboardWindow
+          boardId={card.data?.boardId}
+          onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
+        />
+      );
+      case "image_viewer": return (
+        <ImageViewerWindow
+          initialUrl={card.data?.url ?? ""}
+          onNaturalSize={(w, h) => resizeCard(card.id, Math.min(w, 900), Math.min(h, 640) + 44)}
+        />
+      );
+      case "netzwerk": return (
+        <NetzwerkWindow
+          boardId={card.data?.boardId}
+          onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
+        />
+      );
+      case "memory": return (
+        <MemoryWindow buddyName={uiPrefs.buddyName ?? "Baddi"} memories={memories} onDelete={deleteMemory} onRefresh={loadMemories} />
+      );
+      case "chart": return (
+        <ChartWindow initialSymbol={card.data?.symbol} initialSymbols={card.data?.symbols} />
+      );
+      case "design": return (
+        <DesignWindow prefs={uiPrefs} onPrefsChange={patch => setUiPrefs(p => ({ ...p, ...patch }))} />
+      );
+      case "documents": return (
+        <DocumentsWindow onOpenFile={handleOpenFile} />
+      );
+      case "file_viewer": return (
+        <FileViewerWindow
+          url={card.data?.url ?? ""}
+          filename={card.data?.filename ?? "Datei"}
+          fileType={card.data?.fileType}
+        />
+      );
+      default: return renderRichCard(card.type, card.data);
+    }
+  }
+
   const bgColor = BG_COLORS[uiPrefs.background] ?? "#030712";
   const bgStyle = uiPrefs.backgroundImage
     ? { backgroundImage: `url(${uiPrefs.backgroundImage})`, backgroundSize: "cover", backgroundPosition: "center" }
     : { background: bgColor };
 
   // ── MOBILE LAYOUT ────────────────────────────────────────────────────────────
-  if (isMobile) return (
-    <div className="flex flex-col h-[100dvh] text-white overflow-hidden" style={bgStyle}>
-      <TopBar
-        buddyName={uiPrefs.buddyName ?? "Baddi"}
-        buddyInitial={buddyInitial}
-        speaking={speaking}
-        lastProvider={lastProvider}
-        firstName={firstName}
-        isAdmin={user?.role === "admin"}
-        onSettings={() => setSetupOpen(true)}
-        onLogout={() => { clearSession(); router.push("/"); }}
-        onAdminBack={() => router.push("/admin")}
-      />
-      <div
-        ref={chatScrollRef}
-        className="flex-1 overflow-y-auto px-3 py-3 space-y-3"
-        onScroll={() => {
-          const el = chatScrollRef.current;
-          if (!el) return;
-          userScrolledUp.current = el.scrollHeight - el.scrollTop - el.clientHeight > 80;
-        }}
-      >
-        {!historyLoaded && <p className="text-center text-gray-600 text-sm pt-8">Lade Verlauf…</p>}
-        {historyLoaded && messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center min-h-[60%] gap-4 text-center py-8">
-            <div className={`w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center ${speaking ? "shadow-[0_0_0_8px_rgba(99,102,241,0.2)]" : ""} transition-all`}>
-              <span className="text-white font-bold text-xl">{buddyInitial}</span>
-            </div>
-            <div>
-              <h2 className="font-semibold text-white">Hallo{firstName ? `, ${firstName}` : ""}!</h2>
-              <p className="text-gray-400 text-sm mt-1">Wie kann ich dir helfen?</p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              {suggestions.map(s => (
-                <button key={s} onClick={() => setInput(s)}
-                  className="px-3 py-1.5 rounded-full text-xs text-gray-300 bg-white/5 hover:bg-white/10 border border-white/8 transition-all">
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {messages.map(msg => (
-          <ChatMessage key={msg.id} msg={msg} uiPrefs={uiPrefs} copied={copied} onCopy={handleCopy} buddyInitial={buddyInitial} />
-        ))}
-        {loading && (
-          <div className="flex gap-2 items-center">
-            <AvatarCircle speaking={true} initial={buddyInitial} />
-            <div className="flex gap-1 py-2">
-              <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
-              <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
-              <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]" />
-            </div>
-          </div>
-        )}
-      </div>
-      <div className="shrink-0 border-t border-white/5" style={{ background: "transparent" }}>
-        <ChatInput
-          input={input} onChange={setInput} onSend={handleSend} onKeyDown={handleKeyDown}
-          loading={loading} attachedFiles={attachedFiles} onFilesChange={setAttachedFiles}
-          onAttachClick={() => fileInputRef.current?.click()} onCameraClick={openCamera}
-          onVoiceResult={handleVoiceResult} buddyName={uiPrefs.buddyName}
-          fontSize={uiPrefs.fontSize} voiceLang={voiceLang} textareaRef={textareaRef} compact
+  if (isMobile) {
+    const nonChatCards = cards.filter(c => c.id !== CHAT_CARD_ID);
+    const activeCard = activeMobileWindowId ? cards.find(c => c.id === activeMobileWindowId) : null;
+    const mobileAvailableH = (typeof window !== "undefined"
+      ? (window.visualViewport?.height ?? window.innerHeight)
+      : 800) - 48; // minus TopBar
+    const maxPanelFraction = keyboardVisible ? 0.35 : 0.55;
+
+    return (
+      <div className="flex flex-col h-[100dvh] text-white overflow-hidden" style={bgStyle}>
+        <TopBar
+          buddyName={uiPrefs.buddyName ?? "Baddi"}
+          buddyInitial={buddyInitial}
+          speaking={speaking}
+          lastProvider={lastProvider}
+          firstName={firstName}
+          isAdmin={user?.role === "admin"}
+          onSettings={() => setSetupOpen(true)}
+          onLogout={() => { clearSession(); router.push("/"); }}
+          onAdminBack={() => router.push("/admin")}
         />
+
+        {/* ── Pinned Panel ── */}
+        {mobilePanelOpen && activeCard && (
+          <MobilePinnedPanel
+            card={activeCard}
+            heightFraction={mobilePanelHeight}
+            maxHeightFraction={maxPanelFraction}
+            availableHeight={mobileAvailableH}
+            onClose={() => setMobilePanelOpen(false)}
+            onHeightChange={setMobilePanelHeight}
+          >
+            {renderWindowContent(activeCard)}
+          </MobilePinnedPanel>
+        )}
+
+        {/* ── Chat Scroll ── */}
+        <div
+          ref={chatScrollRef}
+          className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0"
+          onScroll={() => {
+            const el = chatScrollRef.current;
+            if (!el) return;
+            userScrolledUp.current = el.scrollHeight - el.scrollTop - el.clientHeight > 80;
+          }}
+        >
+          {!historyLoaded && <p className="text-center text-gray-600 text-sm pt-8">Lade Verlauf…</p>}
+          {historyLoaded && messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center min-h-[60%] gap-4 text-center py-8">
+              <div className={`w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center ${speaking ? "shadow-[0_0_0_8px_rgba(99,102,241,0.2)]" : ""} transition-all`}>
+                <span className="text-white font-bold text-xl">{buddyInitial}</span>
+              </div>
+              <div>
+                <h2 className="font-semibold text-white">Hallo{firstName ? `, ${firstName}` : ""}!</h2>
+                <p className="text-gray-400 text-sm mt-1">Wie kann ich dir helfen?</p>
+              </div>
+              <div className="flex flex-wrap justify-center gap-2">
+                {suggestions.map(s => (
+                  <button key={s} onClick={() => setInput(s)}
+                    className="px-3 py-1.5 rounded-full text-xs text-gray-300 bg-white/5 hover:bg-white/10 border border-white/8 transition-all">
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {messages.map(msg => (
+            <ChatMessage key={msg.id} msg={msg} uiPrefs={uiPrefs} copied={copied} onCopy={handleCopy} buddyInitial={buddyInitial} />
+          ))}
+          {loading && (
+            <div className="flex gap-2 items-center">
+              <AvatarCircle speaking={true} initial={buddyInitial} />
+              <div className="flex gap-1 py-2">
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Window Tray + Input ── */}
+        <div className="shrink-0" style={{ background: "transparent" }}>
+          <MobileWindowTray
+            cards={nonChatCards}
+            activeWindowId={activeMobileWindowId}
+            panelOpen={mobilePanelOpen}
+            onActivate={(id) => { setActiveMobileWindowId(id); setMobilePanelOpen(true); }}
+            onClose={(id) => {
+              closeCard(id);
+              if (id === activeMobileWindowId) setMobilePanelOpen(false);
+            }}
+            onAdd={() => setShowMobileWindowPicker(true)}
+          />
+          <div className="border-t border-white/5">
+            <ChatInput
+              input={input} onChange={setInput} onSend={handleSend} onKeyDown={handleKeyDown}
+              loading={loading} attachedFiles={attachedFiles} onFilesChange={setAttachedFiles}
+              onAttachClick={() => fileInputRef.current?.click()} onCameraClick={openCamera}
+              onVoiceResult={handleVoiceResult} buddyName={uiPrefs.buddyName}
+              fontSize={uiPrefs.fontSize} voiceLang={voiceLang} textareaRef={textareaRef} compact
+            />
+          </div>
+        </div>
+
+        {/* ── Hidden File Input ── */}
+        <input ref={fileInputRef} type="file" multiple className="hidden"
+          accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.mp3,.wav,.m4a,.ogg,.mp4,.mov,.webm"
+          onChange={handleFileInputChange}
+        />
+
+        {/* ── Mobile Window Picker ── */}
+        <MobileWindowPickerSheet
+          open={showMobileWindowPicker}
+          onClose={() => setShowMobileWindowPicker(false)}
+          onSelect={(type) => { handleAddCard(type); setShowMobileWindowPicker(false); }}
+        />
+
+        {/* ── Overlays ── */}
+        {showMemory && <MemoryPanel memories={memories} buddyName={uiPrefs.buddyName} onDelete={deleteMemory} onClose={() => setShowMemory(false)} />}
+        {setupOpen && <SetupModal onClose={() => setSetupOpen(false)} onNavigate={href => { setSetupOpen(false); router.push(href); }} onLogout={() => { clearSession(); router.push("/"); }} />}
+        {cameraOpen && <CameraModal videoRef={videoRef} onClose={closeCamera} onCapture={() => capturePhoto(file => { setAttachedFiles(prev => [...prev, { file, id: `cam-${Date.now()}` }]); })} />}
       </div>
-      <input ref={fileInputRef} type="file" multiple className="hidden"
-        accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.mp3,.wav,.m4a,.ogg,.mp4,.mov,.webm"
-        onChange={handleFileInputChange}
-      />
-      {showMemory && <MemoryPanel memories={memories} buddyName={uiPrefs.buddyName} onDelete={deleteMemory} onClose={() => setShowMemory(false)} />}
-      {setupOpen && <SetupModal onClose={() => setSetupOpen(false)} onNavigate={href => { setSetupOpen(false); router.push(href); }} onLogout={() => { clearSession(); router.push("/"); }} />}
-      {cameraOpen && <CameraModal videoRef={videoRef} onClose={closeCamera} onCapture={() => capturePhoto(file => { setAttachedFiles(prev => [...prev, { file, id: `cam-${Date.now()}` }]); })} />}
-    </div>
-  );
+    );
+  }
 
   // ── DESKTOP CANVAS LAYOUT ─────────────────────────────────────────────────────
   return (
@@ -660,48 +819,7 @@ export default function ChatPage() {
             onMaximize={maximizeCard}
             onHalf={halfCard}
           >
-            {card.type === "browser_window" ? (
-              <BrowserWindowCard
-                initialUrl={card.data?.url ?? ""}
-                onUrlChange={(url) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, url } } : c))}
-                onNaturalSize={(w, h) => {
-                  // Maintain 16:9 screenshot aspect ratio, max 800px wide
-                  const maxW = 800;
-                  const fw = Math.min(w, maxW);
-                  const fh = Math.round(fw / w * h);
-                  resizeCard(card.id, fw, fh + 80); // +80 for URL bar + type bar
-                }}
-              />
-            ) : card.type === "whiteboard" ? (
-              <WhiteboardWindow
-                boardId={card.data?.boardId}
-                onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
-              />
-            ) : card.type === "image_viewer" ? (
-              <ImageViewerWindow
-                initialUrl={card.data?.url ?? ""}
-                onNaturalSize={(w, h) => resizeCard(card.id, Math.min(w, 900), Math.min(h, 640) + 44)}
-              />
-            ) : card.type === "netzwerk" ? (
-              <NetzwerkWindow
-                boardId={card.data?.boardId}
-                onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
-              />
-            ) : card.type === "memory" ? (
-              <MemoryWindow buddyName={uiPrefs.buddyName ?? "Baddi"} memories={memories} onDelete={deleteMemory} />
-            ) : card.type === "chart" ? (
-              <ChartWindow initialSymbol={card.data?.symbol} initialSymbols={card.data?.symbols} />
-            ) : card.type === "design" ? (
-              <DesignWindow prefs={uiPrefs} onPrefsChange={patch => setUiPrefs(p => ({ ...p, ...patch }))} />
-            ) : card.type === "documents" ? (
-              <DocumentsWindow onOpenFile={handleOpenFile} />
-            ) : card.type === "file_viewer" ? (
-              <FileViewerWindow
-                url={card.data?.url ?? ""}
-                filename={card.data?.filename ?? "Datei"}
-                fileType={card.data?.fileType}
-              />
-            ) : card.type === "chat" ? (
+            {card.type === "chat" ? (
               /* ── Main chat card content ── */
               <div
                 ref={chatScrollRef}
@@ -762,7 +880,7 @@ export default function ChatPage() {
                 )}
               </div>
             ) : (
-              renderRichCard(card.type, card.data)
+              renderWindowContent(card)
             )}
           </CanvasCard>
         ))}
