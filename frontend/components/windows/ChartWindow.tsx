@@ -53,6 +53,9 @@ export default function ChartWindow({ initialSymbol, initialSymbols }: { initial
 
   const [portfolio, setPortfolio] = useState<PortfolioPosition[]>([]);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
+  const [portfolioChartData, setPortfolioChartData] = useState<Record<string, StockData>>({});
+  const [portfolioLoadingSyms, setPortfolioLoadingSyms] = useState<Set<string>>(new Set());
+  const [portfolioPeriod, setPortfolioPeriod] = useState<Period>("1y");
   const [editPos, setEditPos] = useState<{ symbol: string; quantity: string; buy_price: string; buy_currency: string; isNew: boolean } | null>(null);
 
   const [news, setNews] = useState<NewsArticle[]>([]);
@@ -162,15 +165,39 @@ export default function ChartWindow({ initialSymbol, initialSymbols }: { initial
 
   // ── Portfolio ──────────────────────────────────────────────────────────────
 
-  const loadPortfolio = useCallback(async () => {
+  const fetchPortfolioSymbol = useCallback(async (sym: string, per: Period) => {
+    setPortfolioLoadingSyms(s => new Set(s).add(sym));
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/stocks/history?symbol=${sym}&period=${per}`);
+      const json: StockData = await res.json();
+      setPortfolioChartData(d => ({ ...d, [sym]: json }));
+    } catch {
+      setPortfolioChartData(d => ({ ...d, [sym]: { ...({} as StockData), symbol: sym, error: "Fehler" } }));
+    } finally {
+      setPortfolioLoadingSyms(s => { const n = new Set(s); n.delete(sym); return n; });
+    }
+  }, []);
+
+  const loadPortfolio = useCallback(async (per?: Period) => {
     setPortfolioLoading(true);
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/stocks/portfolio`);
-      setPortfolio(await res.json());
+      const positions: PortfolioPosition[] = await res.json();
+      setPortfolio(positions);
+      const activePeriod = per ?? portfolioPeriod;
+      setPortfolioChartData({});
+      positions.forEach(p => fetchPortfolioSymbol(p.symbol, activePeriod));
     } finally { setPortfolioLoading(false); }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchPortfolioSymbol, portfolioPeriod]);
 
   useEffect(() => { if (tab === "portfolio") loadPortfolio(); }, [tab, loadPortfolio]);
+
+  function changePortfolioPeriod(p: Period) {
+    setPortfolioPeriod(p);
+    setPortfolioChartData({});
+    portfolio.forEach(pos => fetchPortfolioSymbol(pos.symbol, p));
+  }
 
   async function handleModalSearch(q: string) {
     setModalSearch(q);
@@ -215,6 +242,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols }: { initial
   async function deletePosition(symbol: string) {
     await apiFetch(`${BACKEND_URL}/v1/stocks/portfolio/${symbol}`, { method: "DELETE" });
     setPortfolio(p => p.filter(x => x.symbol !== symbol));
+    setPortfolioChartData(d => { const n = { ...d }; delete n[symbol]; return n; });
   }
 
   // ── News ───────────────────────────────────────────────────────────────────
@@ -475,31 +503,42 @@ export default function ChartWindow({ initialSymbol, initialSymbols }: { initial
       {/* ── PORTFOLIO TAB ── */}
       {tab === "portfolio" && (
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          {/* Summary bar */}
-          {portfolio.length > 0 && (
-            <div className="shrink-0 px-4 py-2.5 border-b border-white/5 flex items-center gap-6">
-              <div>
-                <p className="text-[10px] text-gray-600 uppercase tracking-wider">Gesamtwert</p>
-                <p className="text-sm font-semibold text-white tabular-nums">{totalValue.toLocaleString("de-CH", { minimumFractionDigits: 2 })}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-gray-600 uppercase tracking-wider">Gewinn/Verlust</p>
-                <p className={`text-sm font-semibold tabular-nums ${totalGain >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                  {totalGain >= 0 ? "+" : ""}{totalGain.toLocaleString("de-CH", { minimumFractionDigits: 2 })}
-                  <span className="text-[10px] ml-1">({totalGainPct >= 0 ? "+" : ""}{totalGainPct.toFixed(2)}%)</span>
-                </p>
-              </div>
-              <div className="ml-auto">
-                <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", buy_currency: "CHF", isNew: true }); setModalSearch(""); setModalResults([]); }}
-                  className="px-2.5 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 transition-colors">
-                  + Position
-                </button>
-              </div>
-            </div>
-          )}
 
-          {/* Position list */}
-          <div className="flex-1 overflow-y-auto">
+          {/* Summary + Period + Add */}
+          <div className="shrink-0 px-3 py-2 border-b border-white/5 flex items-center gap-4 flex-wrap">
+            {portfolio.length > 0 && (
+              <>
+                <div>
+                  <p className="text-[9px] text-gray-600 uppercase tracking-wider">Gesamtwert</p>
+                  <p className="text-sm font-semibold text-white tabular-nums">{totalValue.toLocaleString("de-CH", { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-gray-600 uppercase tracking-wider">G/V</p>
+                  <p className={`text-sm font-semibold tabular-nums ${totalGain >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {totalGain >= 0 ? "+" : ""}{totalGain.toLocaleString("de-CH", { minimumFractionDigits: 2 })}
+                    <span className="text-[10px] ml-1 opacity-70">({totalGainPct >= 0 ? "+" : ""}{totalGainPct.toFixed(2)}%)</span>
+                  </p>
+                </div>
+                <div className="flex gap-1">
+                  {PERIODS.map(p => (
+                    <button key={p.v} onClick={() => changePortfolioPeriod(p.v)}
+                      className={`px-1.5 py-0.5 rounded transition-colors ${
+                        portfolioPeriod === p.v ? "bg-indigo-500/20 border border-indigo-500/40 text-indigo-300" : "text-gray-500 hover:text-gray-300"
+                      }`}>{p.l}</button>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="ml-auto">
+              <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", buy_currency: "CHF", isNew: true }); setModalSearch(""); setModalResults([]); }}
+                className="px-2.5 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 transition-colors text-xs">
+                + Position
+              </button>
+            </div>
+          </div>
+
+          {/* Card grid */}
+          <div className="flex-1 overflow-y-auto px-3 py-3">
             {portfolioLoading ? (
               <p className="text-center text-gray-600 pt-8">Lädt…</p>
             ) : portfolio.length === 0 ? (
@@ -512,64 +551,96 @@ export default function ChartWindow({ initialSymbol, initialSymbols }: { initial
                 </button>
               </div>
             ) : (
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-white/5 text-gray-600 text-[10px] uppercase tracking-wider">
-                    <th className="text-left px-4 py-2">Symbol</th>
-                    <th className="text-right px-3 py-2">Stück</th>
-                    <th className="text-right px-3 py-2">Kauf</th>
-                    <th className="text-right px-3 py-2">Aktuell</th>
-                    <th className="text-right px-3 py-2">G/V</th>
-                    <th className="w-8" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {portfolio.map((pos, i) => {
-                    const isPos = pos.gain !== null ? pos.gain >= 0 : null;
-                    return (
-                      <tr key={pos.id} className="group border-b border-white/4 hover:bg-white/3 transition-colors">
-                        <td className="px-4 py-2.5">
-                          <span className="font-mono font-semibold" style={{ color: LINE_COLORS[i % LINE_COLORS.length] }}>{pos.symbol}</span>
-                        </td>
-                        <td className="px-3 py-2.5 text-right text-gray-300 tabular-nums">{pos.quantity}</td>
-                        <td className="px-3 py-2.5 text-right text-gray-500 tabular-nums">
-                          {pos.buy_price.toFixed(2)} <span className="text-gray-700">{pos.buy_currency}</span>
-                        </td>
-                        <td className="px-3 py-2.5 text-right text-gray-300 tabular-nums">
-                          {pos.current_price !== null ? pos.current_price.toFixed(2) : "–"}
-                          <span className="text-gray-600 ml-1">{pos.currency}</span>
-                        </td>
-                        <td className="px-3 py-2.5 text-right tabular-nums">
-                          {isPos !== null ? (
-                            <span className={isPos ? "text-emerald-400" : "text-red-400"}>
-                              {isPos ? "+" : ""}{pos.gain_pct?.toFixed(1)}%
+              <div className="grid gap-3" style={{ gridTemplateColumns: portfolio.length === 1 ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))" }}>
+                {portfolio.map((pos, i) => {
+                  const color = LINE_COLORS[i % LINE_COLORS.length];
+                  const sd = portfolioChartData[pos.symbol];
+                  const pts = sd?.data_points?.map(p => ({ date: p.date.substring(0, 7), close: p.close })) ?? [];
+                  const isGain = pos.gain !== null ? pos.gain >= 0 : null;
+                  const loading = portfolioLoadingSyms.has(pos.symbol);
+
+                  return (
+                    <div key={pos.id} className="rounded-xl border border-white/6 bg-white/2 overflow-hidden group">
+
+                      {/* Card header */}
+                      <div className="flex items-start justify-between px-3 pt-2.5 pb-1.5">
+                        <div>
+                          <span className="font-mono font-semibold text-sm" style={{ color }}>{pos.symbol}</span>
+                          {sd?.name && sd.name !== pos.symbol && (
+                            <span className="text-gray-600 text-[10px] ml-2 truncate max-w-[110px] inline-block align-middle">{sd.name}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isGain !== null && (
+                            <span className={`text-xs font-semibold tabular-nums ${isGain ? "text-emerald-400" : "text-red-400"}`}>
+                              {isGain ? "▲" : "▼"} {Math.abs(pos.gain_pct ?? 0).toFixed(2)}%
                             </span>
-                          ) : "–"}
-                        </td>
-                        <td className="px-2 py-2.5">
+                          )}
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={() => setEditPos({ symbol: pos.symbol, quantity: String(pos.quantity), buy_price: String(pos.buy_price), buy_currency: pos.buy_currency ?? "CHF", isNew: false })}
-                              className="text-gray-600 hover:text-indigo-400 p-0.5">✏</button>
+                              className="text-gray-600 hover:text-indigo-400 p-0.5 text-xs">✏</button>
                             <button onClick={() => deletePosition(pos.symbol)}
-                              className="text-gray-600 hover:text-red-400 p-0.5">×</button>
+                              className="text-gray-600 hover:text-red-400 p-0.5 text-xs">×</button>
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        </div>
+                      </div>
+
+                      {/* Mini chart */}
+                      <div style={{ height: portfolio.length === 1 ? 220 : 130 }}>
+                        {pts.length > 0 ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={pts} margin={{ top: 4, right: 6, left: -26, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" vertical={false} />
+                              <XAxis dataKey="date" tick={{ fontSize: 8, fill: "#4b5563" }} tickLine={false} axisLine={false}
+                                interval={Math.max(0, Math.floor(pts.length / 4) - 1)} />
+                              <YAxis tick={{ fontSize: 8, fill: "#4b5563" }} tickLine={false} axisLine={false}
+                                domain={["auto", "auto"]}
+                                tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v.toFixed(0)} />
+                              <Tooltip
+                                contentStyle={{ backgroundColor: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, fontSize: 11 }}
+                                labelStyle={{ color: "#6b7280" }}
+                                formatter={(value) => [`${Number(value).toFixed(2)} ${sd?.currency ?? ""}`, pos.symbol]}
+                              />
+                              <Line type="monotone" dataKey="close" stroke={color} strokeWidth={1.5}
+                                dot={false} activeDot={{ r: 3, strokeWidth: 0 }} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="h-full flex items-center justify-center">
+                            {loading
+                              ? <span className="text-gray-600 animate-pulse text-xs">lädt…</span>
+                              : <span className="text-gray-700 text-xs">Keine Daten</span>}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info grid */}
+                      <div className="grid grid-cols-3 border-t border-white/5 text-[10px]">
+                        {[
+                          ["Stück",    pos.quantity % 1 === 0 ? String(pos.quantity) : pos.quantity.toFixed(4)],
+                          ["Kaufkurs", `${pos.buy_price.toFixed(2)} ${pos.buy_currency}`],
+                          ["Aktuell",  pos.current_price !== null ? `${pos.current_price.toFixed(2)} ${pos.currency}` : "–"],
+                          ["Einstand", `${pos.cost_basis.toLocaleString("de-CH", { minimumFractionDigits: 2 })} ${pos.buy_currency}`],
+                          ["G/V abs.", pos.gain !== null ? `${pos.gain >= 0 ? "+" : ""}${pos.gain.toLocaleString("de-CH", { minimumFractionDigits: 2 })} ${pos.currency}` : "–"],
+                          ["G/V %",   pos.gain_pct !== null ? `${pos.gain_pct >= 0 ? "+" : ""}${pos.gain_pct.toFixed(2)}%` : "–"],
+                        ].map(([label, value]) => (
+                          <div key={label} className="px-2.5 py-1.5 border-r border-b border-white/5 last:border-r-0">
+                            <p className="text-gray-600 mb-0.5">{label}</p>
+                            <p className={`tabular-nums font-medium ${
+                              label.startsWith("G/V") && pos.gain !== null
+                                ? pos.gain >= 0 ? "text-emerald-400" : "text-red-400"
+                                : "text-gray-300"
+                            }`}>{value}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
-
-          {portfolio.length > 0 && !editPos && (
-            <div className="shrink-0 px-4 py-2 border-t border-white/5 flex justify-end">
-              <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", buy_currency: "CHF", isNew: true }); setModalSearch(""); setModalResults([]); }}
-                className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white transition-colors">
-                + Position
-              </button>
-            </div>
-          )}
         </div>
       )}
 
