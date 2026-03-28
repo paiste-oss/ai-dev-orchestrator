@@ -7,11 +7,9 @@ interface TopBarProps {
   buddyName: string;
   buddyInitial: string;
   speaking: boolean;
-  ttsEnabled: boolean;
   lastProvider: string | null;
   firstName: string;
   isAdmin: boolean;
-  onToggleTts: () => void;
   onSettings: () => void;
   onLogout: () => void;
   onAdminBack: () => void;
@@ -27,9 +25,9 @@ function providerBadge(p: string) {
 }
 
 export default function TopBar({
-  buddyName, buddyInitial, speaking, ttsEnabled, lastProvider,
+  buddyName, buddyInitial, speaking, lastProvider,
   firstName, isAdmin,
-  onToggleTts, onSettings, onLogout, onAdminBack, onAddCard, onArrangeCards,
+  onSettings, onLogout, onAdminBack, onAddCard, onArrangeCards,
 }: TopBarProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
 
@@ -115,12 +113,6 @@ export default function TopBar({
             </svg>
           </button>
         )}
-
-        {/* TTS */}
-        <button onClick={onToggleTts} title={ttsEnabled ? "Stimme aus" : "Stimme ein"}
-          className={`p-1.5 rounded-lg transition-colors text-sm ${ttsEnabled ? "text-emerald-400 bg-emerald-500/10" : "text-gray-500 hover:text-white hover:bg-white/5"}`}>
-          {ttsEnabled ? "🔊" : "🔇"}
-        </button>
 
         {/* Settings */}
         <button onClick={onSettings} title="Einstellungen"

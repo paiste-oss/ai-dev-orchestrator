@@ -12,6 +12,7 @@ interface Props {
   minimized: boolean;
   zIndex: number;
   closable?: boolean;
+  headerExtra?: React.ReactNode;
   children: React.ReactNode;
   onMove: (id: string, x: number, y: number) => void;
   onResize: (id: string, w: number, h: number) => void;
@@ -23,7 +24,7 @@ interface Props {
 }
 
 function CanvasCard({
-  id, title, x, y, width, height, minimized, zIndex, closable = true, children,
+  id, title, x, y, width, height, minimized, zIndex, closable = true, headerExtra, children,
   onMove, onResize, onFocus, onClose, onMinimize, onMaximize, onHalf,
 }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -107,6 +108,11 @@ function CanvasCard({
         onDoubleClick={() => onMinimize(id)}
       >
         <span className="flex-1 text-xs text-gray-400 font-medium truncate">{title}</span>
+
+        {/* Optionale Extra-Buttons (z.B. TTS im Chat-Fenster) */}
+        {headerExtra && (
+          <div onMouseDown={e => e.stopPropagation()}>{headerExtra}</div>
+        )}
 
         {/* Rechte Steuerknöpfe */}
         <div className="flex items-center gap-1 shrink-0" onMouseDown={e => e.stopPropagation()}>

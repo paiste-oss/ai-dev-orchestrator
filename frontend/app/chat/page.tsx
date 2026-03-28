@@ -490,11 +490,9 @@ export default function ChatPage() {
         buddyName={uiPrefs.buddyName ?? "Baddi"}
         buddyInitial={buddyInitial}
         speaking={speaking}
-        ttsEnabled={ttsEnabled}
         lastProvider={lastProvider}
         firstName={firstName}
         isAdmin={user?.role === "admin"}
-        onToggleTts={() => { if (ttsEnabled && audioRef.current) audioRef.current.pause(); else unlockAudio(); setTtsEnabled(v => !v); }}
         onSettings={() => setSetupOpen(true)}
         onLogout={() => { clearSession(); router.push("/"); }}
         onAdminBack={() => router.push("/admin")}
@@ -570,15 +568,9 @@ export default function ChatPage() {
         buddyName={uiPrefs.buddyName ?? "Baddi"}
         buddyInitial={buddyInitial}
         speaking={speaking}
-        ttsEnabled={ttsEnabled}
         lastProvider={lastProvider}
         firstName={firstName}
         isAdmin={user?.role === "admin"}
-        onToggleTts={() => {
-          if (ttsEnabled && audioRef.current) audioRef.current.pause();
-          else unlockAudio();
-          setTtsEnabled(v => !v);
-        }}
         onSettings={() => setSetupOpen(true)}
         onLogout={() => { clearSession(); router.push("/"); }}
         onAdminBack={() => router.push("/admin")}
@@ -620,6 +612,15 @@ export default function ChatPage() {
             minimized={card.minimized}
             zIndex={card.zIndex}
             closable={card.id !== CHAT_CARD_ID}
+            headerExtra={card.id === CHAT_CARD_ID ? (
+              <button
+                onClick={() => { if (ttsEnabled && audioRef.current) audioRef.current.pause(); else unlockAudio(); setTtsEnabled(v => !v); }}
+                title={ttsEnabled ? "Stimme aus" : "Stimme ein"}
+                className={`w-6 h-6 flex items-center justify-center rounded text-sm transition-colors ${ttsEnabled ? "text-emerald-400" : "text-gray-600 hover:text-gray-300"}`}
+              >
+                {ttsEnabled ? "🔊" : "🔇"}
+              </button>
+            ) : undefined}
             onMove={moveCard}
             onResize={resizeCard}
             onFocus={focusCard}
