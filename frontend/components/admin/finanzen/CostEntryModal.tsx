@@ -1,7 +1,7 @@
 "use client";
 
-import { CATEGORIES } from "@/components/admin/finanzen/types";
-import type { CostEntry, BillingCycle, Currency } from "@/components/admin/finanzen/types";
+import { CATEGORIES, PAYMENT_METHODS } from "@/components/admin/finanzen/types";
+import type { CostEntry, BillingCycle, Currency, PaymentMethod } from "@/components/admin/finanzen/types";
 
 type FormData = Omit<CostEntry, "id" | "balance_updated_at">;
 
@@ -60,7 +60,7 @@ export default function CostEntryModal({ form, editEntry, saving, onFieldChange,
 
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs text-gray-400">Betrag</label>
+              <label className="text-xs text-gray-400">CAPEX inkl. MwSt.</label>
               <input type="number" step="0.01" min="0" value={form.amount_original}
                 onChange={e => onAmountChange({ amount_original: parseFloat(e.target.value) || 0 })} className={inputCls} />
             </div>
@@ -78,6 +78,32 @@ export default function CostEntryModal({ form, editEntry, saving, onFieldChange,
             </div>
           </div>
           <p className="text-xs text-gray-600">CHF/Monat wird automatisch berechnet (jährlich ÷ 12, USD × 0.90, EUR × 0.96). Manuell überschreibbar.</p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs text-gray-400">Zahlungsart</label>
+              <select
+                value={form.payment_method ?? ""}
+                onChange={e => onFieldChange({ payment_method: (e.target.value || null) as PaymentMethod | null })}
+                className={inputCls}
+              >
+                <option value="">— keine Angabe —</option>
+                {PAYMENT_METHODS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+              </select>
+            </div>
+            {form.payment_method === "kreditkarte" && (
+              <div className="space-y-1.5">
+                <label className="text-xs text-gray-400">Karte (letzte 4 Ziffern)</label>
+                <input
+                  value={form.card_last4 ?? ""}
+                  onChange={e => onFieldChange({ card_last4: e.target.value.replace(/\D/g, "").slice(0, 4) || null })}
+                  className={inputCls}
+                  placeholder="z.B. 4242"
+                  maxLength={4}
+                />
+              </div>
+            )}
+          </div>
 
           <div className="space-y-1.5">
             <label className="text-xs text-gray-400">Aktuelles Guthaben (CHF) — optional</label>

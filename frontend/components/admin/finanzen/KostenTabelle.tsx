@@ -31,8 +31,10 @@ export default function KostenTabelle({ entries, loading, activeCategory, showIn
             <th className="text-left px-4 py-3 hidden md:table-cell">Anbieter</th>
             <th className="text-left px-4 py-3 hidden lg:table-cell">Kategorie</th>
             <th className="text-left px-4 py-3 hidden sm:table-cell">Turnus</th>
+            <th className="text-right px-4 py-3 hidden sm:table-cell">CAPEX inkl. MwSt.</th>
             <th className="text-right px-4 py-3">CHF/Mo</th>
             <th className="text-right px-4 py-3 hidden md:table-cell">Guthaben</th>
+            <th className="text-left px-4 py-3 hidden lg:table-cell">Zahlung</th>
             <th className="px-5 py-3 w-32"></th>
           </tr>
         </thead>
@@ -59,16 +61,18 @@ export default function KostenTabelle({ entries, loading, activeCategory, showIn
                                                             "bg-gray-800 text-gray-400"
                   }`}>{e.billing_cycle}</span>
                 </td>
+                <td className="px-4 py-3 text-right hidden sm:table-cell">
+                  {e.amount_original > 0 ? (
+                    <span className="text-sm text-gray-300">
+                      {e.amount_original.toLocaleString("de-CH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {e.currency}
+                    </span>
+                  ) : <span className="text-gray-700 text-xs">—</span>}
+                </td>
                 <td className="px-4 py-3 text-right">
                   {e.billing_cycle === "nutzungsbasiert" && e.amount_chf_monthly === 0 ? (
                     <span className="text-gray-600 text-xs">variabel</span>
                   ) : (
-                    <div className="flex flex-col items-end">
-                      <span className="font-semibold text-white">{chf(e.amount_chf_monthly)}</span>
-                      {e.amount_original > 0 && e.currency !== "CHF" && (
-                        <span className="text-xs text-gray-600">{e.amount_original} {e.currency}</span>
-                      )}
-                    </div>
+                    <span className="font-semibold text-white">{chf(e.amount_chf_monthly)}</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-right hidden md:table-cell">
@@ -79,6 +83,20 @@ export default function KostenTabelle({ entries, loading, activeCategory, showIn
                       </span>
                       {e.balance_updated_at && (
                         <span className="text-xs text-gray-600">{new Date(e.balance_updated_at).toLocaleDateString("de-CH")}</span>
+                      )}
+                    </div>
+                  ) : <span className="text-gray-700 text-xs">—</span>}
+                </td>
+                <td className="px-4 py-3 hidden lg:table-cell">
+                  {e.payment_method ? (
+                    <div className="flex flex-col">
+                      <span className="text-xs text-gray-300 capitalize">
+                        {e.payment_method === "kreditkarte" ? "Kreditkarte" :
+                         e.payment_method === "twint"       ? "Twint" :
+                         e.payment_method === "rechnung"    ? "Rechnung" : "Bar"}
+                      </span>
+                      {e.payment_method === "kreditkarte" && e.card_last4 && (
+                        <span className="text-xs text-gray-600">•••• {e.card_last4}</span>
                       )}
                     </div>
                   ) : <span className="text-gray-700 text-xs">—</span>}
@@ -107,7 +125,7 @@ export default function KostenTabelle({ entries, loading, activeCategory, showIn
         </tbody>
         <tfoot>
           <tr className="border-t border-gray-700 bg-gray-800/30">
-            <td colSpan={4} className="px-5 py-3 text-xs text-gray-500">
+            <td colSpan={6} className="px-5 py-3 text-xs text-gray-500">
               {filtered.filter(e => e.is_active).length} aktive Einträge · Beträge in CHF, variable Kosten geschätzt
             </td>
             <td className="px-4 py-3 text-right">

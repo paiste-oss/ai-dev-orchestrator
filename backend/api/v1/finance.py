@@ -96,6 +96,8 @@ class CostEntryIn(BaseModel):
     url: str | None = None
     notes: str | None = None
     balance_chf: float | None = None
+    payment_method: str | None = None
+    card_last4: str | None = None
     is_active: bool = True
 
 
@@ -112,6 +114,8 @@ class CostEntryOut(BaseModel):
     notes: str | None
     balance_chf: float | None
     balance_updated_at: str | None
+    payment_method: str | None
+    card_last4: str | None
     is_active: bool
     created_at: str
 
@@ -124,6 +128,8 @@ def _to_out(e: CostEntry) -> CostEntryOut:
         url=e.url, notes=e.notes,
         balance_chf=e.balance_chf,
         balance_updated_at=e.balance_updated_at.isoformat() if e.balance_updated_at else None,
+        payment_method=e.payment_method,
+        card_last4=e.card_last4,
         is_active=e.is_active,
         created_at=e.created_at.isoformat(),
     )

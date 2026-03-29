@@ -1,6 +1,3 @@
-✓ [2026-03-22 22:14] Bitte pushen
-Gepusht. Commit: `feat: Zurück-Button im Chat-Header für Admin-User`
----
 ✓ [2026-03-25 21:16] Schaue dir den Kundenbereich in der Admin Seite Kunden an, da steht Fehler beim 
 Fertig. Das Problem war: `fetch()` zu `/v1/customers` (ohne Slash) löste einen **307 Redirect** aus. Browser-CORS-Preflights (OPTIONS) folgen keinem Redirect → Request schlägt mit "Failed to fetch" fehl.
 Fix: Trailing Slash in `config.ts` → `/v1/customers/` — kein Redirect mehr, kein CORS-Problem.
@@ -51,3 +48,12 @@ Das gilt für beide Layouts (Mobile & Desktop). Der Baddi-Ladeindikator bleibt j
 ---
 ✓ [2026-03-28 13:20] Bitte github pushen
 Gepusht. Commit: `fix: ResizeObserver hält Scroll am Ende beim Verkleinern des Fensters`
+---
+✓ [2026-03-28 20:53] Schau dir das Fenster Gedächtnis an, es scheint seit der umstellung auf kürzere 
+Fertig. Drei Änderungen:
+| Was | Wo |
+|---|---|
+| **Refresh-Button** im Gedächtnis-Fenster (oben rechts) | `MemoryWindow.tsx` |
+| **Sofort-Refresh** beim Öffnen des Gedächtnis-Fensters | `page.tsx` → `handleAddCard` |
+| **Doppelter Refresh** nach 6s + 12s statt einmal nach 4s | `page.tsx` → `handleSend` |
+Der Celery-Task (Claude Haiku + Qdrant + PostgreSQL) braucht oft 5–10 Sekunden — 4s war zu knapp. Mit 6s + 12s wird er fast immer erwischt. Und falls nicht, gibt's jetzt den Refresh-Button.

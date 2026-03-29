@@ -93,7 +93,8 @@
       "Bash(grep -n \"generate_image\\\\|image_url\\\\|imageUrl\\\\|dall\" /home/naor/ai-dev-orchestrator/backend/services/tools/handlers/*.py)"
     ],
     "additionalDirectories": [
-      "/home/naor/ai-dev-orchestrator/frontend/app/chat/[buddyId]/"
+      "/home/naor/ai-dev-orchestrator/frontend/app/chat/[buddyId]/",
+      "/home/naor/ai-dev-orchestrator/backend/celerybeat-schedule"
     ]
   }
 }

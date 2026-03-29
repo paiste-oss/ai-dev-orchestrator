@@ -4,6 +4,8 @@ export type BillingCycle = "monatlich" | "jährlich" | "einmalig" | "nutzungsbas
 export type Currency = "CHF" | "USD" | "EUR";
 export type Category = "api" | "abo" | "infrastruktur" | "entwicklung" | "sonstiges";
 
+export type PaymentMethod = "kreditkarte" | "twint" | "rechnung" | "bar";
+
 export interface CostEntry {
   id: string;
   name: string;
@@ -17,6 +19,8 @@ export interface CostEntry {
   notes: string | null;
   balance_chf: number | null;
   balance_updated_at: string | null;
+  payment_method: PaymentMethod | null;
+  card_last4: string | null;
   is_active: boolean;
 }
 
@@ -76,8 +80,15 @@ export function chf(n: number) {
   return new Intl.NumberFormat("de-CH", { style: "currency", currency: "CHF", maximumFractionDigits: 2 }).format(n);
 }
 
+export const PAYMENT_METHODS: { key: PaymentMethod; label: string }[] = [
+  { key: "kreditkarte", label: "Kreditkarte" },
+  { key: "twint",       label: "Twint" },
+  { key: "rechnung",    label: "Rechnung" },
+  { key: "bar",         label: "Bar" },
+];
+
 export const EMPTY_FORM = (): Omit<CostEntry, "id" | "balance_updated_at"> => ({
   name: "", provider: "", category: "api", billing_cycle: "monatlich",
   amount_original: 0, currency: "CHF", amount_chf_monthly: 0,
-  url: "", notes: "", balance_chf: null, is_active: true,
+  url: "", notes: "", balance_chf: null, payment_method: null, card_last4: null, is_active: true,
 });
