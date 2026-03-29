@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.database import Base
 
 # Global sequence — garantiert atomare, lückenlose Nummern über alle Baddis
-baddi_number_seq = Sequence("baddi_number_seq", start=0)
+baddi_number_seq = Sequence("baddi_number_seq", start=1)
 
 
 class AiBuddy(Base):
