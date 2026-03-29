@@ -15,10 +15,9 @@ interface RecentCustomer {
   subscription_status?: string;
 }
 
-interface ServiceStatus { ok: boolean; error?: string; }
-interface SystemStatus {
-  ok: boolean;
-  services: { backend?: ServiceStatus; db?: ServiceStatus; redis?: ServiceStatus; ai?: ServiceStatus; };
+interface HealthData {
+  services: Record<string, "ok" | "fail" | "unknown">;
+  sentry: { configured: boolean; issues_url?: string };
 }
 
 interface DashboardData {
@@ -26,7 +25,7 @@ interface DashboardData {
   online_now: number;
   pending_entwicklung: number;
   recent: RecentCustomer[];
-  sysStatus: SystemStatus | null;
+  health: HealthData | null;
 }
 
 function formatRelTime(iso: string) {
@@ -55,21 +54,21 @@ export default function AdminDashboard() {
   const [user, setUser] = useState<ReturnType<typeof getSession>>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<DashboardData>({ total_customers: 0, online_now: 0, pending_entwicklung: 0, recent: [], sysStatus: null });
+  const [data, setData] = useState<DashboardData>({ total_customers: 0, online_now: 0, pending_entwicklung: 0, recent: [], health: null });
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [dashRes, entwicklungRes, statusRes] = await Promise.allSettled([
+      const [dashRes, entwicklungRes, healthRes] = await Promise.allSettled([
         apiFetch(`${BACKEND_URL}/v1/customers/dashboard/stats`),
         apiFetch(`${BACKEND_URL}/v1/entwicklung?page=1&page_size=1`),
-        apiFetch(`${BACKEND_URL}/v1/system/status`),
+        apiFetch(`${BACKEND_URL}/v1/system/health`),
       ]);
 
       let total_customers = 0, online_now = 0, pending_entwicklung = 0;
       let recent: RecentCustomer[] = [];
-      let sysStatus: SystemStatus | null = null;
+      let health: HealthData | null = null;
 
       if (dashRes.status === "fulfilled" && dashRes.value.ok) {
         const d = await dashRes.value.json();
@@ -82,11 +81,11 @@ export default function AdminDashboard() {
         const s = d.stats ?? {};
         pending_entwicklung = (s["pending"] ?? 0) + (s["needs_input"] ?? 0);
       }
-      if (statusRes.status === "fulfilled" && statusRes.value.ok) {
-        sysStatus = await statusRes.value.json();
+      if (healthRes.status === "fulfilled" && healthRes.value.ok) {
+        health = await healthRes.value.json();
       }
 
-      setData({ total_customers, online_now, pending_entwicklung, recent, sysStatus });
+      setData({ total_customers, online_now, pending_entwicklung, recent, health });
     } finally {
       setLoading(false);
     }
@@ -111,7 +110,7 @@ export default function AdminDashboard() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Guten Morgen" : hour < 18 ? "Guten Tag" : "Guten Abend";
   const firstName = user.name.split(" ")[0];
-  const allOk = data.sysStatus?.ok ?? false;
+  const allOk = data.health ? Object.values(data.health.services).every(s => s === "ok") : false;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex">
@@ -236,32 +235,50 @@ export default function AdminDashboard() {
             <div className="space-y-4">
 
               {/* System-Status */}
-              <div className="bg-gray-900 border border-white/5 rounded-2xl p-4 space-y-3">
-                <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">System-Status</h2>
-                <div className="space-y-2.5">
+              <div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+                  <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest">System-Status</h2>
+                  <button onClick={() => router.push("/admin/system")} className="text-xs text-gray-700 hover:text-yellow-400 transition-colors">Details →</button>
+                </div>
+                <div className="px-4 py-3 space-y-2.5">
                   {([
-                    { label: "Backend API", key: "backend" },
-                    { label: "Datenbank",   key: "db" },
-                    { label: "KI-Modelle",  key: "ai" },
-                    { label: "Redis",       key: "redis" },
-                  ] as { label: string; key: keyof SystemStatus["services"] }[]).map(({ label, key }) => {
-                    const svc = data.sysStatus?.services?.[key];
-                    const ok = svc?.ok ?? false;
+                    { label: "Datenbank",     key: "db" },
+                    { label: "Cache",         key: "redis" },
+                    { label: "KI-Modelle",    key: "ai" },
+                    { label: "Vektordatenbank", key: "qdrant" },
+                  ]).map(({ label, key }) => {
+                    const status = data.health?.services?.[key] ?? "unknown";
                     return (
-                      <div key={label} className="flex items-center justify-between">
+                      <div key={key} className="flex items-center justify-between">
                         <span className="text-xs text-gray-500">{label}</span>
-                        {loading || !data.sysStatus ? (
+                        {loading || !data.health ? (
                           <span className="w-10 h-3 rounded bg-white/5 animate-pulse inline-block" />
                         ) : (
                           <div className="flex items-center gap-1.5">
-                            <Dot ok={ok} />
-                            <span className={`text-xs ${ok ? "text-emerald-500" : "text-red-400"}`}>{ok ? "OK" : "Fehler"}</span>
+                            <span className={`w-1.5 h-1.5 rounded-full ${status === "ok" ? "bg-emerald-400" : status === "fail" ? "bg-red-400" : "bg-gray-600"}`} />
+                            <span className={`text-xs ${status === "ok" ? "text-emerald-500" : status === "fail" ? "text-red-400" : "text-gray-600"}`}>
+                              {status === "ok" ? "OK" : status === "fail" ? "Fehler" : "—"}
+                            </span>
                           </div>
                         )}
                       </div>
                     );
                   })}
                 </div>
+                {/* Sentry */}
+                {!loading && data.health && (
+                  <div className="px-4 py-2.5 border-t border-white/5 flex items-center justify-between">
+                    <span className="text-xs text-gray-600">Error Tracking</span>
+                    {data.health.sentry.configured ? (
+                      <a href={data.health.sentry.issues_url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-emerald-500 hover:text-emerald-400 transition-colors">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Sentry aktiv ↗
+                      </a>
+                    ) : (
+                      <span className="text-xs text-gray-700">Sentry inaktiv</span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Externe Links */}
