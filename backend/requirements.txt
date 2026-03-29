@@ -33,5 +33,6 @@ boto3
 beautifulsoup4
 lxml
 pymysql>=1.1.0
+psycopg2-binary
 sentry-sdk[fastapi]>=2.0.0
 slowapi>=0.1.9

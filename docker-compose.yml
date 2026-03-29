@@ -59,6 +59,9 @@ services:
       - RUNNER_SECRET=${RUNNER_SECRET}
       # JWT
       - SECRET_KEY=${SECRET_KEY}
+      # Monitoring
+      - SENTRY_DSN=${SENTRY_DSN}
+      - HEALTH_ALERT_EMAIL=${HEALTH_ALERT_EMAIL}
       # Stripe Billing
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
@@ -150,6 +153,8 @@ services:
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
       - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER}
       - DOLI_DB_PASSWORD=${DOLI_DB_PASSWORD}
+      - SENTRY_DSN=${SENTRY_DSN}
+      - HEALTH_ALERT_EMAIL=${HEALTH_ALERT_EMAIL}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

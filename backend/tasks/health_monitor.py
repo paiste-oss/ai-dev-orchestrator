@@ -23,40 +23,42 @@ _STATE_PREFIX = "health:status:"
 @celery_app.task(name="tasks.health_monitor.check_health")
 def check_health():
     """Prüft alle Dienste und sendet Alerts bei Zustandsänderungen."""
-    import asyncio
-
-    async def _run():
-        results = await _check_all_services()
-        _process_alerts(results)
-
     try:
-        asyncio.run(_run())
+        results = _check_all_services_sync()
+        _process_alerts(results)
     except Exception as e:
         _log.error("Health Monitor Fehler: %s", e)
 
 
-async def _check_all_services() -> dict[str, bool]:
-    import asyncio
-    from sqlalchemy import text
-    from core.database import AsyncSessionLocal
-    import redis.asyncio as aioredis
+def _check_all_services_sync() -> dict[str, bool]:
+    """Synchrone Prüfung aller Dienste — kompatibel mit Celery (kein asyncio.run)."""
+    import psycopg2
+    import redis as redis_sync_lib
+    from urllib.parse import urlparse
 
     results: dict[str, bool] = {}
 
-    # Datenbank
+    # Datenbank — synchrone psycopg2 Verbindung
     try:
-        async with AsyncSessionLocal() as session:
-            await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=3.0)
+        db_url = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
+        parsed = urlparse(db_url)
+        conn = psycopg2.connect(
+            host=parsed.hostname, port=parsed.port or 5432,
+            user=parsed.username, password=parsed.password,
+            dbname=parsed.path.lstrip("/"), connect_timeout=3,
+        )
+        conn.cursor().execute("SELECT 1")
+        conn.close()
         results["db"] = True
     except Exception as e:
         _log.warning("Health: DB offline — %s", e)
         results["db"] = False
 
-    # Redis
+    # Redis — synchron
     try:
-        r = aioredis.from_url(settings.redis_url, decode_responses=True)
-        await asyncio.wait_for(r.ping(), timeout=3.0)
-        await r.aclose()
+        r = redis_sync_lib.from_url(settings.redis_url, socket_connect_timeout=3)
+        r.ping()
+        r.close()
         results["redis"] = True
     except Exception as e:
         _log.warning("Health: Redis offline — %s", e)
