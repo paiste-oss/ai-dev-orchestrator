@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import Any
 
-from services.tools.definitions import (
+from services.tools.defs import (
     SBB_TOOL_DEFS,
     WEB_FETCH_TOOL_DEFS,
     WEB_SEARCH_TOOL_DEFS,

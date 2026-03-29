@@ -7,7 +7,7 @@ from datetime import datetime, date, timedelta
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response, Query
 from pydantic import BaseModel
-from sqlalchemy import select, func, extract
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings

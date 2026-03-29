@@ -106,7 +106,13 @@
       "Bash(curl -s -H \"DOLAPIKEY: 9k7ZIS648lIcLp0AA9s5wpIJm8h3SDdu\" \"http://localhost:8080/api/index.php/accountancy/account/3000\")",
       "Bash(curl -s -H \"DOLAPIKEY: 9k7ZIS648lIcLp0AA9s5wpIJm8h3SDdu\" \"http://localhost:8080/api/index.php/\")",
       "Bash(curl -s -H \"DOLAPIKEY: 9k7ZIS648lIcLp0AA9s5wpIJm8h3SDdu\" \"http://localhost:8080/api/index.php/explorer/swagger.json\")",
-      "Bash(echo \"pymysql>=1.1.0\")"
+      "Bash(echo \"pymysql>=1.1.0\")",
+      "Bash(/home/naor/ai-dev-orchestrator/backend/api/v1/customers_routes.py:*)",
+      "Bash(find /home/naor/ai-dev-orchestrator/backend -name \"*.py\" -type f -exec wc -l {} +)",
+      "Bash(grep -rn \"^# [A-Z].*───\" /home/naor/ai-dev-orchestrator/backend/api/v1/*.py)",
+      "Bash(grep -rn \"^[[:space:]]*#.*=\" /home/naor/ai-dev-orchestrator/backend/api/v1/*.py)",
+      "Bash(grep -rn \"^[[:space:]]*#.*def\\\\|^[[:space:]]*#.*class\\\\|^[[:space:]]*#.*import\\\\|^[[:space:]]*#.*from\" /home/naor/ai-dev-orchestrator/backend/api/v1/*.py)",
+      "Bash(sort -k2 -rn)"
     ],
     "additionalDirectories": [
       "/home/naor/ai-dev-orchestrator/frontend/app/chat/[buddyId]/",

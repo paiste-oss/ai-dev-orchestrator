@@ -385,12 +385,11 @@ async def send_message(
     if _ui_update:
         # UI-Präferenz in DB speichern
         try:
-            import json as _json
             _cur_prefs = dict(customer.ui_preferences or {})
             _cur_prefs.update(_ui_update)
             await db.execute(
                 text("UPDATE customers SET ui_preferences = CAST(:p AS jsonb) WHERE id = :id"),
-                {"p": _json.dumps(_cur_prefs), "id": str(customer.id)},
+                {"p": json.dumps(_cur_prefs), "id": str(customer.id)},
             )
         except Exception as _e:
             _log.warning("UI-Präferenz konnte nicht gespeichert werden: %s", _e)
