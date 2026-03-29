@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { fmtBytes as formatBytes, formatDate } from "@/lib/format";
@@ -83,6 +83,8 @@ function Th({
 
 const ACCEPTED = ".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.xml,.html,.log";
 
+type DictStep = "idle" | "recording" | "transcribing" | "review";
+
 interface OpenFileInfo { url: string; filename: string; fileType: string; }
 interface Props { onOpenFile?: (info: OpenFileInfo) => void; }
 
@@ -99,6 +101,95 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortAsc, setSortAsc] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Diktieren ──────────────────────────────────────────────────────────────
+  const [dictStep, setDictStep] = useState<DictStep>("idle");
+  const [dictText, setDictText] = useState("");
+  const [dictTitle, setDictTitle] = useState("");
+  const [dictError, setDictError] = useState("");
+  const [dictSaving, setDictSaving] = useState(false);
+  const [recordSecs, setRecordSecs] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startDictation = useCallback(async () => {
+    setDictError("");
+    setDictText("");
+    setRecordSecs(0);
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setDictError("Mikrofon-Zugriff verweigert."); return;
+    }
+    chunksRef.current = [];
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    mediaRecorderRef.current = recorder;
+
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+
+    recorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+      if (chunksRef.current.length === 0) { setDictStep("idle"); return; }
+      setDictStep("transcribing");
+      const blob = new Blob(chunksRef.current, { type: mimeType || "audio/webm" });
+      const fd = new FormData();
+      fd.append("audio", blob, "diktat.webm");
+      fd.append("lang", "de");
+      try {
+        const res = await fetch(`${BACKEND_URL}/v1/transcribe`, {
+          method: "POST", body: fd,
+          headers: { Authorization: `Bearer ${localStorage.getItem("token") ?? ""}` },
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (!data.text?.trim()) { setDictError("Kein Ton erkannt. Nochmals versuchen."); setDictStep("idle"); return; }
+        const now = new Date();
+        setDictText(data.text.trim());
+        setDictTitle(`Diktat ${now.toLocaleDateString("de-CH")} ${now.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}`);
+        setDictStep("review");
+      } catch {
+        setDictError("Transkription fehlgeschlagen."); setDictStep("idle");
+      }
+    };
+
+    recorder.start();
+    setDictStep("recording");
+    timerRef.current = setInterval(() => setRecordSecs(s => s + 1), 1000);
+  }, []);
+
+  const stopDictation = useCallback(() => {
+    mediaRecorderRef.current?.stop();
+  }, []);
+
+  const cancelDictation = useCallback(() => {
+    mediaRecorderRef.current?.stop();
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    setDictStep("idle"); setDictText(""); setDictTitle(""); setDictError("");
+  }, []);
+
+  async function saveDictation() {
+    if (!dictText.trim()) return;
+    setDictSaving(true);
+    try {
+      const filename = `${dictTitle || "Diktat"}.txt`;
+      const blob = new Blob([dictText], { type: "text/plain;charset=utf-8" });
+      const file = new File([blob], filename, { type: "text/plain" });
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await apiFetchForm(`${BACKEND_URL}/v1/chat/upload-attachment`, fd);
+      if (!res.ok) { const e = await res.json().catch(() => ({})); setDictError(e.detail ?? "Speichern fehlgeschlagen"); return; }
+      setDictStep("idle"); setDictText(""); setDictTitle(""); setDictError("");
+      await loadDocs();
+    } finally { setDictSaving(false); }
+  }
+
+  const fmtSecs = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
   useEffect(() => {
     loadDocs();
@@ -211,6 +302,28 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
           placeholder="Suchen…"
           className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 outline-none focus:border-indigo-500/50 w-32"
         />
+        {/* Diktieren-Button */}
+        <button
+          onClick={dictStep === "idle" ? startDictation : dictStep === "recording" ? stopDictation : cancelDictation}
+          disabled={dictStep === "transcribing"}
+          title="Diktat aufnehmen"
+          className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors shrink-0 disabled:opacity-40 ${
+            dictStep === "recording"
+              ? "bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25"
+              : dictStep === "transcribing"
+              ? "bg-white/5 text-gray-500"
+              : "bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10"
+          }`}
+        >
+          {dictStep === "recording" ? (
+            <><span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />{fmtSecs(recordSecs)}</>
+          ) : dictStep === "transcribing" ? (
+            <><svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/></svg>Transkribiert…</>
+          ) : (
+            <><svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>Diktieren</>
+          )}
+        </button>
+
         <button
           onClick={() => fileInputRef.current?.click()} disabled={uploading}
           className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors shrink-0"
@@ -230,6 +343,46 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
         <input ref={fileInputRef} type="file" multiple accept={ACCEPTED} className="hidden"
           onChange={e => handleUpload(e.target.files)} />
       </div>
+
+      {/* Diktier-Panel: Review */}
+      {dictStep === "review" && (
+        <div className="border-b border-white/8 bg-gray-900/60 px-4 py-3 space-y-2 shrink-0">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-white">Transkription prüfen</p>
+            <button onClick={cancelDictation} className="text-gray-600 hover:text-gray-400 text-xs">✕</button>
+          </div>
+          <input
+            type="text"
+            value={dictTitle}
+            onChange={e => setDictTitle(e.target.value)}
+            placeholder="Dateiname (ohne .txt)"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500/50"
+          />
+          <textarea
+            value={dictText}
+            onChange={e => setDictText(e.target.value)}
+            rows={4}
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-indigo-500/50 resize-none leading-relaxed"
+          />
+          {dictError && <p className="text-xs text-red-400">{dictError}</p>}
+          <div className="flex gap-2 justify-end">
+            <button onClick={cancelDictation} className="text-xs text-gray-500 hover:text-gray-300 px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors">
+              Verwerfen
+            </button>
+            <button onClick={saveDictation} disabled={dictSaving || !dictText.trim()}
+              className="flex items-center gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-medium px-3 py-1.5 rounded-lg transition-colors">
+              {dictSaving ? "Speichert…" : "Als .txt speichern"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Fehler */}
+      {dictError && dictStep === "idle" && (
+        <div className="mx-3 mt-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400 shrink-0">
+          {dictError}
+        </div>
+      )}
 
       {dragOver && (
         <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
