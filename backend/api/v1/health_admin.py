@@ -33,13 +33,13 @@ def _get_sentry_info() -> dict:
     if not settings.sentry_dsn:
         return {"configured": False}
 
-    # Sentry DSN parst sich zu: https://<key>@<host>/<project_id>
+    # Sentry DSN parst sich zu: https://<key>@<ingest-host>/<project_id>
     try:
         dsn = settings.sentry_dsn
         project_id = dsn.rstrip("/").split("/")[-1]
-        host = dsn.split("@")[-1].split("/")[0]
-        # Sentry Issues URL — direkter Link ins Sentry Dashboard
-        issues_url = f"https://{host}/organizations/sentry/issues/?project={project_id}"
+        # Sentry Cloud: Issues immer unter sentry.io/organizations/<org>/issues/
+        org = settings.sentry_org or "sentry"
+        issues_url = f"https://sentry.io/organizations/{org}/issues/?project={project_id}"
         return {
             "configured": True,
             "issues_url": issues_url,

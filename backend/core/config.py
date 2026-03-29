@@ -117,6 +117,7 @@ class Settings(BaseSettings):
 
     # Sentry Error Tracking
     sentry_dsn: str = ""
+    sentry_org: str = ""   # Organisations-Slug aus sentry.io/organizations/<slug>/
 
     # Rate Limiting — Chat-Endpoint
     chat_rate_limit: str = "30/minute"   # Format: "N/second|minute|hour"
