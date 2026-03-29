@@ -11,6 +11,7 @@ interface RecentCustomer {
   name: string;
   email: string;
   created_at: string;
+  last_seen: string | null;
   subscription_status?: string;
 }
 
@@ -22,6 +23,7 @@ interface SystemStatus {
 
 interface DashboardData {
   total_customers: number;
+  online_now: number;
   pending_entwicklung: number;
   recent: RecentCustomer[];
   sysStatus: SystemStatus | null;
@@ -53,26 +55,27 @@ export default function AdminDashboard() {
   const [user, setUser] = useState<ReturnType<typeof getSession>>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<DashboardData>({ total_customers: 0, pending_entwicklung: 0, recent: [], sysStatus: null });
+  const [data, setData] = useState<DashboardData>({ total_customers: 0, online_now: 0, pending_entwicklung: 0, recent: [], sysStatus: null });
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [custRes, entwicklungRes, statusRes] = await Promise.allSettled([
-        apiFetch(`${BACKEND_URL}/v1/customers?page=1&page_size=8&sort=created_at_desc`),
+      const [dashRes, entwicklungRes, statusRes] = await Promise.allSettled([
+        apiFetch(`${BACKEND_URL}/v1/customers/dashboard/stats`),
         apiFetch(`${BACKEND_URL}/v1/entwicklung?page=1&page_size=1`),
         apiFetch(`${BACKEND_URL}/v1/system/status`),
       ]);
 
-      let total_customers = 0, pending_entwicklung = 0;
+      let total_customers = 0, online_now = 0, pending_entwicklung = 0;
       let recent: RecentCustomer[] = [];
       let sysStatus: SystemStatus | null = null;
 
-      if (custRes.status === "fulfilled" && custRes.value.ok) {
-        const d = await custRes.value.json();
-        total_customers = d.total ?? 0;
-        recent = d.items ?? [];
+      if (dashRes.status === "fulfilled" && dashRes.value.ok) {
+        const d = await dashRes.value.json();
+        total_customers = d.total_customers ?? 0;
+        online_now = d.online_now ?? 0;
+        recent = d.recent ?? [];
       }
       if (entwicklungRes.status === "fulfilled" && entwicklungRes.value.ok) {
         const d = await entwicklungRes.value.json();
@@ -83,7 +86,7 @@ export default function AdminDashboard() {
         sysStatus = await statusRes.value.json();
       }
 
-      setData({ total_customers, pending_entwicklung, recent, sysStatus });
+      setData({ total_customers, online_now, pending_entwicklung, recent, sysStatus });
     } finally {
       setLoading(false);
     }
@@ -171,9 +174,17 @@ export default function AdminDashboard() {
             {/* Letzte Kunden — 2/3 Breite */}
             <section className="lg:col-span-2 bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-                <div>
-                  <h2 className="text-sm font-semibold text-white">Letzte Kunden</h2>
-                  <p className="text-xs text-gray-600 mt-0.5">{data.total_customers} total</p>
+                <div className="flex items-center gap-3">
+                  <div>
+                    <h2 className="text-sm font-semibold text-white">Letzte Kunden</h2>
+                    <p className="text-xs text-gray-600 mt-0.5">{data.total_customers} total</p>
+                  </div>
+                  {data.online_now > 0 && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-xs text-emerald-400 font-medium">{data.online_now} online</span>
+                    </div>
+                  )}
                 </div>
                 <button onClick={() => router.push("/admin/customers")} className="text-xs text-gray-600 hover:text-yellow-400 transition-colors">Alle →</button>
               </div>
@@ -203,10 +214,16 @@ export default function AdminDashboard() {
                         <p className="text-sm font-medium text-gray-200 truncate group-hover:text-white transition-colors">{c.name}</p>
                         <p className="text-xs text-gray-600 truncate">{c.email}</p>
                       </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-xs text-gray-600">{formatRelTime(c.created_at)}</p>
+                      <div className="text-right shrink-0 space-y-0.5">
+                        {c.last_seen ? (
+                          <p className={`text-xs ${Date.now() - new Date(c.last_seen).getTime() < 15 * 60000 ? "text-emerald-500" : "text-gray-600"}`}>
+                            {Date.now() - new Date(c.last_seen).getTime() < 15 * 60000 ? "● " : ""}{formatRelTime(c.last_seen)}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-gray-700">Neu: {formatRelTime(c.created_at)}</p>
+                        )}
                         {c.subscription_status && c.subscription_status !== "inactive" && (
-                          <p className="text-[10px] text-emerald-500 capitalize">{c.subscription_status}</p>
+                          <p className="text-[10px] text-yellow-600 capitalize">{c.subscription_status}</p>
                         )}
                       </div>
                     </li>

@@ -208,3 +208,45 @@ async def delete_customer(
 
     await db.delete(customer)
     await db.commit()
+
+
+# ─── Dashboard ─────────────────────────────────────────────────────────────────
+
+@router.get("/dashboard/stats")
+async def dashboard_stats(
+    db: AsyncSession = Depends(get_db),
+    _: Customer = Depends(require_admin),
+):
+    from datetime import datetime, timedelta
+    online_threshold = datetime.utcnow() - timedelta(minutes=15)
+
+    total_result = await db.execute(select(func.count()).select_from(Customer).where(Customer.role == "customer"))
+    total = total_result.scalar() or 0
+
+    online_result = await db.execute(
+        select(func.count()).select_from(Customer)
+        .where(Customer.role == "customer", Customer.last_seen >= online_threshold)
+    )
+    online = online_result.scalar() or 0
+
+    recent_result = await db.execute(
+        select(Customer).where(Customer.role == "customer")
+        .order_by(Customer.created_at.desc()).limit(8)
+    )
+    recent = recent_result.scalars().all()
+
+    return {
+        "total_customers": total,
+        "online_now": online,
+        "recent": [
+            {
+                "id": str(c.id),
+                "name": c.name,
+                "email": c.email,
+                "created_at": c.created_at.isoformat(),
+                "last_seen": c.last_seen.isoformat() if c.last_seen else None,
+                "subscription_status": c.subscription_status,
+            }
+            for c in recent
+        ],
+    }

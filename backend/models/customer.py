@@ -102,6 +102,9 @@ class Customer(Base):
     # UI-Präferenzen (Schriftgrösse, Farbe, Sprache, Buddy-Name)
     ui_preferences: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=dict)
 
+    # Aktivität
+    last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     subscription_plan: Mapped["SubscriptionPlan | None"] = relationship(back_populates="customers")
     buddies: Mapped[list["AiBuddy"]] = relationship(back_populates="customer")  # type: ignore
     credentials: Mapped[list["CustomerCredential"]] = relationship(back_populates="customer", cascade="all, delete-orphan")  # type: ignore

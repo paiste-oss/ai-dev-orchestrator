@@ -408,6 +408,7 @@ async def send_message(
     )
     db.add(user_msg)
     db.add(assistant_msg)
+    customer.last_seen = datetime.utcnow()
     await db.commit()
     await db.refresh(assistant_msg)
 
