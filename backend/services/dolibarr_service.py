@@ -26,8 +26,8 @@ _HEADERS = lambda: {
     "Accept": "application/json",
 }
 
-# Schweizer MWST-Satz in Dolibarr (muss dort auch so konfiguriert sein)
-_VAT_RATE = 8.1
+# Nicht MWST-pflichtig (unter CHF 100k Umsatz)
+_VAT_RATE = 0
 
 # Dolibarr-Zahlungsmodus — "CB" = Kreditkarte/online, ID wird beim ersten Aufruf gecacht
 _PAYMENT_MODE_CODE = "CB"
