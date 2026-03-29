@@ -25,6 +25,7 @@ const SERVICE_LABELS: Record<string, string> = {
   db: "Datenbank (PostgreSQL)",
   redis: "Cache (Redis)",
   ai: "KI-Modelle (Anthropic)",
+  qdrant: "Vektor-Datenbank (Qdrant)",
 };
 
 function StatusBadge({ status }: { status: string }) {

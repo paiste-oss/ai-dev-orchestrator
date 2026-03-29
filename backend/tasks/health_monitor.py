@@ -16,7 +16,7 @@ from core.config import settings
 
 _log = logging.getLogger(__name__)
 
-_SERVICES = ["db", "redis", "ai"]
+_SERVICES = ["db", "redis", "ai", "qdrant"]
 _STATE_PREFIX = "health:status:"
 
 
@@ -66,6 +66,18 @@ def _check_all_services_sync() -> dict[str, bool]:
 
     # KI
     results["ai"] = bool(settings.anthropic_api_key or settings.aws_bedrock_api_key)
+
+    # Qdrant
+    try:
+        import httpx
+        resp = httpx.get(
+            f"http://{settings.qdrant_host}:{settings.qdrant_port}/healthz",
+            timeout=3.0,
+        )
+        results["qdrant"] = resp.status_code == 200
+    except Exception as e:
+        _log.warning("Health: Qdrant offline — %s", e)
+        results["qdrant"] = False
 
     return results
 
