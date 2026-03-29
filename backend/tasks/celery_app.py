@@ -14,6 +14,7 @@ celery_app = Celery(
         "tasks.stock_alerts",
         "tasks.training_reminders",
         "tasks.knowledge_ingestion",
+        "tasks.dolibarr_journal",
     ],
 )
 
@@ -37,6 +38,10 @@ celery_app.conf.beat_schedule = {
     "refresh-knowledge": {
         "task": "tasks.knowledge_ingestion.refresh_all_sources",
         "schedule": crontab(hour=3, minute=0, day_of_week="sun"),  # Sonntags 03:00
+    },
+    "dolibarr-journal-transfer": {
+        "task": "tasks.dolibarr_journal.transfer_journals",
+        "schedule": crontab(hour=6, minute=0, day_of_month=1),  # 1. jeden Monats 06:00
     },
 }
 

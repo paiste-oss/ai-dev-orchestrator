@@ -122,6 +122,7 @@ async def _create_invoice(
                 "subprice": round(amount_net_chf, 2),   # Nettobetrag
                 "tva_tx": _VAT_RATE,                    # 8.1%
                 "product_type": 1,                      # 1 = Service
+                "accountancy_code_sell": "3000",        # Erlöskonto
             }
         ],
     }

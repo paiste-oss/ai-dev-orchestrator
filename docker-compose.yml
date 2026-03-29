@@ -82,6 +82,7 @@ services:
       # Dolibarr ERP
       - DOLIBARR_API_KEY=${DOLIBARR_API_KEY}
       - DOLIBARR_URL=${DOLIBARR_URL:-http://dolibarr/api/index.php}
+      - DOLI_DB_PASSWORD=${DOLI_DB_PASSWORD}
     extra_hosts:
       - "host.docker.internal:host-gateway"   # Ollama auf dem Host erreichbar
     depends_on:
@@ -94,6 +95,7 @@ services:
     networks:
       - ai_local
       - ai_internal
+      - dolibarr_internal
 
   celery_worker:
     build: ./backend
@@ -147,6 +149,7 @@ services:
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
       - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER}
+      - DOLI_DB_PASSWORD=${DOLI_DB_PASSWORD}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -155,6 +158,7 @@ services:
     networks:
       - ai_local
       - ai_internal
+      - dolibarr_internal
 
   celery_beat:
     build: ./backend

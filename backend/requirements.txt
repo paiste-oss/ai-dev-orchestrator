@@ -32,3 +32,4 @@ faster-whisper
 boto3
 beautifulsoup4
 lxml
+pymysql>=1.1.0
