@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_from_number: str = ""   # E.164 Format z.B. +41XXXXXXXXX
 
+    # Dolibarr ERP
+    dolibarr_url: str = "http://dolibarr/api/index.php"
+    dolibarr_api_key: str = ""          # Einstellungen → Benutzer → API-Key
+
     # System-SMTP (für automatische Benachrichtigungen: Kurs-Alerts etc.)
     # Brevo: smtp-relay.brevo.com:587, User=E-Mail, Password=API-Key
     system_smtp_host: str = ""

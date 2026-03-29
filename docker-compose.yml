@@ -79,6 +79,9 @@ services:
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
       - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER}
+      # Dolibarr ERP
+      - DOLIBARR_API_KEY=${DOLIBARR_API_KEY}
+      - DOLIBARR_URL=${DOLIBARR_URL:-http://dolibarr/api/index.php}
     extra_hosts:
       - "host.docker.internal:host-gateway"   # Ollama auf dem Host erreichbar
     depends_on:
@@ -264,6 +267,53 @@ services:
     networks:
       - ai_internal
 
+  dolibarr_db:
+    image: mariadb:10.11
+    container_name: dolibarr_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DOLI_DB_ROOT_PASSWORD:-changeme_root}
+      MYSQL_DATABASE: dolibarr
+      MYSQL_USER: dolibarr
+      MYSQL_PASSWORD: ${DOLI_DB_PASSWORD:-changeme_doli}
+    volumes:
+      - dolibarr_db_data:/var/lib/mysql
+    networks:
+      - dolibarr_internal
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dolibarr:
+    image: dolibarr/dolibarr:latest
+    container_name: dolibarr
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      DOLI_DB_HOST: dolibarr_db
+      DOLI_DB_HOST_PORT: 3306
+      DOLI_DB_NAME: dolibarr
+      DOLI_DB_USER: dolibarr
+      DOLI_DB_PASSWORD: ${DOLI_DB_PASSWORD:-changeme_doli}
+      DOLI_ADMIN_LOGIN: ${DOLI_ADMIN_LOGIN:-admin}
+      DOLI_ADMIN_PASSWORD: ${DOLI_ADMIN_PASSWORD:-changeme_admin}
+      DOLI_URL_ROOT: ${DOLI_URL_ROOT:-http://localhost:8080}
+      DOLI_INSTANCE_UNIQUE_ID: ${DOLI_INSTANCE_UNIQUE_ID:-baddi_erp}
+      WWW_USER_ID: 33
+      WWW_GROUP_ID: 33
+    volumes:
+      - dolibarr_data:/var/www/html/documents
+    depends_on:
+      dolibarr_db:
+        condition: service_healthy
+    networks:
+      - dolibarr_internal
+      - ai_local
+      - ai_external
+
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: cloudflare_tunnel
@@ -278,6 +328,8 @@ volumes:
   postgres_data:
   redis_data:
   qdrant_data:
+  dolibarr_data:
+  dolibarr_db_data:
 
 networks:
   ai_local:
@@ -287,3 +339,6 @@ networks:
     internal: true
   ai_external:
     driver: bridge
+  dolibarr_internal:
+    driver: bridge
+    internal: true

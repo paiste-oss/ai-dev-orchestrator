@@ -87,6 +87,20 @@ async def _on_checkout_completed(session: dict, db: AsyncSession) -> None:
         db.add(payment)
         await db.commit()
         _log.info("Topup %s CHF für customer %s", amount, customer_id)
+
+        # Dolibarr: Buchung im Hintergrund
+        import asyncio
+        from services.dolibarr_service import record_stripe_payment
+        asyncio.ensure_future(record_stripe_payment(
+            customer_name=customer.name or customer.email,
+            customer_email=customer.email,
+            amount_chf=amount,
+            amount_net_chf=net,
+            vat_chf=vat,
+            description=f"Baddi Guthaben-Aufladung CHF {amount:.2f}",
+            invoice_number=inv_no,
+            stripe_invoice_id=session.get("payment_intent"),
+        ))
     else:
         # Abo-Checkout
         plan_slug = meta.get("plan_slug", "")
@@ -162,6 +176,7 @@ async def _on_invoice_paid(invoice: dict, db: AsyncSession) -> None:
     amount_chf = invoice.get("amount_paid", 0) / 100
     net, vat = calc_vat(amount_chf)
     inv_no = await next_invoice_number(db)
+    description = invoice.get("description") or f"Baddi Abo — {datetime.utcnow().strftime('%B %Y')}"
 
     # Token-Kontingent zurücksetzen
     customer.tokens_used_this_period = 0
@@ -174,7 +189,7 @@ async def _on_invoice_paid(invoice: dict, db: AsyncSession) -> None:
         amount_chf=amount_chf,
         vat_chf=vat,
         amount_net_chf=net,
-        description=invoice.get("description") or f"Baddi Abo — {datetime.utcnow().strftime('%B %Y')}",
+        description=description,
         payment_type="subscription",
         status="succeeded",
         paid_at=datetime.utcnow(),
@@ -182,6 +197,20 @@ async def _on_invoice_paid(invoice: dict, db: AsyncSession) -> None:
     db.add(payment)
     await db.commit()
     _log.info("Invoice paid: %s CHF für customer %s", amount_chf, customer.id)
+
+    # Dolibarr: Buchung im Hintergrund (Fehler blockieren nicht)
+    import asyncio
+    from services.dolibarr_service import record_stripe_payment
+    asyncio.ensure_future(record_stripe_payment(
+        customer_name=customer.name or customer.email,
+        customer_email=customer.email,
+        amount_chf=amount_chf,
+        amount_net_chf=net,
+        vat_chf=vat,
+        description=description,
+        invoice_number=inv_no,
+        stripe_invoice_id=invoice.get("id"),
+    ))
 
 
 async def _on_invoice_failed(invoice: dict, db: AsyncSession) -> None:

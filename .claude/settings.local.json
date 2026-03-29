@@ -90,7 +90,16 @@
       "Bash(pip3 list:*)",
       "Bash(conda list:*)",
       "Bash(find /home/naor/ai-dev-orchestrator/frontend -name window-registry*)",
-      "Bash(grep -n \"generate_image\\\\|image_url\\\\|imageUrl\\\\|dall\" /home/naor/ai-dev-orchestrator/backend/services/tools/handlers/*.py)"
+      "Bash(grep -n \"generate_image\\\\|image_url\\\\|imageUrl\\\\|dall\" /home/naor/ai-dev-orchestrator/backend/services/tools/handlers/*.py)",
+      "Bash(openssl rand:*)",
+      "Bash(docker volume:*)",
+      "Bash(curl -s -H \"DOLAPIKEY: 9k7ZIS648lIcLp0AA9s5wpIJm8h3SDdu\" http://localhost:8080/api/index.php/thirdparties?limit=1)",
+      "Bash(curl -s -H \"DOLAPIKEY: 9k7ZIS648lIcLp0AA9s5wpIJm8h3SDdu\" \"http://localhost:8080/api/index.php/thirdparties?limit=1\")",
+      "Bash(curl -s -H \"DOLAPIKEY: 9k7ZIS648lIcLp0AA9s5wpIJm8h3SDdu\" \"http://localhost:8080/api/index.php/thirdparties?limit=5\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(f''''Kunde: {c[\"\"name\"\"]} \\({c[\"\"email\"\"]}\\)''''\\) for c in d]\")",
+      "Bash(curl -s -H \"DOLAPIKEY: 9k7ZIS648lIcLp0AA9s5wpIJm8h3SDdu\" \"http://localhost:8080/api/index.php/setup/dictionary/payment_types\")",
+      "Bash(curl -s -H \"DOLAPIKEY: 9k7ZIS648lIcLp0AA9s5wpIJm8h3SDdu\" \"http://localhost:8080/api/index.php/bankaccounts\")",
+      "Bash(curl -s -X POST -H \"DOLAPIKEY: 9k7ZIS648lIcLp0AA9s5wpIJm8h3SDdu\" -H \"Content-Type: application/json\" \"http://localhost:8080/api/index.php/bankaccounts\" -d '{\"\"ref\"\":\"\"STRIPE\"\",\"\"label\"\":\"\"Stripe Einnahmen\"\",\"\"type\"\":\"\"ban\"\",\"\"currency_code\"\":\"\"CHF\"\",\"\"country_id\"\":215,\"\"status\"\":1}')"
     ],
     "additionalDirectories": [
       "/home/naor/ai-dev-orchestrator/frontend/app/chat/[buddyId]/",
