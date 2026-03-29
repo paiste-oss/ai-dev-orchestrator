@@ -123,6 +123,7 @@ class Settings(BaseSettings):
 
     # Health Monitoring — Alert-E-Mail
     health_alert_email: str = ""         # E-Mail für Ausfalls-Benachrichtigungen
+    health_alert_threshold: int = 2      # Erst nach N aufeinanderfolgenden Fehlern alertieren (~10 Min)
 
     # JWT
     secret_key: str

@@ -18,6 +18,7 @@ _log = logging.getLogger(__name__)
 
 _SERVICES = ["db", "redis", "ai", "qdrant"]
 _STATE_PREFIX = "health:status:"
+_FAIL_COUNT_PREFIX = "health:fail_count:"
 
 
 @celery_app.task(name="tasks.health_monitor.check_health")
@@ -83,26 +84,35 @@ def _check_all_services_sync() -> dict[str, bool]:
 
 
 def _process_alerts(results: dict[str, bool]) -> None:
-    """Vergleicht mit letztem bekannten Zustand — sendet Alert nur bei Änderung."""
+    """Vergleicht mit letztem bekannten Zustand — sendet Alert erst nach N aufeinanderfolgenden Fehlern."""
     from core.redis_client import redis_sync
     r = redis_sync()
 
+    threshold = settings.health_alert_threshold
     failed = []
     recovered = []
 
     for service, ok in results.items():
-        key = f"{_STATE_PREFIX}{service}"
-        prev = r.get(key)
-        current = "ok" if ok else "fail"
+        status_key = f"{_STATE_PREFIX}{service}"
+        count_key = f"{_FAIL_COUNT_PREFIX}{service}"
+        prev_status = r.get(status_key)
 
-        if current != prev:
-            r.set(key, current, ex=3600)
-            if not ok and prev == "ok":
+        if ok:
+            # Erholt — nur Alert wenn vorher wirklich alarmiert wurde (count >= threshold)
+            if prev_status == "fail":
+                fail_count = int(r.get(count_key) or 0)
+                if fail_count >= threshold:
+                    recovered.append(service)
+            r.set(status_key, "ok", ex=86400)
+            r.delete(count_key)
+        else:
+            # Fehler — Zähler erhöhen, erst bei Threshold alertieren
+            r.set(status_key, "fail", ex=86400)
+            fail_count = int(r.incr(count_key))
+            r.expire(count_key, 86400)
+            if fail_count == threshold:
                 failed.append(service)
-            elif ok and prev == "fail":
-                recovered.append(service)
-        elif prev is None:
-            r.set(key, current, ex=3600)
+            # > threshold: bereits alarmiert, kein weiterer Alert
 
     if failed:
         _send_alert(
