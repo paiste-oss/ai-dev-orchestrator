@@ -38,8 +38,8 @@ const NAV: NavEntry[] = [
   {
     label: "Finanzen", icon: "◇",
     children: [
-      { label: "Abo-Modell", href: "/admin/customers/abo-modell",  icon: "◇" },
-      { label: "Kosten",     href: "/admin/finanzen/kosten",       icon: "▤" },
+      { label: "Abo-Modell",   href: "/admin/customers/abo-modell",  icon: "◇" },
+      { label: "Dolibarr ERP", href: "https://erp.baddi.ch",         icon: "▤" },
     ],
   },
   {
@@ -69,7 +69,10 @@ export default function AdminSidebar({ open, onClose }: Props) {
     return init;
   });
 
-  const navigate = (href: string) => { router.push(href); onClose(); };
+  const navigate = (href: string) => {
+    if (href.startsWith("http")) { window.open(href, "_blank"); onClose(); return; }
+    router.push(href); onClose();
+  };
 
   // Alle hrefs aus der Nav sammeln für "most-specific wins" Logik
   const allHrefs = NAV.flatMap(e => isGroup(e) ? e.children.map(c => c.href) : [e.href]);

@@ -4,6 +4,6 @@ import { useRouter } from "next/navigation";
 
 export default function FinanzenRoot() {
   const router = useRouter();
-  useEffect(() => { router.replace("/admin/finanzen/kosten"); }, []);
+  useEffect(() => { router.replace("/admin/customers/abo-modell"); }, []);
   return null;
 }

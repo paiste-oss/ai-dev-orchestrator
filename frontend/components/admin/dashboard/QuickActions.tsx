@@ -97,9 +97,9 @@ export default function QuickActions({ stats, statsLoading }: Props) {
         />
         <QuickAction
           icon="▤"
-          label="Finanzen & Kosten"
-          sub="API-Kosten & Übersicht"
-          onClick={() => router.push("/admin/finanzen/kosten")}
+          label="Dolibarr ERP"
+          sub="Buchhaltung & Rechnungen"
+          onClick={() => window.open("https://erp.baddi.ch", "_blank")}
         />
         <QuickAction
           icon="⇆"
