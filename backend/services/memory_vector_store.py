@@ -51,12 +51,14 @@ def _ensure_collection(client: QdrantClient) -> None:
 
 
 def _embed(text: str) -> list[float]:
+    if not settings.ollama_base_url:
+        return []
     for model in _EMBED_MODELS:
         try:
             resp = httpx.post(
                 f"{settings.ollama_base_url}/api/embeddings",
                 json={"model": model, "prompt": text},
-                timeout=20.0,
+                timeout=5.0,
             )
             if resp.status_code == 200:
                 vec = resp.json().get("embedding", [])
