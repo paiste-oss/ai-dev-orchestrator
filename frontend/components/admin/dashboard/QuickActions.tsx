@@ -72,12 +72,6 @@ export default function QuickActions({ stats, statsLoading }: Props) {
           onClick={() => router.push("/admin/customers")}
         />
         <QuickAction
-          icon="◈"
-          label="Baddis"
-          sub="Persönliche KI-Begleiter"
-          onClick={() => router.push("/admin/buddies")}
-        />
-        <QuickAction
           icon="⌥"
           label="Dev Orchestrator"
           sub="AI-Tasks & Code-Agenten"

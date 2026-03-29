@@ -85,14 +85,6 @@ export default function StatsGrid({ stats, loading }: Props) {
         onClick={() => router.push("/admin/customers")}
       />
       <StatCard
-        label="Aktive Baddis"
-        value={stats?.active_buddies ?? "—"}
-        icon="◈"
-        accent="bg-emerald-500"
-        loading={loading}
-        onClick={() => router.push("/admin/buddies")}
-      />
-      <StatCard
         label="In Entwicklung"
         value={stats?.pending_entwicklung ?? "—"}
         icon="⚗"
