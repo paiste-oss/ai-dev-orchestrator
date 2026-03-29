@@ -6,7 +6,9 @@ Die Pipeline-Logik liegt in services/chat_pipeline.py.
 import logging
 
 import httpx as _httpx
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,12 +24,16 @@ from .chat_schemas import (
     MessageOut, MemoryOut, TTSRequest,
 )
 
+limiter = Limiter(key_func=get_remote_address)
+
 router = APIRouter(prefix="/chat", tags=["chat"])
 _log = logging.getLogger(__name__)
 
 
 @router.post("/message", response_model=ChatResponse)
+@limiter.limit(settings.chat_rate_limit)
 async def send_message(
+    request: Request,
     req: ChatRequest,
     customer: Customer = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

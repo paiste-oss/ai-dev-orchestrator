@@ -15,6 +15,7 @@ celery_app = Celery(
         "tasks.training_reminders",
         "tasks.knowledge_ingestion",
         "tasks.dolibarr_journal",
+        "tasks.health_monitor",
     ],
 )
 
@@ -42,6 +43,10 @@ celery_app.conf.beat_schedule = {
     "dolibarr-journal-transfer": {
         "task": "tasks.dolibarr_journal.transfer_journals",
         "schedule": crontab(hour=6, minute=0, day_of_month=1),  # 1. jeden Monats 06:00
+    },
+    "health-monitor": {
+        "task": "tasks.health_monitor.check_health",
+        "schedule": 300.0,  # alle 5 Minuten
     },
 }
 

@@ -49,6 +49,7 @@ const NAV: NavEntry[] = [
       { label: "Integrationen", href: "/admin/integrations",  icon: "⇌" },
     ],
   },
+  { label: "System & Health", href: "/admin/system", icon: "◉" },
   { label: "Testseiten", href: "/admin/testpages", icon: "⌘" },
 ];
 

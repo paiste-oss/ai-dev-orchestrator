@@ -115,6 +115,15 @@ class Settings(BaseSettings):
     # Claude Code Runner — WSL-Dienst Secret
     runner_secret: str = ""
 
+    # Sentry Error Tracking
+    sentry_dsn: str = ""
+
+    # Rate Limiting — Chat-Endpoint
+    chat_rate_limit: str = "30/minute"   # Format: "N/second|minute|hour"
+
+    # Health Monitoring — Alert-E-Mail
+    health_alert_email: str = ""         # E-Mail für Ausfalls-Benachrichtigungen
+
     # JWT
     secret_key: str
     algorithm: str = "HS256"

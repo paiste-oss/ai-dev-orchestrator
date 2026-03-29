@@ -1,0 +1,146 @@
+"""
+Health Monitor — prüft alle 5 Minuten den System-Status.
+Sendet E-Mail-Alert wenn ein Dienst ausfällt oder sich wieder erholt.
+
+Status wird in Redis gecacht um Flapping (ständige Alerts) zu verhindern:
+  key: health:status:{service}  →  "ok" | "fail"
+"""
+from __future__ import annotations
+
+import logging
+import smtplib
+from email.message import EmailMessage
+
+from tasks.celery_app import celery_app
+from core.config import settings
+
+_log = logging.getLogger(__name__)
+
+_SERVICES = ["db", "redis", "ai"]
+_STATE_PREFIX = "health:status:"
+
+
+@celery_app.task(name="tasks.health_monitor.check_health")
+def check_health():
+    """Prüft alle Dienste und sendet Alerts bei Zustandsänderungen."""
+    import asyncio
+
+    async def _run():
+        results = await _check_all_services()
+        _process_alerts(results)
+
+    try:
+        asyncio.run(_run())
+    except Exception as e:
+        _log.error("Health Monitor Fehler: %s", e)
+
+
+async def _check_all_services() -> dict[str, bool]:
+    import asyncio
+    from sqlalchemy import text
+    from core.database import AsyncSessionLocal
+    import redis.asyncio as aioredis
+
+    results: dict[str, bool] = {}
+
+    # Datenbank
+    try:
+        async with AsyncSessionLocal() as session:
+            await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=3.0)
+        results["db"] = True
+    except Exception as e:
+        _log.warning("Health: DB offline — %s", e)
+        results["db"] = False
+
+    # Redis
+    try:
+        r = aioredis.from_url(settings.redis_url, decode_responses=True)
+        await asyncio.wait_for(r.ping(), timeout=3.0)
+        await r.aclose()
+        results["redis"] = True
+    except Exception as e:
+        _log.warning("Health: Redis offline — %s", e)
+        results["redis"] = False
+
+    # KI
+    results["ai"] = bool(settings.anthropic_api_key or settings.aws_bedrock_api_key)
+
+    return results
+
+
+def _process_alerts(results: dict[str, bool]) -> None:
+    """Vergleicht mit letztem bekannten Zustand — sendet Alert nur bei Änderung."""
+    from core.redis_client import redis_sync
+    r = redis_sync()
+
+    failed = []
+    recovered = []
+
+    for service, ok in results.items():
+        key = f"{_STATE_PREFIX}{service}"
+        prev = r.get(key)
+        current = "ok" if ok else "fail"
+
+        if current != prev:
+            r.set(key, current, ex=3600)
+            if not ok and prev == "ok":
+                failed.append(service)
+            elif ok and prev == "fail":
+                recovered.append(service)
+        elif prev is None:
+            r.set(key, current, ex=3600)
+
+    if failed:
+        _send_alert(
+            subject=f"🚨 Baddi — {len(failed)} Dienst(e) ausgefallen",
+            body=(
+                f"Folgende Dienste sind nicht erreichbar:\n\n"
+                + "\n".join(f"  ✗ {s.upper()}" for s in failed)
+                + f"\n\nZeit: {_now()}\n\nBitte sofort prüfen: https://baddi.ch/admin"
+            ),
+        )
+
+    if recovered:
+        _send_alert(
+            subject=f"✅ Baddi — {len(recovered)} Dienst(e) wieder online",
+            body=(
+                f"Folgende Dienste sind wieder erreichbar:\n\n"
+                + "\n".join(f"  ✓ {s.upper()}" for s in recovered)
+                + f"\n\nZeit: {_now()}"
+            ),
+        )
+
+
+def _send_alert(subject: str, body: str) -> None:
+    email = settings.health_alert_email or settings.system_smtp_user
+    if not email or not settings.system_smtp_host:
+        _log.warning("Health Alert nicht gesendet — SMTP nicht konfiguriert")
+        return
+    try:
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = settings.system_smtp_from
+        msg["To"] = email
+        msg.set_content(body)
+        with smtplib.SMTP(settings.system_smtp_host, settings.system_smtp_port) as smtp:
+            smtp.starttls()
+            smtp.login(settings.system_smtp_user, settings.system_smtp_password)
+            smtp.send_message(msg)
+        _log.info("Health Alert gesendet: %s", subject)
+    except Exception as e:
+        _log.error("Health Alert E-Mail fehlgeschlagen: %s", e)
+
+
+def _now() -> str:
+    from datetime import datetime
+    return datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+
+def get_current_status() -> dict[str, str]:
+    """Gibt den letzten bekannten Status aller Dienste zurück (aus Redis-Cache)."""
+    from core.redis_client import redis_sync
+    r = redis_sync()
+    return {
+        service: r.get(f"{_STATE_PREFIX}{service}") or "unknown"
+        for service in _SERVICES
+    }

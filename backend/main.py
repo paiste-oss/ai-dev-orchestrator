@@ -1,21 +1,47 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from core.config import settings
 from core.database import init_db
-from api.v1 import agent, customers, workflows, credentials, oauth, dev_tasks, documents, events, auth, chat, finance, transport, entwicklung, billing, router_admin, llm_admin, system_prompts_admin, tools_admin, integrations_admin, analytics_admin, user_preferences, windows, knowledge, stocks, transcribe
+from api.v1 import (
+    agent, customers, workflows, credentials, oauth, dev_tasks, documents,
+    events, auth, chat, finance, transport, entwicklung, billing,
+    router_admin, llm_admin, system_prompts_admin, tools_admin,
+    integrations_admin, analytics_admin, user_preferences, windows,
+    knowledge, stocks, transcribe, health_admin,
+)
 from api.v1 import settings as portal_settings
-import models.chat      # noqa: F401 — register ChatMessage & MemoryItem with Base.metadata
-import models.finance   # noqa: F401 — register CostEntry with Base.metadata
-import models.capability_request  # noqa: F401 — register CapabilityRequest with Base.metadata
-import models.payment             # noqa: F401 — register Payment & InvoiceCounter with Base.metadata
-import models.window              # noqa: F401 — register WindowBoard with Base.metadata
-import models.knowledge           # noqa: F401 — register KnowledgeSource & KnowledgeDocument with Base.metadata
-import models.stock_portfolio     # noqa: F401 — register StockPortfolio with Base.metadata
+import models.chat              # noqa: F401
+import models.finance           # noqa: F401
+import models.capability_request  # noqa: F401
+import models.payment           # noqa: F401
+import models.window            # noqa: F401
+import models.knowledge         # noqa: F401
+import models.stock_portfolio   # noqa: F401
 
-# OpenAI-kompatibler Endpunkt für DALL-E (openai SDK)
 os.environ["OPENAI_API_KEY"] = settings.openai_api_key or "NA"
+
+# ── Sentry (nur wenn DSN konfiguriert) ───────────────────────────────────────
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        integrations=[FastApiIntegration(), SqlalchemyIntegration()],
+        traces_sample_rate=0.1,
+        profiles_sample_rate=0.05,
+        environment="production",
+        send_default_pii=False,  # Keine PII senden (DSG-konform)
+    )
+
+# ── Rate Limiter ──────────────────────────────────────────────────────────────
+limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager
@@ -25,6 +51,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AI Buddy", version="2.0.0", lifespan=lifespan, docs_url=None, redoc_url=None)
+
+# Rate-Limit-Handler registrieren
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -67,6 +97,7 @@ app.include_router(windows.router, prefix="/v1")
 app.include_router(knowledge.router, prefix="/v1")
 app.include_router(stocks.router, prefix="/v1")
 app.include_router(transcribe.router, prefix="/v1")
+app.include_router(health_admin.router, prefix="/v1")
 
 
 @app.get("/")
@@ -83,11 +114,8 @@ async def system_status():
     import redis.asyncio as aioredis
 
     results: dict[str, dict] = {}
-
-    # Backend selbst ist erreichbar (sonst käme dieser Handler gar nicht)
     results["backend"] = {"ok": True}
 
-    # Datenbank
     try:
         async with AsyncSessionLocal() as session:
             await asyncio.wait_for(session.execute(text("SELECT 1")), timeout=2.0)
@@ -95,7 +123,6 @@ async def system_status():
     except Exception as e:
         results["db"] = {"ok": False, "error": str(e)[:80]}
 
-    # Redis
     try:
         r = aioredis.from_url(settings.redis_url, decode_responses=True)
         await asyncio.wait_for(r.ping(), timeout=2.0)
@@ -104,8 +131,7 @@ async def system_status():
     except Exception as e:
         results["redis"] = {"ok": False, "error": str(e)[:80]}
 
-    # KI-Modelle: Anthropic oder Bedrock konfiguriert?
-    ai_ok = bool(settings.anthropic_api_key or settings.aws_bedrock_api_key or settings.aws_access_key_id)
+    ai_ok = bool(settings.anthropic_api_key or settings.aws_bedrock_api_key)
     results["ai"] = {"ok": ai_ok}
 
     overall = all(v["ok"] for v in results.values())
