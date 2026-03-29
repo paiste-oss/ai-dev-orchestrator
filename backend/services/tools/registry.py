@@ -16,6 +16,7 @@ from services.tools.defs import (
     DASHBOARD_TOOL_DEFS,
     PORTFOLIO_TOOL_DEFS,
     GEO_MAP_TOOL_DEFS,
+    DOCUMENT_SEARCH_TOOL_DEFS,
 )
 from services.tools.handlers.transport import _handle_sbb
 from services.tools.handlers.web import _handle_web_fetch, _handle_web_search
@@ -27,6 +28,7 @@ from services.tools.handlers.weather import _handle_weather
 from services.tools.handlers.dashboard import _handle_dashboard
 from services.tools.handlers.portfolio import _handle_portfolio
 from services.tools.handlers.geo import _handle_geo_map
+from services.tools.handlers.documents import _handle_documents
 
 
 # ---------------------------------------------------------------------------
@@ -183,6 +185,18 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_defs": GEO_MAP_TOOL_DEFS,
         "tool_names": {"open_swiss_map"},
         "handler": _handle_geo_map,
+    },
+    "document_search": {
+        "key": "document_search",
+        "name": "Dokumentensuche",
+        "description": "Durchsucht hochgeladene Dokumente des Nutzers nach Inhalten, Stichwörtern oder Phrasen.",
+        "prompt_hint": "Hochgeladene Dokumente durchsuchen und Inhalte aus Dateien abrufen (PDF, Word, Excel, etc.)",
+        "category": "data",
+        "tier": "free",
+        "tool_defs": DOCUMENT_SEARCH_TOOL_DEFS,
+        "tool_names": {"search_documents", "list_documents"},
+        "handler": _handle_documents,
+        "needs_customer_id": True,
     },
 }
 
