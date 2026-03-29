@@ -15,6 +15,7 @@ from services.tools.defs import (
     WEATHER_TOOL_DEFS,
     DASHBOARD_TOOL_DEFS,
     PORTFOLIO_TOOL_DEFS,
+    GEO_MAP_TOOL_DEFS,
 )
 from services.tools.handlers.transport import _handle_sbb
 from services.tools.handlers.web import _handle_web_fetch, _handle_web_search
@@ -25,6 +26,7 @@ from services.tools.handlers.training import _handle_training_reminders
 from services.tools.handlers.weather import _handle_weather
 from services.tools.handlers.dashboard import _handle_dashboard
 from services.tools.handlers.portfolio import _handle_portfolio
+from services.tools.handlers.geo import _handle_geo_map
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +172,17 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_names": {"populate_dashboard"},
         "handler": _handle_dashboard,
         "needs_customer_id": True,
+    },
+    "geo_map": {
+        "key": "geo_map",
+        "name": "Schweizer Karte (swisstopo)",
+        "description": "Öffnet eine interaktive Schweizer Karte (map.geo.admin.ch) für Orte, Adressen und Gemeinden.",
+        "prompt_hint": "Schweizer Karte öffnen — Orte, Adressen, Parzellen und Gemeinden auf swisstopo anzeigen",
+        "category": "data",
+        "tier": "free",
+        "tool_defs": GEO_MAP_TOOL_DEFS,
+        "tool_names": {"open_swiss_map"},
+        "handler": _handle_geo_map,
     },
 }
 

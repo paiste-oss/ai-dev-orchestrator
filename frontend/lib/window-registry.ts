@@ -106,6 +106,16 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     canvasType: "design",
   },
   {
+    id: "geo_map",
+    label: "Schweizer Karte",
+    icon: "🗺",
+    description: "Interaktive swisstopo-Karte für Orte, Adressen, Parzellen und Gemeinden in der Schweiz.",
+    defaultWidth: 680,
+    defaultHeight: 520,
+    status: "active",
+    canvasType: "geo_map",
+  },
+  {
     id: "3d_renderer",
     label: "3D-Renderer",
     icon: "🧊",

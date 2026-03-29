@@ -137,7 +137,7 @@ def _extract_window_marker(text: str) -> tuple[str, dict | None]:
     Returns:
         (bereinigter Text, open_window-Dict oder None)
     """
-    VALID_TYPES = {"browser_window", "whiteboard", "image_viewer", "netzwerk", "chart", "design", "memory", "documents"}
+    VALID_TYPES = {"browser_window", "whiteboard", "image_viewer", "netzwerk", "chart", "design", "memory", "documents", "geo_map"}
     open_window: dict | None = None
     # Format: [FENSTER: canvasType] oder [FENSTER: canvasType | extra]
     match = re.search(r"\[FENSTER:\s*(\w+)(?:\s*\|\s*([^\]]+))?\]", text, re.IGNORECASE)
@@ -152,6 +152,16 @@ def _extract_window_marker(text: str) -> tuple[str, dict | None]:
                     open_window["symbol"] = syms[0]
                 else:
                     open_window["symbols"] = syms
+            elif canvas_type == "geo_map" and extra:
+                # Format: E,N,zoom,bgLayer
+                parts = [p.strip() for p in extra.split(",")]
+                try:
+                    open_window["east"] = int(parts[0])
+                    open_window["north"] = int(parts[1])
+                    open_window["zoom"] = int(parts[2]) if len(parts) > 2 else 8
+                    open_window["bgLayer"] = parts[3] if len(parts) > 3 else "ch.swisstopo.pixelkarte-farbe"
+                except (ValueError, IndexError):
+                    pass
             elif extra:
                 open_window["url"] = extra
         text = re.sub(r"\s*\[FENSTER:[^\]]+\]", "", text).strip()

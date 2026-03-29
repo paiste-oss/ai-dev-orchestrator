@@ -36,6 +36,7 @@ import FileViewerWindow from "@/components/windows/FileViewerWindow";
 import MemoryWindow from "@/components/windows/MemoryWindow";
 import DesignWindow from "@/components/windows/DesignWindow";
 import ChartWindow from "@/components/windows/ChartWindow";
+import GeoMapWindow from "@/components/windows/GeoMapWindow";
 import { WINDOW_MODULES } from "@/lib/window-registry";
 import MobilePinnedPanel from "@/components/mobile/MobilePinnedPanel";
 import MobileWindowTray from "@/components/mobile/MobileWindowTray";
@@ -249,7 +250,7 @@ export default function ChatPage() {
           width: wMeta.width, height: wMeta.height,
           minimized: false,
           zIndex: topZ.current,
-          data: d.symbols ? { symbols: d.symbols } : d.symbol ? { symbol: d.symbol } : d.url ? { url: d.url } : {},
+          data: d.symbols ? { symbols: d.symbols } : d.symbol ? { symbol: d.symbol } : d.east ? { east: d.east, north: d.north, zoom: d.zoom, bgLayer: d.bgLayer } : d.url ? { url: d.url } : {},
         }]);
       }
       return;
@@ -465,7 +466,9 @@ export default function ChatPage() {
     } catch {
       setInput(prev => `${prev}[Audio konnte nicht transkribiert werden]`);
     } finally {
-      textareaRef.current?.focus();
+      if (!/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+        textareaRef.current?.focus();
+      }
     }
   }
 
@@ -602,6 +605,9 @@ export default function ChatPage() {
       );
       case "chart": return (
         <ChartWindow initialSymbol={card.data?.symbol} initialSymbols={card.data?.symbols} />
+      );
+      case "geo_map": return (
+        <GeoMapWindow east={card.data?.east} north={card.data?.north} zoom={card.data?.zoom} bgLayer={card.data?.bgLayer} />
       );
       case "design": return (
         <DesignWindow prefs={uiPrefs} onPrefsChange={patch => setUiPrefs(p => ({ ...p, ...patch }))} />
