@@ -30,6 +30,11 @@ export const CHAT_WIDTHS: Record<string, string> = {
   compact: "55%", normal: "75%", wide: "90%", full: "100%",
 };
 
+export const FONT_COLORS: Record<string, string> = {
+  white: "#ffffff", silver: "#e2e8f0", warm: "#fef3c7",
+  green: "#bbf7d0", blue: "#bfdbfe", rose: "#fecdd3",
+};
+
 export const BG_COLORS: Record<string, string> = {
   dark: "#030712", darker: "#000000", lighter: "#111827",
   slate: "#0f172a", navy: "#0c1445", forest: "#0a1a0f", wine: "#1a0a12", warm: "#1a1208",
@@ -47,6 +52,7 @@ const DEFAULT_PREFS: UiPrefs = {
   chatWidth: "normal",
   bubbleStyle: "rounded",
   showTimestamps: "hover",
+  fontColor: "white",
 };
 
 export function useUiPrefs() {
@@ -66,5 +72,5 @@ export function useUiPrefs() {
     } catch { /* ignore */ }
   }
 
-  return { uiPrefs, setUiPrefs, loadPreferences, FONT_SIZES, FONT_FAMILIES, LINE_SPACINGS, ACCENT_COLORS, BG_COLORS };
+  return { uiPrefs, setUiPrefs, loadPreferences, FONT_SIZES, FONT_FAMILIES, LINE_SPACINGS, ACCENT_COLORS, BG_COLORS, FONT_COLORS };
 }

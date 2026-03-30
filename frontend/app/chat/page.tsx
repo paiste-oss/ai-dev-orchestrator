@@ -10,7 +10,7 @@ import { MemoryItem } from "@/lib/chat-types";
 import { useChatMessages, UploadedFileInfo } from "@/hooks/useChatMessages";
 import { useCamera } from "@/hooks/useCamera";
 import { useTTS } from "@/hooks/useTTS";
-import { useUiPrefs, BG_COLORS } from "@/hooks/useUiPrefs";
+import { useUiPrefs, BG_COLORS, FONT_COLORS } from "@/hooks/useUiPrefs";
 
 import TopBar from "@/components/chat/TopBar";
 import CanvasCard from "@/components/chat/CanvasCard";
@@ -627,9 +627,10 @@ export default function ChatPage() {
   }
 
   const bgColor = BG_COLORS[uiPrefs.background] ?? "#030712";
+  const fontColor = FONT_COLORS[uiPrefs.fontColor] ?? "#ffffff";
   const bgStyle = uiPrefs.backgroundImage
-    ? { backgroundImage: `url(${uiPrefs.backgroundImage})`, backgroundSize: "cover", backgroundPosition: "center" }
-    : { background: bgColor };
+    ? { backgroundImage: `url(${uiPrefs.backgroundImage})`, backgroundSize: "cover", backgroundPosition: "center", color: fontColor }
+    : { background: bgColor, color: fontColor };
 
   // ── MOBILE LAYOUT ────────────────────────────────────────────────────────────
   if (isMobile) {
@@ -638,7 +639,7 @@ export default function ChatPage() {
     const showChat = !mobilePanelOpen;
 
     return (
-      <div className="flex flex-col h-[100dvh] text-white overflow-hidden" style={bgStyle}>
+      <div className="flex flex-col h-[100dvh] overflow-hidden" style={bgStyle}>
         <TopBar
           buddyName={uiPrefs.buddyName ?? "Baddi"}
           buddyInitial={buddyInitial}
@@ -752,7 +753,7 @@ export default function ChatPage() {
 
   // ── DESKTOP CANVAS LAYOUT ─────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-[100dvh] text-white overflow-hidden" style={bgStyle}>
+    <div className="flex flex-col h-[100dvh] overflow-hidden" style={bgStyle}>
 
       {/* ── TOP BAR ── */}
       <TopBar

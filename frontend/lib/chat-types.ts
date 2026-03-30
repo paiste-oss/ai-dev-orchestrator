@@ -83,4 +83,5 @@ export interface UiPrefs {
   bubbleStyle: string;
   showTimestamps: string;
   backgroundImage?: string;
+  fontColor: string;
 }

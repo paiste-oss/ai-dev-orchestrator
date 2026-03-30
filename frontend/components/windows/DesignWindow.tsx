@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { UiPrefs } from "@/lib/chat-types";
-import { ACCENT_COLORS as ACCENT_COLORS_MAP, BG_COLORS } from "@/hooks/useUiPrefs";
+import { ACCENT_COLORS as ACCENT_COLORS_MAP, BG_COLORS, FONT_COLORS } from "@/hooks/useUiPrefs";
 
 interface Props {
   prefs: UiPrefs;
@@ -43,6 +43,11 @@ function Chips({ options, value, onChange }: {
 
 // Abgeleitet aus zentralem useUiPrefs — kein Duplikat
 const ACCENT_COLORS = Object.entries(ACCENT_COLORS_MAP).map(([v, hex]) => ({ v, hex }));
+
+const FONT_COLOR_LABELS: Record<string, string> = {
+  white: "Weiss", silver: "Silber", warm: "Warm", green: "Grün", blue: "Blau", rose: "Rosa",
+};
+const FONT_COLOR_OPTIONS = Object.entries(FONT_COLORS).map(([v, hex]) => ({ v, hex, l: FONT_COLOR_LABELS[v] ?? v }));
 
 const BG_LABELS: Record<string, string> = {
   dark: "Dunkel", darker: "Tiefschwarz", lighter: "Grau",
@@ -182,6 +187,23 @@ export default function DesignWindow({ prefs, onPrefsChange }: Props) {
                   prefs.accentColor === c.v ? "border-white scale-110" : "border-transparent opacity-50 hover:opacity-90"
                 }`}
                 style={{ backgroundColor: c.hex }} title={c.v} />
+            ))}
+          </div>
+        </OptionRow>
+
+        <OptionRow label="Schriftfarbe">
+          <div className="flex flex-wrap gap-2">
+            {FONT_COLOR_OPTIONS.map(c => (
+              <button key={c.v} onClick={() => update({ fontColor: c.v })}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs border transition-all ${
+                  prefs.fontColor === c.v
+                    ? "bg-white/10 border-white/30 font-medium"
+                    : "border-white/8 text-gray-400 hover:text-gray-200 hover:border-white/15"
+                }`}
+                style={{ color: c.hex }}>
+                <span className="w-3 h-3 rounded-full border border-white/20 shrink-0" style={{ backgroundColor: c.hex }} />
+                {c.l}
+              </button>
             ))}
           </div>
         </OptionRow>
