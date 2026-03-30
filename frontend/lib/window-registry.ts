@@ -86,6 +86,16 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     canvasType: "documents",
   },
   {
+    id: "diktieren",
+    label: "Diktieren",
+    icon: "🎙",
+    description: "Sprachaufnahmen erstellen, automatisch transkribieren (Whisper) und als Diktat speichern.",
+    defaultWidth: 400,
+    defaultHeight: 520,
+    status: "active",
+    canvasType: "diktieren",
+  },
+  {
     id: "memory",
     label: "Gedächtnis",
     icon: "🧠",

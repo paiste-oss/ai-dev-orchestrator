@@ -32,6 +32,7 @@ import WhiteboardWindow from "@/components/windows/WhiteboardWindow";
 import ImageViewerWindow from "@/components/windows/ImageViewerWindow";
 import NetzwerkWindow from "@/components/windows/NetzwerkWindow";
 import DocumentsWindow from "@/components/windows/DocumentsWindow";
+import DictationWindow from "@/components/windows/DictationWindow";
 import FileViewerWindow from "@/components/windows/FileViewerWindow";
 import MemoryWindow from "@/components/windows/MemoryWindow";
 import DesignWindow from "@/components/windows/DesignWindow";
@@ -614,6 +615,9 @@ export default function ChatPage() {
       );
       case "documents": return (
         <DocumentsWindow onOpenFile={handleOpenFile} />
+      );
+      case "diktieren": return (
+        <DictationWindow />
       );
       case "file_viewer": return (
         <FileViewerWindow
