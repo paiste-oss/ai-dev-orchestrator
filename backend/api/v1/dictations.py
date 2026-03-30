@@ -118,6 +118,23 @@ async def update_transcript(
     if not doc or doc.customer_id != customer.id or not doc.is_active:
         raise HTTPException(status_code=404, detail="Diktat nicht gefunden")
     doc.extracted_text = transcript
+    # Transkript auch als Textdokument in Dokumenten speichern
+    title = (doc.doc_metadata or {}).get("title") or doc.original_filename.rsplit(".", 1)[0]
+    txt_content = transcript.encode("utf-8")
+    txt_doc = CustomerDocument(
+        customer_id=customer.id,
+        filename=f"transkript_{uuid.uuid4().hex[:8]}.txt",
+        original_filename=f"{title} – Transkript.txt",
+        file_type="txt",
+        file_size_bytes=len(txt_content),
+        mime_type="text/plain",
+        file_content=txt_content,
+        extracted_text=transcript,
+        stored_in_postgres=True,
+        baddi_readable=True,
+        doc_metadata={"from_dictation_id": str(dictation_id)},
+    )
+    db.add(txt_doc)
     await db.commit()
     return {"id": str(dictation_id), "transcript": transcript}
 
