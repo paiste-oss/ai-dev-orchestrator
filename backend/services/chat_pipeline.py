@@ -76,6 +76,21 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
         )
         style_prefs = [m.content for m in result_style.scalars().all()]
 
+    # Kunden-Dokumente automatisch laden
+    from models.document import CustomerDocument
+    doc_result = await db.execute(
+        select(CustomerDocument)
+        .where(
+            CustomerDocument.customer_id == customer.id,
+            CustomerDocument.is_active.is_(True),
+        )
+        .order_by(CustomerDocument.created_at.desc())
+        .limit(20)
+    )
+    all_docs = doc_result.scalars().all()
+    readable_docs = [d for d in all_docs if d.baddi_readable and d.extracted_text]
+    private_docs  = [d for d in all_docs if not d.baddi_readable]
+
     # Globale Wissensbasis
     knowledge_chunks: list[dict] = []
     if baddi_config.get("knowledge_enabled", True):
@@ -99,6 +114,8 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
         relevant_memories=relevant,
         ui_prefs=customer.ui_preferences or {},
         knowledge_chunks=knowledge_chunks or None,
+        readable_docs=readable_docs,
+        private_doc_names=[d.original_filename for d in private_docs],
     )
 
     return {

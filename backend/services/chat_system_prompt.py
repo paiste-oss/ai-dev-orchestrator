@@ -25,6 +25,8 @@ def build_system_prompt(
     relevant_memories: list[str],
     ui_prefs: dict,
     knowledge_chunks: list[dict] | None = None,
+    readable_docs: list | None = None,
+    private_doc_names: list[str] | None = None,
 ) -> str:
     """
     Baut den System-Prompt zusammen.
@@ -114,10 +116,10 @@ def build_system_prompt(
         "- Wenn der Nutzer diktieren, transkribieren oder eine Sprachnotiz erstellen möchte: SOFORT [FENSTER: documents] öffnen — keine Erklärung vorher, einfach öffnen.\n"
         "- Nicht erklären wie es geht. Einfach das Fenster öffnen und kurz sagen dass das Mikrofon-Symbol 🎤 startet.\n"
         "\nDOKUMENTE — WIE DU SIE LIEST:\n"
-        "- Du siehst das Dokumente-Fenster NICHT direkt. Du hast keinen Bildschirmzugriff.\n"
-        "- Dokumente werden dir nur zugänglich wenn der Nutzer sie EXPLIZIT im Chat-Eingabefeld anhängt (Büroklammer-Symbol).\n"
-        "- Wenn der Nutzer sagt 'lies mein Dokument' oder 'schau dir die Datei an': Bitte ihn, die Datei über das Büroklammer-Symbol im Chat-Eingabefeld auszuwählen.\n"
-        "- Sage NIEMALS 'ich sehe das Dokumente-Fenster nicht' oder 'ich habe keinen Zugriff auf dein Fenster' — sage stattdessen: 'Hänge die Datei bitte über das 📎-Symbol im Eingabefeld an, dann lese ich sie sofort.'"
+        "- Alle Dokumente des Nutzers die auf '🤖 Lesbar' stehen werden dir automatisch im System-Prompt mitgeliefert.\n"
+        "- Du kannst sie direkt lesen — der Nutzer muss nichts anhängen.\n"
+        "- Dokumente auf '🔒 Privat' siehst du nicht und darfst du nicht lesen.\n"
+        "- Sage NIEMALS 'ich habe keinen Zugriff auf dein Fenster' — du hast Zugriff auf alle lesbaren Dokumente."
     )
 
     # ── Tool-Übersicht ────────────────────────────────────────────────────────
@@ -227,6 +229,39 @@ def build_system_prompt(
         system_parts.append(
             f"\nWas du über {first_name} weißt:\n"
             + "\n".join(f"- {m}" for m in relevant_memories)
+        )
+
+    # ── Kunden-Dokumente ──────────────────────────────────────────────────────
+    _MAX_CHARS_PER_DOC = 4000
+    _MAX_TOTAL_CHARS   = 12000
+
+    if readable_docs:
+        doc_parts = []
+        total = 0
+        for doc in readable_docs:
+            text = (doc.extracted_text or "").strip()
+            if not text:
+                continue
+            truncated = text[:_MAX_CHARS_PER_DOC]
+            suffix = "\n[… Inhalt gekürzt]" if len(text) > _MAX_CHARS_PER_DOC else ""
+            entry = f'[Datei: "{doc.original_filename}"]\n{truncated}{suffix}'
+            if total + len(entry) > _MAX_TOTAL_CHARS:
+                break
+            doc_parts.append(entry)
+            total += len(entry)
+        if doc_parts:
+            system_parts.append(
+                f"\nDOKUMENTE VON {first_name.upper()} (automatisch verfügbar, lesbar für dich):\n"
+                + "\n\n---\n".join(doc_parts)
+                + "\nDu kannst diese Dokumente direkt lesen und darauf eingehen — der Nutzer muss sie nicht anhängen."
+            )
+
+    if private_doc_names:
+        system_parts.append(
+            f"\nPRIVATE DOKUMENTE (gesperrt, du darfst sie NICHT lesen):\n"
+            + "\n".join(f"- {n}" for n in private_doc_names)
+            + "\nWenn der Nutzer nach einem dieser Dokumente fragt: Erkläre kurz, dass es auf 'Privat' gesetzt ist "
+            "und er es im Dokumente-Fenster auf '🤖 Lesbar' umstellen kann."
         )
 
     return "\n".join(system_parts)
