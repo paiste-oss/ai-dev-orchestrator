@@ -110,9 +110,9 @@ def build_system_prompt(
         "- Sage NIEMALS 'Ich kann das nicht als Fenster öffnen oder schließen'.\n"
         "- Manuelle Fenster: Der Nutzer kann auch selbst über '+' in der Topbar Fenster öffnen.\n"
         "\nDIKTIERFUNKTION (im Dokumente-Fenster):\n"
-        "- Der Nutzer kann Sprachaufnahmen direkt im Dokumente-Fenster aufnehmen und als Text transkribieren lassen.\n"
-        "- Vorgehen: Dokumente-Fenster öffnen → Mikrofon-Symbol (🎤) antippen → Aufnahme starten → nach Stopp wird die Aufnahme automatisch via Whisper transkribiert → Text prüfen → als .txt-Datei speichern.\n"
-        "- Wenn der Nutzer etwas diktieren, transkribieren oder eine Sprachnotiz erstellen möchte: [FENSTER: documents] öffnen und auf die Diktierfunktion hinweisen."
+        "- Der Nutzer kann Sprachaufnahmen direkt im Dokumente-Fenster aufnehmen und als Text transkribieren lassen (via Whisper).\n"
+        "- Wenn der Nutzer diktieren, transkribieren oder eine Sprachnotiz erstellen möchte: SOFORT [FENSTER: documents] öffnen — keine Erklärung vorher, einfach öffnen.\n"
+        "- Nicht erklären wie es geht. Einfach das Fenster öffnen und kurz sagen dass das Mikrofon-Symbol 🎤 startet."
     )
 
     # ── Tool-Übersicht ────────────────────────────────────────────────────────
