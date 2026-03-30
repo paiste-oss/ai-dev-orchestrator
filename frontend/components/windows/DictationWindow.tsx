@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 
-type Step = "idle" | "recording" | "transcribing" | "review";
+type Step = "idle" | "recording" | "review";
 
 interface Dictation {
   id: string;
@@ -55,26 +55,22 @@ export default function DictationWindow() {
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const rec = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      // Prefer mp4/m4a (Safari), fall back to webm (Chrome/Firefox)
+      const mimeType = MediaRecorder.isTypeSupported("audio/mp4")
+        ? "audio/mp4"
+        : MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : "audio/webm";
+      const rec = new MediaRecorder(stream, { mimeType });
       chunksRef.current = [];
       rec.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      rec.onstop = async () => {
+      rec.onstop = () => {
         stream.getTracks().forEach(t => t.stop());
         if (!chunksRef.current.length) { setStep("idle"); return; }
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const blob = new Blob(chunksRef.current, { type: mimeType });
         audioRef.current = blob;
-        setStep("transcribing");
-        try {
-          const fd = new FormData();
-          fd.append("file", blob, "aufnahme.webm");
-          const res = await apiFetch(`${BACKEND_URL}/v1/chat/transcribe`, { method: "POST", body: fd });
-          if (!res.ok) throw new Error("Transkription fehlgeschlagen");
-          const data = await res.json();
-          if (!data.text?.trim()) { setError("Kein Ton erkannt."); setStep("idle"); return; }
-          setTranscript(data.text.trim());
-          setTitle(`Diktat ${new Date().toLocaleDateString("de-CH")}`);
-          setStep("review");
-        } catch { setError("Transkription fehlgeschlagen."); setStep("idle"); }
+        setTitle(`Diktat ${new Date().toLocaleDateString("de-CH")}`);
+        setStep("review");
       };
       rec.start(200);
       recorderRef.current = rec;
@@ -95,11 +91,13 @@ export default function DictationWindow() {
   }
 
   async function saveDictation() {
-    if (!audioRef.current || !transcript.trim()) return;
+    if (!audioRef.current) return;
     setSaving(true);
     try {
+      const blob = audioRef.current;
+      const ext = blob.type.includes("mp4") ? "m4a" : "webm";
       const fd = new FormData();
-      fd.append("audio", audioRef.current, "aufnahme.webm");
+      fd.append("audio", blob, `aufnahme.${ext}`);
       fd.append("transcript", transcript);
       fd.append("title", title || "Diktat");
       fd.append("duration_seconds", String(elapsed));
@@ -173,18 +171,12 @@ export default function DictationWindow() {
           </div>
         )}
 
-        {step === "transcribing" && (
-          <div className="flex items-center gap-2 text-gray-400 text-sm">
-            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
-            </svg>
-            Whisper transkribiert…
-          </div>
-        )}
-
         {step === "review" && (
           <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
+              <span>🎤</span>
+              <span>Aufnahme bereit · {formatDuration(elapsed)}</span>
+            </div>
             <input
               value={title}
               onChange={e => setTitle(e.target.value)}
@@ -194,8 +186,9 @@ export default function DictationWindow() {
             <textarea
               value={transcript}
               onChange={e => setTranscript(e.target.value)}
-              rows={4}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/25 resize-none"
+              rows={3}
+              placeholder="Notiz (optional)"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-white/25 resize-none"
             />
             <div className="flex gap-2">
               <button

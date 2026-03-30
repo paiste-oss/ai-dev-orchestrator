@@ -20,7 +20,7 @@ router = APIRouter(prefix="/dictations", tags=["dictations"])
 @router.post("/", status_code=201)
 async def save_dictation(
     audio: UploadFile = File(...),
-    transcript: str = Form(...),
+    transcript: str = Form(""),
     title: str = Form("Diktat"),
     duration_seconds: float = Form(0),
     customer: Customer = Depends(get_current_user),
