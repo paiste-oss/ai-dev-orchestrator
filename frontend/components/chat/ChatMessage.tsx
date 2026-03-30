@@ -14,7 +14,7 @@ import {
   StockData, StockHistoryData, ImageGalleryData,
   TransportBoardData, ActionButtonsData, BrowserViewData,
 } from "@/lib/chat-types";
-import { FONT_SIZES, FONT_FAMILIES, LINE_SPACINGS, ACCENT_COLORS, CHAT_WIDTHS } from "@/hooks/useUiPrefs";
+import { FONT_SIZES, FONT_FAMILIES, LINE_SPACINGS, ACCENT_COLORS, CHAT_WIDTHS, FONT_COLORS } from "@/hooks/useUiPrefs";
 
 interface ChatMessageProps {
   msg: Message;
@@ -30,6 +30,7 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
   const fontFamily = FONT_FAMILIES[uiPrefs.fontFamily] ?? FONT_FAMILIES.system;
   const lineHeight = LINE_SPACINGS[uiPrefs.lineSpacing] ?? "1.625";
   const accentBg   = ACCENT_COLORS[uiPrefs.accentColor] ?? "#6366f1";
+  const fontColor  = FONT_COLORS[uiPrefs.fontColor]     ?? "#ffffff";
   const maxWidth   = CHAT_WIDTHS[uiPrefs.chatWidth]    ?? "75%";
   const ts = uiPrefs.showTimestamps ?? "hover";
   const tsClass = ts === "always" ? "opacity-100" : ts === "never" ? "hidden" : "opacity-0 group-hover:opacity-100 transition-opacity";
@@ -75,7 +76,7 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
           </div>
 
           {/* Message content */}
-          <div style={{ fontSize, fontFamily, lineHeight }} className="text-gray-100">
+          <div style={{ fontSize, fontFamily, lineHeight, color: fontColor }}>
             {msg.content === "__QUOTA_EXCEEDED__" ? (
               <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/8 px-4 py-4 flex flex-col gap-3">
                 <div className="flex items-center gap-2">
@@ -105,13 +106,13 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
                 urlTransform={(url) => url}
                 components={{
                   p: ({ children }) => <p className="mb-2 last:mb-0" style={{ fontFamily, fontSize, lineHeight }}>{children}</p>,
-                  strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+                  strong: ({ children }) => <strong className="font-semibold" style={{ color: fontColor }}>{children}</strong>,
                   ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1" style={{ fontFamily, fontSize, lineHeight }}>{children}</ul>,
                   ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-1" style={{ fontFamily, fontSize, lineHeight }}>{children}</ol>,
-                  li: ({ children }) => <li className="text-gray-200" style={{ fontFamily, fontSize, lineHeight }}>{children}</li>,
-                  h1: ({ children }) => <h1 className="text-lg font-bold text-white mb-2 mt-4 first:mt-0">{children}</h1>,
-                  h2: ({ children }) => <h2 className="text-base font-bold text-white mb-1.5 mt-3 first:mt-0">{children}</h2>,
-                  h3: ({ children }) => <h3 className="text-sm font-semibold text-white mb-1 mt-2 first:mt-0">{children}</h3>,
+                  li: ({ children }) => <li style={{ fontFamily, fontSize, lineHeight, color: fontColor }}>{children}</li>,
+                  h1: ({ children }) => <h1 className="text-lg font-bold mb-2 mt-4 first:mt-0" style={{ color: fontColor }}>{children}</h1>,
+                  h2: ({ children }) => <h2 className="text-base font-bold mb-1.5 mt-3 first:mt-0" style={{ color: fontColor }}>{children}</h2>,
+                  h3: ({ children }) => <h3 className="text-sm font-semibold mb-1 mt-2 first:mt-0" style={{ color: fontColor }}>{children}</h3>,
                   code: ({ children, className }) => {
                     const isBlock = className?.includes("language-");
                     if (isBlock) return <code className={className}>{children}</code>;

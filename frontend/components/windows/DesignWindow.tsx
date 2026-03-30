@@ -45,7 +45,7 @@ function Chips({ options, value, onChange }: {
 const ACCENT_COLORS = Object.entries(ACCENT_COLORS_MAP).map(([v, hex]) => ({ v, hex }));
 
 const FONT_COLOR_LABELS: Record<string, string> = {
-  white: "Weiss", silver: "Silber", warm: "Warm", green: "Grün", blue: "Blau", rose: "Rosa",
+  white: "Weiss", silver: "Silber", warm: "Warm", green: "Grün", blue: "Blau", rose: "Rosa", black: "Schwarz",
 };
 const FONT_COLOR_OPTIONS = Object.entries(FONT_COLORS).map(([v, hex]) => ({ v, hex, l: FONT_COLOR_LABELS[v] ?? v }));
 

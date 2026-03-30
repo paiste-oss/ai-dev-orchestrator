@@ -32,7 +32,7 @@ export const CHAT_WIDTHS: Record<string, string> = {
 
 export const FONT_COLORS: Record<string, string> = {
   white: "#ffffff", silver: "#e2e8f0", warm: "#fef3c7",
-  green: "#bbf7d0", blue: "#bfdbfe", rose: "#fecdd3",
+  green: "#bbf7d0", blue: "#bfdbfe", rose: "#fecdd3", black: "#111111",
 };
 
 export const BG_COLORS: Record<string, string> = {
