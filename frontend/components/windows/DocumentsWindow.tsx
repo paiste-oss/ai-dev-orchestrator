@@ -59,28 +59,7 @@ function fileIcon(type: string) {
   return FILE_ICONS[type?.toLowerCase()] ?? "📎";
 }
 
-type SortKey = "name" | "category" | "format" | "date" | "size" | "pages";
-
-// ── Tabellen-Helfer (außerhalb der Komponente — sonst remount bei jedem Render) ─
-function SortIcon({ sortKey, k, sortAsc }: { sortKey: SortKey; k: SortKey; sortAsc: boolean }) {
-  if (sortKey !== k) return <span className="text-gray-700 ml-1">↕</span>;
-  return <span className="text-indigo-400 ml-1">{sortAsc ? "↑" : "↓"}</span>;
-}
-function Th({
-  label, k, className = "", sortKey, sortAsc, onSort,
-}: {
-  label: string; k: SortKey; className?: string;
-  sortKey: SortKey; sortAsc: boolean; onSort: (k: SortKey) => void;
-}) {
-  return (
-    <th
-      className={`px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-300 select-none whitespace-nowrap ${className}`}
-      onClick={() => onSort(k)}
-    >
-      {label}<SortIcon sortKey={sortKey} k={k} sortAsc={sortAsc} />
-    </th>
-  );
-}
+type SortKey = "name" | "category" | "date" | "size";
 
 const ACCEPTED = ".pdf,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.csv,.txt,.md,.json,.xml,.html,.log";
 
@@ -99,6 +78,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
   const [dragOver, setDragOver] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortAsc, setSortAsc] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -168,11 +148,6 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
     await loadDocs();
   }
 
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) setSortAsc(v => !v);
-    else { setSortKey(key); setSortAsc(true); }
-  }
-
   const filtered = docs.filter(d =>
     d.original_filename.toLowerCase().includes(search.toLowerCase()) ||
     getCategory(d).toLowerCase().includes(search.toLowerCase()) ||
@@ -183,16 +158,20 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
     let cmp = 0;
     if (sortKey === "name")     cmp = a.original_filename.localeCompare(b.original_filename);
     if (sortKey === "category") cmp = getCategory(a).localeCompare(getCategory(b));
-    if (sortKey === "format")   cmp = a.file_type.localeCompare(b.file_type);
     if (sortKey === "date")     cmp = a.created_at.localeCompare(b.created_at);
     if (sortKey === "size")     cmp = a.file_size_bytes - b.file_size_bytes;
-    if (sortKey === "pages")    cmp = a.page_count - b.page_count;
     return sortAsc ? cmp : -cmp;
   });
 
-  const totalBytes = docs.reduce((s, d) => s + d.file_size_bytes, 0);
+  function toggleExpand(id: string) {
+    setExpanded(prev => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
+  }
 
-  const thProps = { sortKey, sortAsc, onSort: toggleSort };
+  const totalBytes = docs.reduce((s, d) => s + d.file_size_bytes, 0);
 
   return (
     <div
@@ -265,7 +244,18 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
         </div>
       )}
 
-      {/* Grid */}
+      {/* Sortier-Header */}
+      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-white/4 shrink-0 text-[10px] text-gray-600">
+        {(["category", "name", "date", "size"] as SortKey[]).map(k => (
+          <button key={k} onClick={() => { if (sortKey === k) setSortAsc(v => !v); else { setSortKey(k); setSortAsc(true); } }}
+            className={`px-2 py-0.5 rounded transition-colors ${sortKey === k ? "text-indigo-400" : "hover:text-gray-400"}`}>
+            {{ category: "Kategorie", name: "Name", date: "Datum", size: "Grösse" }[k]}
+            {sortKey === k && <span className="ml-0.5">{sortAsc ? "↑" : "↓"}</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* Liste */}
       <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="flex items-center justify-center h-full text-gray-600 text-xs">Lädt…</div>
@@ -281,144 +271,84 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
             )}
           </div>
         ) : (
-          <table className="w-full border-collapse text-xs table-fixed">
-            <colgroup>
-              <col style={{ width: 100 }} />  {/* Kategorie */}
-              <col />                          {/* Name — flex */}
-              <col style={{ width: 52 }} />   {/* Format */}
-              <col style={{ width: 50 }} />   {/* Seiten */}
-              <col style={{ width: 62 }} />   {/* Grösse */}
-              <col style={{ width: 78 }} />   {/* Datum */}
-              <col style={{ width: 120 }} />  {/* Referenz */}
-              <col style={{ width: 72 }} />   {/* Sichtbarkeit */}
-              <col style={{ width: 56 }} />   {/* Aktionen */}
-            </colgroup>
-            <thead className="sticky top-0 z-10" style={{ background: "rgba(8,12,22,0.97)" }}>
-              <tr className="border-b border-white/6">
-                <Th label="Kategorie" k="category" className="pl-3" {...thProps} />
-                <Th label="Name" k="name" {...thProps} />
-                <Th label="Format" k="format" {...thProps} />
-                <Th label="Seiten" k="pages" className="text-right" {...thProps} />
-                <Th label="Grösse" k="size" className="text-right" {...thProps} />
-                <Th label="Datum" k="date" {...thProps} />
-                <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider select-none">Referenz</th>
-                <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider select-none">Baddi</th>
-                <th className="pr-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map(doc => {
-                const cat = getCategory(doc);
-                const catColor = CATEGORY_COLORS[cat] ?? "text-gray-400 bg-gray-500/10";
-                const ref = doc.doc_metadata?.reference ?? "—";
-                return (
-                  <tr
-                    key={doc.id}
-                    onDoubleClick={() => openDoc(doc)}
-                    className="border-b border-white/4 hover:bg-white/4 transition-colors cursor-default group"
-                  >
-                    {/* Kategorie */}
-                    <td className="pl-3 pr-2 py-2">
-                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${catColor}`}>
-                        {fileIcon(doc.file_type)} {cat}
-                      </span>
-                    </td>
+          <div className="divide-y divide-white/4">
+            {sorted.map(doc => {
+              const cat = getCategory(doc);
+              const catColor = CATEGORY_COLORS[cat] ?? "text-gray-400 bg-gray-500/10";
+              const isExpanded = expanded.has(doc.id);
+              return (
+                <div key={doc.id} className="group hover:bg-white/3 transition-colors">
+                  {/* Hauptzeile */}
+                  <div className="flex items-center gap-2 px-3 py-2">
+                    {/* Kategorie-Badge */}
+                    <span className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${catColor}`}>
+                      {fileIcon(doc.file_type)} {cat}
+                    </span>
 
                     {/* Name */}
-                    <td className="pr-2 py-2 max-w-[160px]">
-                      <p className="text-white font-medium truncate" title={doc.original_filename}>
-                        {doc.original_filename}
-                      </p>
-                    </td>
+                    <p className="flex-1 text-xs text-white font-medium truncate min-w-0" title={doc.original_filename}>
+                      {doc.original_filename}
+                    </p>
 
-                    {/* Format */}
-                    <td className="pr-2 py-2">
-                      <span className="text-gray-500 uppercase font-mono text-[10px]">
-                        {doc.file_type}
-                      </span>
-                    </td>
+                    {/* Baddi-Toggle */}
+                    <button
+                      onClick={() => toggleVisibility(doc)}
+                      title={doc.baddi_readable ? "Lesbar — klicken zum Sperren" : "Privat — klicken zum Freigeben"}
+                      className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium transition-all ${
+                        doc.baddi_readable
+                          ? "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
+                          : "text-gray-500 bg-gray-500/10 hover:bg-gray-500/20"
+                      }`}
+                    >
+                      {doc.baddi_readable ? "🤖" : "🔒"}
+                    </button>
 
-                    {/* Seiten */}
-                    <td className="pr-2 py-2 text-right text-gray-500">
-                      {doc.page_count > 0 ? doc.page_count : "—"}
-                    </td>
-
-                    {/* Grösse */}
-                    <td className="pr-2 py-2 text-right text-gray-500 whitespace-nowrap">
-                      {formatBytes(doc.file_size_bytes)}
-                    </td>
-
-                    {/* Datum */}
-                    <td className="pr-2 py-2 text-gray-500 whitespace-nowrap">
-                      {formatDate(doc.created_at)}
-                    </td>
-
-                    {/* Referenz */}
-                    <td className="pr-2 py-2 text-gray-600 max-w-[140px]">
-                      <span className="truncate block" title={ref}>{ref}</span>
-                    </td>
-
-                    {/* Sichtbarkeit */}
-                    <td className="pr-2 py-1.5">
-                      <button
-                        onClick={() => toggleVisibility(doc)}
-                        title={doc.baddi_readable ? "Baddi kann lesen — klicken zum Sperren" : "Privat — klicken zum Freigeben"}
-                        className={`text-[10px] px-1.5 py-0.5 rounded font-medium transition-all ${
-                          doc.baddi_readable
-                            ? "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
-                            : "text-gray-500 bg-gray-500/10 hover:bg-gray-500/20"
-                        }`}
-                      >
-                        {doc.baddi_readable ? "🤖 Lesbar" : "🔒 Privat"}
-                      </button>
-                    </td>
-
-                    {/* Aktionen */}
-                    <td className="pr-2 py-1.5">
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-                        {onOpenFile && (
-                          <button
-                            onClick={() => openDoc(doc)} disabled={opening === doc.id}
-                            className="p-1 rounded text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-all disabled:opacity-40"
-                            title="Öffnen"
-                          >
-                            {opening === doc.id ? (
-                              <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
-                              </svg>
-                            ) : (
-                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                                <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                              </svg>
-                            )}
-                          </button>
-                        )}
-                        <button
-                          onClick={() => deleteDoc(doc.id)} disabled={deleting === doc.id}
-                          className="p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-30"
-                          title="Löschen"
-                        >
-                          {deleting === doc.id ? (
-                            <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
-                            </svg>
-                          ) : (
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                              <path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                            </svg>
-                          )}
+                    {/* Aktionen (hover) */}
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      {onOpenFile && (
+                        <button onClick={() => openDoc(doc)} disabled={opening === doc.id}
+                          className="p-1 rounded text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 transition-all disabled:opacity-40" title="Öffnen">
+                          {opening === doc.id
+                            ? <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/></svg>
+                            : <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>}
                         </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      )}
+                      <button onClick={() => deleteDoc(doc.id)} disabled={deleting === doc.id}
+                        className="p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-30" title="Löschen">
+                        {deleting === doc.id
+                          ? <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/></svg>
+                          : <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>}
+                      </button>
+                    </div>
+
+                    {/* Expand-Chevron */}
+                    <button onClick={() => toggleExpand(doc.id)}
+                      className="shrink-0 p-1 rounded text-gray-600 hover:text-gray-400 transition-all">
+                      <svg className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 12 15 18 9"/>
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Aufklappbare Metadaten */}
+                  {isExpanded && (
+                    <div className="px-3 pb-2.5 grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+                      <div className="flex justify-between"><span className="text-gray-600">Format</span><span className="text-gray-400 uppercase font-mono">{doc.file_type}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-600">Grösse</span><span className="text-gray-400">{formatBytes(doc.file_size_bytes)}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-600">Seiten</span><span className="text-gray-400">{doc.page_count > 0 ? doc.page_count : "—"}</span></div>
+                      <div className="flex justify-between"><span className="text-gray-600">Datum</span><span className="text-gray-400">{formatDate(doc.created_at)}</span></div>
+                      {doc.doc_metadata?.reference && (
+                        <div className="col-span-2 flex justify-between"><span className="text-gray-600">Referenz</span><span className="text-gray-400 truncate ml-2">{doc.doc_metadata.reference}</span></div>
+                      )}
+                      {doc.doc_metadata?.description && (
+                        <div className="col-span-2 flex justify-between"><span className="text-gray-600">Beschreibung</span><span className="text-gray-400 truncate ml-2">{doc.doc_metadata.description}</span></div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
