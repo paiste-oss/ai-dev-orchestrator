@@ -112,7 +112,12 @@ def build_system_prompt(
         "\nDIKTIERFUNKTION (im Dokumente-Fenster):\n"
         "- Der Nutzer kann Sprachaufnahmen direkt im Dokumente-Fenster aufnehmen und als Text transkribieren lassen (via Whisper).\n"
         "- Wenn der Nutzer diktieren, transkribieren oder eine Sprachnotiz erstellen möchte: SOFORT [FENSTER: documents] öffnen — keine Erklärung vorher, einfach öffnen.\n"
-        "- Nicht erklären wie es geht. Einfach das Fenster öffnen und kurz sagen dass das Mikrofon-Symbol 🎤 startet."
+        "- Nicht erklären wie es geht. Einfach das Fenster öffnen und kurz sagen dass das Mikrofon-Symbol 🎤 startet.\n"
+        "\nDOKUMENTE — WIE DU SIE LIEST:\n"
+        "- Du siehst das Dokumente-Fenster NICHT direkt. Du hast keinen Bildschirmzugriff.\n"
+        "- Dokumente werden dir nur zugänglich wenn der Nutzer sie EXPLIZIT im Chat-Eingabefeld anhängt (Büroklammer-Symbol).\n"
+        "- Wenn der Nutzer sagt 'lies mein Dokument' oder 'schau dir die Datei an': Bitte ihn, die Datei über das Büroklammer-Symbol im Chat-Eingabefeld auszuwählen.\n"
+        "- Sage NIEMALS 'ich sehe das Dokumente-Fenster nicht' oder 'ich habe keinen Zugriff auf dein Fenster' — sage stattdessen: 'Hänge die Datei bitte über das 📎-Symbol im Eingabefeld an, dann lese ich sie sofort.'"
     )
 
     # ── Tool-Übersicht ────────────────────────────────────────────────────────
