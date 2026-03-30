@@ -29,6 +29,8 @@ class MarkerResult:
     """Fenster öffnen, z.B. {"canvasType": "browser_window", "url": "..."}."""
     close_window: dict | None = None
     """Fenster schließen, z.B. {"canvasType": "browser_window"}."""
+    open_document: dict | None = None
+    """Dokument öffnen, z.B. {"filename": "Vertrag.pdf"}."""
 
 
 def process_markers(text: str) -> MarkerResult:
@@ -53,6 +55,7 @@ def process_markers(text: str) -> MarkerResult:
     result.text, result.capability_intent = _extract_capability_marker(result.text)
     result.text, result.open_window = _extract_window_marker(result.text)
     result.text, result.close_window = _extract_close_window_marker(result.text)
+    result.text, result.open_document = _extract_document_marker(result.text)
 
     return result
 
@@ -126,6 +129,17 @@ def _extract_close_window_marker(text: str) -> tuple[str, dict | None]:
             close_window = {"canvasType": canvas_type}
         text = re.sub(r"\s*\[FENSTER_SCHLIESSEN:[^\]]+\]", "", text).strip()
     return text, close_window
+
+
+def _extract_document_marker(text: str) -> tuple[str, dict | None]:
+    """Extrahiert [DOKUMENT: dateiname]-Marker."""
+    open_document: dict | None = None
+    match = re.search(r"\[DOKUMENT:\s*([^\]]+)\]", text, re.IGNORECASE)
+    if match:
+        filename = match.group(1).strip()
+        open_document = {"filename": filename}
+        text = re.sub(r"\s*\[DOKUMENT:[^\]]+\]", "", text).strip()
+    return text, open_document
 
 
 def _extract_window_marker(text: str) -> tuple[str, dict | None]:

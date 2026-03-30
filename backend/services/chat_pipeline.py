@@ -351,6 +351,9 @@ async def finalize(
     if marker_result.close_window:
         response_type = "close_window"
         structured_data = marker_result.close_window
+    if marker_result.open_document:
+        response_type = "open_document"
+        structured_data = marker_result.open_document
 
     ui_update = marker_result.ui_update
     if ui_update:

@@ -257,6 +257,30 @@ export default function ChatPage() {
       return;
     }
 
+    // Baddi öffnet ein Dokument via [DOKUMENT:]-Marker
+    if (last.responseType === "open_document") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = last.structuredData as any;
+      const filename: string = d.filename ?? "";
+      // Dokumente laden, passendes finden, öffnen
+      apiFetch(`${BACKEND_URL}/v1/documents/mine`).then(async res => {
+        if (!res.ok) return;
+        const docs = await res.json();
+        const doc = docs.find((x: { original_filename: string }) =>
+          x.original_filename.toLowerCase().includes(filename.toLowerCase())
+        );
+        if (!doc) return;
+        const contentRes = await apiFetch(`${BACKEND_URL}/v1/documents/mine/${doc.id}/content`);
+        if (!contentRes.ok) return;
+        const blob = await contentRes.blob();
+        const url = URL.createObjectURL(blob);
+        spawnCard("file_viewer", `📄 ${doc.original_filename}`, 720, 540, {
+          url, filename: doc.original_filename, fileType: doc.file_type, mimeType: doc.mime_type,
+        });
+      });
+      return;
+    }
+
     // Baddi schließt ein Fenster via [FENSTER_SCHLIESSEN:]-Marker
     if (last.responseType === "close_window") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -624,6 +648,7 @@ export default function ChatPage() {
           url={card.data?.url ?? ""}
           filename={card.data?.filename ?? "Datei"}
           fileType={card.data?.fileType}
+          mimeType={card.data?.mimeType}
         />
       );
       default: return renderRichCard(card.type, card.data);
