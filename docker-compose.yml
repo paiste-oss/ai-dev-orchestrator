@@ -195,24 +195,6 @@ services:
       - ai_local
       - ai_internal
 
-  frontend:
-    build: ./frontend
-    container_name: ai_frontend
-    restart: always
-    command: sh -c "npm install --prefer-offline && npm run dev"
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-    environment:
-      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
-      - BACKEND_INTERNAL_URL=http://backend:8000
-    depends_on:
-      - backend
-    networks:
-      - ai_local
-      - ai_external
-
   n8n:
     image: n8nio/n8n:latest
     container_name: n8n
