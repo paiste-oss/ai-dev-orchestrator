@@ -37,6 +37,7 @@ export default function DictationWindow() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [transcribing, setTranscribing] = useState<string | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef   = useRef<Blob[]>([]);
@@ -108,6 +109,32 @@ export default function DictationWindow() {
       await load();
     } catch { setError("Speichern fehlgeschlagen."); }
     finally { setSaving(false); }
+  }
+
+  async function transcribeDictation(id: string) {
+    setTranscribing(id);
+    setError(null);
+    try {
+      // Audio laden
+      const audioRes = await apiFetch(`${BACKEND_URL}/v1/dictations/${id}/audio`);
+      if (!audioRes.ok) throw new Error();
+      const blob = await audioRes.blob();
+      // An Whisper schicken
+      const fd = new FormData();
+      fd.append("audio", blob, "aufnahme.webm");
+      fd.append("lang", "de");
+      const transRes = await apiFetchForm(`${BACKEND_URL}/v1/transcribe`, fd);
+      if (!transRes.ok) throw new Error("Whisper nicht verfügbar");
+      const { text } = await transRes.json();
+      if (!text?.trim()) throw new Error("Kein Text erkannt");
+      // Transkript speichern
+      const saveFd = new FormData();
+      saveFd.append("transcript", text.trim());
+      await apiFetchForm(`${BACKEND_URL}/v1/dictations/${id}/transcript`, saveFd);
+      setDictations(prev => prev.map(d => d.id === id ? { ...d, transcript: text.trim() } : d));
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Transkription fehlgeschlagen");
+    } finally { setTranscribing(null); }
   }
 
   async function deleteDictation(id: string) {
@@ -226,6 +253,14 @@ export default function DictationWindow() {
                   className={`p-1 rounded text-xs transition-all ${playingId === d.id ? "text-emerald-400" : "text-gray-500 hover:text-emerald-400"}`}
                 >
                   {playingId === d.id ? "⏸" : "▶"}
+                </button>
+                <button
+                  onClick={() => transcribeDictation(d.id)}
+                  disabled={transcribing === d.id}
+                  title="Transkribieren"
+                  className={`p-1 rounded text-xs transition-all ${transcribing === d.id ? "text-blue-400 animate-pulse" : "text-gray-500 hover:text-blue-400"}`}
+                >
+                  {transcribing === d.id ? "⏳" : "📝"}
                 </button>
                 <button
                   onClick={() => deleteDictation(d.id)} disabled={deleting === d.id}

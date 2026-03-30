@@ -107,6 +107,21 @@ async def get_dictation_audio(
     )
 
 
+@router.post("/{dictation_id}/transcript")
+async def update_transcript(
+    dictation_id: uuid.UUID,
+    transcript: str = Form(...),
+    customer: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    doc = await db.get(CustomerDocument, dictation_id)
+    if not doc or doc.customer_id != customer.id or not doc.is_active:
+        raise HTTPException(status_code=404, detail="Diktat nicht gefunden")
+    doc.extracted_text = transcript
+    await db.commit()
+    return {"id": str(dictation_id), "transcript": transcript}
+
+
 @router.delete("/{dictation_id}")
 async def delete_dictation(
     dictation_id: uuid.UUID,
