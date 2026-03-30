@@ -178,7 +178,7 @@ async def _embed_documents(
     for doc_id in document_ids:
         try:
             doc = await db.get(CustomerDocument, _uuid.UUID(doc_id))
-            if doc and doc.customer_id == customer.id and doc.is_active and doc.extracted_text:
+            if doc and doc.customer_id == customer.id and doc.is_active and doc.extracted_text and doc.baddi_readable:
                 doc_text = doc.extracted_text[:12000]
                 truncated = "\n[... Inhalt gekürzt]" if len(doc.extracted_text) > 12000 else ""
                 pages_info = f"{doc.page_count} Seite(n)" if doc.page_count > 1 else ""

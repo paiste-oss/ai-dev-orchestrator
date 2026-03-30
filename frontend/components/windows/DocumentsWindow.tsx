@@ -20,6 +20,7 @@ interface Doc {
   page_count: number;
   char_count: number;
   stored_in_qdrant: boolean;
+  baddi_readable: boolean;
   created_at: string;
   doc_metadata?: DocMeta | null;
 }
@@ -203,6 +204,15 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
       const res = await apiFetch(`${BACKEND_URL}/v1/documents/mine`);
       if (res.ok) setDocs(await res.json());
     } finally { setLoading(false); }
+  }
+
+  async function toggleVisibility(doc: Doc) {
+    const newVal = !doc.baddi_readable;
+    setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, baddi_readable: newVal } : d));
+    await apiFetch(`${BACKEND_URL}/v1/documents/mine/${doc.id}/visibility`, {
+      method: "PATCH",
+      body: JSON.stringify({ baddi_readable: newVal }),
+    });
   }
 
   async function openDoc(doc: Doc) {
@@ -433,6 +443,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
               <col style={{ width: 62 }} />   {/* Grösse */}
               <col style={{ width: 78 }} />   {/* Datum */}
               <col style={{ width: 120 }} />  {/* Referenz */}
+              <col style={{ width: 72 }} />   {/* Sichtbarkeit */}
               <col style={{ width: 56 }} />   {/* Aktionen */}
             </colgroup>
             <thead className="sticky top-0 z-10" style={{ background: "rgba(8,12,22,0.97)" }}>
@@ -444,6 +455,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
                 <Th label="Grösse" k="size" className="text-right" {...thProps} />
                 <Th label="Datum" k="date" {...thProps} />
                 <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider select-none">Referenz</th>
+                <th className="px-2 py-2 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider select-none">Baddi</th>
                 <th className="pr-2" />
               </tr>
             </thead>
@@ -497,6 +509,21 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
                     {/* Referenz */}
                     <td className="pr-2 py-2 text-gray-600 max-w-[140px]">
                       <span className="truncate block" title={ref}>{ref}</span>
+                    </td>
+
+                    {/* Sichtbarkeit */}
+                    <td className="pr-2 py-1.5">
+                      <button
+                        onClick={() => toggleVisibility(doc)}
+                        title={doc.baddi_readable ? "Baddi kann lesen — klicken zum Sperren" : "Privat — klicken zum Freigeben"}
+                        className={`text-[10px] px-1.5 py-0.5 rounded font-medium transition-all ${
+                          doc.baddi_readable
+                            ? "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
+                            : "text-gray-500 bg-gray-500/10 hover:bg-gray-500/20"
+                        }`}
+                      >
+                        {doc.baddi_readable ? "🤖 Lesbar" : "🔒 Privat"}
+                      </button>
                     </td>
 
                     {/* Aktionen */}

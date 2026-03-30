@@ -44,6 +44,7 @@ class DocumentOut(BaseAPIModel):
     stored_in_postgres: bool
     stored_in_qdrant: bool
     qdrant_collection: str | None
+    baddi_readable: bool
     created_at: datetime
     doc_metadata: dict | None
 
@@ -194,6 +195,22 @@ async def get_my_document_content(
         media_type=doc.mime_type or "application/octet-stream",
         headers={"Content-Disposition": f'inline; filename="{doc.original_filename}"'},
     )
+
+
+@router.patch("/mine/{doc_id}/visibility")
+async def set_document_visibility(
+    doc_id: uuid.UUID,
+    body: dict,
+    customer: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Setzt ob Baddi das Dokument lesen darf (baddi_readable)."""
+    doc = await db.get(CustomerDocument, doc_id)
+    if not doc or not doc.is_active or doc.customer_id != customer.id:
+        raise not_found("Dokument")
+    doc.baddi_readable = bool(body.get("baddi_readable", True))
+    await db.commit()
+    return {"id": str(doc_id), "baddi_readable": doc.baddi_readable}
 
 
 @router.delete("/mine/{doc_id}")

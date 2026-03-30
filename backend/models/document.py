@@ -45,6 +45,9 @@ class CustomerDocument(Base):
     # Zusätzliche Metadaten (Seitenzahlen, Sheets, etc.)
     doc_metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
+    # Sichtbarkeit: True = Baddi darf lesen, False = privat
+    baddi_readable: Mapped[bool] = mapped_column(Boolean, default=True)
+
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
