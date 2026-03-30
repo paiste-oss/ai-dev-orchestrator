@@ -2,6 +2,7 @@ services:
   backend:
     build: ./backend
     container_name: ai_backend
+    restart: always
     ports:
       - "8000:8000"
     volumes:
@@ -104,6 +105,7 @@ services:
   celery_worker:
     build: ./backend
     container_name: ai_celery_worker
+    restart: always
     command: celery -A tasks.celery_app worker --loglevel=info --concurrency=4
     volumes:
       - ./backend:/app
@@ -169,6 +171,7 @@ services:
   celery_beat:
     build: ./backend
     container_name: ai_celery_beat
+    restart: always
     command: celery -A tasks.celery_app beat --loglevel=info --schedule=/app/celerybeat-schedule
     volumes:
       - ./backend:/app
@@ -195,6 +198,7 @@ services:
   frontend:
     build: ./frontend
     container_name: ai_frontend
+    restart: always
     command: sh -c "npm install --prefer-offline && npm run dev"
     ports:
       - "3000:3000"
