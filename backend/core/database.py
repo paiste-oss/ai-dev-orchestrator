@@ -219,6 +219,8 @@ async def init_db():
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT false",
             # Benachrichtigungskanal
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS notification_channel VARCHAR(20) DEFAULT 'sms'",
+            # Dokument-Sichtbarkeit
+            "ALTER TABLE customer_documents ADD COLUMN IF NOT EXISTS baddi_readable BOOLEAN DEFAULT true",
         ]
         for sql in migrations:
             await conn.execute(text(sql))
