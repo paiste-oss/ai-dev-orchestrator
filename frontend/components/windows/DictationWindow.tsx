@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiFetch } from "@/lib/auth";
+import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 
 type Step = "idle" | "recording" | "review";
@@ -101,7 +101,7 @@ export default function DictationWindow() {
       fd.append("transcript", transcript);
       fd.append("title", title || "Diktat");
       fd.append("duration_seconds", String(elapsed));
-      const res = await apiFetch(`${BACKEND_URL}/v1/dictations/`, { method: "POST", body: fd });
+      const res = await apiFetchForm(`${BACKEND_URL}/v1/dictations/`, fd);
       if (!res.ok) throw new Error();
       audioRef.current = null;
       setStep("idle"); setTranscript(""); setTitle("");
