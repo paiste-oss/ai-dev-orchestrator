@@ -1,11 +1,19 @@
 "use client";
 
+// Verhindert statisches Prerendering (Visage braucht den Browser)
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
-import { Avatar } from "@readyplayerme/visage";
+import dynamic from "next/dynamic";
+
+// Avatar nur client-seitig laden — kein SSR
+const Avatar = dynamic(
+  () => import("@readyplayerme/visage").then(m => ({ default: m.Avatar })),
+  { ssr: false }
+);
 
 const MODEL_SRC = "https://readyplayerme.github.io/visage/male.glb";
 
-// Deutsche Emotion → ARKit Blendshape-Werte
 const EMOTION_MAP: Record<string, Record<string, number>> = {
   freudig:      { mouthSmileLeft: 0.75, mouthSmileRight: 0.75, cheekSquintLeft: 0.35, cheekSquintRight: 0.35 },
   nachdenklich: { browDownLeft: 0.45, browDownRight: 0.45, eyeLookDownLeft: 0.2, eyeLookDownRight: 0.2 },
