@@ -4,10 +4,10 @@
 export const dynamic = "force-dynamic";
 
 import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 
 // Avatar nur client-seitig laden — kein SSR
-const Avatar = dynamic(
+const Avatar = nextDynamic(
   () => import("@readyplayerme/visage").then(m => ({ default: m.Avatar })),
   { ssr: false }
 );
