@@ -31,6 +31,8 @@ class MarkerResult:
     """Fenster schließen, z.B. {"canvasType": "browser_window"}."""
     open_document: dict | None = None
     """Dokument öffnen, z.B. {"filename": "Vertrag.pdf"}."""
+    emotion: str | None = None
+    """Emotions-Marker für Avatar, z.B. "freudig"."""
 
 
 def process_markers(text: str) -> MarkerResult:
@@ -56,6 +58,7 @@ def process_markers(text: str) -> MarkerResult:
     result.text, result.open_window = _extract_window_marker(result.text)
     result.text, result.close_window = _extract_close_window_marker(result.text)
     result.text, result.open_document = _extract_document_marker(result.text)
+    result.text, result.emotion = _extract_emotion_marker(result.text)
 
     return result
 
@@ -129,6 +132,19 @@ def _extract_close_window_marker(text: str) -> tuple[str, dict | None]:
             close_window = {"canvasType": canvas_type}
         text = re.sub(r"\s*\[FENSTER_SCHLIESSEN:[^\]]+\]", "", text).strip()
     return text, close_window
+
+
+def _extract_emotion_marker(text: str) -> tuple[str, str | None]:
+    """Extrahiert [EMOTION: xxx]-Marker für Avatar-Steuerung."""
+    VALID = {"freudig", "nachdenklich", "traurig", "überrascht", "ruhig", "aufmunternd", "neugierig", "empathisch"}
+    emotion: str | None = None
+    match = re.search(r"\[EMOTION:\s*([^\]]+)\]", text, re.IGNORECASE)
+    if match:
+        val = match.group(1).strip().lower()
+        if val in VALID:
+            emotion = val
+        text = re.sub(r"\s*\[EMOTION:[^\]]+\]", "", text).strip()
+    return text, emotion
 
 
 def _extract_document_marker(text: str) -> tuple[str, dict | None]:

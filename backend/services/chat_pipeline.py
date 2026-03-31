@@ -141,7 +141,8 @@ async def execute_llm(
     from services.tool_registry import TOOL_CATALOG
 
     provider = "claude"
-    model_name = "claude-haiku-4-5-20251001"
+    _chat_mode = (customer.ui_preferences or {}).get("chatMode", "fokus")
+    model_name = "claude-sonnet-4-6" if _chat_mode == "plauder" else "claude-haiku-4-5-20251001"
     response_text: str | None = None
     tokens_used: int = 0
     generated_image_urls: list[str] = []
@@ -355,6 +356,7 @@ async def finalize(
         response_type = "open_document"
         structured_data = marker_result.open_document
 
+    emotion = marker_result.emotion
     ui_update = marker_result.ui_update
     if ui_update:
         try:
@@ -407,7 +409,7 @@ async def finalize(
         except Exception as e:
             _log.warning("Memory Manager konnte nicht gestartet werden: %s", e)
 
-    return str(assistant_msg.id), response_text, response_type, structured_data, ui_update
+    return str(assistant_msg.id), response_text, response_type, structured_data, ui_update, emotion
 
 
 def _schedule_capability_request(customer_id: str, message: str, intent: str) -> None:

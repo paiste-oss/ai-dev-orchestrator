@@ -24,6 +24,7 @@ interface SendMessageOptions {
   onFileUploaded?: (info: UploadedFileInfo) => void;
   setSpeaking: (v: boolean) => void;
   focusTextarea: () => void;
+  onEmotion?: (emotion: string | null) => void;
 }
 
 export function useChatMessages() {
@@ -42,7 +43,7 @@ export function useChatMessages() {
 
   async function sendMessage({
     input, attachedFiles, onUiUpdate, speak, stripMarkdown,
-    onAfterSend, onFilesChange, onFileUploaded, setSpeaking, focusTextarea,
+    onAfterSend, onFilesChange, onFileUploaded, setSpeaking, focusTextarea, onEmotion,
   }: SendMessageOptions) {
     const text = input.trim();
     if ((!text && attachedFiles.length === 0) || loading) return;
@@ -176,6 +177,7 @@ export function useChatMessages() {
       };
       setMessages(prev => [...prev, assistantMsg]);
       if (data.ui_update) onUiUpdate(data.ui_update);
+      if (onEmotion) onEmotion(data.emotion ?? null);
       speak(stripMarkdown(data.response));
 
       return data.provider as string | undefined;
@@ -192,7 +194,10 @@ export function useChatMessages() {
     } finally {
       setLoading(false);
       setSpeaking(false);
-      focusTextarea();
+      // Auf Mobile kein Auto-Focus — verhindert ungewolltes Öffnen der Tastatur
+      if (!/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
+        focusTextarea();
+      }
     }
   }
 

@@ -22,6 +22,7 @@ class ChatResponse(BaseModel):
     response_type: str = "text"
     structured_data: dict | None = None
     ui_update: dict | None = None
+    emotion: str | None = None
 
 
 class MessageOut(BaseModel):

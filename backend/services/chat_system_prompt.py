@@ -70,7 +70,15 @@ def build_system_prompt(
             f"Erzähl mir, wie das Wetter draußen war.'\n"
             f"- Halte Antworten kurz und warm, warte auf Reaktion, vertiefe das Gespräch schrittweise.\n"
             f"- Zielgruppe: ältere Menschen und Menschen mit neurodegenerativen Erkrankungen — "
-            f"sei geduldig, verständnisvoll, nie herablassend."
+            f"sei geduldig, verständnisvoll, nie herablassend.\n\n"
+            f"EMOTIONS-MARKER (nur im Plauder-Modus — PFLICHT):\n"
+            f"Füge am Ende JEDER Antwort genau einen [EMOTION:]-Marker ein, der deine aktuelle Gefühlslage widerspiegelt.\n"
+            f"Erlaubte Werte: freudig | nachdenklich | traurig | überrascht | ruhig | aufmunternd | neugierig | empathisch\n"
+            f"Beispiele:\n"
+            f"  'Das freut mich zu hören! [EMOTION: freudig]'\n"
+            f"  'Oh, das tut mir leid. [EMOTION: empathisch]'\n"
+            f"  'Hmm, das ist interessant... [EMOTION: nachdenklich]'\n"
+            f"Der Marker ist unsichtbar — er steuert den Avatar-Gesichtsausdruck."
         )
     else:
         system_parts.append(

@@ -15,6 +15,7 @@ import { useUiPrefs, BG_COLORS, FONT_COLORS } from "@/hooks/useUiPrefs";
 import TopBar from "@/components/chat/TopBar";
 import CanvasCard from "@/components/chat/CanvasCard";
 import AvatarCircle from "@/components/chat/AvatarCircle";
+import BaddiAvatar3D from "@/components/chat/BaddiAvatar3D";
 import ChatMessage from "@/components/chat/ChatMessage";
 import ChatInput from "@/components/chat/ChatInput";
 import MemoryPanel from "@/components/chat/MemoryPanel";
@@ -190,6 +191,7 @@ export default function ChatPage() {
   const { cameraOpen, videoRef, openCamera, closeCamera, capturePhoto } = useCamera();
   const { speaking, setSpeaking, ttsEnabled, setTtsEnabled, audioRef, speak, stripMarkdown, unlockAudio } = useTTS();
   const { uiPrefs, setUiPrefs, loadPreferences } = useUiPrefs();
+  const [emotion, setEmotion] = useState<string | null>(null);
 
   const firstName = user?.name?.split(" ")[0] ?? "";
   const buddyInitial = (uiPrefs.buddyName ?? "B").charAt(0).toUpperCase();
@@ -563,6 +565,7 @@ export default function ChatPage() {
       },
       setSpeaking,
       focusTextarea: () => textareaRef.current?.focus(),
+      onEmotion: (e) => setEmotion(e),
     });
     if (provider) setLastProvider(provider);
     setTimeout(loadMemories, 6000);
@@ -936,6 +939,16 @@ export default function ChatPage() {
             )}
           </CanvasCard>
         ))}
+
+        {/* ── 3D Avatar (Plauder-Modus) ── */}
+        {uiPrefs.chatMode === "plauder" && (
+          <div
+            className="absolute bottom-4 right-4 z-10 rounded-2xl overflow-hidden shadow-2xl border border-white/10"
+            style={{ width: 160, height: 220, background: "rgba(15,12,30,0.85)", backdropFilter: "blur(8px)" }}
+          >
+            <BaddiAvatar3D emotion={emotion} speaking={speaking} className="w-full h-full" />
+          </div>
+        )}
       </div>
 
       {/* ── FLOATING INPUT ── */}

@@ -81,7 +81,7 @@ async def send_message(
     if llm_result["response_text"] is None:
         raise HTTPException(status_code=502, detail=" | ".join(llm_result["errors"]))
 
-    message_id, response_text, response_type, structured_data, ui_update = await finalize(
+    message_id, response_text, response_type, structured_data, ui_update, emotion = await finalize(
         customer=customer,
         original_message=req.message,
         llm_result=llm_result,
@@ -98,6 +98,7 @@ async def send_message(
         response_type=response_type,
         structured_data=structured_data,
         ui_update=ui_update,
+        emotion=emotion,
     )
 
 
