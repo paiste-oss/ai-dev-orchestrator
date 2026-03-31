@@ -53,6 +53,7 @@ const DEFAULT_PREFS: UiPrefs = {
   bubbleStyle: "rounded",
   showTimestamps: "hover",
   fontColor: "white",
+  chatMode: "fokus",
 };
 
 export function useUiPrefs() {

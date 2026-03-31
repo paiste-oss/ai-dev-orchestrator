@@ -84,4 +84,5 @@ export interface UiPrefs {
   showTimestamps: string;
   backgroundImage?: string;
   fontColor: string;
+  chatMode: string;
 }
