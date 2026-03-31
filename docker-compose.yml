@@ -316,6 +316,8 @@ services:
     container_name: cloudflare_tunnel
     restart: always
     command: "tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}"
+    depends_on:
+      - backend
     networks:
       - ai_local
       - ai_external
