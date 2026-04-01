@@ -85,4 +85,5 @@ export interface UiPrefs {
   backgroundImage?: string;
   fontColor: string;
   chatMode: string;
+  avatarType?: string;
 }

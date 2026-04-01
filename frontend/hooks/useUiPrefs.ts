@@ -54,6 +54,7 @@ const DEFAULT_PREFS: UiPrefs = {
   showTimestamps: "hover",
   fontColor: "white",
   chatMode: "fokus",
+  avatarType: "robot",
 };
 
 export function useUiPrefs() {
@@ -73,5 +74,16 @@ export function useUiPrefs() {
     } catch { /* ignore */ }
   }
 
-  return { uiPrefs, setUiPrefs, loadPreferences, FONT_SIZES, FONT_FAMILIES, LINE_SPACINGS, ACCENT_COLORS, BG_COLORS, FONT_COLORS };
+  async function savePreferences(partial: Partial<UiPrefs>) {
+    setUiPrefs(p => ({ ...p, ...partial }));
+    try {
+      await apiFetch(`${BACKEND_URL}/v1/user/preferences`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(partial),
+      });
+    } catch { /* ignore */ }
+  }
+
+  return { uiPrefs, setUiPrefs, loadPreferences, savePreferences, FONT_SIZES, FONT_FAMILIES, LINE_SPACINGS, ACCENT_COLORS, BG_COLORS, FONT_COLORS };
 }

@@ -2,22 +2,25 @@
 
 import React, { useEffect, useRef, useState } from "react";
 
-// Prod: avatar.baddi.ch — Dev: localhost:5173
 const AVATAR_URL =
   process.env.NEXT_PUBLIC_AVATAR_URL ?? "https://avatar.baddi.ch";
 
 interface Props {
   emotion?: string | null;
   speaking?: boolean;
+  avatar?: string;
+  onAvatarChange?: (avatar: string) => void;
   className?: string;
   style?: React.CSSProperties;
 }
 
-export default function BaddiAvatar3D({ emotion, speaking, className, style }: Props) {
+export default function BaddiAvatar3D({ emotion, speaking, avatar, onAvatarChange, className, style }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loaded, setLoaded] = useState(false);
 
-  // Emotion + Speaking-State per postMessage an iframe
+  const src = `${AVATAR_URL}?avatar=${avatar ?? "robot"}`;
+
+  // Emotion + Speaking per postMessage
   useEffect(() => {
     if (!loaded) return;
     iframeRef.current?.contentWindow?.postMessage(
@@ -25,6 +28,17 @@ export default function BaddiAvatar3D({ emotion, speaking, className, style }: P
       AVATAR_URL
     );
   }, [emotion, speaking, loaded]);
+
+  // Avatar-Wahl vom iframe empfangen und an Parent weitergeben
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.data?.type === "baddi_avatar_selected" && onAvatarChange) {
+        onAvatarChange(e.data.avatar);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [onAvatarChange]);
 
   return (
     <div className={`relative ${className ?? ""}`} style={style}>
@@ -35,7 +49,7 @@ export default function BaddiAvatar3D({ emotion, speaking, className, style }: P
       )}
       <iframe
         ref={iframeRef}
-        src={AVATAR_URL}
+        src={src}
         onLoad={() => setLoaded(true)}
         style={{
           width: "100%",

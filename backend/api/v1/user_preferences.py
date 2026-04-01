@@ -26,6 +26,7 @@ DEFAULTS: dict = {
     "showTimestamps": "hover",    # always | hover | never
     "chartSymbols":   [],         # Liste der Symbole im Dashboard
     "chartPeriod":    "1y",       # Zeitraum im Dashboard
+    "avatarType":     "robot",    # robot | teekanne | lichtgestalt
 }
 
 
@@ -43,6 +44,7 @@ class PreferencesUpdate(BaseModel):
     backgroundImage: str | None = None
     chartSymbols:    list[str] | None = None
     chartPeriod:     str | None = None
+    avatarType:      str | None = None
 
 
 @router.get("")

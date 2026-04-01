@@ -190,7 +190,7 @@ export default function ChatPage() {
   const { messages, setMessages, loading, historyLoaded, loadHistory, sendMessage } = useChatMessages();
   const { cameraOpen, videoRef, openCamera, closeCamera, capturePhoto } = useCamera();
   const { speaking, setSpeaking, ttsEnabled, setTtsEnabled, audioRef, speak, stripMarkdown, unlockAudio } = useTTS();
-  const { uiPrefs, setUiPrefs, loadPreferences } = useUiPrefs();
+  const { uiPrefs, setUiPrefs, loadPreferences, savePreferences } = useUiPrefs();
   const [emotion, setEmotion] = useState<string | null>(null);
 
   const firstName = user?.name?.split(" ")[0] ?? "";
@@ -946,7 +946,13 @@ export default function ChatPage() {
             className="absolute bottom-4 right-4 z-10 rounded-2xl overflow-hidden shadow-2xl border border-white/10"
             style={{ width: 160, height: 220, background: "rgba(15,12,30,0.85)", backdropFilter: "blur(8px)" }}
           >
-            <BaddiAvatar3D emotion={emotion} speaking={speaking} className="w-full h-full" />
+            <BaddiAvatar3D
+              emotion={emotion}
+              speaking={speaking}
+              avatar={uiPrefs.avatarType ?? "robot"}
+              onAvatarChange={(av) => savePreferences({ avatarType: av })}
+              className="w-full h-full"
+            />
           </div>
         )}
       </div>

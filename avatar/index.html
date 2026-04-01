@@ -151,7 +151,7 @@ const LICHT_HSL = {
 };
 
 // ── State ────────────────────────────────────────────────
-let currentAvatar  = localStorage.getItem("baddi_avatar") ?? "robot";
+let currentAvatar  = new URLSearchParams(location.search).get("avatar") ?? "robot";
 let currentEmotion = "ruhig";
 let currentSpeaking = false;
 let lichtRAF = null;
@@ -383,6 +383,9 @@ function switchAvatar(type) {
   document.querySelectorAll(".av-btn").forEach(b =>
     b.classList.toggle("active", b.dataset.av === type)
   );
+
+  // Parent über Wahl informieren (für Backend-Speicherung)
+  try { window.parent.postMessage({ type: "baddi_avatar_selected", avatar: type }, "*"); } catch (_) {}
 
   if (type === "robot") {
     stage.appendChild(buildRobot());
