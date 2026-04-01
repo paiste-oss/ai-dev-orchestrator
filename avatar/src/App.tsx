@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Avatar } from "@readyplayerme/visage";
 
-// Standard-Avatar (wird später durch Kunden-Avatar ersetzt)
-const MODEL_SRC = "https://readyplayerme.github.io/visage/male.glb";
-
-// Idle-Animation — Avatar atmet und bewegt sich leicht
-const IDLE_ANIMATION = "https://readyplayerme.github.io/visage/animations/idle.glb";
+// Avatar-URL: via Env-Variable konfigurierbar
+// Setze VITE_AVATAR_MODEL_URL in Vercel → avatar.baddi.ch Projekt
+const MODEL_SRC =
+  import.meta.env.VITE_AVATAR_MODEL_URL ??
+  "https://models.readyplayer.me/6460d9ba2cf9cb8aaf44e2d2.glb?morphTargets=ARKit";
 
 // Deutsche Emotion → ARKit Blendshape-Werte
 const EMOTION_MAP: Record<string, Record<string, number>> = {
@@ -48,7 +48,6 @@ export default function App() {
     <div style={{ width: "100vw", height: "100vh", background: "transparent", position: "relative" }}>
       <Avatar
         modelSrc={MODEL_SRC}
-        animationSrc={IDLE_ANIMATION}
         halfBody
         emotion={emotionBlendshapes}
         idleRotation={false}
