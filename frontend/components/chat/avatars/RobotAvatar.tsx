@@ -36,7 +36,7 @@ declare global {
 
 export default function RobotAvatar({ emotion }: { emotion?: string | null }) {
   const mvId = useRef(`mv-${Math.random().toString(36).slice(2)}`);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // model-viewer Script einmalig laden
   useEffect(() => {
