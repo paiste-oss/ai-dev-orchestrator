@@ -13,26 +13,9 @@ const ANIM: Record<string, string> = {
   empathisch:   "Yes",
 };
 
-// TypeScript-Deklaration für model-viewer Custom Element
-declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
-  namespace JSX {
-    interface IntrinsicElements {
-      "model-viewer": React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
-        src?: string;
-        "animation-name"?: string;
-        autoplay?: string;
-        "camera-orbit"?: string;
-        "field-of-view"?: string;
-        "camera-target"?: string;
-        "shadow-intensity"?: string;
-        "disable-zoom"?: string;
-        "disable-pan"?: string;
-        "interaction-prompt"?: string;
-      };
-    }
-  }
-}
+// model-viewer ist ein Web Component — als generisches Element rendern
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const MV = "model-viewer" as any;
 
 export default function RobotAvatar({ emotion }: { emotion?: string | null }) {
   const mvId = useRef(`mv-${Math.random().toString(36).slice(2)}`);
@@ -62,7 +45,7 @@ export default function RobotAvatar({ emotion }: { emotion?: string | null }) {
   }, [emotion]);
 
   return (
-    <model-viewer
+    <MV
       id={mvId.current}
       src="https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb"
       animation-name="Idle"
