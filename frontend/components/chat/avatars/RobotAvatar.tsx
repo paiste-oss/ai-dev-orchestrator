@@ -58,7 +58,7 @@ export default function RobotAvatar({ emotion }: { emotion?: string | null }) {
       () => mv.setAttribute("animation-name", "Idle"),
       3000
     );
-    return () => clearTimeout(timerRef.current);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [emotion]);
 
   return (
