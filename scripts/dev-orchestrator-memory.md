@@ -1,7 +1,3 @@
-✓ [2026-03-25 21:16] Schaue dir den Kundenbereich in der Admin Seite Kunden an, da steht Fehler beim 
-Fertig. Das Problem war: `fetch()` zu `/v1/customers` (ohne Slash) löste einen **307 Redirect** aus. Browser-CORS-Preflights (OPTIONS) folgen keinem Redirect → Request schlägt mit "Failed to fetch" fehl.
-Fix: Trailing Slash in `config.ts` → `/v1/customers/` — kein Redirect mehr, kein CORS-Problem.
----
 ✓ [2026-03-25 21:19] Bitte github pushen
 Gepusht. Commit: `fix: Trailing Slash bei /v1/customers/ — verhindert CORS-Fehler durch 307 Redirect`
 ---
@@ -57,3 +53,18 @@ Fertig. Drei Änderungen:
 | **Sofort-Refresh** beim Öffnen des Gedächtnis-Fensters | `page.tsx` → `handleAddCard` |
 | **Doppelter Refresh** nach 6s + 12s statt einmal nach 4s | `page.tsx` → `handleSend` |
 Der Celery-Task (Claude Haiku + Qdrant + PostgreSQL) braucht oft 5–10 Sekunden — 4s war zu knapp. Mit 6s + 12s wird er fast immer erwischt. Und falls nicht, gibt's jetzt den Refresh-Button.
+---
+✓ [2026-03-29 19:14] Tool: Lokale Dokumentensuche
+/home/naor/ai-dev-orchestrator/backend/celerybeat-schedule is not a directory. Did you mean to add the parent directory /home/naor/ai-dev-orchestrator/backend?
+Implementiert und gepusht.
+**Neues Tool: `document_search`**
+| Datei | Was |
+|---|---|
+| `services/tools/defs/documents.py` | Tool-Definitionen für `search_documents` + `list_documents` |
+| `services/tools/handlers/documents.py` | Handler: PostgreSQL-Suche (ILIKE auf Dateiname + Inhalt), Snippets |
+| `services/tools/defs/__init__.py` | Export ergänzt |
+| `services/tools/registry.py` | Tool im Katalog eingetragen |
+**Wie es funktioniert:**
+- `search_documents` — Claude sucht in allen hochgeladenen Dokumenten des Nutzers via ILIKE; gibt Dateiname, Typ, Seiten und einen ~300-Zeichen-Textausschnitt rund um den Treffer zurück
+- `list_documents` — listet alle Dateien mit Metadaten auf (bis 50 Einträge)
+- Kein externer API-Key nötig — alles direkt in der bestehenden PostgreSQL-Datenbank (`customer_documents`)

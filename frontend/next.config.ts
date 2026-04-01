@@ -9,7 +9,7 @@ const BACKEND_PROXY =
 
 const nextConfig: NextConfig = {
   devIndicators: false,
-  transpilePackages: ["@excalidraw/excalidraw", "@readyplayerme/visage"],
+  transpilePackages: ["@excalidraw/excalidraw"],
   async headers() {
     return [
       {
