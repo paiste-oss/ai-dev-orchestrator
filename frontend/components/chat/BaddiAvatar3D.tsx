@@ -1,9 +1,12 @@
 "use client";
 
 import React from "react";
-import RobotAvatar        from "./avatars/RobotAvatar";
-import TeekanneAvatar     from "./avatars/TeekanneAvatar";
-import LichtgestaltAvatar from "./avatars/LichtgestaltAvatar";
+import dynamic from "next/dynamic";
+
+// Lazy laden mit ssr:false damit R3F nie server-seitig evaluiert wird
+const RobotAvatar        = dynamic(() => import("./avatars/RobotAvatar"),        { ssr: false });
+const TeekanneAvatar     = dynamic(() => import("./avatars/TeekanneAvatar"),     { ssr: false });
+const LichtgestaltAvatar = dynamic(() => import("./avatars/LichtgestaltAvatar"), { ssr: false });
 
 interface Props {
   emotion?: string | null;
@@ -24,10 +27,7 @@ export default function BaddiAvatar3D({
   emotion, speaking, avatar = "robot", onAvatarChange, className, style,
 }: Props) {
   return (
-    <div
-      className={`flex flex-col ${className ?? ""}`}
-      style={style}
-    >
+    <div className={`flex flex-col ${className ?? ""}`} style={style}>
       {/* Avatar */}
       <div className="flex-1 min-h-0 relative">
         {avatar === "robot"        && <RobotAvatar        emotion={emotion} />}
