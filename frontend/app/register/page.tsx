@@ -227,9 +227,14 @@ export default function RegisterPage() {
               />
               <span className="text-sm text-gray-300 leading-relaxed">
                 Ich akzeptiere die{" "}
+                <button type="button" onClick={() => window.open("/agb", "_blank")}
+                  className="text-indigo-400 hover:text-indigo-300 underline">
+                  AGB
+                </button>
+                {" "}und die{" "}
                 <button type="button" onClick={() => window.open("/datenschutz", "_blank")}
                   className="text-indigo-400 hover:text-indigo-300 underline">
-                  AGB und Datenschutzerklärung
+                  Datenschutzerklärung
                 </button>
                 .{" "}
                 <span className="text-red-400 text-xs">*&nbsp;Pflichtfeld</span>
