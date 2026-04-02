@@ -23,6 +23,29 @@ const AVATARS = [
   { id: "lichtgestalt", label: "✨" },
 ];
 
+class AvatarErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: string | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(e: Error) {
+    return { error: e.message };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="w-full h-full flex items-center justify-center text-white/30 text-xs p-2 text-center">
+          Avatar nicht verfügbar
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function BaddiAvatar3D({
   emotion, speaking, avatar = "robot", onAvatarChange, className, style,
 }: Props) {
@@ -30,9 +53,11 @@ export default function BaddiAvatar3D({
     <div className={`flex flex-col ${className ?? ""}`} style={style}>
       {/* Avatar */}
       <div className="flex-1 min-h-0 relative">
-        {avatar === "robot"        && <RobotAvatar        emotion={emotion} />}
-        {avatar === "teekanne"     && <TeekanneAvatar     emotion={emotion} speaking={speaking} />}
-        {avatar === "lichtgestalt" && <LichtgestaltAvatar emotion={emotion} speaking={speaking} />}
+        <AvatarErrorBoundary>
+          {avatar === "robot"        && <RobotAvatar        emotion={emotion} />}
+          {avatar === "teekanne"     && <TeekanneAvatar     emotion={emotion} speaking={speaking} />}
+          {avatar === "lichtgestalt" && <LichtgestaltAvatar emotion={emotion} speaking={speaking} />}
+        </AvatarErrorBoundary>
 
         {/* Speaking-Indikator */}
         {speaking && (

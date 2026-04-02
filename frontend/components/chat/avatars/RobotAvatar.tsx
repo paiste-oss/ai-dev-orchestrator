@@ -79,4 +79,3 @@ export default function RobotAvatar({ emotion }: { emotion?: string | null }) {
   );
 }
 
-useGLTF.preload(MODEL_URL);
