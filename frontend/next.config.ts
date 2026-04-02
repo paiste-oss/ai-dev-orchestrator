@@ -9,7 +9,7 @@ const BACKEND_PROXY =
 
 const nextConfig: NextConfig = {
   devIndicators: false,
-  transpilePackages: ["@excalidraw/excalidraw"],
+  transpilePackages: ["@excalidraw/excalidraw", "@react-three/fiber", "@react-three/drei", "three", "three-stdlib"],
   async headers() {
     return [
       {
