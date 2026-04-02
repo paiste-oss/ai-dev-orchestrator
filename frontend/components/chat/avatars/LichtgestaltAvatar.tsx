@@ -1,125 +1,121 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef, useMemo } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import * as THREE from "three";
 
 const EMOTION_HSL: Record<string, [number, number, number]> = {
-  freudig:      [45,  92, 65],
-  nachdenklich: [220, 72, 60],
-  traurig:      [232, 32, 48],
-  überrascht:   [282, 85, 70],
-  ruhig:        [178, 58, 55],
-  aufmunternd:  [28,  96, 62],
-  neugierig:    [268, 65, 64],
-  empathisch:   [328, 72, 65],
+  freudig:      [45,  0.92, 0.65],
+  nachdenklich: [220, 0.72, 0.60],
+  traurig:      [232, 0.32, 0.48],
+  überrascht:   [282, 0.85, 0.70],
+  ruhig:        [178, 0.58, 0.55],
+  aufmunternd:  [28,  0.96, 0.62],
+  neugierig:    [268, 0.65, 0.64],
+  empathisch:   [328, 0.72, 0.65],
 };
+
+function hsl(emotion?: string | null): THREE.Color {
+  const [h, s, l] = EMOTION_HSL[emotion ?? "ruhig"] ?? EMOTION_HSL.ruhig;
+  return new THREE.Color().setHSL(h / 360, s, l);
+}
 
 interface Props {
   emotion?: string | null;
   speaking?: boolean;
 }
 
-export default function LichtgestaltAvatar({ emotion, speaking }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Ref damit der Animations-Loop immer aktuelle Werte sieht
-  const stateRef = useRef({ emotion: emotion ?? "ruhig", speaking: speaking ?? false });
+function Particles({ emotion, speaking }: Props) {
+  const pointsRef = useRef<THREE.Points>(null);
+  const innerRef  = useRef<THREE.Mesh>(null);
+  const glowRef   = useRef<THREE.Mesh>(null);
+  const matRef    = useRef<THREE.PointsMaterial>(null);
 
-  useEffect(() => {
-    stateRef.current = { emotion: emotion ?? "ruhig", speaking: speaking ?? false };
-  }, [emotion, speaking]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d")!;
-
-    const W = canvas.width;
-    const H = canvas.height;
-    const cx = W / 2, cy = H / 2;
-
-    const N = 45;
-    const parts = Array.from({ length: N }, (_, i) => ({
-      angle: (i / N) * Math.PI * 2 + Math.random() * 0.3,
-      r:     38 + Math.random() * 32,
-      speed: 0.004 + Math.random() * 0.009,
-      size:  1.2 + Math.random() * 2.8,
-      op:    0.3 + Math.random() * 0.55,
-      layer: i % 3,
-    }));
-
-    let t = 0;
-    let raf: number;
-
-    function draw() {
-      const { emotion: em, speaking: sp } = stateRef.current;
-      const [h, s, l] = EMOTION_HSL[em] ?? [200, 60, 60];
-      const spd   = sp ? 2.6 : 1;
-      const pulse = 1 + 0.14 * Math.sin(t * (sp ? 6.5 : 2));
-
-      ctx.clearRect(0, 0, W, H);
-
-      // Äusserer Glanz
-      for (let i = 4; i >= 1; i--) {
-        const gr = 65 * pulse * i * 0.45;
-        const ga = (0.055 / i) * (1 + 0.28 * Math.sin(t * 1.3));
-        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, gr);
-        g.addColorStop(0, `hsla(${h},${s}%,${l}%,${ga * 3.5})`);
-        g.addColorStop(1, `hsla(${h},${s}%,${l}%,0)`);
-        ctx.beginPath(); ctx.arc(cx, cy, gr, 0, Math.PI * 2);
-        ctx.fillStyle = g; ctx.fill();
-      }
-
-      // Partikel
-      parts.forEach(p => {
-        p.angle += p.speed * spd * (1 + p.layer * 0.25);
-        const pr = p.r * pulse * (0.78 + p.layer * 0.18);
-        const x  = cx + Math.cos(p.angle) * pr;
-        const y  = cy + Math.sin(p.angle) * pr * 0.72;
-        ctx.beginPath();
-        ctx.arc(x, y, p.size * (sp ? 1.35 : 1), 0, Math.PI * 2);
-        ctx.fillStyle = `hsla(${h + 18},${s}%,${Math.min(l + 22, 94)}%,${p.op})`;
-        ctx.fill();
-      });
-
-      // Kern-Orb
-      const cr = 22 * pulse;
-      const cg = ctx.createRadialGradient(cx, cy, 0, cx, cy, cr);
-      cg.addColorStop(0,    `hsla(${h},${s}%,${Math.min(l + 32, 96)}%,1)`);
-      cg.addColorStop(0.55, `hsla(${h},${s}%,${l}%,0.7)`);
-      cg.addColorStop(1,    `hsla(${h},${s}%,${l}%,0)`);
-      ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI * 2);
-      ctx.fillStyle = cg; ctx.fill();
-
-      // Gesicht
-      const eyeColor = `hsla(${h},${s}%,${Math.min(l + 38, 97)}%,0.92)`;
-      if (!sp) {
-        ctx.fillStyle = eyeColor;
-        ctx.beginPath(); ctx.arc(cx - 9, cy - 5, 2.5, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx + 9, cy - 5, 2.5, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(cx, cy + 4, 8, 0.15 * Math.PI, 0.85 * Math.PI);
-        ctx.strokeStyle = eyeColor; ctx.lineWidth = 2; ctx.stroke();
-      } else {
-        ctx.beginPath();
-        ctx.moveTo(cx - 11, cy + 8);
-        for (let i = 0; i <= 22; i++) {
-          ctx.lineTo(cx - 11 + i, cy + 8 + Math.sin((i / 3.5) + t * 9) * 3);
-        }
-        ctx.strokeStyle = eyeColor; ctx.lineWidth = 2.2; ctx.stroke();
-      }
-
-      t += 0.022;
-      raf = requestAnimationFrame(draw);
+  const { geometry } = useMemo(() => {
+    const N = 900;
+    const positions = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi   = Math.acos(2 * Math.random() - 1);
+      const r     = 0.55 + Math.random() * 0.45;
+      positions[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      positions[i * 3 + 2] = r * Math.cos(phi);
     }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    return { geometry: geo };
+  }, []);
 
-    draw();
-    return () => cancelAnimationFrame(raf);
-  }, []); // einmalig — stateRef hält aktuelle Werte
+  useFrame(({ clock }) => {
+    const t   = clock.elapsedTime;
+    const col = hsl(emotion);
+    const spd = speaking ? 3 : 1;
+
+    if (pointsRef.current) {
+      pointsRef.current.rotation.y += 0.003 * spd;
+      pointsRef.current.rotation.x = Math.sin(t * 0.4) * 0.12;
+      const pulse = 1 + Math.sin(t * (speaking ? 5 : 1.8)) * 0.08;
+      pointsRef.current.scale.setScalar(pulse);
+    }
+    if (matRef.current) {
+      matRef.current.color.set(col);
+      matRef.current.size = speaking
+        ? 0.028 + Math.abs(Math.sin(t * 8)) * 0.008
+        : 0.02;
+    }
+    if (innerRef.current) {
+      const s = 0.28 + Math.sin(t * (speaking ? 6 : 2)) * 0.06;
+      innerRef.current.scale.setScalar(s);
+      (innerRef.current.material as THREE.MeshBasicMaterial).color.set(col);
+    }
+    if (glowRef.current) {
+      const s = 0.55 + Math.sin(t * (speaking ? 4 : 1.2)) * 0.08;
+      glowRef.current.scale.setScalar(s);
+      const mat = glowRef.current.material as THREE.MeshBasicMaterial;
+      mat.color.set(col);
+      mat.opacity = 0.12 + Math.sin(t * 1.5) * 0.04;
+    }
+  });
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={200}
-      height={200}
-      style={{ width: "100%", height: "100%", display: "block" }}
-    />
+    <group>
+      {/* Partikel-Hülle */}
+      <points ref={pointsRef} geometry={geometry}>
+        <pointsMaterial
+          ref={matRef}
+          color={hsl(emotion)}
+          size={0.02}
+          transparent
+          opacity={0.85}
+          sizeAttenuation
+          depthWrite={false}
+        />
+      </points>
+
+      {/* Äusserer Glow */}
+      <mesh ref={glowRef}>
+        <sphereGeometry args={[1, 24, 24]} />
+        <meshBasicMaterial color={hsl(emotion)} transparent opacity={0.12} side={THREE.BackSide} depthWrite={false} />
+      </mesh>
+
+      {/* Leuchtender Kern */}
+      <mesh ref={innerRef}>
+        <sphereGeometry args={[1, 24, 24]} />
+        <meshBasicMaterial color={hsl(emotion)} transparent opacity={0.75} />
+      </mesh>
+    </group>
+  );
+}
+
+export default function LichtgestaltAvatar({ emotion, speaking }: Props) {
+  return (
+    <Canvas
+      camera={{ position: [0, 0, 2.5], fov: 50 }}
+      gl={{ alpha: true, antialias: true }}
+      style={{ width: "100%", height: "100%", background: "transparent" }}
+    >
+      <Particles emotion={emotion} speaking={speaking} />
+    </Canvas>
   );
 }

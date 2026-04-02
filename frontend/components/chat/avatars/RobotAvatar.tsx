@@ -1,69 +1,82 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
+import { Canvas } from "@react-three/fiber";
+import { useGLTF, useAnimations, OrbitControls } from "@react-three/drei";
+import * as THREE from "three";
 
-const ANIM: Record<string, string> = {
+const MODEL_URL =
+  "https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb";
+
+const ANIM_MAP: Record<string, string> = {
   freudig:      "Wave",
   nachdenklich: "Idle",
   traurig:      "Sitting",
   überrascht:   "Jump",
   ruhig:        "Idle",
   aufmunternd:  "ThumbsUp",
-  neugierig:    "Idle",
+  neugierig:    "Survey",
   empathisch:   "Yes",
 };
 
-// model-viewer ist ein Web Component — als generisches Element rendern
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const MV = "model-viewer" as any;
-
-export default function RobotAvatar({ emotion }: { emotion?: string | null }) {
-  const mvId = useRef(`mv-${Math.random().toString(36).slice(2)}`);
+function RobotModel({ emotion }: { emotion?: string | null }) {
+  const group = useRef<THREE.Group>(null);
+  const { scene, animations } = useGLTF(MODEL_URL);
+  const { actions } = useAnimations(animations, group);
+  const currentRef = useRef<string>("Idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // model-viewer Script einmalig laden
+  // Idle beim Start
   useEffect(() => {
-    if (document.querySelector('script[data-model-viewer]')) return;
-    const s = document.createElement("script");
-    s.type = "module";
-    s.dataset.modelViewer = "1";
-    s.src = "https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js";
-    document.head.appendChild(s);
-  }, []);
+    const idle = actions["Idle"];
+    if (idle) { idle.reset().fadeIn(0.4).play(); }
+  }, [actions]);
 
   useEffect(() => {
     if (!emotion) return;
-    const mv = document.getElementById(mvId.current);
-    if (!mv) return;
-    mv.setAttribute("animation-name", ANIM[emotion] ?? "Idle");
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(
-      () => mv.setAttribute("animation-name", "Idle"),
-      3000
-    );
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [emotion]);
+    const target = ANIM_MAP[emotion] ?? "Idle";
+    if (target === currentRef.current) return;
 
+    actions[currentRef.current]?.fadeOut(0.3);
+    actions[target]?.reset().fadeIn(0.3).play();
+    currentRef.current = target;
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      actions[currentRef.current]?.fadeOut(0.3);
+      actions["Idle"]?.reset().fadeIn(0.3).play();
+      currentRef.current = "Idle";
+    }, 3000);
+
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [emotion, actions]);
+
+  return <primitive ref={group} object={scene} position={[0, -1, 0]} />;
+}
+
+export default function RobotAvatar({ emotion }: { emotion?: string | null }) {
   return (
-    <MV
-      id={mvId.current}
-      src="https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb"
-      animation-name="Idle"
-      autoplay=""
-      camera-orbit="0deg 70deg 6m"
-      field-of-view="40deg"
-      camera-target="0m 1m 0m"
-      shadow-intensity="0"
-      disable-zoom=""
-      disable-pan=""
-      interaction-prompt="none"
-      style={{
-        width: "100%",
-        height: "100%",
-        backgroundColor: "transparent",
-        ["--progress-bar-color" as string]: "transparent",
-        ["--progress-mask" as string]: "transparent",
-      }}
-    />
+    <Canvas
+      camera={{ position: [0, 0.8, 2.8], fov: 42 }}
+      gl={{ alpha: true, antialias: true }}
+      style={{ width: "100%", height: "100%", background: "transparent" }}
+    >
+      <ambientLight intensity={0.7} />
+      <directionalLight position={[3, 5, 3]} intensity={1.2} castShadow />
+      <directionalLight position={[-2, 2, -2]} intensity={0.3} color="#a78bfa" />
+      <Suspense fallback={null}>
+        <RobotModel emotion={emotion} />
+      </Suspense>
+      <OrbitControls
+        enableZoom={false}
+        enablePan={false}
+        minPolarAngle={Math.PI / 5}
+        maxPolarAngle={Math.PI / 1.6}
+        target={[0, 0.3, 0]}
+        autoRotate={false}
+      />
+    </Canvas>
   );
 }
+
+useGLTF.preload(MODEL_URL);
