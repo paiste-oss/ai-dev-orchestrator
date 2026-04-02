@@ -30,12 +30,12 @@ function TeapotScene({ emotion, speaking }: Props) {
 
   // Separate Geometrien: Körper ohne Deckel, Deckel separat
   const bodyGeo = useMemo(() => {
-    const g = new TeapotGeometry(0.55, 12, true, false, true, false, true);
+    const g = new TeapotGeometry(0.55, 12, 1, 0, 1, 0, 1);
     return g;
   }, []);
 
   const lidGeo = useMemo(() => {
-    const g = new TeapotGeometry(0.55, 12, false, true, false, true, true);
+    const g = new TeapotGeometry(0.55, 12, 0, 1, 0, 1, 1);
     return g;
   }, []);
 
