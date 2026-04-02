@@ -64,6 +64,24 @@ export default function UserSettingsPage() {
           onConsentChange={val => setMe(m => m ? { ...m, memory_consent: val } : m)}
         />
 
+        {/* Rechtliches */}
+        <div className="bg-gray-900 border border-white/5 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xl">📄</span>
+            <h2 className="font-semibold text-white">Rechtliches</h2>
+          </div>
+          <a href="/agb" target="_blank" rel="noopener noreferrer"
+            className="flex items-center justify-between w-full text-sm text-gray-300 hover:text-white transition-colors py-1 border-b border-white/5">
+            <span>Allgemeine Geschäftsbedingungen (AGB)</span>
+            <span className="text-gray-600">↗</span>
+          </a>
+          <a href="/datenschutz" target="_blank" rel="noopener noreferrer"
+            className="flex items-center justify-between w-full text-sm text-gray-300 hover:text-white transition-colors py-1">
+            <span>Datenschutzerklärung</span>
+            <span className="text-gray-600">↗</span>
+          </a>
+        </div>
+
       </div>
     </div>
   );
