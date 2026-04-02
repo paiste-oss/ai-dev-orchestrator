@@ -181,6 +181,12 @@ export default function LoginPage() {
           </button>
         </p>
 
+        <p className="text-center text-xs text-gray-700 mt-4 space-x-3">
+          <button onClick={() => router.push("/agb")} className="hover:text-gray-500 transition-colors">AGB</button>
+          <span>·</span>
+          <button onClick={() => router.push("/datenschutz")} className="hover:text-gray-500 transition-colors">Datenschutz</button>
+        </p>
+
       </div>
     </main>
   );
