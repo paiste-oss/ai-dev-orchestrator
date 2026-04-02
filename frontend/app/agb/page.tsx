@@ -24,7 +24,7 @@ export default function AGBPage() {
           <Section title="1. Anbieter und Geltungsbereich">
             <p>Diese AGB gelten für die Nutzung des KI-Assistenten <strong>Baddi</strong> unter baddi.ch (nachfolgend «Dienst»), angeboten von [Firmenname], [Adresse], Schweiz (nachfolgend «Anbieter»).</p>
             <p>Mit der Registrierung akzeptiert der Nutzer diese AGB vollumfänglich. Abweichende Bedingungen des Nutzers werden nicht anerkannt.</p>
-            <p>Der Dienst richtet sich ausschliesslich an Unternehmen und Gewerbetreibende (B2B). Die Nutzung durch Privatpersonen ist nicht vorgesehen.</p>
+            <p>Der Dienst richtet sich an Unternehmen, Gewerbetreibende sowie Privatpersonen.</p>
           </Section>
 
           <Section title="2. Leistungsumfang">
