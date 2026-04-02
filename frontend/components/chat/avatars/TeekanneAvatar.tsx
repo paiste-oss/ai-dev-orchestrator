@@ -30,12 +30,12 @@ function TeapotScene({ emotion, speaking }: Props) {
 
   // Separate Geometrien: Körper ohne Deckel, Deckel separat
   const bodyGeo = useMemo(() => {
-    const g = new TeapotGeometry(0.55, 12, 1, 0, 1, 0, 1);
+    const g = new TeapotGeometry(0.55, 12, true, false, true, false, true);
     return g;
   }, []);
 
   const lidGeo = useMemo(() => {
-    const g = new TeapotGeometry(0.55, 12, 0, 1, 0, 1, 1);
+    const g = new TeapotGeometry(0.55, 12, false, true, false, true, true);
     return g;
   }, []);
 
@@ -72,10 +72,6 @@ function TeapotScene({ emotion, speaking }: Props) {
       if (bodyRef.current) lidRef.current.rotation.y = bodyRef.current.rotation.y;
     }
   });
-
-  const material = (
-    <meshStandardMaterial metalness={0.25} roughness={0.45} />
-  );
 
   return (
     <group position={[0, -0.2, 0]}>
