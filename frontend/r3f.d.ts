@@ -1,5 +1,6 @@
 // Three.js / R3F JSX-Elemente für TypeScript
-// ThreeElements manuell deklariert um SSR-Evaluation von @react-three/fiber zu vermeiden
+// export {} macht dies zu einem Modul → declare module erweitert statt ersetzt
+export {};
 
 declare module "react" {
   namespace JSX {
