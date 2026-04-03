@@ -20,7 +20,7 @@ const CHAT_PROMPTS: Record<string, string> = {
 
 const DICTATION_PROMPTS: Record<string, string> = {
   de:  "Diktiergerät-Aufnahme auf Hochdeutsch. Gesprochener Text wird transkribiert. Vollständige Sätze mit Zeichensetzung. Geschäftsbriefe, Notizen und Berichte.",
-  gsw: "Diktiergerät-Aufnahme auf Hochdeutsch. Gesprochener Text wird transkribiert. Vollständige Sätze mit Zeichensetzung. Geschäftsbriefe, Notizen und Berichte.",
+  gsw: "Diktiergerät-Aufnahme auf Schweizerdeutsch oder Hochdeutsch. Gesprochener Text wird transkribiert, z.B. Gespräche, Sprechstunden oder Notizen. Vollständige Sätze mit Zeichensetzung.",
   en:  "Dictaphone recording in English. Spoken text is being transcribed. Complete sentences with punctuation. Business letters, notes and reports.",
   fr:  "Enregistrement dictaphone en français. Texte parlé en cours de transcription. Phrases complètes avec ponctuation. Lettres commerciales, notes et rapports.",
   it:  "Registrazione dittafono in italiano. Testo parlato in fase di trascrizione. Frasi complete con punteggiatura. Lettere commerciali, note e relazioni.",
