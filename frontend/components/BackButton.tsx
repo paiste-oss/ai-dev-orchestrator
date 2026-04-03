@@ -17,9 +17,9 @@ function BackButtonInner({ label }: { label: string }) {
   const displayLabel = from ? (FROM_LABELS[from] ?? "← Zurück") : label;
 
   const handleBack = () => {
-    if (from) { router.push(from); return; }
+    if (from) { router.replace(from); return; }
     if (window.history.length > 1) { router.back(); return; }
-    router.push("/");
+    router.replace("/");
   };
 
   return (
