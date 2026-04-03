@@ -223,51 +223,102 @@ def _save_state(customer_id: str, state: dict) -> None:
     redis_sync().set(_REDIS_KEY.format(customer_id=customer_id), json.dumps(state), ex=_SESSION_TTL)
 
 
+async def _call_browserless(context_url: str, cookies: list, action: dict, lang: str) -> dict:
+    """Einzelner Browserless-HTTP-Call. Gibt Rohdaten zurück."""
+    payload = {
+        "code": _PUPPETEER_BASE,
+        "context": {"url": context_url, "cookies": cookies, "action": action, "lang": lang},
+    }
+    async with httpx.AsyncClient(timeout=40.0) as client:
+        resp = await client.post(
+            f"{settings.browserless_url}/function",
+            params={"token": settings.browserless_token},
+            json=payload,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
+async def _vision_find_coords(screenshot_b64: str, description: str) -> dict | None:
+    """Screenshot → Claude Vision → {x, y} Koordinaten. None wenn nicht gefunden."""
+    if not settings.anthropic_api_key or not screenshot_b64:
+        return None
+    prompt = (
+        f'Screenshot einer Webseite (1280×720px).\n'
+        f'Finde das klickbare Element für: "{description}"\n'
+        f'Antworte NUR mit JSON: {{"x": <zahl>, "y": <zahl>}} oder {{"x": null, "y": null}}\n'
+        f'Koordinaten = Pixel-Mittelpunkt des Elements.'
+    )
+    try:
+        async with httpx.AsyncClient(timeout=25.0) as client:
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": settings.anthropic_api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                json={"model": "claude-haiku-4-5-20251001", "max_tokens": 64, "messages": [{
+                    "role": "user", "content": [
+                        {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": screenshot_b64}},
+                        {"type": "text", "text": prompt},
+                    ],
+                }]},
+            )
+            resp.raise_for_status()
+            text = resp.json()["content"][0]["text"].strip()
+        s, e = text.find("{"), text.rfind("}") + 1
+        coords = json.loads(text[s:e]) if s >= 0 else {}
+        x, y = coords.get("x"), coords.get("y")
+        if x is not None and y is not None:
+            return {"x": int(x), "y": int(y)}
+    except Exception as exc:
+        _log.debug("Vision-Fehler: %s", exc)
+    return None
+
+
 async def browser_action(customer_id: str, action: dict, lang: str = "de-CH,de;q=0.9") -> dict:
     """
-    Führt eine Browser-Aktion aus und gibt das Ergebnis zurück.
+    Führt eine Browser-Aktion aus. Bei find_and_click: DOM-Suche → Vision-Fallback → Click.
 
     action-Typen:
       {"type": "navigate", "url": "https://..."}
+      {"type": "find_and_click", "text": "Button-Beschreibung", "locateOnly": False}
       {"type": "click", "x": 640, "y": 360}
       {"type": "type", "text": "Hallo", "submit": True}
       {"type": "scroll", "direction": "down"}
-      {"type": "screenshot"}
-
-    Rückgabe:
-      {"screenshot_b64": "...", "url": "https://...", "error": None}
     """
     if not settings.browserless_token:
         return {"screenshot_b64": None, "url": "", "error": "Browserless nicht konfiguriert."}
 
     state = _load_state(customer_id)
-
-    # Für navigate: URL direkt aus Action
     context_url = action.get("url") if action.get("type") == "navigate" else state["url"]
 
-    payload = {
-        "code": _PUPPETEER_BASE,
-        "context": {
-            "url": context_url,
-            "cookies": state["cookies"],
-            "action": action,
-            "lang": lang,
-        },
-    }
-
     try:
-        async with httpx.AsyncClient(timeout=35.0) as client:
-            resp = await client.post(
-                f"{settings.browserless_url}/function",
-                params={"token": settings.browserless_token},
-                json=payload,
-            )
-            resp.raise_for_status()
-            data = resp.json()
+        data = await _call_browserless(context_url, state["cookies"], action, lang)
 
         screenshot_b64 = data.get("screenshot", "")
         new_url = data.get("url", context_url)
         new_cookies = data.get("cookies", [])
+        el_x = data.get("elementX")
+        el_y = data.get("elementY")
+
+        # ── Vision-Fallback: DOM-Suche hat Element nicht gefunden ─────────────
+        # Nur bei find_and_click ohne locateOnly — wir brauchen einen echten Klick
+        if (action.get("type") == "find_and_click"
+                and not action.get("locateOnly")
+                and el_x is None
+                and screenshot_b64):
+            _log.info("DOM-Suche erfolglos für '%s' — Vision-Fallback", action.get("text", "")[:60])
+            coords = await _vision_find_coords(screenshot_b64, action.get("text", ""))
+            if coords:
+                # Element per Vision gefunden → direkt klicken
+                click_data = await _call_browserless(
+                    new_url, new_cookies,
+                    {"type": "click", "x": coords["x"], "y": coords["y"]},
+                    lang,
+                )
+                screenshot_b64 = click_data.get("screenshot", screenshot_b64)
+                new_url = click_data.get("url", new_url)
+                new_cookies = click_data.get("cookies", new_cookies)
+                el_x, el_y = coords["x"], coords["y"]
+                _log.info("Vision-Click bei (%d, %d) ausgeführt", el_x, el_y)
 
         _save_state(customer_id, {"url": new_url, "cookies": new_cookies})
 
@@ -275,8 +326,8 @@ async def browser_action(customer_id: str, action: dict, lang: str = "de-CH,de;q
             "screenshot_b64": screenshot_b64,
             "url": new_url,
             "error": None,
-            "element_x": data.get("elementX"),
-            "element_y": data.get("elementY"),
+            "element_x": el_x,
+            "element_y": el_y,
         }
 
     except httpx.HTTPStatusError as e:
