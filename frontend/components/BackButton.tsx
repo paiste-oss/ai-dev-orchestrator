@@ -1,12 +1,20 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-export default function BackButton({ label = "← Zurück zu Baddi" }: { label?: string }) {
+function BackButtonInner({ label }: { label: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const handleBack = () => {
-    // Wenn Seite in neuem Tab geöffnet wurde (window.open), Tab schliessen → Opener bleibt offen
+    // ?from=/user/settings o.ä. — expliziter Rücksprung-Pfad
+    const from = searchParams.get("from");
+    if (from) {
+      router.push(from);
+      return;
+    }
+    // Neuer Tab via window.open (ohne noopener) → Tab schliessen
     if (window.opener) {
       window.close();
       return;
@@ -27,5 +35,13 @@ export default function BackButton({ label = "← Zurück zu Baddi" }: { label?:
     >
       {label}
     </button>
+  );
+}
+
+export default function BackButton({ label = "← Zurück zu Baddi" }: { label?: string }) {
+  return (
+    <Suspense fallback={null}>
+      <BackButtonInner label={label} />
+    </Suspense>
   );
 }
