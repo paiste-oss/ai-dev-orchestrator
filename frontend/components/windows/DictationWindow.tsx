@@ -140,7 +140,7 @@ export default function DictationWindow({ language }: { language?: string }) {
       fd.append("lang", language ?? "de");
       fd.append("prompt", getWhisperPrompt(language, "dictation"));
       const transRes = await apiFetchForm(`${BACKEND_URL}/v1/transcribe`, fd);
-      if (!transRes.ok) throw new Error("Whisper nicht verfügbar");
+      if (!transRes.ok) throw new Error(`Whisper Fehler ${transRes.status}`);
       const { text } = await transRes.json();
       if (!text?.trim()) throw new Error("Kein Text erkannt");
       // Transkript speichern
