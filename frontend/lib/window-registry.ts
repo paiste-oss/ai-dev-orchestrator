@@ -126,6 +126,16 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     canvasType: "geo_map",
   },
   {
+    id: "assistenz",
+    label: "Assistenz",
+    icon: "🧭",
+    description: "Baddi führt dich Schritt für Schritt durch eine Anmeldung auf einer Webseite.",
+    defaultWidth: 860,
+    defaultHeight: 560,
+    status: "active",
+    canvasType: "assistenz",
+  },
+  {
     id: "3d_renderer",
     label: "3D-Renderer",
     icon: "🧊",

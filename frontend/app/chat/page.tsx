@@ -39,6 +39,7 @@ import MemoryWindow from "@/components/windows/MemoryWindow";
 import DesignWindow from "@/components/windows/DesignWindow";
 import ChartWindow from "@/components/windows/ChartWindow";
 import GeoMapWindow from "@/components/windows/GeoMapWindow";
+import AssistenzWindow from "@/components/windows/AssistenzWindow";
 import { WINDOW_MODULES } from "@/lib/window-registry";
 import MobilePinnedPanel from "@/components/mobile/MobilePinnedPanel";
 import MobileWindowTray from "@/components/mobile/MobileWindowTray";
@@ -651,6 +652,9 @@ export default function ChatPage() {
       );
       case "geo_map": return (
         <GeoMapWindow east={card.data?.east} north={card.data?.north} zoom={card.data?.zoom} bgLayer={card.data?.bgLayer} />
+      );
+      case "assistenz": return (
+        <AssistenzWindow />
       );
       case "design": return (
         <DesignWindow prefs={uiPrefs} onPrefsChange={patch => setUiPrefs(p => ({ ...p, ...patch }))} />
