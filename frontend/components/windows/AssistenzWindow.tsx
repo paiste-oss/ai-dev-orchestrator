@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 
@@ -902,6 +902,10 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
   const imgRef = useRef<HTMLImageElement>(null);
   const didAutoLoad = useRef(false);
 
+  // Dynamische Koordinaten — vom Backend via Claude Vision ermittelt
+  const [dynCoords, setDynCoords] = useState<{ x: number; y: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+
   // Auto-laden wenn initialUrl gesetzt
   if (initialUrl && !didAutoLoad.current && !loadedUrl) {
     didAutoLoad.current = true;
@@ -919,6 +923,43 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
     : null;
 
   const currentStep = guide?.steps[activeStep];
+
+  // Wenn Schritt oder URL wechselt → Claude Vision nach echten Koordinaten fragen
+  useEffect(() => {
+    if (!loadedUrl || !currentStep) { setDynCoords(null); return; }
+    // Nur für Schritte bei denen ein Klick sinnvoll ist
+    const needsCoords = !currentStep.autoAction || currentStep.autoAction.type === "click";
+    if (!needsCoords) { setDynCoords(null); return; }
+
+    let cancelled = false;
+    setDynCoords(null);
+    setLocating(true);
+
+    apiFetch(`${BACKEND_URL}/v1/assistenz/locate`, {
+      method: "POST",
+      body: JSON.stringify({
+        url: loadedUrl,
+        label: currentStep.label,
+        detail: currentStep.detail ?? "",
+      }),
+    })
+      .then(r => r.json())
+      .then((data: { x?: number | null; y?: number | null; screenshot_b64?: string }) => {
+        if (cancelled) return;
+        if (data.x != null && data.y != null) {
+          setDynCoords({ x: data.x, y: data.y });
+        }
+        // Im Browserless-Modus: Screenshot aktualisieren
+        if (data.screenshot_b64 && baddibetrieb) {
+          setScreenshot(data.screenshot_b64);
+        }
+      })
+      .catch(() => {/* Silently ignore — Pfeil erscheint einfach nicht */})
+      .finally(() => { if (!cancelled) setLocating(false); });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadedUrl, activeStep]);
 
   function handleLoad() {
     const raw = url.trim();
@@ -956,12 +997,24 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
   }
 
   async function autoRunStep() {
-    if (!currentStep?.autoAction || autoRunning) return;
+    if (autoRunning) return;
     setAutoRunning(true);
-    const a = currentStep.autoAction;
-    await doAction(a as unknown as Record<string, unknown>);
+
+    const a = currentStep?.autoAction;
+
+    if (a?.type === "click" || !a) {
+      // Klick: dynamische Koordinaten bevorzugen
+      if (dynCoords) {
+        await doAction({ type: "click", x: dynCoords.x, y: dynCoords.y });
+      } else if (a?.x != null && a.y != null) {
+        await doAction(a as unknown as Record<string, unknown>);
+      }
+    } else {
+      // navigate / type / scroll: unverändert
+      await doAction(a as unknown as Record<string, unknown>);
+    }
+
     setAutoRunning(false);
-    // Weiter zum nächsten Schritt
     if (guide && activeStep < guide.steps.length - 1) {
       setActiveStep(s => s + 1);
     }
@@ -1046,17 +1099,23 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
                 />
 
                 {/* Visuelles Overlay — Pfeil zeigt auf Ziel, verdeckt es nicht */}
-                {currentStep?.highlight && !frameError && (
+                {!frameError && (dynCoords || locating) && (
                   <div
                     className="absolute inset-0 pointer-events-none"
                     style={{ zIndex: 20 }}
                   >
+                    {locating && !dynCoords && (
+                      <div className="absolute top-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-black/60 text-[10px] text-indigo-300">
+                        Suche Button…
+                      </div>
+                    )}
                     {/* Pfeil-Spitze liegt genau am Ziel, Körper zeigt von oben-links */}
+                    {dynCoords && (
                     <div
                       className="absolute"
                       style={{
-                        left: `${currentStep.highlight.x}%`,
-                        top: `${currentStep.highlight.y}%`,
+                        left: `${(dynCoords.x / 1280) * 100}%`,
+                        top: `${(dynCoords.y / 720) * 100}%`,
                         transform: "translate(0, 0)",
                       }}
                     >
@@ -1092,15 +1151,16 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
                         style={{ width: 10, height: 10, left: -5, top: -5 }}
                       />
                       {/* Label-Badge neben dem Pfeil */}
-                      {currentStep.highlight.label && (
+                      {currentStep?.label && (
                         <span
                           className="absolute whitespace-nowrap px-2 py-0.5 rounded-md bg-indigo-600 text-white text-[11px] font-semibold shadow-lg"
                           style={{ left: 44, top: 28 }}
                         >
-                          {currentStep.highlight.label}
+                          {currentStep.label}
                         </span>
                       )}
                     </div>
+                    )}
                   </div>
                 )}
               </>
@@ -1127,13 +1187,13 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
                       onClick={handleImgClick}
                       draggable={false}
                     />
-                    {/* Pfeil-Overlay für autoAction-Ziel */}
-                    {currentStep?.autoAction?.x != null && currentStep.autoAction.y != null && (
+                    {/* Pfeil-Overlay für autoAction-Ziel — nutzt dynamische Koordinaten */}
+                    {dynCoords && (
                       <div
                         className="absolute pointer-events-none"
                         style={{
-                          left: `${(currentStep.autoAction.x! / 1280) * 100}%`,
-                          top: `${(currentStep.autoAction.y! / 720) * 100}%`,
+                          left: `${(dynCoords.x / 1280) * 100}%`,
+                          top: `${(dynCoords.y / 720) * 100}%`,
                           zIndex: 10,
                         }}
                       >

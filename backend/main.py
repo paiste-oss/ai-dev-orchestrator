@@ -16,7 +16,7 @@ from api.v1 import (
     events, auth, chat, finance, transport, entwicklung, billing,
     router_admin, llm_admin, system_prompts_admin, tools_admin,
     integrations_admin, analytics_admin, user_preferences, windows,
-    knowledge, stocks, transcribe, health_admin, dictations,
+    knowledge, stocks, transcribe, health_admin, dictations, assistenz,
 )
 from api.v1 import settings as portal_settings
 import models.chat              # noqa: F401
@@ -105,6 +105,7 @@ app.include_router(stocks.router, prefix="/v1")
 app.include_router(transcribe.router, prefix="/v1")
 app.include_router(dictations.router, prefix="/v1")
 app.include_router(health_admin.router, prefix="/v1")
+app.include_router(assistenz.router, prefix="/v1")
 
 
 @app.get("/")
