@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { WINDOW_MODULES } from "@/lib/window-registry";
+
+const BaddiAvatar3D = dynamic(() => import("@/components/chat/BaddiAvatar3D"), { ssr: false });
 
 interface TopBarProps {
   buddyName: string;
@@ -10,6 +13,8 @@ interface TopBarProps {
   lastProvider: string | null;
   firstName: string;
   isAdmin: boolean;
+  avatar?: string;
+  emotion?: string | null;
   onSettings: () => void;
   onLogout: () => void;
   onAdminBack: () => void;
@@ -26,25 +31,39 @@ function providerBadge(p: string) {
 
 export default function TopBar({
   buddyName, buddyInitial, speaking, lastProvider,
-  firstName, isAdmin,
+  firstName, isAdmin, avatar, emotion,
   onSettings, onLogout, onAdminBack, onAddCard, onArrangeCards,
 }: TopBarProps) {
   const [showAddMenu, setShowAddMenu] = useState(false);
 
   return (
-    <header className="shrink-0 h-12 flex items-center gap-3 px-4 border-b border-white/5"
-      style={{ background: "rgba(5,10,20,0.97)", backdropFilter: "blur(12px)", position: "relative", zIndex: 99990 }}>
+    <header className="shrink-0 flex items-center gap-3 px-4 border-b border-white/5"
+      style={{ background: "rgba(5,10,20,0.97)", backdropFilter: "blur(12px)", position: "relative", zIndex: 99990, height: 64 }}>
 
-      {/* Left — Buddy status */}
+      {/* Left — Avatar + Buddy status */}
       <div className="flex items-center gap-2.5 min-w-0">
-        <div className={`w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0 transition-all ${speaking ? "shadow-[0_0_0_4px_rgba(99,102,241,0.3)]" : ""}`}>
-          {buddyInitial}
+        {/* 3D Avatar */}
+        <div
+          className="shrink-0 rounded-xl overflow-hidden"
+          style={{
+            width: 44, height: 56,
+            background: "rgba(15,12,30,0.7)",
+            boxShadow: speaking ? "0 0 0 2px rgba(99,102,241,0.5)" : "0 0 0 1px rgba(255,255,255,0.08)",
+            transition: "box-shadow 0.3s",
+          }}
+        >
+          <BaddiAvatar3D
+            emotion={emotion}
+            speaking={speaking}
+            avatar={avatar ?? "robot"}
+            className="w-full h-full"
+          />
         </div>
-        <div className="flex items-center gap-1.5 min-w-0">
+        <div className="flex flex-col gap-0.5 min-w-0">
           <span className="font-semibold text-white text-sm truncate max-w-[100px]">{buddyName}</span>
           <div className="flex items-center gap-1 shrink-0">
             <span className={`w-1.5 h-1.5 rounded-full ${speaking ? "bg-green-400 animate-pulse" : "bg-green-500"}`} />
-            <span className="text-[11px] text-gray-500 hidden sm:block">{speaking ? "antwortet…" : "online"}</span>
+            <span className="text-[11px] text-gray-500">{speaking ? "antwortet…" : "online"}</span>
           </div>
         </div>
       </div>

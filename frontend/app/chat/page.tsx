@@ -16,7 +16,6 @@ import TopBar from "@/components/chat/TopBar";
 import CanvasCard from "@/components/chat/CanvasCard";
 import AvatarCircle from "@/components/chat/AvatarCircle";
 import dynamic from "next/dynamic";
-const BaddiAvatar3D = dynamic(() => import("@/components/chat/BaddiAvatar3D"), { ssr: false });
 import ChatMessage from "@/components/chat/ChatMessage";
 import ChatInput from "@/components/chat/ChatInput";
 import MemoryPanel from "@/components/chat/MemoryPanel";
@@ -684,6 +683,8 @@ export default function ChatPage() {
           lastProvider={lastProvider}
           firstName={firstName}
           isAdmin={user?.role === "admin"}
+          avatar={uiPrefs.avatarType ?? "robot"}
+          emotion={emotion}
           onSettings={() => setSetupOpen(true)}
           onLogout={() => { clearSession(); router.push("/"); }}
           onAdminBack={() => router.push("/admin")}
@@ -821,6 +822,8 @@ export default function ChatPage() {
         lastProvider={lastProvider}
         firstName={firstName}
         isAdmin={user?.role === "admin"}
+        avatar={uiPrefs.avatarType ?? "robot"}
+        emotion={emotion}
         onSettings={() => setSetupOpen(true)}
         onLogout={() => { clearSession(); router.push("/"); }}
         onAdminBack={() => router.push("/admin")}
@@ -945,21 +948,6 @@ export default function ChatPage() {
           </CanvasCard>
         ))}
 
-        {/* ── 3D Avatar (Plauder-Modus) ── */}
-        {uiPrefs.chatMode === "plauder" && (
-          <div
-            className="absolute bottom-4 right-4 z-10 rounded-2xl overflow-hidden shadow-2xl border border-white/10"
-            style={{ width: 160, height: 220, background: "rgba(15,12,30,0.85)", backdropFilter: "blur(8px)" }}
-          >
-            <BaddiAvatar3D
-              emotion={emotion}
-              speaking={speaking}
-              avatar={uiPrefs.avatarType ?? "robot"}
-              onAvatarChange={(av) => savePreferences({ avatarType: av })}
-              className="w-full h-full"
-            />
-          </div>
-        )}
       </div>
 
       {/* ── FLOATING INPUT ── */}
