@@ -28,9 +28,22 @@ interface Guide {
 
 const KNOWN_GUIDES: { match: string; guide: Guide }[] = [
   {
+    match: "arbeit.swiss",
+    guide: {
+      title: "RAV / Arbeitslosigkeit",
+      steps: [
+        { label: "Kanton wählen", detail: "Wähle deinen Wohnkanton aus der Liste.", highlight: { x: 50, y: 30, label: "Kanton" } },
+        { label: "«Anmelden» klicken", detail: "Klicke auf «Zur Anmeldung» oder «Jetzt anmelden».", highlight: { x: 50, y: 50, label: "Anmelden" }, autoAction: { type: "click", x: 640, y: 360 } },
+        { label: "Persönliche Daten", detail: "Name, Adresse, AHV-Nummer eingeben.", highlight: { x: 50, y: 45, label: "Daten" } },
+        { label: "Angaben zur Stelle", detail: "Letzter Arbeitgeber, Datum der Kündigung.", highlight: { x: 50, y: 58, label: "Stelle" } },
+        { label: "Absenden", detail: "Prüfe alle Angaben und sende das Formular ab.", highlight: { x: 55, y: 82, label: "Absenden" } },
+      ],
+    },
+  },
+  {
     match: "ahv-iv.ch",
     guide: {
-      title: "AHV-Anmeldung",
+      title: "AHV / IV Anmeldung",
       steps: [
         {
           label: "Sprache wählen",
@@ -305,7 +318,7 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
             {KNOWN_GUIDES.map(g => (
               <button
                 key={g.match}
-                onClick={() => { setUrl(`https://${g.match}`); setTimeout(handleLoad, 50); }}
+                onClick={() => { setUrl(`https://www.${g.match}`); setTimeout(handleLoad, 50); }}
                 className="px-3 py-1.5 rounded-full text-xs text-gray-400 bg-white/5 border border-white/8 hover:bg-white/10 hover:text-white transition-all"
               >
                 {g.guide.title}
