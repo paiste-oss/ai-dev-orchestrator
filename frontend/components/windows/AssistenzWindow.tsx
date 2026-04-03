@@ -154,32 +154,235 @@ const KNOWN_GUIDES: { match: string; guide: Guide }[] = [
     guide: {
       title: "ch.ch Behörden-Portal",
       steps: [
-        {
-          label: "Thema suchen",
-          detail: "Gib oben in die Suchleiste ein, worum es geht — z.B. «Umzug melden».",
-          highlight: { x: 50, y: 18, label: "Suche" },
-          autoAction: { type: "click", x: 640, y: 130 },
-        },
-        {
-          label: "Kanton wählen",
-          detail: "Wähle deinen Wohnkanton aus der Liste.",
-          highlight: { x: 50, y: 45, label: "Kanton" },
-        },
-        {
-          label: "Formular öffnen",
-          detail: "Klicke auf den Link zum Formular.",
-          highlight: { x: 50, y: 60, label: "Formular" },
-        },
-        {
-          label: "Angaben ausfüllen",
-          detail: "Fülle alle markierten Pflichtfelder aus.",
-          highlight: { x: 50, y: 55, label: "Felder" },
-        },
-        {
-          label: "Absenden",
-          detail: "Prüfe die Angaben und klicke auf «Einreichen».",
-          highlight: { x: 55, y: 82, label: "Absenden" },
-        },
+        { label: "Thema suchen", detail: "Gib oben in die Suchleiste ein, worum es geht — z.B. «Umzug melden».", highlight: { x: 50, y: 18, label: "Suche" }, autoAction: { type: "click", x: 640, y: 130 } },
+        { label: "Kanton wählen", detail: "Wähle deinen Wohnkanton aus der Liste.", highlight: { x: 50, y: 45, label: "Kanton" } },
+        { label: "Formular öffnen", detail: "Klicke auf den Link zum Formular.", highlight: { x: 50, y: 60, label: "Formular" } },
+        { label: "Angaben ausfüllen", detail: "Fülle alle markierten Pflichtfelder aus.", highlight: { x: 50, y: 55, label: "Felder" } },
+        { label: "Absenden", detail: "Prüfe die Angaben und klicke auf «Einreichen».", highlight: { x: 55, y: 82, label: "Absenden" } },
+      ],
+    },
+  },
+
+  // ── Ergänzungsleistungen ──────────────────────────────────────────────────
+  {
+    match: "el-anmeldung.ch",
+    guide: {
+      title: "Ergänzungsleistungen (EL)",
+      steps: [
+        { label: "Kanton wählen", detail: "EL wird durch kantonale Ausgleichskassen bearbeitet — wähle deinen Kanton.", highlight: { x: 50, y: 35, label: "Kanton" } },
+        { label: "Formular herunterladen", detail: "Klicke auf «EL-Anmeldeformular» und öffne das PDF.", highlight: { x: 50, y: 50, label: "Formular" } },
+        { label: "Angaben ausfüllen", detail: "AHV-Nummer, Einkommen, Vermögen, Mietkosten.", highlight: { x: 50, y: 60, label: "Daten" } },
+        { label: "Einreichen", detail: "Per Post an die kantonale Ausgleichskasse oder online absenden.", highlight: { x: 55, y: 80, label: "Einreichen" } },
+      ],
+    },
+  },
+
+  // ── Krankenkassen ─────────────────────────────────────────────────────────
+  {
+    match: "css.ch",
+    guide: {
+      title: "CSS Krankenkasse",
+      steps: [
+        { label: "«Mein CSS» öffnen", detail: "Klicke oben rechts auf «Mein CSS» oder «Anmelden».", highlight: { x: 85, y: 5, label: "Anmelden" }, autoAction: { type: "click", x: 1150, y: 36 } },
+        { label: "Registrieren", detail: "Klicke auf «Noch kein Konto? Registrieren».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Versichertennummer eingeben", detail: "Die Nummer steht auf deiner Versicherungskarte.", highlight: { x: 50, y: 40, label: "Nr." } },
+        { label: "E-Mail & Passwort", detail: "Gib deine E-Mail-Adresse und ein sicheres Passwort ein.", highlight: { x: 50, y: 55, label: "E-Mail" } },
+        { label: "E-Mail bestätigen", detail: "Öffne die Bestätigungs-E-Mail von CSS und klicke auf den Link.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "helsana.ch",
+    guide: {
+      title: "Helsana Krankenkasse",
+      steps: [
+        { label: "«Mein Helsana» klicken", detail: "Oben rechts auf der Helsana-Seite.", highlight: { x: 85, y: 5, label: "Login" }, autoAction: { type: "click", x: 1150, y: 36 } },
+        { label: "«Registrieren» wählen", detail: "Klicke auf den Registrierungs-Link.", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Versicherungsnummer", detail: "Die Nummer steht auf deiner Krankenkassenkarte.", highlight: { x: 50, y: 40, label: "Nr." } },
+        { label: "Persönliche Daten", detail: "Name, Geburtsdatum, E-Mail-Adresse eingeben.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "E-Mail bestätigen", detail: "Bestätigungslink in der E-Mail von Helsana anklicken.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "swica.ch",
+    guide: {
+      title: "Swica Krankenkasse",
+      steps: [
+        { label: "«mySwica» öffnen", detail: "Klicke oben rechts auf «mySwica».", highlight: { x: 85, y: 5, label: "mySwica" }, autoAction: { type: "click", x: 1150, y: 36 } },
+        { label: "Konto erstellen", detail: "Klicke auf «Noch kein Konto».", highlight: { x: 50, y: 60, label: "Registrieren" } },
+        { label: "Versicherungsnummer", detail: "Steht auf deiner Krankenkassenkarte.", highlight: { x: 50, y: 40, label: "Nr." } },
+        { label: "E-Mail & Passwort", detail: "E-Mail-Adresse und Passwort festlegen.", highlight: { x: 50, y: 55, label: "E-Mail" } },
+        { label: "Bestätigen", detail: "E-Mail von Swica öffnen und Link anklicken.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "visana.ch",
+    guide: {
+      title: "Visana Krankenkasse",
+      steps: [
+        { label: "«myVisana» klicken", detail: "Oben rechts auf der Seite.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "«Noch kein Konto? Jetzt registrieren».", highlight: { x: 50, y: 60, label: "Registrieren" } },
+        { label: "Versicherungsnummer", detail: "Auf der Krankenversicherungskarte.", highlight: { x: 50, y: 40, label: "Nr." } },
+        { label: "Zugangsdaten festlegen", detail: "E-Mail und Passwort eingeben.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "E-Mail bestätigen", detail: "Bestätigungs-E-Mail öffnen.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "sanitas.com",
+    guide: {
+      title: "Sanitas Krankenkasse",
+      steps: [
+        { label: "«MySanitas» öffnen", detail: "Oben rechts auf sanitas.com.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Konto erstellen", detail: "Klicke auf «Registrieren».", highlight: { x: 50, y: 60, label: "Registrieren" } },
+        { label: "Versicherungsnummer", detail: "Auf der Sanitas-Krankenkassenkarte.", highlight: { x: 50, y: 40, label: "Nr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "E-Mail bestätigen", detail: "Link in der Bestätigungs-E-Mail klicken.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+
+  // ── Spitex / Pflege ───────────────────────────────────────────────────────
+  {
+    match: "spitex.ch",
+    guide: {
+      title: "Spitex — Pflegedienst anmelden",
+      steps: [
+        { label: "Region suchen", detail: "Gib deine Gemeinde oder Postleitzahl ein.", highlight: { x: 50, y: 30, label: "PLZ/Ort" } },
+        { label: "Lokale Spitex wählen", detail: "Klicke auf die Spitex-Organisation in deiner Nähe.", highlight: { x: 50, y: 50, label: "Auswählen" } },
+        { label: "Kontakt aufnehmen", detail: "Telefonnummer notieren oder Anmeldeformular ausfüllen.", highlight: { x: 50, y: 65, label: "Kontakt" } },
+        { label: "Bedarf angeben", detail: "Welche Hilfe brauchst du? Pflege, Haushalt, Mahlzeiten.", highlight: { x: 50, y: 55, label: "Bedarf" } },
+        { label: "Absenden", detail: "Formular abschicken — die Spitex meldet sich innert 1–2 Tagen.", highlight: { x: 55, y: 80, label: "Absenden" } },
+      ],
+    },
+  },
+
+  // ── Pro Senectute / Pro Infirmis ──────────────────────────────────────────
+  {
+    match: "prosenectute.ch",
+    guide: {
+      title: "Pro Senectute — Beratung",
+      steps: [
+        { label: "Kanton wählen", detail: "Pro Senectute ist kantonal organisiert — wähle deinen Kanton.", highlight: { x: 50, y: 35, label: "Kanton" } },
+        { label: "Dienstleistung suchen", detail: "Sozialberatung, Steuerberatung, Mahlzeitendienst, Kurse.", highlight: { x: 50, y: 50, label: "Dienste" } },
+        { label: "Kontakt aufnehmen", detail: "Telefonnummer oder Online-Formular nutzen.", highlight: { x: 50, y: 65, label: "Kontakt" } },
+        { label: "Termin vereinbaren", detail: "Beschreibe kurz dein Anliegen.", highlight: { x: 50, y: 55, label: "Termin" } },
+      ],
+    },
+  },
+  {
+    match: "proinfirmis.ch",
+    guide: {
+      title: "Pro Infirmis — Beratung",
+      steps: [
+        { label: "Beratungsstelle suchen", detail: "Gib deine PLZ oder Gemeinde ein.", highlight: { x: 50, y: 30, label: "Suche" } },
+        { label: "Dienstleistung wählen", detail: "Sozialberatung, Rechtsberatung, finanzielle Hilfe.", highlight: { x: 50, y: 50, label: "Dienste" } },
+        { label: "Kontaktformular", detail: "Klicke auf «Kontakt» und fülle das Formular aus.", highlight: { x: 50, y: 65, label: "Kontakt" } },
+        { label: "Absenden", detail: "Dein Anliegen schildern und Formular absenden.", highlight: { x: 55, y: 80, label: "Absenden" } },
+      ],
+    },
+  },
+
+  // ── Steuern ───────────────────────────────────────────────────────────────
+  {
+    match: "estv.admin.ch",
+    guide: {
+      title: "Bundessteuer (ESTV)",
+      steps: [
+        { label: "«ePortal» öffnen", detail: "Klicke auf «ePortal» oder «Online-Dienste».", highlight: { x: 85, y: 5, label: "ePortal" } },
+        { label: "Kanton und Jahr wählen", detail: "Wähle das Steuerjahr und deinen Kanton.", highlight: { x: 50, y: 35, label: "Jahr/Kanton" } },
+        { label: "Anmelden / Registrieren", detail: "Mit E-Mail-Adresse und Passwort oder CH-Login.", highlight: { x: 50, y: 50, label: "Anmelden" } },
+        { label: "Steuererklärung ausfüllen", detail: "Einkommen, Abzüge, Vermögen eintragen.", highlight: { x: 50, y: 55, label: "Formular" } },
+        { label: "Einreichen", detail: "Prüfe alle Angaben und klicke auf «Einreichen».", highlight: { x: 55, y: 82, label: "Einreichen" } },
+      ],
+    },
+  },
+
+  // ── Swisscom ──────────────────────────────────────────────────────────────
+  {
+    match: "swisscom.ch",
+    guide: {
+      title: "Swisscom — Kundenkonto",
+      steps: [
+        { label: "«Mein Swisscom» klicken", detail: "Oben rechts auf swisscom.ch.", highlight: { x: 85, y: 5, label: "Login" }, autoAction: { type: "click", x: 1150, y: 36 } },
+        { label: "«Registrieren» wählen", detail: "Klicke auf «Noch kein Konto? Jetzt registrieren».", highlight: { x: 50, y: 60, label: "Registrieren" } },
+        { label: "Kundennummer eingeben", detail: "Steht auf deiner Swisscom-Rechnung.", highlight: { x: 50, y: 40, label: "Kundennr." } },
+        { label: "E-Mail & Passwort", detail: "E-Mail-Adresse und sicheres Passwort festlegen.", highlight: { x: 50, y: 55, label: "Zugangsdaten" } },
+        { label: "E-Mail bestätigen", detail: "Bestätigungslink in der E-Mail von Swisscom klicken.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+
+  // ── PostFinance ───────────────────────────────────────────────────────────
+  {
+    match: "postfinance.ch",
+    guide: {
+      title: "PostFinance — E-Finance",
+      steps: [
+        { label: "«E-Finance» öffnen", detail: "Klicke oben rechts auf «Anmelden» oder «E-Finance».", highlight: { x: 85, y: 5, label: "E-Finance" }, autoAction: { type: "click", x: 1150, y: 36 } },
+        { label: "«Registrieren» wählen", detail: "Klicke auf «Noch nicht registriert?».", highlight: { x: 50, y: 60, label: "Registrieren" } },
+        { label: "Kontonummer eingeben", detail: "Die Nummer steht auf deinem PostFinance-Kontoauszug.", highlight: { x: 50, y: 40, label: "Kontonr." } },
+        { label: "Persönliche Daten", detail: "Name, Adresse, Geburtsdatum, AHV-Nummer.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "PIN per Post", detail: "PostFinance schickt dir per Post einen Aktivierungscode.", highlight: { x: 50, y: 50, label: "PIN" } },
+      ],
+    },
+  },
+
+  // ── Krebsliga / Gesundheit ────────────────────────────────────────────────
+  {
+    match: "krebsliga.ch",
+    guide: {
+      title: "Krebsliga — Beratung & Hilfe",
+      steps: [
+        { label: "Beratung suchen", detail: "Klicke auf «Beratung & Unterstützung».", highlight: { x: 50, y: 35, label: "Beratung" } },
+        { label: "Kanton wählen", detail: "Wähle die kantonale Krebsliga.", highlight: { x: 50, y: 50, label: "Kanton" } },
+        { label: "Kontakt aufnehmen", detail: "Telefon, E-Mail oder Anmeldeformular.", highlight: { x: 50, y: 65, label: "Kontakt" } },
+        { label: "Anliegen beschreiben", detail: "Was brauchst du? Psychosoziale Beratung, finanzielle Hilfe, Transport.", highlight: { x: 50, y: 55, label: "Anliegen" } },
+      ],
+    },
+  },
+
+  // ── EWZ / Energie ─────────────────────────────────────────────────────────
+  {
+    match: "ewz.ch",
+    guide: {
+      title: "EWZ — Strom Zürich",
+      steps: [
+        { label: "«myEWZ» öffnen", detail: "Klicke oben rechts auf «myEWZ» oder «Anmelden».", highlight: { x: 85, y: 5, label: "myEWZ" } },
+        { label: "Registrieren", detail: "Klicke auf «Noch kein Konto? Jetzt registrieren».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Zählernummer eingeben", detail: "Steht auf deiner Stromrechnung.", highlight: { x: 50, y: 40, label: "Zähler" } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+
+  // ── Hausarzt-Suche ────────────────────────────────────────────────────────
+  {
+    match: "hausarzt.ch",
+    guide: {
+      title: "Hausarzt finden",
+      steps: [
+        { label: "PLZ oder Ort eingeben", detail: "Gib deine Postleitzahl oder deinen Wohnort ein.", highlight: { x: 50, y: 30, label: "PLZ/Ort" } },
+        { label: "Spezialisierung wählen", detail: "Z.B. Allgemeinmedizin, Innere Medizin.", highlight: { x: 50, y: 45, label: "Fachgebiet" } },
+        { label: "Arzt auswählen", detail: "Klicke auf einen Arzt in der Nähe.", highlight: { x: 50, y: 60, label: "Arzt" } },
+        { label: "Termin anfragen", detail: "Telefonnummer notieren oder Online-Termin buchen.", highlight: { x: 50, y: 75, label: "Termin" } },
+      ],
+    },
+  },
+
+  // ── Behindertenausweis ────────────────────────────────────────────────────
+  {
+    match: "hindernisfrei.ch",
+    guide: {
+      title: "Behindertenausweis / Parkkarte",
+      steps: [
+        { label: "Formular suchen", detail: "Klicke auf «Parkausweis für Behinderte».", highlight: { x: 50, y: 35, label: "Parkausweis" } },
+        { label: "Wohnkanton wählen", detail: "Der Ausweis wird durch den Kanton ausgestellt.", highlight: { x: 50, y: 50, label: "Kanton" } },
+        { label: "Antrag ausfüllen", detail: "Personalien, Behinderungsart, ärztliches Attest nötig.", highlight: { x: 50, y: 60, label: "Antrag" } },
+        { label: "Einreichen", detail: "Per Post oder online an die kantonale Stelle.", highlight: { x: 55, y: 80, label: "Einreichen" } },
       ],
     },
   },
