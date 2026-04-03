@@ -27,8 +27,6 @@ import StockHistoryCard from "@/components/chat/StockHistoryCard";
 import ImageGalleryCard from "@/components/chat/ImageGalleryCard";
 import TransportBoardCard from "@/components/chat/TransportBoardCard";
 import ActionButtonsCard from "@/components/chat/ActionButtonsCard";
-import BrowserViewCard from "@/components/chat/BrowserViewCard";
-import BrowserWindowCard from "@/components/chat/BrowserWindowCard";
 import WhiteboardWindow from "@/components/windows/WhiteboardWindow";
 import ImageViewerWindow from "@/components/windows/ImageViewerWindow";
 import NetzwerkWindow from "@/components/windows/NetzwerkWindow";
@@ -68,7 +66,6 @@ function richCardMeta(responseType: string): { title: string; width: number; hei
     case "image_gallery":   return { title: "🖼 Bilder",        width: 520, height: 380 };
     case "transport_board": return { title: "🚆 Abfahrten",     width: 400, height: 320 };
     case "action_buttons":  return { title: "⚡ Aktionen",      width: 320, height: 180 };
-    case "browser_view":    return { title: "🌐 Browser",       width: 560, height: 440 };
     default:                return { title: "📦 Ergebnis",      width: 380, height: 300 };
   }
 }
@@ -615,7 +612,6 @@ export default function ChatPage() {
       case "image_gallery":   return <div className="h-full overflow-auto p-2"><ImageGalleryCard data={data} /></div>;
       case "transport_board": return <div className="h-full overflow-auto p-2"><TransportBoardCard data={data} /></div>;
       case "action_buttons":  return <div className="h-full overflow-auto p-2"><ActionButtonsCard data={data} /></div>;
-      case "browser_view":    return <div className="h-full overflow-auto p-2"><BrowserViewCard data={data} /></div>;
       default: return <div className="p-4 text-sm text-gray-400">{JSON.stringify(data, null, 2)}</div>;
     }
   }
@@ -624,16 +620,6 @@ export default function ChatPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function renderWindowContent(card: CardData): React.ReactNode {
     switch (card.type) {
-      case "browser_window": return (
-        <BrowserWindowCard
-          initialUrl={card.data?.url ?? ""}
-          onUrlChange={(url) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, url } } : c))}
-          onNaturalSize={(w, h) => {
-            const maxW = 800; const fw = Math.min(w, maxW); const fh = Math.round(fw / w * h);
-            resizeCard(card.id, fw, fh + 80);
-          }}
-        />
-      );
       case "whiteboard": return (
         <WhiteboardWindow
           boardId={card.data?.boardId}
