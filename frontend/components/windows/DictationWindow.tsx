@@ -121,10 +121,22 @@ export default function DictationWindow({ language }: { language?: string }) {
       if (!audioRes.ok) throw new Error();
       const rawBlob = await audioRes.blob();
       let blob: Blob;
-      try { blob = await convertToWav(rawBlob); } catch { blob = rawBlob; }
+      let filename: string;
+      try {
+        blob = await convertToWav(rawBlob);
+        filename = "aufnahme.wav";
+      } catch {
+        blob = rawBlob;
+        // Dateiname passend zum tatsächlichen Format
+        const t = rawBlob.type.toLowerCase();
+        filename = t.includes("mp4") || t.includes("m4a") ? "aufnahme.mp4"
+                 : t.includes("ogg") ? "aufnahme.ogg"
+                 : t.includes("wav") ? "aufnahme.wav"
+                 : "aufnahme.webm";
+      }
       // An Whisper schicken
       const fd = new FormData();
-      fd.append("audio", blob, "aufnahme.wav");
+      fd.append("audio", blob, filename);
       fd.append("lang", language ?? "de");
       fd.append("prompt", getWhisperPrompt(language, "dictation"));
       const transRes = await apiFetchForm(`${BACKEND_URL}/v1/transcribe`, fd);

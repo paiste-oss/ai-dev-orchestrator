@@ -62,15 +62,19 @@ async def transcribe_audio(
     }
     whisper_lang = lang_map.get(lang, lang[:2])
 
+    # Format aus Content-Type ermitteln, Dateiname als Fallback
     suffix = ".webm"
-    if audio.content_type:
-        ct = audio.content_type.lower()
-        if "mp4" in ct or "mpeg" in ct:
-            suffix = ".mp4"
-        elif "ogg" in ct:
-            suffix = ".ogg"
-        elif "wav" in ct:
-            suffix = ".wav"
+    ct = (audio.content_type or "").lower()
+    fn = (audio.filename or "").lower()
+    if "mp4" in ct or "mpeg" in ct or fn.endswith((".mp4", ".m4a")):
+        suffix = ".mp4"
+    elif "ogg" in ct or fn.endswith(".ogg"):
+        suffix = ".ogg"
+    elif "wav" in ct or fn.endswith(".wav"):
+        suffix = ".wav"
+    elif "webm" in ct or fn.endswith(".webm"):
+        suffix = ".webm"
+    logger.info("Transkription: content_type=%s filename=%s → suffix=%s lang=%s", ct, fn, suffix, whisper_lang)
 
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(await audio.read())
