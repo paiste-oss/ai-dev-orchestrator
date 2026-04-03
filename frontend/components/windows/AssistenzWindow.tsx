@@ -386,6 +386,483 @@ const KNOWN_GUIDES: { match: string; guide: Guide }[] = [
       ],
     },
   },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // TELEKOMMUNIKATION
+  // ════════════════════════════════════════════════════════════════════════════
+  {
+    match: "sunrise.ch",
+    guide: {
+      title: "Sunrise — Kundenkonto",
+      steps: [
+        { label: "«Mein Sunrise» klicken", detail: "Oben rechts auf sunrise.ch.", highlight: { x: 85, y: 5, label: "Login" }, autoAction: { type: "click", x: 1150, y: 36 } },
+        { label: "«Registrieren» wählen", detail: "Klicke auf «Noch kein Konto? Jetzt registrieren».", highlight: { x: 50, y: 60, label: "Registrieren" } },
+        { label: "Kundennummer eingeben", detail: "Steht auf deiner Sunrise-Rechnung oben rechts.", highlight: { x: 50, y: 40, label: "Kundennr." } },
+        { label: "E-Mail & Passwort", detail: "E-Mail-Adresse und sicheres Passwort festlegen.", highlight: { x: 50, y: 55, label: "Zugangsdaten" } },
+        { label: "E-Mail bestätigen", detail: "Bestätigungslink in der E-Mail von Sunrise klicken.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "salt.ch",
+    guide: {
+      title: "Salt — Kundenkonto",
+      steps: [
+        { label: "«Mein Salt» öffnen", detail: "Oben rechts auf salt.ch.", highlight: { x: 85, y: 5, label: "Login" }, autoAction: { type: "click", x: 1150, y: 36 } },
+        { label: "«Registrieren» wählen", detail: "Klicke auf «Konto erstellen» oder «Registrieren».", highlight: { x: 50, y: 60, label: "Registrieren" } },
+        { label: "Rufnummer eingeben", detail: "Deine Salt-Telefonnummer.", highlight: { x: 50, y: 40, label: "Nummer" } },
+        { label: "E-Mail & Passwort", detail: "E-Mail-Adresse und Passwort festlegen.", highlight: { x: 50, y: 55, label: "Zugangsdaten" } },
+        { label: "SMS-Code eingeben", detail: "Salt schickt dir einen Code per SMS zur Bestätigung.", highlight: { x: 50, y: 50, label: "SMS-Code" } },
+      ],
+    },
+  },
+  {
+    match: "upc.ch",
+    guide: {
+      title: "UPC / Quickline — Kundenkonto",
+      steps: [
+        { label: "«Mein UPC» klicken", detail: "Oben rechts auf upc.ch.", highlight: { x: 85, y: 5, label: "Login" }, autoAction: { type: "click", x: 1150, y: 36 } },
+        { label: "«Registrieren» wählen", detail: "Klicke auf «Konto erstellen».", highlight: { x: 50, y: 60, label: "Registrieren" } },
+        { label: "Kundennummer eingeben", detail: "Steht auf deiner UPC-Rechnung.", highlight: { x: 50, y: 40, label: "Kundennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Zugangsdaten" } },
+        { label: "E-Mail bestätigen", detail: "Bestätigungslink per E-Mail klicken.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "quickline.ch",
+    guide: {
+      title: "Quickline — Kundenkonto",
+      steps: [
+        { label: "«Mein Quickline» klicken", detail: "Oben rechts auf quickline.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "Klicke auf «Noch kein Konto? Registrieren».", highlight: { x: 50, y: 60, label: "Registrieren" } },
+        { label: "Kundennummer eingeben", detail: "Steht auf deiner Quickline-Rechnung.", highlight: { x: 50, y: 40, label: "Kundennr." } },
+        { label: "Zugangsdaten", detail: "E-Mail und Passwort eingeben.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungs-E-Mail öffnen und Link klicken.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "wingo.ch",
+    guide: {
+      title: "Wingo (Swisscom) — Kundenkonto",
+      steps: [
+        { label: "«Anmelden» klicken", detail: "Oben rechts auf wingo.ch.", highlight: { x: 85, y: 5, label: "Anmelden" } },
+        { label: "«Konto erstellen»", detail: "Klicke auf «Noch kein Konto?».", highlight: { x: 50, y: 60, label: "Registrieren" } },
+        { label: "Telefonnummer eingeben", detail: "Deine Wingo-Rufnummer.", highlight: { x: 50, y: 40, label: "Nummer" } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Code per SMS oder E-Mail eingeben.", highlight: { x: 50, y: 50, label: "Code" } },
+      ],
+    },
+  },
+  {
+    match: "peoplefone.ch",
+    guide: {
+      title: "Peoplefone — Kundenkonto",
+      steps: [
+        { label: "«Login» klicken", detail: "Oben rechts auf peoplefone.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "«Registrieren»", detail: "Klicke auf «Neues Konto erstellen».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Kundennummer", detail: "Aus deiner Peoplefone-Rechnung.", highlight: { x: 50, y: 40, label: "Kundennr." } },
+        { label: "Zugangsdaten", detail: "E-Mail und Passwort festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungs-E-Mail öffnen.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // ENERGIE / STROM
+  // ════════════════════════════════════════════════════════════════════════════
+  {
+    match: "bkw.ch",
+    guide: {
+      title: "BKW (Bern) — Stromkonto",
+      steps: [
+        { label: "«Mein BKW» öffnen", detail: "Oben rechts auf bkw.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "Klicke auf «Konto erstellen».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Zählernummer eingeben", detail: "Steht auf deiner BKW-Rechnung.", highlight: { x: 50, y: 40, label: "Zähler" } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungs-E-Mail öffnen und Link klicken.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "ekz.ch",
+    guide: {
+      title: "EKZ (Zürich) — Stromkonto",
+      steps: [
+        { label: "«Mein EKZ» öffnen", detail: "Oben rechts auf ekz.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "Klicke auf «Konto erstellen» oder «Registrieren».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Kundennummer eingeben", detail: "Aus deiner EKZ-Stromrechnung.", highlight: { x: 50, y: 40, label: "Kundennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "iwb.ch",
+    guide: {
+      title: "IWB (Basel) — Stromkonto",
+      steps: [
+        { label: "«Mein IWB» öffnen", detail: "Oben rechts auf iwb.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "«Noch kein Konto? Jetzt registrieren».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Kundennummer eingeben", detail: "Aus deiner IWB-Rechnung.", highlight: { x: 50, y: 40, label: "Kundennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungs-E-Mail öffnen.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "ckw.ch",
+    guide: {
+      title: "CKW (Zentralschweiz) — Stromkonto",
+      steps: [
+        { label: "«MyCKW» öffnen", detail: "Oben rechts auf ckw.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "Klicke auf «Registrieren» oder «Konto erstellen».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Zählernummer eingeben", detail: "Aus deiner CKW-Stromrechnung.", highlight: { x: 50, y: 40, label: "Zähler" } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "aew.ch",
+    guide: {
+      title: "AEW (Aargau) — Stromkonto",
+      steps: [
+        { label: "«Mein AEW» öffnen", detail: "Oben rechts auf aew.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "«Noch kein Konto? Registrieren».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Kundennummer eingeben", detail: "Aus deiner AEW-Rechnung.", highlight: { x: 50, y: 40, label: "Kundennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "repower.com",
+    guide: {
+      title: "Repower (Graubünden/Tessin) — Konto",
+      steps: [
+        { label: "«MyRepower» öffnen", detail: "Oben rechts auf repower.com.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "Klicke auf «Registrieren».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Kundennummer eingeben", detail: "Aus deiner Repower-Rechnung.", highlight: { x: 50, y: 40, label: "Kundennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "romande-energie.ch",
+    guide: {
+      title: "Romande Energie (Waadt/Wallis)",
+      steps: [
+        { label: "«Mon espace» öffnen", detail: "Oben rechts auf romande-energie.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "«Créer un compte» oder «Konto erstellen».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Kundennummer eingeben", detail: "Auf deiner Stromrechnung.", highlight: { x: 50, y: 40, label: "Kundennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "groupe-e.ch",
+    guide: {
+      title: "Groupe E (Freiburg) — Konto",
+      steps: [
+        { label: "«Mon Compte» öffnen", detail: "Oben rechts auf groupe-e.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "«Créer un compte» klicken.", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Kundennummer eingeben", detail: "Aus deiner Groupe-E-Rechnung.", highlight: { x: 50, y: 40, label: "Kundennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // ÖFFENTLICHER VERKEHR
+  // ════════════════════════════════════════════════════════════════════════════
+  {
+    match: "zvv.ch",
+    guide: {
+      title: "ZVV (Zürich) — Abo & Konto",
+      steps: [
+        { label: "«Mein ZVV» öffnen", detail: "Oben rechts auf zvv.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "«Noch kein Konto? Jetzt registrieren».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Kundennummer eingeben", detail: "Von deiner ZVV-Karte oder Rechnung.", highlight: { x: 50, y: 40, label: "Kundennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "bls.ch",
+    guide: {
+      title: "BLS (Bern) — Abo & Konto",
+      steps: [
+        { label: "«Mein BLS» öffnen", detail: "Oben rechts auf bls.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "«Konto erstellen» oder «Registrieren».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Kundennummer eingeben", detail: "Aus deinem BLS-Abo.", highlight: { x: 50, y: 40, label: "Kundennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "postauto.ch",
+    guide: {
+      title: "PostAuto — Fahrplan & Tickets",
+      steps: [
+        { label: "Verbindung suchen", detail: "Von-/Nach-Feld eingeben und Datum wählen.", highlight: { x: 50, y: 30, label: "Suche" } },
+        { label: "Verbindung wählen", detail: "Klicke auf die passende Verbindung.", highlight: { x: 50, y: 50, label: "Wählen" } },
+        { label: "Ticket kaufen", detail: "«Ticket kaufen» klicken.", highlight: { x: 50, y: 65, label: "Ticket" } },
+        { label: "Anmelden / Gast", detail: "Mit SBB-Konto anmelden oder als Gast kaufen.", highlight: { x: 50, y: 50, label: "Anmelden" } },
+        { label: "Bezahlen", detail: "Kreditkarte, PostFinance oder TWINT eingeben.", highlight: { x: 50, y: 65, label: "Bezahlen" } },
+      ],
+    },
+  },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // BANKEN
+  // ════════════════════════════════════════════════════════════════════════════
+  {
+    match: "ubs.com",
+    guide: {
+      title: "UBS — E-Banking",
+      steps: [
+        { label: "«E-Banking» öffnen", detail: "Oben rechts auf ubs.com, dann «E-Banking Login».", highlight: { x: 85, y: 5, label: "E-Banking" }, autoAction: { type: "click", x: 1150, y: 36 } },
+        { label: "Access Card / App", detail: "Du brauchst deine UBS Access Card oder die UBS Mobile Banking App.", highlight: { x: 50, y: 45, label: "Access Card" } },
+        { label: "Vertragsnummer eingeben", detail: "Die 6–8-stellige Nummer auf deiner Access Card.", highlight: { x: 50, y: 50, label: "Vertragsnr." } },
+        { label: "Passwort eingeben", detail: "Dein persönliches E-Banking-Passwort.", highlight: { x: 50, y: 62, label: "Passwort" } },
+        { label: "Code bestätigen", detail: "Code von der Access Card oder SMS eingeben.", highlight: { x: 50, y: 72, label: "Code" } },
+      ],
+    },
+  },
+  {
+    match: "raiffeisen.ch",
+    guide: {
+      title: "Raiffeisen — E-Banking",
+      steps: [
+        { label: "«E-Banking» öffnen", detail: "Oben rechts auf raiffeisen.ch.", highlight: { x: 85, y: 5, label: "E-Banking" } },
+        { label: "Mitgliedernummer eingeben", detail: "Die Nummer auf deiner Raiffeisen-Karte.", highlight: { x: 50, y: 45, label: "Mitgliedernr." } },
+        { label: "Passwort eingeben", detail: "Dein E-Banking-Passwort.", highlight: { x: 50, y: 58, label: "Passwort" } },
+        { label: "RaiffeisenSecure", detail: "Code aus der RaiffeisenSecure-App oder per SMS eingeben.", highlight: { x: 50, y: 70, label: "Code" } },
+      ],
+    },
+  },
+  {
+    match: "zkb.ch",
+    guide: {
+      title: "ZKB (Zürcher Kantonalbank) — E-Banking",
+      steps: [
+        { label: "«E-Banking» öffnen", detail: "Oben rechts auf zkb.ch.", highlight: { x: 85, y: 5, label: "E-Banking" } },
+        { label: "Vertragsnummer eingeben", detail: "Auf deiner ZKB-Karte oder im Brief der Bank.", highlight: { x: 50, y: 45, label: "Vertragsnr." } },
+        { label: "Passwort eingeben", detail: "Dein persönliches E-Banking-Passwort.", highlight: { x: 50, y: 58, label: "Passwort" } },
+        { label: "SecureSign bestätigen", detail: "Code aus der ZKB-App oder per SMS.", highlight: { x: 50, y: 70, label: "Code" } },
+      ],
+    },
+  },
+  {
+    match: "lukb.ch",
+    guide: {
+      title: "LUKB (Luzerner Kantonalbank) — E-Banking",
+      steps: [
+        { label: "«E-Banking» öffnen", detail: "Oben rechts auf lukb.ch.", highlight: { x: 85, y: 5, label: "E-Banking" } },
+        { label: "Vertragsnummer eingeben", detail: "Aus deinem LUKB-Brief.", highlight: { x: 50, y: 45, label: "Vertragsnr." } },
+        { label: "Passwort eingeben", detail: "Dein E-Banking-Passwort.", highlight: { x: 50, y: 58, label: "Passwort" } },
+        { label: "SecureSign / SMS-Code", detail: "Code aus der App oder per SMS.", highlight: { x: 50, y: 70, label: "Code" } },
+      ],
+    },
+  },
+  {
+    match: "bcge.ch",
+    guide: {
+      title: "BCGE (Genfer Kantonalbank) — E-Banking",
+      steps: [
+        { label: "«E-Banking» öffnen", detail: "Oben auf bcge.ch.", highlight: { x: 85, y: 5, label: "E-Banking" } },
+        { label: "Kundennummer eingeben", detail: "Aus deinem BCGE-Brief.", highlight: { x: 50, y: 45, label: "Kundennr." } },
+        { label: "Passwort eingeben", detail: "Dein Passwort.", highlight: { x: 50, y: 58, label: "Passwort" } },
+        { label: "Code bestätigen", detail: "Code aus App oder SMS.", highlight: { x: 50, y: 70, label: "Code" } },
+      ],
+    },
+  },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // VERSICHERUNGEN (Nicht-Kranken)
+  // ════════════════════════════════════════════════════════════════════════════
+  {
+    match: "zurich.ch",
+    guide: {
+      title: "Zurich Versicherung — Kundenportal",
+      steps: [
+        { label: "«Mein Zurich» öffnen", detail: "Oben rechts auf zurich.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "«Noch kein Konto? Registrieren».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Policennummer eingeben", detail: "Aus deinen Versicherungsunterlagen.", highlight: { x: 50, y: 40, label: "Policennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "helvetia.ch",
+    guide: {
+      title: "Helvetia Versicherung — Kundenportal",
+      steps: [
+        { label: "«myHelvetia» öffnen", detail: "Oben rechts auf helvetia.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "«Konto erstellen» klicken.", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Policennummer eingeben", detail: "Aus deinem Helvetia-Versicherungsausweis.", highlight: { x: 50, y: 40, label: "Policennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "mobiliar.ch",
+    guide: {
+      title: "Mobiliar — Kundenportal",
+      steps: [
+        { label: "«Meine Mobiliar» öffnen", detail: "Oben rechts auf mobiliar.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "«Noch kein Konto? Registrieren».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Policennummer eingeben", detail: "Auf deinem Mobiliar-Versicherungsausweis.", highlight: { x: 50, y: 40, label: "Policennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "axa.ch",
+    guide: {
+      title: "AXA — Kundenportal",
+      steps: [
+        { label: "«myAXA» öffnen", detail: "Oben rechts auf axa.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "«Konto erstellen» klicken.", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Policennummer eingeben", detail: "Aus deinen AXA-Unterlagen.", highlight: { x: 50, y: 40, label: "Policennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "allianz.ch",
+    guide: {
+      title: "Allianz — Kundenportal",
+      steps: [
+        { label: "«Mein Allianz» öffnen", detail: "Oben rechts auf allianz.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "«Noch kein Konto? Registrieren».", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Policennummer eingeben", detail: "Aus deinen Allianz-Unterlagen.", highlight: { x: 50, y: 40, label: "Policennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "baloise.ch",
+    guide: {
+      title: "Baloise — Kundenportal",
+      steps: [
+        { label: "«myBaloise» öffnen", detail: "Oben rechts auf baloise.ch.", highlight: { x: 85, y: 5, label: "Login" } },
+        { label: "Registrieren", detail: "«Konto erstellen» klicken.", highlight: { x: 50, y: 55, label: "Registrieren" } },
+        { label: "Policennummer eingeben", detail: "Aus deinen Baloise-Unterlagen.", highlight: { x: 50, y: 40, label: "Policennr." } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 55, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // ONLINE-EINKAUF & LIEFERUNG
+  // ════════════════════════════════════════════════════════════════════════════
+  {
+    match: "migros.ch",
+    guide: {
+      title: "Migros — Cumulus & Online-Shop",
+      steps: [
+        { label: "«Anmelden» klicken", detail: "Oben rechts auf migros.ch.", highlight: { x: 85, y: 5, label: "Anmelden" }, autoAction: { type: "click", x: 1150, y: 36 } },
+        { label: "«Registrieren» wählen", detail: "«Noch kein Konto? Jetzt registrieren».", highlight: { x: 50, y: 60, label: "Registrieren" } },
+        { label: "E-Mail & Passwort", detail: "E-Mail-Adresse und Passwort eingeben.", highlight: { x: 50, y: 45, label: "E-Mail" } },
+        { label: "Cumulus-Karte verknüpfen", detail: "Optional: Cumulus-Nummer eingeben um Punkte zu sammeln.", highlight: { x: 50, y: 60, label: "Cumulus" } },
+        { label: "Bestätigen", detail: "Bestätigungs-E-Mail von Migros öffnen.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "coop.ch",
+    guide: {
+      title: "Coop — Supercard & Online-Shop",
+      steps: [
+        { label: "«Anmelden» klicken", detail: "Oben rechts auf coop.ch.", highlight: { x: 85, y: 5, label: "Anmelden" }, autoAction: { type: "click", x: 1150, y: 36 } },
+        { label: "«Registrieren» wählen", detail: "«Noch kein Konto? Registrieren».", highlight: { x: 50, y: 60, label: "Registrieren" } },
+        { label: "E-Mail & Passwort", detail: "E-Mail-Adresse und Passwort eingeben.", highlight: { x: 50, y: 45, label: "E-Mail" } },
+        { label: "Supercard verknüpfen", detail: "Optional: Supercard-Nummer eingeben.", highlight: { x: 50, y: 60, label: "Supercard" } },
+        { label: "Bestätigen", detail: "Bestätigungs-E-Mail von Coop öffnen.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "galaxus.ch",
+    guide: {
+      title: "Galaxus / Digitec — Konto erstellen",
+      steps: [
+        { label: "«Anmelden» klicken", detail: "Oben rechts auf galaxus.ch.", highlight: { x: 85, y: 5, label: "Anmelden" } },
+        { label: "«Registrieren» wählen", detail: "«Noch kein Konto? Registrieren».", highlight: { x: 50, y: 60, label: "Registrieren" } },
+        { label: "E-Mail & Passwort", detail: "E-Mail-Adresse und sicheres Passwort eingeben.", highlight: { x: 50, y: 45, label: "E-Mail" } },
+        { label: "Name & Adresse", detail: "Vor-/Nachname und Lieferadresse eingeben.", highlight: { x: 50, y: 58, label: "Adresse" } },
+        { label: "Bestätigen", detail: "Bestätigungs-E-Mail öffnen und Link klicken.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "digitec.ch",
+    guide: {
+      title: "Digitec — Konto erstellen",
+      steps: [
+        { label: "«Anmelden» klicken", detail: "Oben rechts auf digitec.ch.", highlight: { x: 85, y: 5, label: "Anmelden" } },
+        { label: "«Registrieren» wählen", detail: "«Noch kein Konto?».", highlight: { x: 50, y: 60, label: "Registrieren" } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten eingeben.", highlight: { x: 50, y: 45, label: "E-Mail" } },
+        { label: "Name & Adresse", detail: "Persönliche Daten eingeben.", highlight: { x: 50, y: 58, label: "Daten" } },
+        { label: "Bestätigen", detail: "Bestätigungs-E-Mail öffnen.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // GESUNDHEIT ONLINE
+  // ════════════════════════════════════════════════════════════════════════════
+  {
+    match: "myvaccines.ch",
+    guide: {
+      title: "MyVaccines — Impfausweis",
+      steps: [
+        { label: "«Registrieren» klicken", detail: "Auf der Startseite von myvaccines.ch.", highlight: { x: 50, y: 40, label: "Registrieren" } },
+        { label: "E-Mail & Passwort", detail: "Zugangsdaten festlegen.", highlight: { x: 50, y: 50, label: "E-Mail" } },
+        { label: "Persönliche Daten", detail: "Name, Geburtsdatum, Geschlecht.", highlight: { x: 50, y: 60, label: "Daten" } },
+        { label: "AHV-Nummer (optional)", detail: "Für eine eindeutige Zuordnung.", highlight: { x: 50, y: 68, label: "AHV" } },
+        { label: "Bestätigen", detail: "Bestätigungslink per E-Mail.", highlight: { x: 50, y: 50, label: "Bestätigen" } },
+      ],
+    },
+  },
+  {
+    match: "ad-schweiz.ch",
+    guide: {
+      title: "Alzheimer Schweiz — Beratung",
+      steps: [
+        { label: "Beratung suchen", detail: "Klicke auf «Beratung & Hilfe».", highlight: { x: 50, y: 35, label: "Beratung" } },
+        { label: "Kanton wählen", detail: "Wähle deine kantonale Sektion.", highlight: { x: 50, y: 50, label: "Kanton" } },
+        { label: "Kontakt aufnehmen", detail: "Telefon oder Kontaktformular.", highlight: { x: 50, y: 65, label: "Kontakt" } },
+        { label: "Anliegen beschreiben", detail: "Schildere kurz deine Situation.", highlight: { x: 50, y: 55, label: "Anliegen" } },
+      ],
+    },
+  },
+  {
+    match: "parkinson.ch",
+    guide: {
+      title: "Parkinson Schweiz — Beratung",
+      steps: [
+        { label: "«Beratung» öffnen", detail: "Klicke auf «Für Betroffene» oder «Beratung».", highlight: { x: 50, y: 35, label: "Beratung" } },
+        { label: "Kontakt aufnehmen", detail: "Telefon: 043 443 14 14 oder Kontaktformular.", highlight: { x: 50, y: 55, label: "Kontakt" } },
+        { label: "Formular ausfüllen", detail: "Name, Telefon, Anliegen eingeben.", highlight: { x: 50, y: 65, label: "Formular" } },
+        { label: "Absenden", detail: "Klicke auf «Absenden».", highlight: { x: 55, y: 80, label: "Absenden" } },
+      ],
+    },
+  },
 ];
 
 const GENERIC_GUIDE: Guide = {
