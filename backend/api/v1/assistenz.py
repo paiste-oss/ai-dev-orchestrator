@@ -28,6 +28,7 @@ class LocateRequest(BaseModel):
     url: str
     label: str           # z.B. "«Anmelden» klicken"
     detail: str = ""     # z.B. "Klicke auf den blauen Button oben rechts"
+    lang: str = "de-CH,de;q=0.9"   # Accept-Language für Browserless
 
 
 class LocateResponse(BaseModel):
@@ -53,7 +54,7 @@ async def locate_element(
 
     # 1. Screenshot via Browserless
     customer_id = f"locate__{current_user.id}"
-    result = await browser_action(customer_id, {"type": "navigate", "url": body.url})
+    result = await browser_action(customer_id, {"type": "navigate", "url": body.url}, lang=body.lang)
 
     if result.get("error") or not result.get("screenshot_b64"):
         return LocateResponse(error=result.get("error", "Kein Screenshot"))

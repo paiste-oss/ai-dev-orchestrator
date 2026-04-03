@@ -29,10 +29,15 @@ _SESSION_TTL = 60 * 30  # 30 Minuten
 
 _PUPPETEER_BASE = """
 export default async ({ page, context }) => {
-  const { url, cookies, action } = context;
+  const { url, cookies, action, lang } = context;
 
   // Viewport setzen
   await page.setViewport({ width: 1280, height: 720 });
+
+  // Sprache des Nutzers setzen — damit Seiten in der richtigen Sprache erscheinen
+  if (lang) {
+    await page.setExtraHTTPHeaders({ 'Accept-Language': lang });
+  }
 
   // Cookies wiederherstellen
   if (cookies && cookies.length > 0) {
@@ -145,7 +150,7 @@ def _save_state(customer_id: str, state: dict) -> None:
     redis_sync().set(_REDIS_KEY.format(customer_id=customer_id), json.dumps(state), ex=_SESSION_TTL)
 
 
-async def browser_action(customer_id: str, action: dict) -> dict:
+async def browser_action(customer_id: str, action: dict, lang: str = "de-CH,de;q=0.9") -> dict:
     """
     Führt eine Browser-Aktion aus und gibt das Ergebnis zurück.
 
@@ -173,6 +178,7 @@ async def browser_action(customer_id: str, action: dict) -> dict:
             "url": context_url,
             "cookies": state["cookies"],
             "action": action,
+            "lang": lang,
         },
     }
 

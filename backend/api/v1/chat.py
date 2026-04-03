@@ -249,4 +249,4 @@ async def browser_action_endpoint(
     if not settings.browserless_token:
         raise HTTPException(status_code=503, detail="Browser-Tool nicht konfiguriert.")
     from services.browser_service import browser_action
-    return await browser_action(str(customer.id), payload.action)
+    return await browser_action(str(customer.id), payload.action, lang=payload.lang)

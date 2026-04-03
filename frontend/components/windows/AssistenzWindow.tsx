@@ -905,6 +905,7 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
   // Dynamische Koordinaten — vom Backend via Claude Vision ermittelt
   const [dynCoords, setDynCoords] = useState<{ x: number; y: number } | null>(null);
   const [locating, setLocating] = useState(false);
+  const [locateFailed, setLocateFailed] = useState(false);
 
   // Auto-laden wenn initialUrl gesetzt
   if (initialUrl && !didAutoLoad.current && !loadedUrl) {
@@ -926,14 +927,18 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
 
   // Wenn Schritt oder URL wechselt → Claude Vision nach echten Koordinaten fragen
   useEffect(() => {
-    if (!loadedUrl || !currentStep) { setDynCoords(null); return; }
-    // Nur für Schritte bei denen ein Klick sinnvoll ist
+    if (!loadedUrl || !currentStep) { setDynCoords(null); setLocateFailed(false); return; }
     const needsCoords = !currentStep.autoAction || currentStep.autoAction.type === "click";
-    if (!needsCoords) { setDynCoords(null); return; }
+    if (!needsCoords) { setDynCoords(null); setLocateFailed(false); return; }
 
     let cancelled = false;
     setDynCoords(null);
+    setLocateFailed(false);
     setLocating(true);
+
+    // Accept-Language des Nutzers mitschicken
+    const lang = typeof navigator !== "undefined" ? navigator.language : "de-CH";
+    const acceptLang = `${lang},${lang.split("-")[0]};q=0.9`;
 
     apiFetch(`${BACKEND_URL}/v1/assistenz/locate`, {
       method: "POST",
@@ -941,20 +946,20 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
         url: loadedUrl,
         label: currentStep.label,
         detail: currentStep.detail ?? "",
+        lang: acceptLang,
       }),
     })
       .then(r => r.json())
-      .then((data: { x?: number | null; y?: number | null; screenshot_b64?: string }) => {
+      .then((data: { x?: number | null; y?: number | null; screenshot_b64?: string; error?: string }) => {
         if (cancelled) return;
         if (data.x != null && data.y != null) {
           setDynCoords({ x: data.x, y: data.y });
+        } else {
+          setLocateFailed(true);
         }
-        // Im Browserless-Modus: Screenshot aktualisieren
-        if (data.screenshot_b64 && baddibetrieb) {
-          setScreenshot(data.screenshot_b64);
-        }
+        if (data.screenshot_b64 && baddibetrieb) setScreenshot(data.screenshot_b64);
       })
-      .catch(() => {/* Silently ignore — Pfeil erscheint einfach nicht */})
+      .catch(() => { if (!cancelled) setLocateFailed(true); })
       .finally(() => { if (!cancelled) setLocating(false); });
 
     return () => { cancelled = true; };
@@ -975,10 +980,12 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
   // ── Browserless ───────────────────────────────────────────────────────────────
   const doAction = useCallback(async (action: Record<string, unknown>) => {
     setLoading(true);
+    const navLang = typeof navigator !== "undefined" ? navigator.language : "de-CH";
+    const acceptLang = `${navLang},${navLang.split("-")[0]};q=0.9`;
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/chat/browser`, {
         method: "POST",
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, lang: acceptLang }),
       });
       if (!res.ok) return;
       const data = await res.json();
@@ -1099,14 +1106,22 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
                 />
 
                 {/* Visuelles Overlay — Pfeil zeigt auf Ziel, verdeckt es nicht */}
-                {!frameError && (dynCoords || locating) && (
+                {!frameError && currentStep && (
                   <div
                     className="absolute inset-0 pointer-events-none"
                     style={{ zIndex: 20 }}
                   >
-                    {locating && !dynCoords && (
-                      <div className="absolute top-2 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-black/60 text-[10px] text-indigo-300">
+                    {/* Ladeanzeige */}
+                    {locating && (
+                      <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 text-[11px] text-indigo-300">
+                        <span className="w-2.5 h-2.5 border border-indigo-400 border-t-transparent rounded-full animate-spin" />
                         Suche Button…
+                      </div>
+                    )}
+                    {/* Fallback wenn Browserless nicht verfügbar */}
+                    {locateFailed && !dynCoords && (
+                      <div className="absolute top-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full bg-indigo-600/80 text-[11px] text-white font-medium shadow-lg">
+                        ↑ {currentStep.label}
                       </div>
                     )}
                     {/* Pfeil-Spitze liegt genau am Ziel, Körper zeigt von oben-links */}

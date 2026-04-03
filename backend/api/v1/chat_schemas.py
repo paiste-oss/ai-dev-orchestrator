@@ -49,3 +49,4 @@ class TTSRequest(BaseModel):
 
 class BrowserActionRequest(BaseModel):
     action: dict
+    lang: str = "de-CH,de;q=0.9"   # Accept-Language für Browserless
