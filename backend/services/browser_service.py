@@ -31,78 +31,141 @@ _PUPPETEER_BASE = """
 export default async ({ page, context }) => {
   const { url, cookies, action, lang } = context;
 
-  // Viewport setzen
   await page.setViewport({ width: 1280, height: 720 });
-
-  // Sprache des Nutzers setzen — damit Seiten in der richtigen Sprache erscheinen
-  if (lang) {
-    await page.setExtraHTTPHeaders({ 'Accept-Language': lang });
-  }
-
-  // Cookies wiederherstellen
+  if (lang) await page.setExtraHTTPHeaders({ 'Accept-Language': lang });
   if (cookies && cookies.length > 0) {
     try { await page.setCookie(...cookies); } catch (_) {}
   }
 
-  // Cookie-Consent-Popups automatisch akzeptieren
+  // ── Cookie-Consent automatisch akzeptieren ────────────────────────────────
   async function acceptCookieConsent() {
     try {
       await page.evaluate(() => {
-        // Bekannte IDs und Klassen (OneTrust, Cookiebot, Swiss/German Sites)
         const selectors = [
-          '#onetrust-accept-btn-handler',
-          '#accept-all-cookies',
-          '#cookie-consent-accept',
-          '#cookieConsent button[class*="accept"]',
-          '.cookie-accept-all',
-          '.js-accept-cookies',
-          '[data-testid="uc-accept-all-button"]',
-          '#uc-btn-accept-banner',
-          '.sp_choice_type_11',
-          '#didomi-notice-agree-button',
-          '.didomi-continue-without-agreeing',
-          '.cc-accept-all',
-          '[id*="accept-all"]',
-          '[class*="accept-all"]',
-          '[id*="cookie"][id*="accept"]',
-          '[class*="cookie"][class*="accept"]',
+          '#onetrust-accept-btn-handler', '#accept-all-cookies', '#cookie-consent-accept',
+          '.cookie-accept-all', '.js-accept-cookies', '[data-testid="uc-accept-all-button"]',
+          '#uc-btn-accept-banner', '.sp_choice_type_11', '#didomi-notice-agree-button',
+          '.cc-accept-all', '[id*="accept-all"]', '[class*="accept-all"]',
         ];
         for (const sel of selectors) {
           const el = document.querySelector(sel);
-          if (el) { el.click(); return true; }
+          if (el) { el.click(); return; }
         }
-
-        // Fallback: Button-Text suchen (DE/FR/IT/EN)
-        const keywords = ['alle akzeptieren', 'akzeptieren', 'zustimmen', 'einverstanden',
-                          'accept all', 'accept cookies', 'tout accepter', 'accetta tutto',
-                          'ich stimme zu', 'ok', 'agree'];
-        const buttons = Array.from(document.querySelectorAll('button, a[role="button"], [type="button"]'));
-        for (const btn of buttons) {
-          const text = btn.textContent?.trim().toLowerCase() ?? '';
-          if (keywords.some(k => text === k || text.startsWith(k))) {
-            btn.click(); return true;
-          }
+        const keywords = ['alle akzeptieren', 'akzeptieren', 'zustimmen', 'accept all',
+                          'accept cookies', 'tout accepter', 'accetta tutto', 'ich stimme zu'];
+        for (const btn of document.querySelectorAll('button, a[role="button"], [type="button"]')) {
+          const t = btn.textContent?.trim().toLowerCase() ?? '';
+          if (keywords.some(k => t === k || t.startsWith(k))) { btn.click(); return; }
         }
-        return false;
       });
-      // Kurz warten damit das Popup verschwindet
       await new Promise(r => setTimeout(r, 800));
     } catch (_) {}
   }
 
-  // Hilfsfunktion: goto mit Fallback auf domcontentloaded
+  // ── Goto mit Fallback ─────────────────────────────────────────────────────
   async function goto(targetUrl) {
-    try {
-      await page.goto(targetUrl, { waitUntil: 'load', timeout: 25000 });
-    } catch (_) {
-      // Fallback: Screenshot trotzdem machen, Seite ist teilweise geladen
-    }
+    try { await page.goto(targetUrl, { waitUntil: 'load', timeout: 25000 }); } catch (_) {}
   }
 
-  // Aktion ausführen
+  // ── DOM-Text-Suche mit Auto-Scroll ────────────────────────────────────────
+  // Sucht interaktive Elemente per Text, scrollt bis es sichtbar ist.
+  // locateOnly=true → kein Klick, nur Position ermitteln.
+  async function findAndClick(searchText, locateOnly, maxScrolls) {
+    // Suchbegriff normalisieren: Anführungszeichen + Verben entfernen
+    const needle = searchText
+      .replace(/[«»„""']/g, '')
+      .replace(/\b(klicken|wählen|eingeben|absenden|öffnen|drücken|auf|button|link)\b/gi, '')
+      .trim().toLowerCase();
+    const words = needle.split(/\\s+/).filter(w => w.length > 2);
+
+    const SEL = 'button, a, input[type="submit"], input[type="button"], input[type="reset"], ' +
+                '[role="button"], [role="link"], label, [class*="btn"], [class*="button"], ' +
+                '[class*="cta"], summary';
+
+    for (let scroll = 0; scroll <= maxScrolls; scroll++) {
+      // Im DOM nach bestem Treffer suchen (scoring)
+      const found = await page.evaluate((sel, needle, words) => {
+        function score(el) {
+          const t = (el.innerText || el.value || el.getAttribute('aria-label') ||
+                     el.getAttribute('title') || '').toLowerCase().trim();
+          if (!t) return 0;
+          if (t === needle) return 100;
+          if (t.includes(needle)) return 50;
+          const matched = words.filter(w => t.includes(w));
+          return matched.length * 10;
+        }
+        const els = Array.from(document.querySelectorAll(sel))
+          .filter(el => {
+            const s = window.getComputedStyle(el);
+            return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0';
+          });
+        let best = null, bestScore = 0;
+        for (const el of els) {
+          const s = score(el);
+          if (s > bestScore) { bestScore = s; best = el; }
+        }
+        if (!best || bestScore === 0) return null;
+        const r = best.getBoundingClientRect();
+        return {
+          absX: r.left + window.scrollX + r.width / 2,
+          absY: r.top  + window.scrollY + r.height / 2,
+          viewX: r.left + r.width / 2,
+          viewY: r.top  + r.height / 2,
+          inViewport: r.top >= 0 && r.bottom <= window.innerHeight,
+          score: bestScore,
+        };
+      }, SEL, needle, words);
+
+      if (found) {
+        // Zum Element scrollen falls nicht sichtbar
+        if (!found.inViewport) {
+          await page.evaluate(y => window.scrollTo(0, Math.max(0, y - 300)), found.absY);
+          await new Promise(r => setTimeout(r, 400));
+          // Viewport-Koordinaten nach Scroll neu berechnen
+          const updated = await page.evaluate((ax, ay) => ({
+            viewX: ax - window.scrollX,
+            viewY: ay - window.scrollY,
+          }), found.absX, found.absY);
+          found.viewX = updated.viewX;
+          found.viewY = updated.viewY;
+        }
+        if (!locateOnly) {
+          await page.mouse.click(found.viewX, found.viewY);
+          await new Promise(r => setTimeout(r, 1800));
+        }
+        return found;
+      }
+
+      // Nicht gefunden: Seite weiter nach unten scrollen
+      if (scroll < maxScrolls) {
+        const atBottom = await page.evaluate(() =>
+          window.scrollY + window.innerHeight >= document.body.scrollHeight - 50
+        );
+        if (atBottom) break;
+        await page.evaluate(() => window.scrollBy(0, 600));
+        await new Promise(r => setTimeout(r, 350));
+      }
+    }
+    return null;
+  }
+
+  // ── Aktionen ausführen ────────────────────────────────────────────────────
+  let elementX = null, elementY = null;
+
   if (action.type === 'navigate') {
     await goto(action.url);
     await acceptCookieConsent();
+
+  } else if (action.type === 'find_and_click') {
+    // Primäre Methode: DOM-Text-Suche + Auto-Scroll
+    await goto(url);
+    await acceptCookieConsent();
+    const el = await findAndClick(
+      action.text,
+      action.locateOnly ?? false,
+      action.maxScrolls ?? 5
+    );
+    if (el) { elementX = Math.round(el.viewX); elementY = Math.round(el.viewY); }
 
   } else if (action.type === 'click') {
     await goto(url);
@@ -122,8 +185,7 @@ export default async ({ page, context }) => {
   } else if (action.type === 'scroll') {
     await goto(url);
     await acceptCookieConsent();
-    const delta = action.direction === 'down' ? 600 : -600;
-    await page.evaluate((d) => window.scrollBy(0, d), delta);
+    await page.evaluate(d => window.scrollBy(0, d), action.direction === 'down' ? 600 : -600);
     await new Promise(r => setTimeout(r, 500));
 
   } else {
@@ -131,12 +193,11 @@ export default async ({ page, context }) => {
     await acceptCookieConsent();
   }
 
-  // Screenshot + Zustand
   const screenshot = await page.screenshot({ type: 'jpeg', quality: 75, encoding: 'base64' });
   const newCookies = await page.cookies();
   const currentUrl = page.url();
 
-  return { screenshot, cookies: newCookies, url: currentUrl };
+  return { screenshot, cookies: newCookies, url: currentUrl, elementX, elementY };
 };
 """
 
@@ -198,7 +259,13 @@ async def browser_action(customer_id: str, action: dict, lang: str = "de-CH,de;q
 
         _save_state(customer_id, {"url": new_url, "cookies": new_cookies})
 
-        return {"screenshot_b64": screenshot_b64, "url": new_url, "error": None}
+        return {
+            "screenshot_b64": screenshot_b64,
+            "url": new_url,
+            "error": None,
+            "element_x": data.get("elementX"),
+            "element_y": data.get("elementY"),
+        }
 
     except httpx.HTTPStatusError as e:
         _log.warning("Browserless HTTP-Fehler: %s — %s", e.response.status_code, e.response.text[:200])

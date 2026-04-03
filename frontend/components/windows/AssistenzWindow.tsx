@@ -987,13 +987,15 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
         method: "POST",
         body: JSON.stringify({ action, lang: acceptLang }),
       });
-      if (!res.ok) return;
+      if (!res.ok) return null;
       const data = await res.json();
       if (data.screenshot_b64) setScreenshot(data.screenshot_b64);
       if (data.url) setBrowserUrl(data.url);
+      return data as { element_x?: number | null; element_y?: number | null };
     } finally {
       setLoading(false);
     }
+    return null;
   }, []);
 
   async function activateBaddibetrieb() {
@@ -1004,20 +1006,24 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
   }
 
   async function autoRunStep() {
-    if (autoRunning) return;
+    if (autoRunning || !currentStep) return;
     setAutoRunning(true);
 
-    const a = currentStep?.autoAction;
+    const a = currentStep.autoAction;
 
-    if (a?.type === "click" || !a) {
-      // Klick: dynamische Koordinaten bevorzugen
-      if (dynCoords) {
-        await doAction({ type: "click", x: dynCoords.x, y: dynCoords.y });
-      } else if (a?.x != null && a.y != null) {
-        await doAction(a as unknown as Record<string, unknown>);
+    if (!a || a.type === "click") {
+      // Primär: DOM-Text-Suche mit Auto-Scroll — findet auch versteckte/scrollbare Elemente
+      const result = await doAction({
+        type: "find_and_click",
+        text: currentStep.label + (currentStep.detail ? " " + currentStep.detail : ""),
+        maxScrolls: 5,
+      });
+      // Koordinaten für Pfeil aktualisieren
+      if (result?.element_x != null && result.element_y != null) {
+        setDynCoords({ x: result.element_x, y: result.element_y });
       }
     } else {
-      // navigate / type / scroll: unverändert
+      // navigate / type / scroll: unverändert ausführen
       await doAction(a as unknown as Record<string, unknown>);
     }
 

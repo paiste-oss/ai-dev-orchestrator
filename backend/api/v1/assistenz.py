@@ -44,24 +44,41 @@ async def locate_element(
     current_user=Depends(get_current_user),
 ):
     """
-    Nimmt einen Screenshot der URL und lässt Claude Vision den Button finden.
-    Gibt Pixel-Koordinaten (1280×720 Viewport) zurück.
+    Findet ein UI-Element auf einer Webseite.
+    Primär: DOM-Text-Suche via Browserless (scrollt automatisch).
+    Fallback: Claude Vision auf dem Screenshot.
     """
     if not settings.browserless_token:
         return LocateResponse(error="Browserless nicht konfiguriert")
-    if not settings.anthropic_api_key:
-        return LocateResponse(error="Anthropic API-Key fehlt")
 
-    # 1. Screenshot via Browserless
     customer_id = f"locate__{current_user.id}"
-    result = await browser_action(customer_id, {"type": "navigate", "url": body.url}, lang=body.lang)
 
-    if result.get("error") or not result.get("screenshot_b64"):
-        return LocateResponse(error=result.get("error", "Kein Screenshot"))
+    # ── Primär: DOM-Text-Suche (find_and_click locate_only) ──────────────────
+    # Navigiert, sucht per Textinhalt, scrollt falls nötig — kein Klick.
+    result = await browser_action(
+        customer_id,
+        {"type": "find_and_click", "text": body.label, "locateOnly": True, "maxScrolls": 5},
+        lang=body.lang,
+    )
 
-    screenshot_b64 = result["screenshot_b64"]
+    screenshot_b64 = result.get("screenshot_b64")
+    el_x = result.get("element_x")
+    el_y = result.get("element_y")
 
-    # 2. Claude Vision: Button-Position finden
+    # Element direkt per DOM gefunden → sofort zurückgeben
+    if el_x is not None and el_y is not None:
+        return LocateResponse(x=el_x, y=el_y, screenshot_b64=screenshot_b64)
+
+    # ── Fallback: Claude Vision auf Screenshot ────────────────────────────────
+    if not screenshot_b64:
+        # Noch kein Screenshot → plain navigate
+        nav = await browser_action(customer_id, {"type": "navigate", "url": body.url}, lang=body.lang)
+        screenshot_b64 = nav.get("screenshot_b64")
+
+    if not screenshot_b64 or not settings.anthropic_api_key:
+        return LocateResponse(error="Element nicht gefunden und Vision nicht verfügbar",
+                              screenshot_b64=screenshot_b64)
+
     description = body.label
     if body.detail:
         description += f" — {body.detail}"
@@ -70,8 +87,8 @@ async def locate_element(
         f'Dieses Screenshot zeigt eine Webseite (1280×720 Pixel).\n'
         f'Finde das UI-Element: "{description}"\n'
         f'Antworte NUR mit einem JSON-Objekt: {{"x": <zahl>, "y": <zahl>}}\n'
-        f'Die Koordinaten sollen die Mitte des Elements in Pixeln sein.\n'
-        f'Wenn das Element nicht sichtbar ist, antworte mit: {{"x": null, "y": null}}'
+        f'Koordinaten = Mittelpunkt des Elements in Pixeln.\n'
+        f'Nicht sichtbar: {{"x": null, "y": null}}'
     )
 
     try:
@@ -89,14 +106,7 @@ async def locate_element(
                     "messages": [{
                         "role": "user",
                         "content": [
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": "image/jpeg",
-                                    "data": screenshot_b64,
-                                },
-                            },
+                            {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": screenshot_b64}},
                             {"type": "text", "text": prompt},
                         ],
                     }],
