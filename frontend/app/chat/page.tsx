@@ -299,6 +299,14 @@ export default function ChatPage() {
       return;
     }
 
+    // Baddi öffnet URL in neuem Tab
+    if (last.responseType === "open_url") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = last.structuredData as any;
+      if (d?.url) window.open(d.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+
     // Baddi schließt ein Fenster via [FENSTER_SCHLIESSEN:]-Marker
     if (last.responseType === "close_window") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -654,7 +662,7 @@ export default function ChatPage() {
         <GeoMapWindow east={card.data?.east} north={card.data?.north} zoom={card.data?.zoom} bgLayer={card.data?.bgLayer} />
       );
       case "assistenz": return (
-        <AssistenzWindow />
+        <AssistenzWindow initialUrl={card.data?.url} />
       );
       case "design": return (
         <DesignWindow prefs={uiPrefs} onPrefsChange={patch => setUiPrefs(p => ({ ...p, ...patch }))} />

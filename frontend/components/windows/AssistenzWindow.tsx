@@ -192,8 +192,8 @@ function getGuide(url: string): Guide {
 const VIEWPORT_W = 1280;
 const VIEWPORT_H = 720;
 
-export default function AssistenzWindow() {
-  const [url, setUrl] = useState("");
+export default function AssistenzWindow({ initialUrl }: { initialUrl?: string }) {
+  const [url, setUrl] = useState(initialUrl ?? "");
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState(0);
   const [frameError, setFrameError] = useState(false);
@@ -205,6 +205,14 @@ export default function AssistenzWindow() {
   const [loading, setLoading] = useState(false);
   const [autoRunning, setAutoRunning] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
+  const didAutoLoad = useRef(false);
+
+  // Auto-laden wenn initialUrl gesetzt
+  if (initialUrl && !didAutoLoad.current && !loadedUrl) {
+    didAutoLoad.current = true;
+    const normalized = initialUrl.startsWith("http") ? initialUrl : `https://${initialUrl}`;
+    setTimeout(() => { setLoadedUrl(normalized); setActiveStep(0); setFrameError(false); }, 0);
+  }
 
   const guide = loadedUrl ? getGuide(loadedUrl) : null;
   const currentStep = guide?.steps[activeStep];

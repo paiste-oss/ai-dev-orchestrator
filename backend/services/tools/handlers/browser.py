@@ -1,28 +1,25 @@
-"""Handler für Browser-Tool: browser (Browserless.io)."""
+"""Handler für Browser-Tools: open_url (neuer Tab) und open_assistenz (Assistenz-Fenster)."""
 from __future__ import annotations
 from typing import Any
-from core.config import settings
 
 
 async def _handle_browser(tool_name: str, tool_input: dict, customer_id: str | None = None) -> Any:
-    if not customer_id:
-        return {"error": "Kunden-ID fehlt."}
-    if not settings.browserless_token:
-        return {"error": "Browser-Tool nicht konfiguriert (BROWSERLESS_TOKEN fehlt)."}
+    if tool_name == "open_url":
+        url = tool_input.get("url", "")
+        if not url.startswith("http"):
+            url = f"https://{url}"
+        return {
+            "marker": f"[OPEN_URL: {url}]",
+            "text": f"Ich öffne {url} in einem neuen Tab.",
+        }
 
-    from services.browser_service import browser_action
+    if tool_name == "open_assistenz":
+        url = tool_input.get("url", "")
+        if not url.startswith("http"):
+            url = f"https://{url}"
+        return {
+            "marker": f"[FENSTER: assistenz | {url}]",
+            "text": f"Ich öffne das Assistenz-Fenster für {url}.",
+        }
 
-    action = {"type": tool_input.get("action", "screenshot")}
-    if action["type"] == "navigate":
-        action["url"] = tool_input.get("url", "")
-    elif action["type"] == "click":
-        action["x"] = tool_input.get("x", 640)
-        action["y"] = tool_input.get("y", 360)
-    elif action["type"] == "type":
-        action["text"] = tool_input.get("text", "")
-        action["submit"] = tool_input.get("submit", False)
-    elif action["type"] == "scroll":
-        action["direction"] = tool_input.get("direction", "down")
-
-    result = await browser_action(customer_id, action)
-    return result
+    return {"error": f"Unbekanntes Browser-Tool: {tool_name}"}

@@ -26,16 +26,6 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     canvasType: "chart",
   },
   {
-    id: "browser",
-    label: "Browser",
-    icon: "🌐",
-    description: "Webseiten öffnen, klicken, scrollen und mit Baddi steuern.",
-    defaultWidth: 600,
-    defaultHeight: 480,
-    status: "active",
-    canvasType: "browser_window",
-  },
-  {
     id: "whiteboard",
     label: "Whiteboard",
     icon: "🗒",

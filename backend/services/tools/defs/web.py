@@ -42,27 +42,37 @@ WEB_SEARCH_TOOL_DEFS = [
 
 BROWSER_TOOL_DEFS = [
     {
-        "name": "browser",
+        "name": "open_url",
         "description": (
-            "Öffnet Webseiten im Browser und steuert diese interaktiv. "
-            "Nutze dieses Tool wenn der Nutzer eine Website besuchen, etwas suchen, "
-            "auf Buttons klicken, Formulare ausfüllen oder eine Seite bedienen möchte. "
-            "Gibt einen Screenshot der aktuellen Seite zurück. "
-            "Die Session bleibt zwischen Nachrichten erhalten — du kannst mehrere Schritte machen. "
-            "Für Klicks: schätze die x/y-Koordinaten anhand des letzten Screenshots (Viewport: 1280×720)."
+            "Öffnet eine Webseite in einem neuen Browser-Tab des Nutzers. "
+            "Nutze dieses Tool wenn der Nutzer eine Webseite besuchen möchte ohne Assistenz — "
+            "z.B. 'zeig mir sbb.ch', 'öffne google.com'. "
+            "Für Anmeldungen oder Formulare auf Webseiten nutze stattdessen 'open_assistenz'."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["navigate", "click", "type", "scroll", "screenshot"], "description": "Aktion: navigate=URL öffnen, click=klicken, type=Text eingeben, scroll=scrollen, screenshot=aktuellen Stand zeigen"},
-                "url": {"type": "string", "description": "URL für 'navigate'"},
-                "x": {"type": "integer", "description": "X-Koordinate für 'click' (0–1280)"},
-                "y": {"type": "integer", "description": "Y-Koordinate für 'click' (0–720)"},
-                "text": {"type": "string", "description": "Text für 'type'"},
-                "submit": {"type": "boolean", "description": "Bei 'type': Enter drücken nach der Eingabe. Standard: false"},
-                "direction": {"type": "string", "enum": ["down", "up"], "description": "Richtung für 'scroll'. Standard: down"},
+                "url": {"type": "string", "description": "Vollständige URL, z.B. 'https://sbb.ch'"},
             },
-            "required": ["action"],
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "open_assistenz",
+        "description": (
+            "Öffnet das Assistenz-Fenster und führt den Nutzer Schritt für Schritt durch eine Webseite. "
+            "Nutze dieses Tool wenn der Nutzer sich irgendwo anmelden, registrieren oder ein Formular ausfüllen möchte — "
+            "z.B. 'ich muss mich bei der AHV anmelden', 'hilf mir ein SBB-Konto zu erstellen', "
+            "'ich verstehe das Formular nicht', 'kann du mir helfen mich anzumelden'. "
+            "Erkenne den Kontext und wähle die passende URL."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "URL der Webseite, auf der der Nutzer Hilfe braucht, z.B. 'https://www.ahv-iv.ch'"},
+                "site": {"type": "string", "description": "Kurzname der Seite, z.B. 'ahv-iv.ch', 'sbb.ch', 'post.ch', 'ch.ch'"},
+            },
+            "required": ["url"],
         },
     },
 ]

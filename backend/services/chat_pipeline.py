@@ -296,8 +296,8 @@ def _extract_structured_data(
             return "image_gallery", {"images": [result]}
     if tool_name == "sbb_stationboard" and isinstance(result, dict) and "departures" in result:
         return "transport_board", result
-    if tool_name == "browser" and isinstance(result, dict) and result.get("screenshot_b64"):
-        return "browser_view", {"screenshot_b64": result["screenshot_b64"], "url": result.get("url", ""), "error": result.get("error")}
+    if tool_name in ("open_url", "open_assistenz") and isinstance(result, dict) and result.get("marker"):
+        return response_type, structured_data  # Marker wird von chat_markers verarbeitet
     return response_type, structured_data
 
 
@@ -355,6 +355,9 @@ async def finalize(
     if marker_result.open_document:
         response_type = "open_document"
         structured_data = marker_result.open_document
+    if marker_result.open_url:
+        response_type = "open_url"
+        structured_data = {"url": marker_result.open_url}
 
     emotion = marker_result.emotion
     ui_update = marker_result.ui_update

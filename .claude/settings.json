@@ -34,7 +34,9 @@
       "Bash(docker rm:*)",
       "Bash(grep -n \"BACKEND_URL\\\\|NEXT_PUBLIC\" /home/naor/ai-dev-orchestrator/frontend/.env*)",
       "Bash(find /home/naor/ai-dev-orchestrator -type f \\\\\\( -name \"*.py\" -o -name \"*.tsx\" -o -name \"*.ts\" -o -name \"*.json\" -o -name \"*.yaml\" -o -name \"*.yml\" \\\\\\) ! -path \"*/node_modules/*\" ! -path \"*/__pycache__/*\" ! -path \"*/.git/*\" ! -name \"*.tsbuildinfo\" -exec wc -l {} +)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://chrome.browserless.io\")"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://chrome.browserless.io\")",
+      "Bash(ssh -i ~/.ssh/id_ed25519 ubuntu@83.228.242.214 \"systemctl is-active ollama && curl -s http://localhost:11434/api/embeddings -d '{\\\\\"model\\\\\":\\\\\"nomic-embed-text\\\\\",\\\\\"prompt\\\\\":\\\\\"test\\\\\"}' | python3 -c \\\\\"import sys,json; d=json.load\\(sys.stdin\\); print\\('dim:', len\\(d.get\\('embedding',[]\\)\\)\\)\\\\\" 2>&1\")",
+      "Bash(ssh -i ~/.ssh/id_ed25519 ubuntu@83.228.242.214 \"docker inspect ai_backend | python3-c \\\\\"import sys,json; d=json.load\\(sys.stdin\\)[0]; print\\('extra_hosts:', d['HostConfig'].get\\('ExtraHosts'\\)\\); print\\('network:', list\\(d['NetworkSettings']['Networks'].keys\\(\\)\\)\\)\\\\\"\")"
     ]
   }
 }

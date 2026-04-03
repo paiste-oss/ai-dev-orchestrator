@@ -26,11 +26,13 @@ class MarkerResult:
     capability_intent: str | None = None
     """Erkannter Intent einer fehlenden Fähigkeit."""
     open_window: dict | None = None
-    """Fenster öffnen, z.B. {"canvasType": "browser_window", "url": "..."}."""
+    """Fenster öffnen, z.B. {"canvasType": "assistenz", "url": "..."}."""
     close_window: dict | None = None
-    """Fenster schließen, z.B. {"canvasType": "browser_window"}."""
+    """Fenster schließen, z.B. {"canvasType": "assistenz"}."""
     open_document: dict | None = None
     """Dokument öffnen, z.B. {"filename": "Vertrag.pdf"}."""
+    open_url: str | None = None
+    """URL in neuem Tab öffnen."""
     emotion: str | None = None
     """Emotions-Marker für Avatar, z.B. "freudig"."""
 
@@ -58,6 +60,7 @@ def process_markers(text: str) -> MarkerResult:
     result.text, result.open_window = _extract_window_marker(result.text)
     result.text, result.close_window = _extract_close_window_marker(result.text)
     result.text, result.open_document = _extract_document_marker(result.text)
+    result.text, result.open_url = _extract_open_url_marker(result.text)
     result.text, result.emotion = _extract_emotion_marker(result.text)
 
     return result
@@ -167,7 +170,7 @@ def _extract_window_marker(text: str) -> tuple[str, dict | None]:
     Returns:
         (bereinigter Text, open_window-Dict oder None)
     """
-    VALID_TYPES = {"browser_window", "whiteboard", "image_viewer", "netzwerk", "chart", "design", "memory", "documents", "geo_map", "diktieren"}
+    VALID_TYPES = {"assistenz", "whiteboard", "image_viewer", "netzwerk", "chart", "design", "memory", "documents", "geo_map", "diktieren"}
     open_window: dict | None = None
     # Format: [FENSTER: canvasType] oder [FENSTER: canvasType | extra]
     match = re.search(r"\[FENSTER:\s*(\w+)(?:\s*\|\s*([^\]]+))?\]", text, re.IGNORECASE)
@@ -196,3 +199,13 @@ def _extract_window_marker(text: str) -> tuple[str, dict | None]:
                 open_window["url"] = extra
         text = re.sub(r"\s*\[FENSTER:[^\]]+\]", "", text).strip()
     return text, open_window
+
+
+def _extract_open_url_marker(text: str) -> tuple[str, str | None]:
+    """Extrahiert den [OPEN_URL: url]-Marker — öffnet URL in neuem Browser-Tab."""
+    match = re.search(r"\[OPEN_URL:\s*([^\]]+)\]", text, re.IGNORECASE)
+    url = None
+    if match:
+        url = match.group(1).strip()
+        text = re.sub(r"\s*\[OPEN_URL:[^\]]+\]", "", text).strip()
+    return text, url
