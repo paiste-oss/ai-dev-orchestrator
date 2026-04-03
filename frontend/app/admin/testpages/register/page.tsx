@@ -205,11 +205,9 @@ export default function RegisterPreviewPage() {
                     className="mt-0.5 w-4 h-4 accent-indigo-500 shrink-0" />
                   <span className="text-sm text-gray-300 leading-relaxed">
                     Ich akzeptiere die{" "}
-                    <button type="button" onClick={() => window.open("/agb", "_blank")}
-                      className="text-indigo-400 hover:text-indigo-300 underline">AGB</button>
+                    <a href="/agb" className="text-indigo-400 hover:text-indigo-300 underline">AGB</a>
                     {" "}und die{" "}
-                    <button type="button" onClick={() => window.open("/datenschutz", "_blank")}
-                      className="text-indigo-400 hover:text-indigo-300 underline">Datenschutzerklärung</button>.{" "}
+                    <a href="/datenschutz" className="text-indigo-400 hover:text-indigo-300 underline">Datenschutzerklärung</a>.{" "}
                     <span className="text-red-400 text-xs">* Pflichtfeld</span>
                   </span>
                 </label>

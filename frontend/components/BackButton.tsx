@@ -3,28 +3,22 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
+const FROM_LABELS: Record<string, string> = {
+  "/login":        "← Zurück zum Login",
+  "/register":     "← Zurück zur Registrierung",
+  "/user/settings":"← Zurück zu den Einstellungen",
+};
+
 function BackButtonInner({ label }: { label: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const from = searchParams.get("from");
+  const displayLabel = from ? (FROM_LABELS[from] ?? "← Zurück") : label;
+
   const handleBack = () => {
-    // ?from=/user/settings o.ä. — expliziter Rücksprung-Pfad
-    const from = searchParams.get("from");
-    if (from) {
-      router.push(from);
-      return;
-    }
-    // Neuer Tab via window.open (ohne noopener) → Tab schliessen
-    if (window.opener) {
-      window.close();
-      return;
-    }
-    // Direkt navigiert mit Browser-History → zurück
-    if (window.history.length > 1) {
-      router.back();
-      return;
-    }
-    // Fallback: Startseite
+    if (from) { router.push(from); return; }
+    if (window.history.length > 1) { router.back(); return; }
     router.push("/");
   };
 
@@ -33,7 +27,7 @@ function BackButtonInner({ label }: { label: string }) {
       onClick={handleBack}
       className="text-indigo-400 hover:text-indigo-300 text-sm mb-6 inline-block transition-colors"
     >
-      {label}
+      {displayLabel}
     </button>
   );
 }

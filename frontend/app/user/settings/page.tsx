@@ -70,15 +70,15 @@ export default function UserSettingsPage() {
             <span className="text-xl">📄</span>
             <h2 className="font-semibold text-white">Rechtliches</h2>
           </div>
-          <a href="/agb?from=/user/settings" target="_blank" rel="noopener noreferrer"
+          <a href="/agb?from=/user/settings"
             className="flex items-center justify-between w-full text-sm text-gray-300 hover:text-white transition-colors py-1 border-b border-white/5">
             <span>Allgemeine Geschäftsbedingungen (AGB)</span>
-            <span className="text-gray-600">↗</span>
+            <span className="text-gray-600">→</span>
           </a>
-          <a href="/datenschutz?from=/user/settings" target="_blank" rel="noopener noreferrer"
+          <a href="/datenschutz?from=/user/settings"
             className="flex items-center justify-between w-full text-sm text-gray-300 hover:text-white transition-colors py-1">
             <span>Datenschutzerklärung</span>
-            <span className="text-gray-600">↗</span>
+            <span className="text-gray-600">→</span>
           </a>
         </div>
 
