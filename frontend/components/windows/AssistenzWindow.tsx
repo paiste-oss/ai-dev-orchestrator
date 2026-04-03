@@ -256,7 +256,7 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
     if (!currentStep?.autoAction || autoRunning) return;
     setAutoRunning(true);
     const a = currentStep.autoAction;
-    await doAction(a as Record<string, unknown>);
+    await doAction(a as unknown as Record<string, unknown>);
     setAutoRunning(false);
     // Weiter zum nächsten Schritt
     if (guide && activeStep < guide.steps.length - 1) {
