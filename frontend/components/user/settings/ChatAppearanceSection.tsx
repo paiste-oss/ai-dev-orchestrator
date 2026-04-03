@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { Section } from "@/components/user/settings/Section";
@@ -20,6 +21,7 @@ const inputCls =
   "w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors";
 
 export function ChatAppearanceSection() {
+  const router = useRouter();
   const [uiPrefs, setUiPrefs] = useState<UiPrefs>({
     fontSize: "normal",
     fontFamily: "system",
@@ -50,6 +52,7 @@ export function ChatAppearanceSection() {
         body: JSON.stringify(uiPrefs),
       });
       if (res.ok) {
+        router.refresh();
         setMsg({ text: "Gespeichert ✓", ok: true });
         setTimeout(() => setMsg(null), 3000);
       } else {

@@ -206,6 +206,17 @@ export default function ChatPage() {
     loadHistory();
     loadMemories();
     loadPreferences();
+    // Prefs neu laden wenn Nutzer aus Einstellungen zurückkommt (auch mobile)
+    const onVisible = () => { if (document.visibilityState === "visible") loadPreferences(); };
+    const onStorage = (e: StorageEvent) => { if (e.key === "prefs_updated") loadPreferences(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      window.removeEventListener("storage", onStorage);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
