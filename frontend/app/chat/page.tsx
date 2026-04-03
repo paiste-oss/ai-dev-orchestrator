@@ -247,10 +247,6 @@ export default function ChatPage() {
     processedMsgs.current.add(last.id);
 
     topZ.current++;
-    const spread = (processedMsgs.current.size - 1) % 5;
-    const chatCard = cards.find(c => c.id === CHAT_CARD_ID);
-    const baseX = (chatCard ? chatCard.x + chatCard.width + 24 : 548) + spread * 16;
-    const baseY = 16 + spread * 24;
 
     // Baddi öffnet ein Fenster via [FENSTER:]-Marker
     if (last.responseType === "open_window") {
@@ -258,16 +254,21 @@ export default function ChatPage() {
       const d = last.structuredData as any;
       const wMeta = openWindowData(d.canvasType);
       if (wMeta) {
-        setCards(cs => [...cs, {
+        const canvas = canvasRef.current;
+        const newCard: CardData = {
           id: `win-${last.id}`,
           title: wMeta.title,
           type: d.canvasType,
-          x: baseX, y: baseY,
+          x: 0, y: 0,
           width: wMeta.width, height: wMeta.height,
           minimized: false,
           zIndex: topZ.current,
           data: d.symbols ? { symbols: d.symbols } : d.symbol ? { symbol: d.symbol } : d.east ? { east: d.east, north: d.north, zoom: d.zoom, bgLayer: d.bgLayer } : d.url ? { url: d.url } : {},
-        }]);
+        };
+        setCards(cs => {
+          const next = [...cs, newCard];
+          return canvas ? computeAutoLayout(next, canvas.clientWidth, canvas.clientHeight) : next;
+        });
       }
       return;
     }
@@ -313,16 +314,21 @@ export default function ChatPage() {
     }
 
     const meta = richCardMeta(last.responseType);
-    setCards(cs => [...cs, {
+    const canvas = canvasRef.current;
+    const newRich: CardData = {
       id: `rich-${last.id}`,
       title: meta.title,
       type: last.responseType ?? "text",
-      x: baseX, y: baseY,
+      x: 0, y: 0,
       width: meta.width, height: meta.height,
       minimized: false,
       zIndex: topZ.current,
       data: last.structuredData,
-    }]);
+    };
+    setCards(cs => {
+      const next = [...cs, newRich];
+      return canvas ? computeAutoLayout(next, canvas.clientWidth, canvas.clientHeight) : next;
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
@@ -410,57 +416,45 @@ export default function ChatPage() {
     }));
   }, []);
 
+  // Pure Funktion: berechnet Auto-Layout für beliebige Kartenliste + Canvas-Grösse
+  function computeAutoLayout(cs: CardData[], cw: number, ch: number): CardData[] {
+    const pad = 12;
+    const visible = cs.filter(c => !c.minimized);
+    const n = visible.length;
+    if (n === 0) return cs;
+    const cols = n === 1 ? 1 : n === 2 ? 2 : n <= 4 ? 2 : 3;
+    const rows = Math.ceil(n / cols);
+    const cellW = Math.floor((cw - pad * (cols + 1)) / cols);
+    const cellH = Math.floor((ch - pad * (rows + 1)) / rows);
+    let idx = 0;
+    return cs.map(c => {
+      if (c.minimized) return c;
+      const col = idx % cols;
+      const row = Math.floor(idx / cols);
+      idx++;
+      return { ...c, x: pad + col * (cellW + pad), y: pad + row * (cellH + pad), width: Math.max(cellW, 280), height: Math.max(cellH, 200) };
+    });
+  }
+
   // Auto-Layout: Fenster automatisch in Grid anordnen
   const autoLayoutCards = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const cw = canvas.clientWidth;
-    const ch = canvas.clientHeight;
-    const pad = 12;
-
-    setCards(cs => {
-      const visible = cs.filter(c => !c.minimized);
-      const n = visible.length;
-      if (n === 0) return cs;
-
-      // Spaltenanzahl je nach Fensteranzahl
-      const cols = n === 1 ? 1 : n === 2 ? 2 : n <= 4 ? 2 : 3;
-      const rows = Math.ceil(n / cols);
-      const cellW = Math.floor((cw - pad * (cols + 1)) / cols);
-      const cellH = Math.floor((ch - pad * (rows + 1)) / rows);
-
-      let idx = 0;
-      return cs.map(c => {
-        if (c.minimized) return c;
-        const col = idx % cols;
-        const row = Math.floor(idx / cols);
-        idx++;
-        return {
-          ...c,
-          x: pad + col * (cellW + pad),
-          y: pad + row * (cellH + pad),
-          width: Math.max(cellW, 280),
-          height: Math.max(cellH, 200),
-        };
-      });
-    });
+    setCards(cs => computeAutoLayout(cs, canvas.clientWidth, canvas.clientHeight));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Spawn a new card (from "+" button or from rich content callbacks)
+  // Spawn a new card — direkt mit Auto-Layout damit nichts aus dem Canvas ragt
   const spawnCard = useCallback((type: string, title: string, width: number, height: number, data?: unknown) => {
     topZ.current++;
-    const offset = cards.length * 20;
-    setCards(cs => [...cs, {
-      id: `${type}-${Date.now()}`,
-      title, type,
-      x: 40 + offset, y: 40 + offset,
-      width, height,
-      minimized: false,
-      zIndex: topZ.current,
-      data,
-    }]);
+    const canvas = canvasRef.current;
+    setCards(cs => {
+      const newCard: CardData = { id: `${type}-${Date.now()}`, title, type, x: 0, y: 0, width, height, minimized: false, zIndex: topZ.current, data };
+      const next = [...cs, newCard];
+      return canvas ? computeAutoLayout(next, canvas.clientWidth, canvas.clientHeight) : next;
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cards.length]);
+  }, []);
 
   const handleAddCard = useCallback((canvasType: string) => {
     const mod = WINDOW_MODULES.find(m => m.canvasType === canvasType);
