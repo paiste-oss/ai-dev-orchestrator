@@ -212,6 +212,37 @@ def search_global_knowledge(
         return []
 
 
+def fetch_topic_chunks(titles: list[str], max_per_title: int = 2) -> list[dict]:
+    """
+    Holt die ersten N Chunks für bestimmte Dokumenttitel (ohne Embedding-Similarity).
+    Nützlich um bei bekannten Themen (z.B. IV) immer relevante Chunks zu injizieren.
+    """
+    client = _get_client()
+    results = []
+    for title in titles:
+        try:
+            hits = client.scroll(
+                collection_name=COLLECTION,
+                scroll_filter=Filter(must=[FieldCondition(key="title", match=MatchValue(value=title))]),
+                limit=max_per_title,
+                with_payload=True,
+                with_vectors=False,
+            )
+            for p in hits[0]:
+                results.append({
+                    "score": 1.0,
+                    "text": p.payload.get("text", ""),
+                    "title": p.payload.get("title", ""),
+                    "url": p.payload.get("url", ""),
+                    "source_type": p.payload.get("source_type", ""),
+                    "domain": p.payload.get("domain", ""),
+                    "language": p.payload.get("language", "de"),
+                })
+        except Exception as exc:
+            _log.debug("fetch_topic_chunks fehlgeschlagen für '%s': %s", title, exc)
+    return results
+
+
 def get_collection_stats() -> dict:
     """Gibt Statistiken zur global_knowledge Collection zurück."""
     try:

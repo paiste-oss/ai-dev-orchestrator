@@ -196,7 +196,11 @@ def _extract_window_marker(text: str) -> tuple[str, dict | None]:
                 except (ValueError, IndexError):
                     pass
             elif extra:
-                open_window["url"] = extra
+                # Format: "url" oder "url | Ziel: ..."
+                parts = [p.strip() for p in extra.split("|", 1)]
+                open_window["url"] = parts[0]
+                if len(parts) > 1:
+                    open_window["goal"] = parts[1]
         text = re.sub(r"\s*\[FENSTER:[^\]]+\]", "", text).strip()
     return text, open_window
 

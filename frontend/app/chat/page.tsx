@@ -263,7 +263,7 @@ export default function ChatPage() {
           width: wMeta.width, height: wMeta.height,
           minimized: false,
           zIndex: topZ.current,
-          data: d.symbols ? { symbols: d.symbols } : d.symbol ? { symbol: d.symbol } : d.east ? { east: d.east, north: d.north, zoom: d.zoom, bgLayer: d.bgLayer } : d.url ? { url: d.url } : {},
+          data: d.symbols ? { symbols: d.symbols } : d.symbol ? { symbol: d.symbol } : d.east ? { east: d.east, north: d.north, zoom: d.zoom, bgLayer: d.bgLayer } : d.url ? { url: d.url, goal: d.goal } : {},
         };
         setCards(cs => {
           const next = [...cs, newCard];
@@ -642,7 +642,7 @@ export default function ChatPage() {
         <GeoMapWindow east={card.data?.east} north={card.data?.north} zoom={card.data?.zoom} bgLayer={card.data?.bgLayer} />
       );
       case "assistenz": return (
-        <AssistenzWindow initialUrl={card.data?.url} />
+        <AssistenzWindow initialUrl={card.data?.url} initialGoal={card.data?.goal} />
       );
       case "design": return (
         <DesignWindow prefs={uiPrefs} onPrefsChange={patch => setUiPrefs(p => ({ ...p, ...patch }))} />

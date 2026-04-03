@@ -17,7 +17,7 @@ interface Guide {
 const VIEWPORT_W = 1280;
 const VIEWPORT_H = 720;
 
-export default function AssistenzWindow({ initialUrl }: { initialUrl?: string }) {
+export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUrl?: string; initialGoal?: string }) {
   const [url, setUrl] = useState(initialUrl ?? "");
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState(0);
@@ -64,7 +64,7 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
 
     apiFetch(`${BACKEND_URL}/v1/assistenz/generate-guide`, {
       method: "POST",
-      body: JSON.stringify({ url: loadedUrl, lang: acceptLang }),
+      body: JSON.stringify({ url: loadedUrl, goal: initialGoal ?? "", lang: acceptLang }),
     })
       .then(r => r.json())
       .then((data: { title?: string; steps?: { label: string; detail?: string }[]; error?: string }) => {
@@ -171,7 +171,7 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
 
     const result = await doAction({
       type: "find_and_click",
-      text: currentStep.label + (currentStep.detail ? " " + currentStep.detail : ""),
+      text: currentStep.label,
       maxScrolls: 5,
     });
 

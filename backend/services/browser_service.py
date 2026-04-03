@@ -100,13 +100,23 @@ export default async ({ page, context }) => {
           const t = (el.innerText || el.value || el.getAttribute('aria-label') ||
                      el.getAttribute('title') || '').toLowerCase().trim();
           if (!t) return 0;
-          if (t === needle) return 100;
-          if (t.includes(needle)) return 50;
-          const matched = words.filter(w => t.includes(w));
-          return matched.length * 10;
+          let base = 0;
+          if (t === needle) base = 100;
+          else if (t.includes(needle)) base = 50;
+          else {
+            const matched = words.filter(w => t.includes(w));
+            base = matched.length * 10;
+          }
+          if (base === 0) return 0;
+          // Bevorzuge Elemente die tatsächlich im Viewport sichtbar sind
+          const r = el.getBoundingClientRect();
+          const inView = r.left >= -10 && r.top >= -10 && r.right <= window.innerWidth + 10 && r.bottom <= window.innerHeight + 10;
+          return inView ? base + 200 : base;
         }
         const els = Array.from(document.querySelectorAll(sel))
           .filter(el => {
+            const r = el.getBoundingClientRect();
+            if (r.width < 5 || r.height < 5) return false;
             const s = window.getComputedStyle(el);
             return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0';
           });
@@ -188,7 +198,7 @@ export default async ({ page, context }) => {
         .filter(el => {
           const r = el.getBoundingClientRect();
           const s = window.getComputedStyle(el);
-          return r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0';
+          return r.width >= 5 && r.height >= 5 && s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0';
         })
         .map((el, i) => {
           const r = el.getBoundingClientRect();
@@ -460,8 +470,8 @@ async def browser_action(customer_id: str, action: dict, lang: str = "de-CH,de;q
         if action.get("type") == "extract_tree" and data.get("treeJson"):
             _save_tree(customer_id, new_url, data["treeJson"])
 
-        # ── find_and_click: Fallback-Kette wenn DOM-Suche scheitert ──────────
-        if (action.get("type") == "find_and_click" and el_x is None):
+        # ── find_and_click: Fallback-Kette wenn DOM-Suche scheitert oder (0,0) liefert ──
+        if (action.get("type") == "find_and_click" and (el_x is None or (el_x == 0 and el_y == 0))):
             step_text = action.get("text", "")
             _log.info("DOM-Suche erfolglos für '%s'", step_text[:60])
 
@@ -479,14 +489,16 @@ async def browser_action(customer_id: str, action: dict, lang: str = "de-CH,de;q
                         screenshot_b64 = click_data.get("screenshot", screenshot_b64)
                         new_url = click_data.get("url", new_url)
                         new_cookies = click_data.get("cookies", new_cookies)
-                        el_x = click_data.get("elementX") or match["x"]
-                        el_y = click_data.get("elementY") or match["y"]
+                        raw_x = click_data.get("elementX")
+                        raw_y = click_data.get("elementY")
+                        el_x = raw_x if (raw_x is not None and raw_x != 0) else match["x"]
+                        el_y = raw_y if (raw_y is not None and raw_y != 0) else match["y"]
                         _log.info("Tree-Click via Selector ausgeführt")
                     else:
                         el_x, el_y = match["x"], match["y"]
 
             # Stufe 3: Vision-Fallback (wenn Tree nicht vorhanden oder kein Match)
-            if el_x is None and screenshot_b64 and not action.get("locateOnly"):
+            if (el_x is None or (el_x == 0 and el_y == 0)) and screenshot_b64 and not action.get("locateOnly"):
                 _log.info("Vision-Fallback für '%s'", step_text[:60])
                 coords = await _vision_find_coords(screenshot_b64, step_text)
                 if coords:

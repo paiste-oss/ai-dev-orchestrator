@@ -95,13 +95,29 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
     knowledge_chunks: list[dict] = []
     if baddi_config.get("knowledge_enabled", True):
         try:
-            from services.knowledge_store import search_global_knowledge
+            from services.knowledge_store import search_global_knowledge, fetch_topic_chunks
             knowledge_chunks = search_global_knowledge(
                 query=message,
-                top_k=int(baddi_config.get("knowledge_max_results", 3)),
-                min_score=float(baddi_config.get("knowledge_min_score", 0.72)),
+                top_k=int(baddi_config.get("knowledge_max_results", 6)),
+                min_score=float(baddi_config.get("knowledge_min_score", 0.60)),
                 domains=baddi_config.get("knowledge_domains") or None,
             )
+            # Themen-Boost: Bei IV/AHV-Anfragen direkt relevante Chunks injizieren
+            _msg_lower = message.lower()
+            _iv_terms = ["iv ", " iv,", " iv.", "invalidenversicherung", "ivg", "ivv",
+                         "medas", "invaliditätsgrad", "iv-stelle", "eingliederung",
+                         "iv-rente", "iv-anmeldung", "ahv/iv", "ergänzungsleistungen"]
+            if any(t in _msg_lower for t in _iv_terms):
+                boosted = fetch_topic_chunks(
+                    titles=["IV-Anmeldeprozess Schweiz — Vollständiger Leitfaden (alle Phasen, Fristen, Tipps)",
+                            "Bundesgesetz über die Invalidenversicherung (IVG)",
+                            "Verordnung über die Invalidenversicherung (IVV)"],
+                    max_per_title=2,
+                )
+                # Deduplizieren und vorne einfügen
+                existing_texts = {c["text"][:100] for c in knowledge_chunks}
+                extra = [c for c in boosted if c["text"][:100] not in existing_texts]
+                knowledge_chunks = extra + knowledge_chunks
         except Exception:
             pass
 

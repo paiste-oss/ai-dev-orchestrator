@@ -68,7 +68,7 @@ def build_system_prompt(
         "  IV / AHV / EL / RAV / Spitex / Krankenkasse / Prämien / Steuern / Behörde\n"
         "  hilf mir bei / ich verstehe nicht / führe mich durch / zeig mir wie\n"
         "\n"
-        "REAKTION: Kurzer Satz ('Ich öffne die Assistenz für dich.') + sofort [FENSTER: assistenz | URL]\n"
+        "REAKTION: Kurzer Satz ('Ich öffne die Assistenz für dich.') + sofort [FENSTER: assistenz | URL | konkretes Ziel des Nutzers]\n"
         "NIEMALS: Erklärungen, Rückfragen, Listen mit Optionen, 'technisch nicht möglich'\n"
         "\n"
         "URL-Tabelle (auswendig kennen):\n"
@@ -125,7 +125,7 @@ def build_system_prompt(
         "\n"
         "BEISPIEL:\n"
         "  Nutzer: 'Melde mich bei der IV an'\n"
-        "  Baddi:  'Ich öffne die IV-Assistenz für dich. [FENSTER: assistenz | https://www.ahv-iv.ch]'\n"
+        "  Baddi:  'Ich öffne die IV-Assistenz für dich. [FENSTER: assistenz | https://www.ahv-iv.ch | IV Anmeldung]\n"
         "  NICHT:  'Das kann ich leider nicht...' oder 'Was brauchst du genau?'"
     )
 
@@ -195,7 +195,7 @@ def build_system_prompt(
         "- FENSTER SELBST ÖFFNEN: Füge am Ende deiner Antwort einen [FENSTER:]-Marker ein:\n"
         "  [FENSTER: chart | SYMBOL]                        → öffnet Aktien-Dashboard mit einem Symbol (z.B. [FENSTER: chart | AAPL])\n"
         "  [FENSTER: chart | SYM1,SYM2,SYM3]               → öffnet Dashboard mit mehreren Symbolen (z.B. [FENSTER: chart | NESN.SW,NOVN.SW,UBSG.SW])\n"
-        "  [FENSTER: assistenz | https://example.com]       → öffnet Assistenz-Fenster mit Schritt-für-Schritt-Führung\n"
+        "  [FENSTER: assistenz | https://example.com | konkretes Ziel] → öffnet Assistenz-Fenster mit zielgerichtetem Guide\n"
         "  [FENSTER: whiteboard]                            → öffnet leeres Whiteboard\n"
         "  [FENSTER: image_viewer]                          → öffnet Bild-Viewer\n"
         "  [FENSTER: netzwerk]                              → öffnet Namensnetz (Personen & Netzwerke visualisieren)\n"
@@ -234,7 +234,7 @@ def build_system_prompt(
         "    Hausarzt finden           = https://www.hausarzt.ch\n"
         "    EWZ (Strom Zürich)        = https://www.ewz.ch\n"
         "  • Nur schauen / lesen / öffnen ohne Hilfe → [OPEN_URL: URL]\n"
-        "  Beispiel Assistenz: 'Ich helfe dir bei der IV-Anmeldung. [FENSTER: assistenz | https://www.ahv-iv.ch]'\n"
+        "  Beispiel Assistenz: 'Ich helfe dir bei der IV-Anmeldung. [FENSTER: assistenz | https://www.ahv-iv.ch | IV Anmeldung]'\n"
         "  Beispiel Tab: 'Ich öffne SBB für dich. [OPEN_URL: https://www.sbb.ch]'\n"
         "- DOKUMENT ÖFFNEN/ABSPIELEN/LESEN: Wenn der Nutzer ein Dokument öffnen, lesen, abspielen oder bearbeiten möchte:\n"
         "  [DOKUMENT: dateiname.pdf]  → öffnet das Dokument im Viewer (auch Audio-Dateien werden abgespielt)\n"
@@ -378,6 +378,50 @@ def build_system_prompt(
         system_parts.append(
             f"\nWas du über {first_name} weißt:\n"
             + "\n".join(f"- {m}" for m in relevant_memories)
+        )
+
+    # ── IV/Sozialversicherungs-Begleitung ────────────────────────────────────
+    # Aktiviert wenn Memory einen laufenden IV-Fall enthält ODER der User über IV spricht
+    _iv_keywords = ["iv ", "invalidenversicherung", "iv-anmeldung", "medas", "invaliditätsgrad",
+                    "vorbescheid", "iv-stelle", "eingliederung", "iv-rente"]
+    _has_iv_context = any(
+        any(kw in m.lower() for kw in _iv_keywords)
+        for m in (relevant_memories or [])
+    )
+    if _has_iv_context:
+        system_parts.append(
+            "\nIV-FALLBEGLEITUNG (aktiver Fall erkannt):\n"
+            f"{first_name} hat einen laufenden IV-Prozess. Deine Rolle ist PROAKTIVER BEGLEITER:\n"
+            "\n"
+            "PROAKTIV HANDELN:\n"
+            "- Frage nach dem aktuellen Stand wenn unklar (welche Phase, was ist als nächstes?)\n"
+            "- Erinnere an bevorstehende Fristen (Einsprachefrist 30 Tage nach Vorbescheid!)\n"
+            "- Frage ob alle nötigen Dokumente vorhanden sind\n"
+            "- Biete an, Formulare auf ahv-iv.ch zu öffnen [FENSTER: assistenz | URL | Ziel]\n"
+            "\n"
+            "IV-PROZESS-WISSEN (nutze für präzise Beratung):\n"
+            "Phase 1 — Anmeldung: Formular IVAanm, kantonale IV-Stelle, Arztbericht\n"
+            "Phase 2 — Abklärung: Medizinische Unterlagen, MEDAS-Gutachten (3-6 Monate)\n"
+            "Phase 3 — Eingliederung: Berufsberatung, Umschulung, Taggelder 80% Lohn\n"
+            "Phase 4 — Entscheid: Invaliditätsgrad-Berechnung, Vorbescheid (30 Tage Einsprachefrist!)\n"
+            "Phase 5 — Rente: Ab 40% IV-Grad, CHF 604-2450/Monat (2024), EL separat beantragen\n"
+            "\n"
+            "DEADLINES (immer betonen):\n"
+            "- Einsprache gegen Vorbescheid: 30 Tage (Art. 57 ATSG) — KRITISCH\n"
+            "- Beschwerde gegen Verfügung: 30 Tage beim kantonalen Versicherungsgericht\n"
+            "- Rückwirkung: Max. 12 Monate — sofort anmelden wenn noch nicht geschehen\n"
+            "\n"
+            "WICHTIGE KONTAKTE:\n"
+            "- Pro Infirmis (kostenlose IV-Beratung): 058 775 20 00 / www.proinfirmis.ch\n"
+            "- Integration Handicap (Rechtsberatung): www.integrationhandicap.ch\n"
+            "- IV-Stellen: www.ahv-iv.ch/de/Kontakte\n"
+            "\n"
+            "MEMORY-PFLEGE (Erinnerungen aktiv nutzen):\n"
+            "Speichere wichtige IV-Ereignisse als Fakten damit du sie beim nächsten Gespräch weisst:\n"
+            "- 'Hat IV-Anmeldung am [Datum] eingereicht'\n"
+            "- 'MEDAS-Termin am [Datum] in [Ort]'\n"
+            "- 'Vorbescheid erhalten am [Datum] — Einsprachefrist bis [Datum+30Tage]'\n"
+            "- 'IV-Grad: X%, Phase: [aktuelle Phase]'\n"
         )
 
     # ── Kunden-Dokumente ──────────────────────────────────────────────────────
