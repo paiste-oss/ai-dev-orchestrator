@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { getWhisperPrompt } from "@/lib/whisperPrompts";
+import { AUDIO_CONSTRAINTS, convertToWav } from "@/lib/audioUtils";
 
 type Step = "idle" | "recording" | "review";
 
@@ -56,12 +57,11 @@ export default function DictationWindow({ language }: { language?: string }) {
   const startRecording = useCallback(async () => {
     setError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Prefer mp4/m4a (Safari), fall back to webm (Chrome/Firefox)
-      const mimeType = MediaRecorder.isTypeSupported("audio/mp4")
-        ? "audio/mp4"
-        : MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/mp4")
+        ? "audio/mp4"
         : "audio/webm";
       const rec = new MediaRecorder(stream, { mimeType });
       chunksRef.current = [];
@@ -119,10 +119,12 @@ export default function DictationWindow({ language }: { language?: string }) {
       // Audio laden
       const audioRes = await apiFetch(`${BACKEND_URL}/v1/dictations/${id}/audio`);
       if (!audioRes.ok) throw new Error();
-      const blob = await audioRes.blob();
+      const rawBlob = await audioRes.blob();
+      let blob: Blob;
+      try { blob = await convertToWav(rawBlob); } catch { blob = rawBlob; }
       // An Whisper schicken
       const fd = new FormData();
-      fd.append("audio", blob, "aufnahme.webm");
+      fd.append("audio", blob, "aufnahme.wav");
       fd.append("lang", language ?? "de");
       fd.append("prompt", getWhisperPrompt(language, "dictation"));
       const transRes = await apiFetchForm(`${BACKEND_URL}/v1/transcribe`, fd);

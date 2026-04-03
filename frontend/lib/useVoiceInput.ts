@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { AUDIO_CONSTRAINTS, convertToWav } from "@/lib/audioUtils";
 
 interface UseVoiceInputOptions {
   lang?: string;
@@ -81,7 +82,7 @@ export function useVoiceInput({ lang = "de-CH", onResult, prompt }: UseVoiceInpu
   const startMediaRecorder = useCallback(async () => {
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
     } catch {
       showError("not-allowed");
       return;
@@ -107,14 +108,20 @@ export function useVoiceInput({ lang = "de-CH", onResult, prompt }: UseVoiceInpu
 
       if (chunksRef.current.length === 0) return;
 
-      const blob = new Blob(chunksRef.current, {
-        type: mimeType || "audio/webm",
-      });
+      const rawBlob = new Blob(chunksRef.current, { type: mimeType || "audio/webm" });
       chunksRef.current = [];
+
+      // Preprocessing: 16kHz Mono WAV
+      let audioBlob: Blob;
+      try {
+        audioBlob = await convertToWav(rawBlob);
+      } catch {
+        audioBlob = rawBlob; // Fallback: Original senden
+      }
 
       // Ans Backend schicken
       const formData = new FormData();
-      formData.append("audio", blob, "recording.webm");
+      formData.append("audio", audioBlob, "recording.wav");
       formData.append("lang", lang);
       if (prompt) formData.append("prompt", prompt);
 
