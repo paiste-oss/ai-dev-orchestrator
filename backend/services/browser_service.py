@@ -32,6 +32,8 @@ export default async ({ page, context }) => {
   const { url, cookies, action, lang } = context;
 
   await page.setViewport({ width: 1280, height: 720 });
+  // Realistischer User-Agent um Bot-Erkennung zu umgehen
+  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
   if (lang) await page.setExtraHTTPHeaders({ 'Accept-Language': lang });
   if (cookies && cookies.length > 0) {
     try { await page.setCookie(...cookies); } catch (_) {}
@@ -62,9 +64,15 @@ export default async ({ page, context }) => {
     } catch (_) {}
   }
 
-  // ── Goto mit Fallback ─────────────────────────────────────────────────────
+  // ── Goto: wartet auf networkidle + extra Zeit für JS-SPAs ────────────────
   async function goto(targetUrl) {
-    try { await page.goto(targetUrl, { waitUntil: 'load', timeout: 25000 }); } catch (_) {}
+    try {
+      await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 28000 });
+    } catch (_) {
+      // Fallback: Seite ist teilweise geladen, trotzdem weitermachen
+    }
+    // Extra-Wartezeit für React/Vue/Angular Hydration
+    await new Promise(r => setTimeout(r, 2000));
   }
 
   // ── DOM-Text-Suche mit Auto-Scroll ────────────────────────────────────────
@@ -160,6 +168,10 @@ export default async ({ page, context }) => {
     // Primäre Methode: DOM-Text-Suche + Auto-Scroll
     await goto(url);
     await acceptCookieConsent();
+    // Warten bis mindestens ein interaktives Element im DOM erscheint
+    try {
+      await page.waitForSelector('button, a[href], input[type="submit"], [role="button"]', { timeout: 5000 });
+    } catch (_) {}
     const el = await findAndClick(
       action.text,
       action.locateOnly ?? false,

@@ -157,27 +157,30 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
     await doAction({ type: "navigate", url: loadedUrl });
   }
 
+  const [stepError, setStepError] = useState<string | null>(null);
+
   async function autoRunStep() {
     if (autoRunning || !currentStep) return;
     setAutoRunning(true);
+    setStepError(null);
 
-    // Immer find_and_click — DOM-Text-Suche mit Auto-Scroll
-    {
-      const result = await doAction({
-        type: "find_and_click",
-        text: currentStep.label + (currentStep.detail ? " " + currentStep.detail : ""),
-        maxScrolls: 5,
-      });
-      // Koordinaten für Pfeil aktualisieren
-      if (result?.element_x != null && result.element_y != null) {
-        setDynCoords({ x: result.element_x, y: result.element_y });
+    const result = await doAction({
+      type: "find_and_click",
+      text: currentStep.label + (currentStep.detail ? " " + currentStep.detail : ""),
+      maxScrolls: 5,
+    });
+
+    if (result?.element_x != null && result.element_y != null) {
+      setDynCoords({ x: result.element_x, y: result.element_y });
+      // Nur weiterschalten wenn Klick erfolgreich
+      if (guide && activeStep < guide.steps.length - 1) {
+        setActiveStep(s => s + 1);
       }
+    } else {
+      setStepError("Element nicht gefunden — bitte manuell klicken oder Schritt überspringen");
     }
 
     setAutoRunning(false);
-    if (guide && activeStep < guide.steps.length - 1) {
-      setActiveStep(s => s + 1);
-    }
   }
 
   // Klick auf Screenshot → koordinatengenaues Klicken im Browser
@@ -498,20 +501,25 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
               <div className="shrink-0 px-2 py-2 border-t border-white/5 space-y-1.5">
                 {/* Baddi-Auto-Schritt */}
                 {baddibetrieb && currentStep && (
-                  <button
-                    onClick={autoRunStep}
-                    disabled={autoRunning || loading}
-                    className="w-full py-1.5 rounded-lg text-xs text-white bg-indigo-600/80 border border-indigo-500/50 hover:bg-indigo-600 disabled:opacity-40 transition-all flex items-center justify-center gap-1.5"
-                  >
-                    {autoRunning ? (
-                      <>
-                        <span className="w-3 h-3 border border-white/50 border-t-transparent rounded-full animate-spin" />
-                        Baddi klickt…
-                      </>
-                    ) : (
-                      <>🤖 Schritt ausführen</>
+                  <>
+                    <button
+                      onClick={autoRunStep}
+                      disabled={autoRunning || loading}
+                      className="w-full py-1.5 rounded-lg text-xs text-white bg-indigo-600/80 border border-indigo-500/50 hover:bg-indigo-600 disabled:opacity-40 transition-all flex items-center justify-center gap-1.5"
+                    >
+                      {autoRunning ? (
+                        <>
+                          <span className="w-3 h-3 border border-white/50 border-t-transparent rounded-full animate-spin" />
+                          Suche &amp; klicke…
+                        </>
+                      ) : (
+                        <>🤖 Schritt ausführen</>
+                      )}
+                    </button>
+                    {stepError && (
+                      <p className="text-[10px] text-amber-400 leading-snug px-1">{stepError}</p>
                     )}
-                  </button>
+                  </>
                 )}
                 {/* Vor/Zurück */}
                 <div className="flex gap-1.5">
