@@ -19,16 +19,16 @@ const CHAT_PROMPTS: Record<string, string> = {
 };
 
 const DICTATION_PROMPTS: Record<string, string> = {
-  de:  "Diktiergerät-Aufnahme auf Hochdeutsch. Gesprochener Text wird transkribiert. Vollständige Sätze mit Zeichensetzung. Geschäftsbriefe, Notizen und Berichte.",
+  de:  "Diktiergerät-Aufnahme auf Hochdeutsch. Gesprochener Text wird transkribiert, z.B. Gespräche, Sprechstunden oder Notizen. Vollständige Sätze mit Zeichensetzung.",
   gsw: "Diktiergerät-Aufnahme auf Schweizerdeutsch oder Hochdeutsch. Gesprochener Text wird transkribiert, z.B. Gespräche, Sprechstunden oder Notizen. Vollständige Sätze mit Zeichensetzung.",
-  en:  "Dictaphone recording in English. Spoken text is being transcribed. Complete sentences with punctuation. Business letters, notes and reports.",
-  fr:  "Enregistrement dictaphone en français. Texte parlé en cours de transcription. Phrases complètes avec ponctuation. Lettres commerciales, notes et rapports.",
-  it:  "Registrazione dittafono in italiano. Testo parlato in fase di trascrizione. Frasi complete con punteggiatura. Lettere commerciali, note e relazioni.",
-  es:  "Grabación de dictáfono en español. Texto hablado siendo transcrito. Oraciones completas con puntuación. Cartas comerciales, notas e informes.",
-  pt:  "Gravação de ditafone em português. Texto falado a ser transcrito. Frases completas com pontuação. Cartas comerciais, notas e relatórios.",
-  nl:  "Dictafoonopname in het Nederlands. Gesproken tekst wordt getranscribeerd. Volledige zinnen met interpunctie. Zakelijke brieven, notities en rapporten.",
-  pl:  "Nagranie dyktafonu po polsku. Mówiony tekst jest transkrybowany. Pełne zdania z interpunkcją. Listy biznesowe, notatki i raporty.",
-  tr:  "Türkçe diktafon kaydı. Konuşulan metin transkribe ediliyor. Noktalama işaretli tam cümleler. İş mektupları, notlar ve raporlar.",
+  en:  "Dictaphone recording in English. Spoken text is being transcribed, e.g. conversations, consultations or notes. Complete sentences with punctuation.",
+  fr:  "Enregistrement dictaphone en français. Texte parlé en cours de transcription, par ex. conversations, consultations ou notes. Phrases complètes avec ponctuation.",
+  it:  "Registrazione dittafono in italiano. Testo parlato in fase di trascrizione, ad es. conversazioni, visite o note. Frasi complete con punteggiatura.",
+  es:  "Grabación de dictáfono en español. Texto hablado siendo transcrito, p.ej. conversaciones, consultas o notas. Oraciones completas con puntuación.",
+  pt:  "Gravação de ditafone em português. Texto falado a ser transcrito, p.ex. conversas, consultas ou notas. Frases completas com pontuação.",
+  nl:  "Dictafoonopname in het Nederlands. Gesproken tekst wordt getranscribeerd, bijv. gesprekken, consulten of notities. Volledige zinnen met interpunctie.",
+  pl:  "Nagranie dyktafonu po polsku. Mówiony tekst jest transkrybowany, np. rozmowy, wizyty lub notatki. Pełne zdania z interpunkcją.",
+  tr:  "Türkçe diktafon kaydı. Konuşulan metin transkribe ediliyor, örn. görüşmeler, muayeneler veya notlar. Noktalama işaretli tam cümleler.",
 };
 
 /** Liefert den passenden Whisper-Prompt für die Benutzersprache und den Kontext. */
