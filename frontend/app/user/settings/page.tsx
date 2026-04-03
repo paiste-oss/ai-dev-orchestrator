@@ -40,7 +40,7 @@ export default function UserSettingsPage() {
       <div className="max-w-lg mx-auto px-5 py-8 space-y-5">
 
         <div className="flex items-center gap-3 mb-2">
-          <button onClick={() => router.back()} className="text-gray-500 hover:text-white text-xl transition-colors">←</button>
+          <button onClick={() => router.replace("/chat")} className="text-gray-500 hover:text-white text-xl transition-colors">←</button>
           <div>
             <h1 className="text-xl font-bold text-white">Einstellungen</h1>
             <p className="text-xs text-gray-500">{me.email}</p>
