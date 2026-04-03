@@ -1035,47 +1035,60 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
                   title="Assistenz Browser"
                 />
 
-                {/* Visuelles Overlay */}
+                {/* Visuelles Overlay — Pfeil zeigt auf Ziel, verdeckt es nicht */}
                 {currentStep?.highlight && !frameError && (
                   <div
                     className="absolute inset-0 pointer-events-none"
                     style={{ zIndex: 20 }}
                   >
-                    {/* Verdunklung mit Ausschnitt */}
-                    <svg className="absolute inset-0 w-full h-full" style={{ mixBlendMode: "multiply" }}>
-                      <defs>
-                        <radialGradient id="spotlight" cx="50%" cy="50%" r="50%">
-                          <stop offset="0%" stopColor="transparent" />
-                          <stop offset="100%" stopColor="rgba(0,0,0,0.45)" />
-                        </radialGradient>
-                      </defs>
-                    </svg>
-
-                    {/* Pulsierender Kreis */}
+                    {/* Pfeil-Spitze liegt genau am Ziel, Körper zeigt von oben-links */}
                     <div
                       className="absolute"
                       style={{
                         left: `${currentStep.highlight.x}%`,
                         top: `${currentStep.highlight.y}%`,
-                        transform: "translate(-50%, -50%)",
+                        transform: "translate(0, 0)",
                       }}
                     >
-                      {/* Äusserer Pulsring */}
-                      <div className="absolute inset-0 -m-4 rounded-full border-2 border-indigo-400/60 animate-ping" style={{ width: 48, height: 48, margin: "-8px" }} />
-                      {/* Innerer Kreis */}
-                      <div className="w-8 h-8 rounded-full border-2 border-indigo-400 bg-indigo-500/20 flex items-center justify-center shadow-lg shadow-indigo-500/50">
-                        <div className="w-2 h-2 rounded-full bg-indigo-400" />
-                      </div>
-                      {/* Label */}
+                      {/* SVG-Cursor-Pfeil: Spitze bei 0,0 → zeigt genau auf den Button */}
+                      <svg
+                        width="44" height="52"
+                        viewBox="0 0 44 52"
+                        style={{
+                          position: "absolute",
+                          left: -2,
+                          top: -2,
+                          filter: "drop-shadow(0 2px 6px rgba(99,102,241,0.7))",
+                        }}
+                      >
+                        {/* Pfeil-Umriss (weiss) */}
+                        <path
+                          d="M2 2 L2 38 L10 30 L17 46 L22 44 L15 28 L26 28 Z"
+                          fill="white"
+                          stroke="#6366f1"
+                          strokeWidth="2"
+                          strokeLinejoin="round"
+                        />
+                        {/* Pfeil-Füllung (indigo) */}
+                        <path
+                          d="M4 5 L4 34 L11 27 L18 43 L21 42 L14 26 L24 26 Z"
+                          fill="#6366f1"
+                          opacity="0.9"
+                        />
+                      </svg>
+                      {/* Pulsring direkt am Zielpunkt (klein, nicht verdeckend) */}
+                      <div
+                        className="absolute rounded-full border-2 border-indigo-400/70 animate-ping"
+                        style={{ width: 10, height: 10, left: -5, top: -5 }}
+                      />
+                      {/* Label-Badge neben dem Pfeil */}
                       {currentStep.highlight.label && (
-                        <div
-                          className="absolute left-10 top-1/2 -translate-y-1/2 whitespace-nowrap"
-                          style={{ transform: "translateY(-50%)" }}
+                        <span
+                          className="absolute whitespace-nowrap px-2 py-0.5 rounded-md bg-indigo-600 text-white text-[11px] font-semibold shadow-lg"
+                          style={{ left: 44, top: 28 }}
                         >
-                          <span className="px-2 py-1 rounded-md bg-indigo-600 text-white text-[11px] font-semibold shadow-lg">
-                            {currentStep.highlight.label}
-                          </span>
-                        </div>
+                          {currentStep.highlight.label}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -1095,14 +1108,55 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
                   </div>
                 )}
                 {screenshot ? (
-                  <img
-                    ref={imgRef}
-                    src={`data:image/jpeg;base64,${screenshot}`}
-                    alt="Browser"
-                    className="w-full h-full object-contain cursor-crosshair select-none"
-                    onClick={handleImgClick}
-                    draggable={false}
-                  />
+                  <div className="relative w-full h-full">
+                    <img
+                      ref={imgRef}
+                      src={`data:image/jpeg;base64,${screenshot}`}
+                      alt="Browser"
+                      className="w-full h-full object-contain cursor-crosshair select-none"
+                      onClick={handleImgClick}
+                      draggable={false}
+                    />
+                    {/* Pfeil-Overlay für autoAction-Ziel */}
+                    {currentStep?.autoAction?.x != null && currentStep.autoAction.y != null && (
+                      <div
+                        className="absolute pointer-events-none"
+                        style={{
+                          left: `${(currentStep.autoAction.x! / 1280) * 100}%`,
+                          top: `${(currentStep.autoAction.y! / 720) * 100}%`,
+                          zIndex: 10,
+                        }}
+                      >
+                        <svg
+                          width="44" height="52"
+                          viewBox="0 0 44 52"
+                          style={{
+                            position: "absolute",
+                            left: -2,
+                            top: -2,
+                            filter: "drop-shadow(0 2px 8px rgba(99,102,241,0.9))",
+                          }}
+                        >
+                          <path
+                            d="M2 2 L2 38 L10 30 L17 46 L22 44 L15 28 L26 28 Z"
+                            fill="white"
+                            stroke="#6366f1"
+                            strokeWidth="2"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M4 5 L4 34 L11 27 L18 43 L21 42 L14 26 L24 26 Z"
+                            fill="#6366f1"
+                            opacity="0.9"
+                          />
+                        </svg>
+                        <div
+                          className="absolute rounded-full border-2 border-indigo-400/80 animate-ping"
+                          style={{ width: 10, height: 10, left: -5, top: -5 }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
                     Verbinde mit Browser…
