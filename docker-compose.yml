@@ -54,6 +54,8 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+      # Whisper
+      - WHISPER_MODEL=${WHISPER_MODEL:-large-v3-turbo}
       # URLs
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - PROJECT_ROOT=/project

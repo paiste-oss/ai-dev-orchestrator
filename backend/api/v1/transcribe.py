@@ -57,8 +57,11 @@ async def transcribe_audio(
     # Sprach-Mapping: BCP47 → Whisper-Kürzel
     lang_map = {
         "de-CH": "de", "de-DE": "de", "de-AT": "de",
-        "de": "de", "en": "en", "en-US": "en", "en-GB": "en",
-        "fr": "fr", "fr-CH": "fr", "it": "it", "it-CH": "it",
+        "de": "de", "gsw": "de",
+        "en": "en", "en-US": "en", "en-GB": "en",
+        "fr": "fr", "fr-CH": "fr",
+        "it": "it", "it-CH": "it",
+        "es": "es", "pt": "pt", "nl": "nl", "pl": "pl", "tr": "tr",
     }
     whisper_lang = lang_map.get(lang, lang[:2])
 
