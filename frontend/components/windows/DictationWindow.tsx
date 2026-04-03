@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
+import { getWhisperPrompt } from "@/lib/whisperPrompts";
 
 type Step = "idle" | "recording" | "review";
 
@@ -27,7 +28,7 @@ function formatDate(iso: string) {
   });
 }
 
-export default function DictationWindow() {
+export default function DictationWindow({ language }: { language?: string }) {
   const [step, setStep] = useState<Step>("idle");
   const [dictations, setDictations] = useState<Dictation[]>([]);
   const [transcript, setTranscript] = useState("");
@@ -122,7 +123,8 @@ export default function DictationWindow() {
       // An Whisper schicken
       const fd = new FormData();
       fd.append("audio", blob, "aufnahme.webm");
-      fd.append("lang", "de");
+      fd.append("lang", language ?? "de");
+      fd.append("prompt", getWhisperPrompt(language, "dictation"));
       const transRes = await apiFetchForm(`${BACKEND_URL}/v1/transcribe`, fd);
       if (!transRes.ok) throw new Error("Whisper nicht verfügbar");
       const { text } = await transRes.json();

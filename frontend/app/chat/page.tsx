@@ -15,7 +15,8 @@ import { useUiPrefs, BG_COLORS, FONT_COLORS } from "@/hooks/useUiPrefs";
 import TopBar from "@/components/chat/TopBar";
 import CanvasCard from "@/components/chat/CanvasCard";
 import AvatarCircle from "@/components/chat/AvatarCircle";
-import BaddiAvatar3D from "@/components/chat/BaddiAvatar3D";
+import dynamic from "next/dynamic";
+const BaddiAvatar3D = dynamic(() => import("@/components/chat/BaddiAvatar3D"), { ssr: false });
 import ChatMessage from "@/components/chat/ChatMessage";
 import ChatInput from "@/components/chat/ChatInput";
 import MemoryPanel from "@/components/chat/MemoryPanel";
@@ -195,7 +196,11 @@ export default function ChatPage() {
 
   const firstName = user?.name?.split(" ")[0] ?? "";
   const buddyInitial = (uiPrefs.buddyName ?? "B").charAt(0).toUpperCase();
-  const voiceLang = ({ de: "de-CH", en: "en-US", fr: "fr-FR", it: "it-IT", gsw: "de-CH" } as Record<string, string>)[uiPrefs.language ?? "de"] ?? "de-CH";
+  const voiceLang = ({
+    de: "de-CH", gsw: "de-CH",
+    en: "en-US", fr: "fr-FR", it: "it-IT",
+    es: "es-ES", pt: "pt-PT", nl: "nl-NL", pl: "pl-PL", tr: "tr-TR",
+  } as Record<string, string>)[uiPrefs.language ?? "de"] ?? "de-CH";
 
   useEffect(() => {
     if (!user) { router.replace("/login"); return; }
@@ -644,7 +649,7 @@ export default function ChatPage() {
         <DocumentsWindow onOpenFile={handleOpenFile} />
       );
       case "diktieren": return (
-        <DictationWindow />
+        <DictationWindow language={uiPrefs.language} />
       );
       case "file_viewer": return (
         <FileViewerWindow
@@ -780,7 +785,7 @@ export default function ChatPage() {
           loading={loading} attachedFiles={attachedFiles} onFilesChange={setAttachedFiles}
           onAttachClick={() => fileInputRef.current?.click()} onCameraClick={openCamera}
           onVoiceResult={handleVoiceResult} buddyName={uiPrefs.buddyName}
-          fontSize={uiPrefs.fontSize} voiceLang={voiceLang} textareaRef={textareaRef} compact
+          fontSize={uiPrefs.fontSize} voiceLang={voiceLang} language={uiPrefs.language} textareaRef={textareaRef} compact
         />
 
         {/* ── Hidden File Input ── */}
@@ -992,6 +997,7 @@ export default function ChatPage() {
           buddyName={uiPrefs.buddyName}
           fontSize={uiPrefs.fontSize}
           voiceLang={voiceLang}
+          language={uiPrefs.language}
           textareaRef={textareaRef}
         />
       </div>

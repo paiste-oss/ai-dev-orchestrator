@@ -33,9 +33,14 @@ def _load_model():
     return _model
 
 
-def _transcribe_sync(audio_path: str, language: str) -> str:
+def _transcribe_sync(audio_path: str, language: str, prompt: str) -> str:
     model = _load_model()
-    segments, _ = model.transcribe(audio_path, language=language, beam_size=5)
+    segments, _ = model.transcribe(
+        audio_path,
+        language=language,
+        beam_size=5,
+        initial_prompt=prompt or None,
+    )
     return "".join(seg.text for seg in segments).strip()
 
 
@@ -43,6 +48,7 @@ def _transcribe_sync(audio_path: str, language: str) -> str:
 async def transcribe_audio(
     audio: UploadFile = File(...),
     lang: str = Form(default="de"),
+    prompt: str = Form(default=""),
 ):
     """
     Nimmt eine Audio-Datei entgegen und gibt den transkribierten Text zurück.
@@ -72,7 +78,7 @@ async def transcribe_audio(
 
     try:
         loop = asyncio.get_event_loop()
-        text = await loop.run_in_executor(None, _transcribe_sync, tmp_path, whisper_lang)
+        text = await loop.run_in_executor(None, _transcribe_sync, tmp_path, whisper_lang, prompt)
     except Exception as e:
         logger.error(f"Transkription fehlgeschlagen: {e}")
         raise HTTPException(status_code=500, detail=f"Transkription fehlgeschlagen: {e}")

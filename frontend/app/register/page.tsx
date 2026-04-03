@@ -35,6 +35,7 @@ export default function RegisterPage() {
       .catch(() => {});
   }, [router]);
 
+  const [language, setLanguage] = useState("de");
   const [form, setForm] = useState({
     vorname: "", nachname: "",
     geburtstag: "", geburtsmonat: "", geburtsjahr: "",
@@ -106,6 +107,19 @@ export default function RegisterPage() {
 
       saveToken(data.access_token);
       saveSession({ name: data.name, email: data.email, role: data.role });
+
+      // Gewählte Sprache direkt als UiPref speichern
+      try {
+        await fetch(`${BACKEND_URL}/v1/user/preferences`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${data.access_token}`,
+          },
+          body: JSON.stringify({ language }),
+        });
+      } catch { /* ignorieren — User kann es in Einstellungen ändern */ }
+
       router.push(`/register/security?name=${encodeURIComponent(form.vorname)}`);
     } catch {
       setError("Server nicht erreichbar. Bitte später nochmals versuchen.");
@@ -183,6 +197,37 @@ export default function RegisterPage() {
               placeholder="+41791234567"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
             <p className="text-xs text-gray-600">Optional — ermöglicht SMS-Sicherheitscode beim Login</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm text-gray-400">Bevorzugte Sprache</label>
+            <div className="grid grid-cols-5 gap-2">
+              {[
+                { v: "de",  l: "Deutsch" },
+                { v: "gsw", l: "Schweizerdeutsch" },
+                { v: "en",  l: "English" },
+                { v: "fr",  l: "Français" },
+                { v: "it",  l: "Italiano" },
+                { v: "es",  l: "Español" },
+                { v: "pt",  l: "Português" },
+                { v: "nl",  l: "Nederlands" },
+                { v: "pl",  l: "Polski" },
+                { v: "tr",  l: "Türkçe" },
+              ].map(({ v, l }) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setLanguage(v)}
+                  className={`py-2 rounded-xl text-xs font-medium border transition-all ${
+                    language === v
+                      ? "bg-indigo-600 border-indigo-500 text-white"
+                      : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
+                  }`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-1">

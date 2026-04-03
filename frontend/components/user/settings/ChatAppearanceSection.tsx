@@ -79,12 +79,18 @@ export function ChatAppearanceSection() {
         {/* Sprache */}
         <div className="space-y-2">
           <label className="text-xs text-gray-400 font-medium">Chat-Sprache</label>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             {[
-              { v: "de", l: "Deutsch" },
-              { v: "en", l: "English" },
-              { v: "fr", l: "Français" },
-              { v: "it", l: "Italiano" },
+              { v: "de",  l: "Deutsch" },
+              { v: "gsw", l: "Schweizerdeutsch" },
+              { v: "en",  l: "English" },
+              { v: "fr",  l: "Français" },
+              { v: "it",  l: "Italiano" },
+              { v: "es",  l: "Español" },
+              { v: "pt",  l: "Português" },
+              { v: "nl",  l: "Nederlands" },
+              { v: "pl",  l: "Polski" },
+              { v: "tr",  l: "Türkçe" },
             ].map(({ v, l }) => (
               <button
                 key={v}

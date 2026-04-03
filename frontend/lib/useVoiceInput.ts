@@ -6,6 +6,7 @@ interface UseVoiceInputOptions {
   lang?: string;
   onResult: (text: string) => void;
   onInterim?: (text: string) => void;
+  prompt?: string;
 }
 
 export type VoiceError = "not-allowed" | "not-supported" | "no-speech" | "network" | null;
@@ -23,7 +24,7 @@ function hasMediaRecorder(): boolean {
   return typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
 }
 
-export function useVoiceInput({ lang = "de-CH", onResult }: UseVoiceInputOptions) {
+export function useVoiceInput({ lang = "de-CH", onResult, prompt }: UseVoiceInputOptions) {
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [error, setError] = useState<VoiceError>(null);
@@ -115,6 +116,7 @@ export function useVoiceInput({ lang = "de-CH", onResult }: UseVoiceInputOptions
       const formData = new FormData();
       formData.append("audio", blob, "recording.webm");
       formData.append("lang", lang);
+      if (prompt) formData.append("prompt", prompt);
 
       setTranscribing(true);
       try {

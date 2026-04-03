@@ -5,6 +5,7 @@ import { useVoiceInput } from "@/lib/useVoiceInput";
 interface Props {
   onResult: (text: string) => void;
   lang?: string;
+  prompt?: string;
   className?: string;
 }
 
@@ -15,8 +16,8 @@ const ERROR_LABELS: Record<string, string> = {
   "not-supported": "Nicht unterstützt",
 };
 
-export default function VoiceButton({ onResult, lang = "de-CH", className = "" }: Props) {
-  const { listening, transcribing, supported, error, toggle } = useVoiceInput({ lang, onResult });
+export default function VoiceButton({ onResult, lang = "de-CH", prompt, className = "" }: Props) {
+  const { listening, transcribing, supported, error, toggle } = useVoiceInput({ lang, onResult, prompt });
 
   if (!supported) return null;
 

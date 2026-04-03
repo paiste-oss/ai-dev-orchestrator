@@ -4,6 +4,7 @@ import React, { useCallback } from "react";
 import dynamic from "next/dynamic";
 import FileDropZone, { AttachedFile } from "@/components/FileDropZone";
 import { FONT_SIZES } from "@/hooks/useUiPrefs";
+import { getWhisperPrompt } from "@/lib/whisperPrompts";
 
 const VoiceButton = dynamic(() => import("@/components/VoiceButton"), { ssr: false });
 
@@ -21,6 +22,7 @@ interface ChatInputProps {
   buddyName: string;
   fontSize: string;
   voiceLang?: string;
+  language?: string;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   compact?: boolean;
 }
@@ -28,9 +30,10 @@ interface ChatInputProps {
 export default function ChatInput({
   input, onChange, onSend, onKeyDown, loading,
   attachedFiles, onFilesChange, onAttachClick, onCameraClick,
-  onVoiceResult, buddyName, fontSize, voiceLang, textareaRef, compact = false,
+  onVoiceResult, buddyName, fontSize, voiceLang, language, textareaRef, compact = false,
 }: ChatInputProps) {
   const handleVoiceResult = useCallback(onVoiceResult, [onVoiceResult]);
+  const whisperPrompt = getWhisperPrompt(language, "chat");
 
   return (
     <div className={compact ? "shrink-0 px-2 pb-1 pt-0.5" : "shrink-0 px-4 pb-6 pt-3"}>
@@ -88,6 +91,7 @@ export default function ChatInput({
               <VoiceButton
                 onResult={handleVoiceResult}
                 lang={voiceLang}
+                prompt={whisperPrompt}
                 className={compact ? "w-7 h-7" : "w-8 h-8"}
               />
               <button

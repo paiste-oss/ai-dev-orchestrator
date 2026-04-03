@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BackButton from "@/components/BackButton";
 
 export const metadata = {
   title: "AGB – Baddi",
@@ -12,9 +13,7 @@ export default function AGBPage() {
 
         {/* Header */}
         <div className="mb-12">
-          <Link href="/" className="text-indigo-400 hover:text-indigo-300 text-sm mb-6 inline-block">
-            ← Zurück zu Baddi
-          </Link>
+          <BackButton />
           <h1 className="text-3xl font-bold text-white mt-4">Allgemeine Geschäftsbedingungen</h1>
           <p className="text-gray-400 mt-2">Stand: April 2026</p>
         </div>
