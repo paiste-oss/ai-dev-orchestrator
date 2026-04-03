@@ -12,15 +12,7 @@ interface UseVoiceInputOptions {
 
 export type VoiceError = "not-allowed" | "not-supported" | "no-speech" | "network" | null;
 
-/** Erkennt ob der Browser die Web Speech API unterstützt. */
-function hasSpeechApi(): boolean {
-  return !!(
-    (window as any).SpeechRecognition ||
-    (window as any).webkitSpeechRecognition
-  );
-}
-
-/** Erkennt ob der Browser MediaRecorder unterstützt (Fallback). */
+/** Erkennt ob der Browser MediaRecorder unterstützt. */
 function hasMediaRecorder(): boolean {
   return typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
 }
@@ -29,7 +21,6 @@ export function useVoiceInput({ lang = "de-CH", onResult, prompt }: UseVoiceInpu
   const [listening, setListening] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [error, setError] = useState<VoiceError>(null);
-  const recognitionRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
@@ -38,47 +29,7 @@ export function useVoiceInput({ lang = "de-CH", onResult, prompt }: UseVoiceInpu
     setTimeout(() => setError(null), 3000);
   }, []);
 
-  // ── Web Speech API (Chrome Desktop/Android) ──────────────────────────────
-  const startSpeechApi = useCallback(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (recognitionRef.current) {
-      recognitionRef.current.abort();
-      recognitionRef.current = null;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = lang;
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.continuous = false;
-    recognitionRef.current = recognition;
-
-    recognition.onstart = () => { setListening(true); setError(null); };
-    recognition.onend   = () => { setListening(false); recognitionRef.current = null; };
-
-    recognition.onerror = (ev: any) => {
-      setListening(false);
-      recognitionRef.current = null;
-      const code: string = ev?.error ?? "";
-      if (code === "not-allowed" || code === "permission-denied") showError("not-allowed");
-      else if (code === "no-speech") showError("no-speech");
-      else if (code === "network")   showError("network");
-    };
-
-    recognition.onresult = (event: any) => {
-      let final = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) final += event.results[i][0].transcript;
-      }
-      if (final) onResult(final);
-    };
-
-    try { recognition.start(); } catch { setListening(false); }
-  }, [lang, onResult, showError]);
-
-  // ── MediaRecorder Fallback (Samsung Internet, Firefox, Safari iOS) ────────
+  // ── MediaRecorder → Whisper Backend (alle Browser) ───────────────────────
   const startMediaRecorder = useCallback(async () => {
     let stream: MediaStream;
     try {
@@ -150,19 +101,14 @@ export function useVoiceInput({ lang = "de-CH", onResult, prompt }: UseVoiceInpu
 
   // ── Öffentliche API ───────────────────────────────────────────────────────
   const start = useCallback(() => {
-    if (!hasMediaRecorder() && !hasSpeechApi()) {
+    if (!hasMediaRecorder()) {
       showError("not-supported");
       return;
     }
-    if (hasSpeechApi()) startSpeechApi();
-    else startMediaRecorder();
-  }, [startSpeechApi, startMediaRecorder, showError]);
+    startMediaRecorder();
+  }, [startMediaRecorder, showError]);
 
   const stop = useCallback(() => {
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
-    }
     if (mediaRecorderRef.current?.state === "recording") {
       mediaRecorderRef.current.stop();
     }
