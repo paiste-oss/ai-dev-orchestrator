@@ -145,6 +145,36 @@ async def locate_element(
         return LocateResponse(error=str(e), screenshot_b64=screenshot_b64)
 
 
+@router.post("/assistenz/extract-tree")
+async def extract_tree(
+    body: GenerateGuideRequest,  # url + lang
+    current_user=Depends(get_current_user),
+):
+    """
+    Extrahiert den Accessibility-Tree der Seite und speichert ihn in Redis (24h).
+    Wird im Hintergrund aufgerufen wenn die URL geladen wird.
+    """
+    if not settings.browserless_token:
+        return {"ok": False, "error": "Browserless nicht konfiguriert"}
+
+    from services.browser_service import _call_browserless, _save_tree, _load_state
+    customer_id = str(current_user.id)
+    state = _load_state(customer_id)
+
+    try:
+        data = await _call_browserless(
+            body.url, state.get("cookies", []),
+            {"type": "extract_tree", "url": body.url},
+            body.lang,
+        )
+        tree = data.get("treeJson") or []
+        if tree:
+            _save_tree(customer_id, body.url, tree)
+        return {"ok": True, "count": len(tree)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 @router.post("/assistenz/generate-guide", response_model=GenerateGuideResponse)
 async def generate_guide(
     body: GenerateGuideRequest,

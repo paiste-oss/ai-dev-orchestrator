@@ -11,6 +11,7 @@ Jede Aktion:
 Der Screenshot wird im Chat als browser_view-Karte angezeigt.
 """
 import base64
+import hashlib
 import json
 import logging
 
@@ -23,7 +24,9 @@ from core.utils import safe_json_loads
 _log = logging.getLogger(__name__)
 
 _REDIS_KEY = "browser:state:{customer_id}"
-_SESSION_TTL = 60 * 30  # 30 Minuten
+_TREE_KEY  = "assistenz:tree:{customer_id}:{url_hash}"
+_SESSION_TTL = 60 * 30   # 30 Minuten
+_TREE_TTL    = 60 * 60 * 24  # 24 Stunden
 
 # ── Puppeteer-Snippets ─────────────────────────────────────────────────────────
 
@@ -157,12 +160,92 @@ export default async ({ page, context }) => {
     return null;
   }
 
+  // ── Accessibility-Tree extrahieren ───────────────────────────────────────
+  // Gibt alle interaktiven Elemente als kompaktes JSON zurück.
+  async function extractTree() {
+    const elements = await page.evaluate(() => {
+      function getSelector(el) {
+        if (el.id) return '#' + CSS.escape(el.id);
+        const attr = ['data-testid','data-id','name','aria-label'].find(a => el.getAttribute(a));
+        if (attr) return `${el.tagName.toLowerCase()}[${attr}="${CSS.escape(el.getAttribute(attr))}"]`;
+        // CSS-Pfad aufbauen (max 3 Ebenen)
+        const parts = [];
+        let cur = el;
+        for (let i = 0; i < 3 && cur && cur !== document.body; i++) {
+          let seg = cur.tagName.toLowerCase();
+          if (cur.id) { seg = '#' + CSS.escape(cur.id); parts.unshift(seg); break; }
+          const sibs = Array.from(cur.parentNode?.children || []).filter(c => c.tagName === cur.tagName);
+          if (sibs.length > 1) seg += ':nth-of-type(' + (sibs.indexOf(cur) + 1) + ')';
+          parts.unshift(seg);
+          cur = cur.parentElement;
+        }
+        return parts.join(' > ');
+      }
+
+      const ROLES = 'a[href], button, input, select, textarea, [role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="menuitem"], [role="tab"], summary';
+      const scrollY = window.scrollY;
+      return Array.from(document.querySelectorAll(ROLES))
+        .filter(el => {
+          const r = el.getBoundingClientRect();
+          const s = window.getComputedStyle(el);
+          return r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0';
+        })
+        .map((el, i) => {
+          const r = el.getBoundingClientRect();
+          const content = (el.innerText || el.value || el.getAttribute('aria-label') || el.getAttribute('placeholder') || el.getAttribute('title') || el.getAttribute('alt') || '').trim().slice(0, 120);
+          const role = el.getAttribute('role') || el.tagName.toLowerCase();
+          return {
+            id: i,
+            role,
+            content,
+            selector: getSelector(el),
+            bbox: {
+              x: Math.round(r.left + r.width / 2),
+              y: Math.round(r.top + scrollY + r.height / 2),
+              w: Math.round(r.width),
+              h: Math.round(r.height),
+            },
+          };
+        })
+        .filter(e => e.content.length > 0 || e.role === 'input' || e.role === 'select');
+    });
+    return elements;
+  }
+
   // ── Aktionen ausführen ────────────────────────────────────────────────────
   let elementX = null, elementY = null;
+  let treeJson = null;
 
   if (action.type === 'navigate') {
     await goto(action.url);
     await acceptCookieConsent();
+
+  } else if (action.type === 'extract_tree') {
+    // Seite laden, Tree extrahieren, zurückgeben
+    await goto(action.url || url);
+    await acceptCookieConsent();
+    try { await page.waitForSelector('a, button, input', { timeout: 5000 }); } catch (_) {}
+    treeJson = await extractTree();
+
+  } else if (action.type === 'click_selector') {
+    // Zuverlässiges Klicken per CSS-Selector
+    await goto(url);
+    await acceptCookieConsent();
+    try {
+      await page.waitForSelector(action.selector, { timeout: 5000 });
+      const el = await page.$(action.selector);
+      if (el) {
+        await page.evaluate(el => el.scrollIntoView({ block: 'center' }), el);
+        await new Promise(r => setTimeout(r, 400));
+        const box = await el.boundingBox();
+        if (box) {
+          elementX = Math.round(box.x + box.width / 2);
+          elementY = Math.round(box.y + box.height / 2);
+          await el.click();
+          await new Promise(r => setTimeout(r, 1800));
+        }
+      }
+    } catch (_) {}
 
   } else if (action.type === 'find_and_click') {
     // Primäre Methode: DOM-Text-Suche + Auto-Scroll
@@ -209,9 +292,69 @@ export default async ({ page, context }) => {
   const newCookies = await page.cookies();
   const currentUrl = page.url();
 
-  return { screenshot, cookies: newCookies, url: currentUrl, elementX, elementY };
+  return { screenshot, cookies: newCookies, url: currentUrl, elementX, elementY, treeJson };
 };
 """
+
+
+def _tree_key(customer_id: str, url: str) -> str:
+    url_hash = hashlib.md5(url.encode()).hexdigest()[:12]
+    return _TREE_KEY.format(customer_id=customer_id, url_hash=url_hash)
+
+
+def _load_tree(customer_id: str, url: str) -> list | None:
+    raw = redis_sync().get(_tree_key(customer_id, url))
+    if raw:
+        return safe_json_loads(raw, None)
+    return None
+
+
+def _save_tree(customer_id: str, url: str, tree: list) -> None:
+    redis_sync().set(_tree_key(customer_id, url), json.dumps(tree), ex=_TREE_TTL)
+
+
+async def _find_element_via_tree(tree: list, step_text: str) -> dict | None:
+    """
+    Fragt Claude Text-API: Welches Element aus dem Tree passt zum Schritt?
+    Gibt {selector, x, y} zurück oder None.
+    """
+    if not settings.anthropic_api_key or not tree:
+        return None
+
+    # Kompaktes JSON — nur id, role, content (kein selector/bbox in Prompt)
+    compact = [{"id": e["id"], "role": e["role"], "content": e["content"]} for e in tree if e.get("content")]
+    compact_json = json.dumps(compact, ensure_ascii=False)
+
+    prompt = (
+        f'Hier sind die interaktiven Elemente einer Webseite als JSON-Array:\n{compact_json}\n\n'
+        f'Für den Schritt: "{step_text}"\n'
+        f'Welches Element soll angeklickt werden?\n'
+        f'Antworte NUR mit der numerischen ID des Elements, z.B.: 42\n'
+        f'Wenn keines passt: -1'
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": settings.anthropic_api_key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                json={"model": "claude-haiku-4-5-20251001", "max_tokens": 16, "messages": [{"role": "user", "content": prompt}]},
+            )
+            resp.raise_for_status()
+            text = resp.json()["content"][0]["text"].strip()
+
+        element_id = int("".join(filter(str.isdigit, text)) or "-1")
+        if element_id < 0:
+            return None
+
+        el = next((e for e in tree if e["id"] == element_id), None)
+        if el:
+            _log.info("Tree-Match: id=%d role=%s content='%s'", el["id"], el["role"], el["content"][:50])
+            return {"selector": el["selector"], "x": el["bbox"]["x"], "y": el["bbox"]["y"]}
+
+    except Exception as exc:
+        _log.debug("Tree-Find-Fehler: %s", exc)
+    return None
 
 
 def _load_state(customer_id: str) -> dict:
@@ -299,26 +442,64 @@ async def browser_action(customer_id: str, action: dict, lang: str = "de-CH,de;q
         el_x = data.get("elementX")
         el_y = data.get("elementY")
 
-        # ── Vision-Fallback: DOM-Suche hat Element nicht gefunden ─────────────
-        # Nur bei find_and_click ohne locateOnly — wir brauchen einen echten Klick
-        if (action.get("type") == "find_and_click"
-                and not action.get("locateOnly")
-                and el_x is None
-                and screenshot_b64):
-            _log.info("DOM-Suche erfolglos für '%s' — Vision-Fallback", action.get("text", "")[:60])
-            coords = await _vision_find_coords(screenshot_b64, action.get("text", ""))
-            if coords:
-                # Element per Vision gefunden → direkt klicken
-                click_data = await _call_browserless(
+        # ── Nach navigate: Tree im Hintergrund extrahieren und cachen ──────────
+        if action.get("type") == "navigate" and data.get("treeJson") is None:
+            try:
+                tree_data = await _call_browserless(
                     new_url, new_cookies,
-                    {"type": "click", "x": coords["x"], "y": coords["y"]},
+                    {"type": "extract_tree", "url": new_url},
                     lang,
                 )
-                screenshot_b64 = click_data.get("screenshot", screenshot_b64)
-                new_url = click_data.get("url", new_url)
-                new_cookies = click_data.get("cookies", new_cookies)
-                el_x, el_y = coords["x"], coords["y"]
-                _log.info("Vision-Click bei (%d, %d) ausgeführt", el_x, el_y)
+                if tree_data.get("treeJson"):
+                    _save_tree(customer_id, new_url, tree_data["treeJson"])
+                    _log.info("Tree gecacht: %d Elemente für %s", len(tree_data["treeJson"]), new_url)
+            except Exception as exc:
+                _log.debug("Tree-Extraktion fehlgeschlagen: %s", exc)
+
+        # ── extract_tree: Tree speichern ──────────────────────────────────────
+        if action.get("type") == "extract_tree" and data.get("treeJson"):
+            _save_tree(customer_id, new_url, data["treeJson"])
+
+        # ── find_and_click: Fallback-Kette wenn DOM-Suche scheitert ──────────
+        if (action.get("type") == "find_and_click" and el_x is None):
+            step_text = action.get("text", "")
+            _log.info("DOM-Suche erfolglos für '%s'", step_text[:60])
+
+            # Stufe 2: Tree-Suche (cached) + Claude Text-API
+            tree = _load_tree(customer_id, new_url)
+            if tree:
+                match = await _find_element_via_tree(tree, step_text)
+                if match:
+                    if not action.get("locateOnly"):
+                        click_data = await _call_browserless(
+                            new_url, new_cookies,
+                            {"type": "click_selector", "selector": match["selector"]},
+                            lang,
+                        )
+                        screenshot_b64 = click_data.get("screenshot", screenshot_b64)
+                        new_url = click_data.get("url", new_url)
+                        new_cookies = click_data.get("cookies", new_cookies)
+                        el_x = click_data.get("elementX") or match["x"]
+                        el_y = click_data.get("elementY") or match["y"]
+                        _log.info("Tree-Click via Selector ausgeführt")
+                    else:
+                        el_x, el_y = match["x"], match["y"]
+
+            # Stufe 3: Vision-Fallback (wenn Tree nicht vorhanden oder kein Match)
+            if el_x is None and screenshot_b64 and not action.get("locateOnly"):
+                _log.info("Vision-Fallback für '%s'", step_text[:60])
+                coords = await _vision_find_coords(screenshot_b64, step_text)
+                if coords:
+                    click_data = await _call_browserless(
+                        new_url, new_cookies,
+                        {"type": "click", "x": coords["x"], "y": coords["y"]},
+                        lang,
+                    )
+                    screenshot_b64 = click_data.get("screenshot", screenshot_b64)
+                    new_url = click_data.get("url", new_url)
+                    new_cookies = click_data.get("cookies", new_cookies)
+                    el_x, el_y = coords["x"], coords["y"]
+                    _log.info("Vision-Click bei (%d, %d)", el_x, el_y)
 
         _save_state(customer_id, {"url": new_url, "cookies": new_cookies})
 

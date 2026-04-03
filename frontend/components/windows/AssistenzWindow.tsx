@@ -155,6 +155,11 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
     setBaddibetrieb(true);
     setLoading(true);
     await doAction({ type: "navigate", url: loadedUrl });
+    // Tree im Hintergrund extrahieren (für präzises Klicken)
+    apiFetch(`${BACKEND_URL}/v1/assistenz/extract-tree`, {
+      method: "POST",
+      body: JSON.stringify({ url: loadedUrl, lang: acceptLang }),
+    }).catch(() => {});
   }
 
   const [stepError, setStepError] = useState<string | null>(null);
