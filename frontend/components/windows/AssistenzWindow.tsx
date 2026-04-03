@@ -19,6 +19,7 @@ interface Step {
   detail?: string;
   highlight?: Highlight;         // visuelles Overlay auf iframe (%)
   autoAction?: AutoAction;       // was Baddi automatisch tut
+  isLanguageStep?: boolean;      // Sprachauswahl-Schritt — wird bei DE/gsw-Nutzern übersprungen
 }
 
 interface Guide {
@@ -50,6 +51,7 @@ const KNOWN_GUIDES: { match: string; guide: Guide }[] = [
           detail: "Wähle «Deutsch» oben rechts auf der Seite.",
           highlight: { x: 88, y: 4, label: "Sprache" },
           autoAction: { type: "click", x: 1200, y: 28 },
+          isLanguageStep: true,
         },
         {
           label: "«Anmelden» klicken",
@@ -907,7 +909,15 @@ export default function AssistenzWindow({ initialUrl }: { initialUrl?: string })
     setTimeout(() => { setLoadedUrl(normalized); setActiveStep(0); setFrameError(false); }, 0);
   }
 
-  const guide = loadedUrl ? getGuide(loadedUrl) : null;
+  const rawGuide = loadedUrl ? getGuide(loadedUrl) : null;
+
+  // Sprachauswahl-Schritt überspringen wenn Browser-Sprache Deutsch/Schweizerdeutsch ist
+  const userLang = typeof navigator !== "undefined" ? navigator.language : "";
+  const isGermanUser = /^(de|gsw)/i.test(userLang);
+  const guide = rawGuide
+    ? { ...rawGuide, steps: rawGuide.steps.filter(s => !s.isLanguageStep || !isGermanUser) }
+    : null;
+
   const currentStep = guide?.steps[activeStep];
 
   function handleLoad() {
