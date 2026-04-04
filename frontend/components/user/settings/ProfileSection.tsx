@@ -24,10 +24,16 @@ interface ProfileSectionProps {
 }
 
 const LANGUAGES = [
-  { value: "de", label: "Deutsch" },
-  { value: "en", label: "English" },
-  { value: "fr", label: "Français" },
-  { value: "it", label: "Italiano" },
+  { value: "de",  label: "Deutsch" },
+  { value: "gsw", label: "Schweizerdeutsch" },
+  { value: "en",  label: "English" },
+  { value: "fr",  label: "Français" },
+  { value: "it",  label: "Italiano" },
+  { value: "es",  label: "Español" },
+  { value: "pt",  label: "Português" },
+  { value: "nl",  label: "Nederlands" },
+  { value: "pl",  label: "Polski" },
+  { value: "tr",  label: "Türkçe" },
 ];
 
 const inputCls =
@@ -60,6 +66,11 @@ export function ProfileSection({ me }: ProfileSectionProps) {
           address_country: country || null,
         }),
       });
+      // Sprache auch in ui_preferences synchronisieren (Chat-Sprache = Profil-Sprache)
+      apiFetch(`${BACKEND_URL}/v1/user/preferences`, {
+        method: "POST",
+        body: JSON.stringify({ language }),
+      }).catch(() => {});
       if (res.ok) {
         setMsg({ text: "Gespeichert ✓", ok: true });
         setTimeout(() => setMsg(null), 3000);
@@ -80,19 +91,25 @@ export function ProfileSection({ me }: ProfileSectionProps) {
             <label className="text-xs text-gray-400 font-medium">Name</label>
             <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-2">
             <label className="text-xs text-gray-400 font-medium">Sprache</label>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className={inputCls}
-            >
+            <div className="grid grid-cols-2 gap-2">
               {LANGUAGES.map((l) => (
-                <option key={l.value} value={l.value}>
+                <button
+                  key={l.value}
+                  type="button"
+                  onClick={() => setLanguage(l.value)}
+                  className={`py-2 rounded-xl text-xs font-medium border transition-all ${
+                    language === l.value
+                      ? "bg-indigo-600 border-indigo-500 text-white"
+                      : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
+                  }`}
+                >
                   {l.label}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
+            <p className="text-[11px] text-gray-600">Gilt auch als Chat-Sprache.</p>
           </div>
           <div className="space-y-1">
             <label className="text-xs text-gray-400 font-medium">Telefon</label>
