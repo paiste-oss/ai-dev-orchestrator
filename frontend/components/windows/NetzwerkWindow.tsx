@@ -554,38 +554,6 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadKey]);
 
-  // Toolbar in CanvasCard-Header pushen (via setHeaderExtra prop)
-  const setterRef = useRef(setHeaderExtra);
-  useEffect(() => { setterRef.current = setHeaderExtra; });
-
-  useEffect(() => {
-    if (!setterRef.current) return;
-    const S: React.CSSProperties = { height: "20px", padding: "0 7px", borderRadius: "4px", border: "1px solid #2a2a3a", background: "transparent", cursor: "pointer", fontFamily: "inherit", fontSize: "13px", color: "#aaa", display: "flex", alignItems: "center" };
-    const SActive: React.CSSProperties = { ...S, background: "#1a2a38", border: "1px solid #C8D8E844", color: "#C8D8E8" };
-    const SDim: React.CSSProperties = { ...S, color: "#333", cursor: "default" };
-    setterRef.current(
-      <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-        {nets.map(net => (
-          <button key={net.id}
-            onClick={() => { setActiveNetId(net.id); setMode("move"); setConnecting(null); }}
-            style={activeNetId === net.id ? SActive : S}
-            title={net.name}>
-            <span style={{ maxWidth: "80px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "10px" }}>{net.name}</span>
-          </button>
-        ))}
-        <button onClick={() => createNetwork()} title="Netzwerk erstellen"
-          style={{ ...S, color: "#4ECDC4", border: "1px dashed #2a2a3a", padding: "0 6px", fontSize: "14px", fontWeight: "bold" }}>+</button>
-        <div style={{ width: "1px", height: "14px", background: "#2a2a3a", margin: "0 2px" }} />
-        <button onClick={() => { setMode(m => m === "connect" ? "move" : "connect"); setConnecting(null); }}
-          title="Verbinden-Modus" style={mode === "connect" ? { ...S, background: "#2a2a3a", color: "#fff", fontWeight: "900" } : S}>—</button>
-        <button onClick={autoLayout} title="Auto-Layout" style={S}>✦</button>
-        <button onClick={undo} title="Rückgängig (Ctrl+Z)" disabled={histLen === 0} style={histLen > 0 ? S : SDim}>↩</button>
-        <button onClick={() => setShowSettings(true)} title="Einstellungen" style={S}>⚙</button>
-      </div>
-    );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nets, activeNetId, mode, histLen]);
-
   // Sofort speichern bei Seitenentladen oder Fenster-Unmount
   useEffect(() => {
     const flush = () => {
@@ -685,6 +653,36 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
     for (const net of nets) { const m = net.members?.find(m => m.personId === personId); if (m) return getGroupColor(m.group, net.groups); }
     return "#888";
   };
+
+  // Toolbar in CanvasCard-Header pushen (nach nets-Definition)
+  const setterRef = useRef(setHeaderExtra);
+  useEffect(() => { setterRef.current = setHeaderExtra; });
+  useEffect(() => {
+    if (!setterRef.current) return;
+    const S: React.CSSProperties = { height: "20px", padding: "0 7px", borderRadius: "4px", border: "1px solid #2a2a3a", background: "transparent", cursor: "pointer", fontFamily: "inherit", fontSize: "13px", color: "#aaa", display: "flex", alignItems: "center" };
+    const SActive: React.CSSProperties = { ...S, background: "#1a2a38", border: "1px solid #C8D8E844", color: "#C8D8E8" };
+    const SDim: React.CSSProperties = { ...S, color: "#333", cursor: "default" };
+    setterRef.current(
+      <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+        {nets.map(net => (
+          <button key={net.id}
+            onClick={() => { setActiveNetId(net.id); setMode("move"); setConnecting(null); }}
+            style={activeNetId === net.id ? SActive : S} title={net.name}>
+            <span style={{ maxWidth: "80px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "10px" }}>{net.name}</span>
+          </button>
+        ))}
+        <button onClick={() => createNetwork()} title="Netzwerk erstellen"
+          style={{ ...S, color: "#4ECDC4", border: "1px dashed #2a2a3a", padding: "0 6px", fontSize: "14px", fontWeight: "bold" }}>+</button>
+        <div style={{ width: "1px", height: "14px", background: "#2a2a3a", margin: "0 2px" }} />
+        <button onClick={() => { setMode(m => m === "connect" ? "move" : "connect"); setConnecting(null); }}
+          title="Verbinden-Modus" style={mode === "connect" ? { ...S, background: "#2a2a3a", color: "#fff", fontWeight: "900" } : S}>—</button>
+        <button onClick={autoLayout} title="Auto-Layout" style={S}>✦</button>
+        <button onClick={undo} title="Rückgängig (Ctrl+Z)" disabled={histLen === 0} style={histLen > 0 ? S : SDim}>↩</button>
+        <button onClick={() => setShowSettings(true)} title="Einstellungen" style={S}>⚙</button>
+      </div>
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nets, activeNetId, mode, histLen]);
 
   // Keep selGroup valid when activeNet changes
   useEffect(() => {
