@@ -95,6 +95,7 @@ function CanvasCard({
         width, height: minimized ? "auto" : height,
         zIndex,
         background: "var(--window-bg, rgba(8, 12, 22, 0.92))",
+        color: "var(--window-font-color, #ffffff)",
         backdropFilter: "blur(16px)",
       }}
       className="flex flex-col rounded-2xl border border-white/8 shadow-[0_8px_40px_rgba(0,0,0,0.7)]"
