@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { UiPrefs } from "@/lib/chat-types";
-import { ACCENT_COLORS as ACCENT_COLORS_MAP, BG_COLORS, FONT_COLORS } from "@/hooks/useUiPrefs";
+import { ACCENT_COLORS as ACCENT_COLORS_MAP, BG_COLORS, FONT_COLORS, WINDOW_BG_COLORS } from "@/hooks/useUiPrefs";
 
 interface Props {
   prefs: UiPrefs;
@@ -43,6 +43,12 @@ function Chips({ options, value, onChange }: {
 
 // Abgeleitet aus zentralem useUiPrefs — kein Duplikat
 const ACCENT_COLORS = Object.entries(ACCENT_COLORS_MAP).map(([v, hex]) => ({ v, hex }));
+
+const WINDOW_BG_LABELS: Record<string, string> = {
+  glass: "Glas", dark: "Schwarz", slate: "Slate", gray: "Grau",
+  indigo: "Indigo", navy: "Navy", wine: "Wine", forest: "Forest",
+};
+const WINDOW_BG_OPTIONS = Object.entries(WINDOW_BG_COLORS).map(([v, rgba]) => ({ v, rgba, l: WINDOW_BG_LABELS[v] ?? v }));
 
 const FONT_COLOR_LABELS: Record<string, string> = {
   white: "Weiss", silver: "Silber", warm: "Warm", green: "Grün", blue: "Blau", rose: "Rosa", black: "Schwarz",
@@ -159,6 +165,23 @@ export default function DesignWindow({ prefs, onPrefsChange }: Props) {
                 Entfernen
               </button>
             )}
+          </div>
+        </OptionRow>
+
+        <OptionRow label="Hintergrund Fenster">
+          <div className="grid grid-cols-4 gap-1.5">
+            {WINDOW_BG_OPTIONS.map(bg => (
+              <button key={bg.v} onClick={() => update({ windowBg: bg.v })}
+                className={`relative h-10 rounded-lg border transition-all ${
+                  (prefs.windowBg ?? "glass") === bg.v ? "border-white/40 ring-1 ring-white/20" : "border-white/8 hover:border-white/20"
+                }`}
+                style={{ background: bg.rgba }} title={bg.l}>
+                {(prefs.windowBg ?? "glass") === bg.v && (
+                  <span className="absolute inset-0 flex items-center justify-center text-white/80 text-xs">✓</span>
+                )}
+                <span className="absolute bottom-1 left-0 right-0 text-center text-[9px] text-white/50">{bg.l}</span>
+              </button>
+            ))}
           </div>
         </OptionRow>
 

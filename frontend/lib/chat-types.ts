@@ -87,4 +87,5 @@ export interface UiPrefs {
   avatarType?: string;
   ttsDefault?: boolean;
   ttsVoice?: string;
+  windowBg?: string;
 }

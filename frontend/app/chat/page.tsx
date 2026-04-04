@@ -10,7 +10,7 @@ import { MemoryItem } from "@/lib/chat-types";
 import { useChatMessages, UploadedFileInfo } from "@/hooks/useChatMessages";
 import { useCamera } from "@/hooks/useCamera";
 import { useTTS } from "@/hooks/useTTS";
-import { useUiPrefs, BG_COLORS, FONT_COLORS } from "@/hooks/useUiPrefs";
+import { useUiPrefs, BG_COLORS, FONT_COLORS, WINDOW_BG_COLORS } from "@/hooks/useUiPrefs";
 
 import TopBar from "@/components/chat/TopBar";
 import CanvasCard from "@/components/chat/CanvasCard";
@@ -717,6 +717,12 @@ export default function ChatPage() {
 
   const bgColor = BG_COLORS[uiPrefs.background] ?? "#030712";
   const fontColor = FONT_COLORS[uiPrefs.fontColor] ?? "#ffffff";
+
+  // CSS-Variable für Fensterhintergrund — wird von CanvasCard genutzt
+  useEffect(() => {
+    const val = WINDOW_BG_COLORS[uiPrefs.windowBg ?? "glass"] ?? "rgba(8, 12, 22, 0.92)";
+    document.documentElement.style.setProperty("--window-bg", val);
+  }, [uiPrefs.windowBg]);
   const bgStyle = uiPrefs.backgroundImage
     ? { backgroundImage: `url(${uiPrefs.backgroundImage})`, backgroundSize: "cover", backgroundPosition: "center", color: fontColor }
     : { background: bgColor, color: fontColor };

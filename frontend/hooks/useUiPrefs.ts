@@ -35,6 +35,17 @@ export const FONT_COLORS: Record<string, string> = {
   green: "#bbf7d0", blue: "#bfdbfe", rose: "#fecdd3", black: "#111111",
 };
 
+export const WINDOW_BG_COLORS: Record<string, string> = {
+  glass:   "rgba(8, 12, 22, 0.92)",
+  dark:    "rgba(0, 0, 0, 0.95)",
+  slate:   "rgba(15, 23, 42, 0.92)",
+  gray:    "rgba(17, 24, 39, 0.92)",
+  indigo:  "rgba(30, 27, 75, 0.92)",
+  navy:    "rgba(12, 20, 69, 0.92)",
+  wine:    "rgba(40, 10, 25, 0.92)",
+  forest:  "rgba(10, 26, 15, 0.92)",
+};
+
 export const BG_COLORS: Record<string, string> = {
   dark: "#030712", darker: "#000000", lighter: "#111827",
   slate: "#0f172a", navy: "#0c1445", forest: "#0a1a0f", wine: "#1a0a12", warm: "#1a1208",
@@ -56,6 +67,7 @@ const DEFAULT_PREFS: UiPrefs = {
   avatarType: "robot",
   ttsDefault: false,
   ttsVoice: "female",
+  windowBg: "glass",
 };
 
 export function useUiPrefs() {
