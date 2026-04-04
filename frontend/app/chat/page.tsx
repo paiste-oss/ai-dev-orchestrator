@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, apiFetchForm, clearSession, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
@@ -172,6 +172,9 @@ export default function ChatPage() {
 
   // Canvas cards state — restored from localStorage
   const [cards, setCards] = useState<CardData[]>(() => initialCards());
+
+  // Dynamische Header-Inhalte für Fenster (z.B. NetzwerkWindow-Toolbar)
+  const [windowHeaders, setWindowHeaders] = useState<Record<string, React.ReactNode>>({});
 
   // Persist cards to localStorage whenever they change
   useEffect(() => {
@@ -664,6 +667,7 @@ export default function ChatPage() {
           boardId={card.data?.boardId}
           reloadKey={card.data?.reloadKey}
           onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
+          setHeaderExtra={(content) => setWindowHeaders(prev => ({ ...prev, [card.id]: content }))}
         />
       );
       case "memory": return (
@@ -910,7 +914,7 @@ export default function ChatPage() {
               >
                 {ttsEnabled ? "🔊" : "🔇"}
               </button>
-            ) : undefined}
+            ) : windowHeaders[card.id]}
             onMove={moveCard}
             onResize={resizeCard}
             onFocus={focusCard}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { apiFetch, getToken } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 
@@ -492,9 +492,9 @@ function SettingsModal({ onClose, data, onImport, fontScale, setFontScale }: {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-interface Props { boardId?: string; onBoardId?: (id: string) => void; reloadKey?: number; }
+interface Props { boardId?: string; onBoardId?: (id: string) => void; reloadKey?: number; setHeaderExtra?: (content: React.ReactNode) => void; }
 
-export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, reloadKey }: Props) {
+export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, reloadKey, setHeaderExtra }: Props) {
   const [data, setData] = useState<AppData>(defaultData);
   const [loading, setLoading] = useState(true);
   const history = useRef<AppData[]>([]);
@@ -553,6 +553,38 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
     if (id) loadBoard(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadKey]);
+
+  // Toolbar in CanvasCard-Header pushen (via setHeaderExtra prop)
+  const setterRef = useRef(setHeaderExtra);
+  useEffect(() => { setterRef.current = setHeaderExtra; });
+
+  useEffect(() => {
+    if (!setterRef.current) return;
+    const S: React.CSSProperties = { height: "20px", padding: "0 7px", borderRadius: "4px", border: "1px solid #2a2a3a", background: "transparent", cursor: "pointer", fontFamily: "inherit", fontSize: "13px", color: "#aaa", display: "flex", alignItems: "center" };
+    const SActive: React.CSSProperties = { ...S, background: "#1a2a38", border: "1px solid #C8D8E844", color: "#C8D8E8" };
+    const SDim: React.CSSProperties = { ...S, color: "#333", cursor: "default" };
+    setterRef.current(
+      <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+        {nets.map(net => (
+          <button key={net.id}
+            onClick={() => { setActiveNetId(net.id); setMode("move"); setConnecting(null); }}
+            style={activeNetId === net.id ? SActive : S}
+            title={net.name}>
+            <span style={{ maxWidth: "80px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "10px" }}>{net.name}</span>
+          </button>
+        ))}
+        <button onClick={() => createNetwork()} title="Netzwerk erstellen"
+          style={{ ...S, color: "#4ECDC4", border: "1px dashed #2a2a3a", padding: "0 6px", fontSize: "14px", fontWeight: "bold" }}>+</button>
+        <div style={{ width: "1px", height: "14px", background: "#2a2a3a", margin: "0 2px" }} />
+        <button onClick={() => { setMode(m => m === "connect" ? "move" : "connect"); setConnecting(null); }}
+          title="Verbinden-Modus" style={mode === "connect" ? { ...S, background: "#2a2a3a", color: "#fff", fontWeight: "900" } : S}>—</button>
+        <button onClick={autoLayout} title="Auto-Layout" style={S}>✦</button>
+        <button onClick={undo} title="Rückgängig (Ctrl+Z)" disabled={histLen === 0} style={histLen > 0 ? S : SDim}>↩</button>
+        <button onClick={() => setShowSettings(true)} title="Einstellungen" style={S}>⚙</button>
+      </div>
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nets, activeNetId, mode, histLen]);
 
   // Sofort speichern bei Seitenentladen oder Fenster-Unmount
   useEffect(() => {
@@ -1167,29 +1199,6 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
           fontScale={fontScale} setFontScale={setFontScale}
         />
       )}
-
-      {/* ── Topbar ── */}
-      <div style={{ padding: "8px 12px", borderBottom: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", background: "#0d0d14", zIndex: 10, flexShrink: 0 }}>
-        <span style={{ fontSize: "13px", fontWeight: "700", letterSpacing: "0.05em", color: "#C8D8E8", marginRight: "2px" }}>◉</span>
-        {/* Network tabs */}
-        <div style={{ display: "flex", gap: "4px", flex: 1, flexWrap: "wrap", alignItems: "center" }}>
-          {nets.map(net => (
-            <button key={net.id} onClick={() => { setActiveNetId(net.id); setMode("move"); setConnecting(null); }}
-              style={{ padding: "4px 10px", borderRadius: "6px", border: `1px solid ${activeNetId === net.id ? "#C8D8E844" : "#2a2a3a"}`, background: activeNetId === net.id ? "#1a2a38" : "transparent", color: activeNetId === net.id ? "#C8D8E8" : "#555", cursor: "pointer", fontFamily: "inherit", fontSize: "11px", whiteSpace: "nowrap" }}>
-              {net.name}
-            </button>
-          ))}
-          <button onClick={() => createNetwork()} title="Netzwerk erstellen"
-            style={{ padding: "4px 8px", borderRadius: "6px", border: "1px dashed #2a2a3a", background: "transparent", color: "#4ECDC4", cursor: "pointer", fontFamily: "inherit", fontSize: "13px" }}>
-            +
-          </button>
-        </div>
-        <button onClick={() => { setMode(mode === "connect" ? "move" : "connect"); setConnecting(null); }} title="Verbinden-Modus"
-          style={{ height: "30px", padding: "0 10px", borderRadius: "6px", border: "1px solid #2a2a3a", cursor: "pointer", fontFamily: "inherit", background: mode === "connect" ? "#2a2a3a" : "transparent", color: mode === "connect" ? "#fff" : "#555", fontSize: "16px", fontWeight: "900" }}>—</button>
-        <button onClick={autoLayout} title="Auto-Layout" style={{ height: "30px", padding: "0 10px", borderRadius: "6px", border: "1px solid #2a2a3a", background: "transparent", color: "#aaa", cursor: "pointer", fontFamily: "inherit", fontSize: "16px" }}>✦</button>
-        <button onClick={undo} title="Rückgängig (Ctrl+Z)" disabled={histLen === 0} style={{ height: "30px", padding: "0 10px", borderRadius: "6px", border: "1px solid #2a2a3a", background: "transparent", color: histLen > 0 ? "#aaa" : "#333", cursor: histLen > 0 ? "pointer" : "default", fontFamily: "inherit", fontSize: "16px" }}>↩</button>
-        <button onClick={() => setShowSettings(true)} title="Einstellungen" style={{ height: "30px", padding: "0 10px", borderRadius: "6px", border: "1px solid #2a2a3a", background: "transparent", color: "#aaa", cursor: "pointer", fontFamily: "inherit", fontSize: "16px" }}>⚙</button>
-      </div>
 
       {/* ── Input row ── */}
       <div style={{ padding: "6px 12px", borderBottom: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: "8px", background: "#10101a", flexShrink: 0 }}>
