@@ -18,7 +18,7 @@ export default function MobileWindowPickerSheet({ open, onClose, onSelect }: Mob
 
   if (!open) return null;
 
-  const available = WINDOW_MODULES.filter(m => m.status !== "coming_soon");
+  const available = WINDOW_MODULES.filter(m => m.status !== "coming_soon" && m.status !== "hidden");
 
   return (
     <>

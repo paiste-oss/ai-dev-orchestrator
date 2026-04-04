@@ -10,7 +10,7 @@ export interface WindowModuleDefinition {
   description: string;
   defaultWidth: number;
   defaultHeight: number;
-  status: "active" | "beta" | "coming_soon";
+  status: "active" | "beta" | "coming_soon" | "hidden";
   canvasType: string; // type-String für CardData
 }
 
@@ -49,20 +49,20 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     id: "image_viewer",
     label: "Bild-Viewer",
     icon: "🖼",
-    description: "Bilder anzeigen, zoomen und schwenken. Unterstützt URLs und Datei-Upload.",
+    description: "Wird automatisch geöffnet beim Doppelklick auf ein Bild im Dokumentenfenster.",
     defaultWidth: 560,
     defaultHeight: 440,
-    status: "active",
+    status: "hidden",
     canvasType: "image_viewer",
   },
   {
     id: "file_viewer",
     label: "Datei-Viewer",
     icon: "📄",
-    description: "Dateien und PDFs direkt im Fenster anzeigen.",
+    description: "Wird automatisch geöffnet beim Doppelklick auf eine Datei im Dokumentenfenster.",
     defaultWidth: 680,
     defaultHeight: 560,
-    status: "active",
+    status: "hidden",
     canvasType: "file_viewer",
   },
   {

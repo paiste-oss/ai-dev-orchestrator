@@ -106,7 +106,7 @@ export default function TopBar({
                 <div className="fixed inset-0" style={{ zIndex: 99998 }} onClick={() => setShowAddMenu(false)} />
                 <div className="absolute right-0 top-8 min-w-[160px] rounded-xl border border-white/10 shadow-2xl overflow-hidden"
                   style={{ background: "rgba(8,12,22,0.97)", backdropFilter: "blur(16px)", zIndex: 99999 }}>
-                  {WINDOW_MODULES.filter(m => m.status !== "coming_soon").map(mod => (
+                  {WINDOW_MODULES.filter(m => m.status !== "coming_soon" && m.status !== "hidden").map(mod => (
                     <button
                       key={mod.id}
                       onClick={() => { onAddCard(mod.canvasType); setShowAddMenu(false); }}
