@@ -196,9 +196,18 @@ export default function ChatPage() {
   const { cameraOpen, videoRef, openCamera, closeCamera, capturePhoto } = useCamera();
   const { uiPrefs, setUiPrefs, loadPreferences, savePreferences } = useUiPrefs();
   const { speaking, setSpeaking, ttsEnabled, setTtsEnabled, audioRef, speak, stripMarkdown, unlockAudio } = useTTS(
-    uiPrefs.ttsDefault ?? false,
+    false,
     uiPrefs.ttsVoice ?? "female",
   );
+  // Sobald uiPrefs vom Backend geladen sind, TTS-Status auf den gespeicherten Wert setzen
+  const ttsDefaultSynced = useRef(false);
+  useEffect(() => {
+    if (ttsDefaultSynced.current) return;
+    if (uiPrefs.ttsDefault !== undefined) {
+      setTtsEnabled(uiPrefs.ttsDefault);
+      ttsDefaultSynced.current = true;
+    }
+  }, [uiPrefs.ttsDefault, setTtsEnabled]);
   const [emotion, setEmotion] = useState<string | null>(null);
 
   const firstName = user?.name?.split(" ")[0] ?? "";
