@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, apiFetchForm, clearSession, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
@@ -718,13 +718,13 @@ export default function ChatPage() {
   const bgColor = BG_COLORS[uiPrefs.background] ?? "#030712";
   const fontColor = FONT_COLORS[uiPrefs.fontColor] ?? "#ffffff";
 
-  // CSS-Variablen für Fenster — werden von CanvasCard genutzt
-  useEffect(() => {
+  // CSS-Variablen für Fenster — synchron vor dem Paint setzen (useLayoutEffect)
+  useLayoutEffect(() => {
     const val = WINDOW_BG_COLORS[uiPrefs.windowBg ?? "glass"] ?? "rgba(8, 12, 22, 0.92)";
     document.documentElement.style.setProperty("--window-bg", val);
   }, [uiPrefs.windowBg]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const val = FONT_COLORS[uiPrefs.fontColor] ?? "#ffffff";
     document.documentElement.style.setProperty("--window-font-color", val);
   }, [uiPrefs.fontColor]);
