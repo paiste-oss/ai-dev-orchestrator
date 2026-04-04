@@ -27,6 +27,7 @@ def build_system_prompt(
     knowledge_chunks: list[dict] | None = None,
     readable_docs: list | None = None,
     private_doc_names: list[str] | None = None,
+    netzwerk_context: str | None = None,
 ) -> str:
     """
     Baut den System-Prompt zusammen.
@@ -372,6 +373,10 @@ def build_system_prompt(
             f"\nRELEVANTES HINTERGRUNDWISSEN (aus verifizierten Quellen — nutze es wenn passend):\n"
             f"{chunks_text}"
         )
+
+    # ── Namensnetz ────────────────────────────────────────────────────────────
+    if netzwerk_context:
+        system_parts.append(netzwerk_context)
 
     # ── Relevante Erinnerungen ────────────────────────────────────────────────
     if relevant_memories:

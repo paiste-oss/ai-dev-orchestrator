@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { apiFetch } from "@/lib/auth";
+import { apiFetch, getToken } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -528,10 +528,12 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId }: P
   const lastClickedNode = useRef<{ type: string; id: string } | null>(null);
   const boardIdRef = useRef<string | null>(initialBoardId ?? null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestDataRef = useRef<AppData>(defaultData());
   const MAX_HISTORY = 50;
 
   // ── Backend persistence ────────────────────────────────────────────────────
   const scheduleSave = useCallback((d: AppData) => {
+    latestDataRef.current = d;
     const id = boardIdRef.current; if (!id) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
@@ -542,6 +544,28 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId }: P
         });
       } catch { /* ignore */ }
     }, 2000);
+  }, []);
+
+  // Sofort speichern bei Seitenentladen oder Fenster-Unmount
+  useEffect(() => {
+    const flush = () => {
+      const id = boardIdRef.current;
+      if (!id) return;
+      if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+      const token = getToken();
+      if (!token) return;
+      fetch(`${BACKEND_URL}/v1/windows/boards/${id}`, {
+        method: "PUT",
+        keepalive: true,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ data: latestDataRef.current }),
+      }).catch(() => {});
+    };
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      flush(); // auch beim Unmount (Fenster schließen) speichern
+    };
   }, []);
 
   useEffect(() => {

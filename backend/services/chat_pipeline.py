@@ -76,6 +76,23 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
         )
         style_prefs = [m.content for m in result_style.scalars().all()]
 
+    first_name = customer.name.split()[0] if customer.name else "du"
+
+    # Namensnetz des Users laden
+    netzwerk_context: str | None = None
+    try:
+        from models.window import WindowBoard
+        netz_result = await db.execute(
+            select(WindowBoard)
+            .where(WindowBoard.customer_id == customer.id, WindowBoard.board_type == "netzwerk")
+            .order_by(WindowBoard.updated_at.desc())
+            .limit(5)
+        )
+        netz_boards = netz_result.scalars().all()
+        netzwerk_context = _format_netzwerk(netz_boards, first_name)
+    except Exception:
+        pass
+
     # Kunden-Dokumente automatisch laden
     from models.document import CustomerDocument
     doc_result = await db.execute(
@@ -122,7 +139,6 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
             pass
 
     # System-Prompt
-    first_name = customer.name.split()[0] if customer.name else "du"
     system_prompt = build_system_prompt(
         first_name=first_name,
         baddi_config=baddi_config,
@@ -132,6 +148,7 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
         knowledge_chunks=knowledge_chunks or None,
         readable_docs=readable_docs,
         private_doc_names=[d.original_filename for d in private_docs],
+        netzwerk_context=netzwerk_context,
     )
 
     return {
@@ -485,3 +502,52 @@ def _push_short_term_memory(customer_id: str, user_msg: str, assistant_msg: str)
     r.lpush(key, json.dumps({"role": "assistant", "content": assistant_msg, "ts": time.time()}))
     r.ltrim(key, 0, 11)
     r.expire(key, 86400)
+
+
+def _format_netzwerk(boards: list, first_name: str) -> str | None:
+    """Formatiert Namensnetz-Boards als lesbaren Kontext für den System-Prompt."""
+    all_persons: list[dict] = []
+    all_networks: list[dict] = []
+
+    for board in boards:
+        data = board.data or {}
+        persons: list[dict] = data.get("persons", [])
+        networks: list[dict] = data.get("networks", [])
+        if not persons and not networks:
+            continue
+        person_map = {p["id"]: p for p in persons}
+        all_persons.extend(persons)
+        for net in networks:
+            members = [
+                person_map.get(m.get("personId", ""), {}).get("name") or "?"
+                for m in net.get("members", [])
+            ]
+            all_networks.append({
+                "name": net.get("name", "?"),
+                "members": members,
+                "note": net.get("note", ""),
+            })
+
+    if not all_persons:
+        return None
+
+    lines = [f"\nNAMENSNETZ von {first_name} (persönliche Kontakte — nutze dieses Wissen proaktiv):"]
+    lines.append(f"Personen ({len(all_persons)}):")
+    for p in all_persons:
+        name = p.get("name") or p.get("fullName") or "?"
+        note = (p.get("note") or "").strip()
+        entry = f"  - {name}"
+        if note:
+            entry += f": {note}"
+        lines.append(entry)
+
+    if all_networks:
+        lines.append(f"Netzwerke/Gruppen ({len(all_networks)}):")
+        for net in all_networks:
+            members_str = ", ".join(net["members"]) if net["members"] else "(keine Mitglieder)"
+            entry = f"  - {net['name']}: {members_str}"
+            if net["note"]:
+                entry += f" — {net['note']}"
+            lines.append(entry)
+
+    return "\n".join(lines)
