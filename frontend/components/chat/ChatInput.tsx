@@ -25,12 +25,15 @@ interface ChatInputProps {
   language?: string;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   compact?: boolean;
+  ttsEnabled?: boolean;
+  onTtsToggle?: () => void;
 }
 
 export default function ChatInput({
   input, onChange, onSend, onKeyDown, loading,
   attachedFiles, onFilesChange, onAttachClick, onCameraClick,
   onVoiceResult, buddyName, fontSize, voiceLang, language, textareaRef, compact = false,
+  ttsEnabled, onTtsToggle,
 }: ChatInputProps) {
   const handleVoiceResult = useCallback(onVoiceResult, [onVoiceResult]);
   const whisperPrompt = getWhisperPrompt(language, "chat");
@@ -62,7 +65,7 @@ export default function ChatInput({
           {/* Bottom bar */}
           <div className={`flex items-center justify-between px-2 ${compact ? "pt-0.5 pb-1" : "pt-1 pb-3"}`}>
             {/* Left: attach + camera */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1" style={{ flex: 1 }}>
               <button
                 type="button"
                 onClick={onAttachClick}
@@ -86,8 +89,22 @@ export default function ChatInput({
               </button>
             </div>
 
+            {/* Center: TTS toggle */}
+            <div className="flex items-center justify-center" style={{ flex: 1 }}>
+              {onTtsToggle && (
+                <button
+                  type="button"
+                  onClick={onTtsToggle}
+                  title={ttsEnabled ? "Stimme aus" : "Stimme ein"}
+                  className={`${compact ? "w-7 h-7" : "w-8 h-8"} flex items-center justify-center rounded-lg transition-all text-base ${ttsEnabled ? "text-emerald-400 hover:bg-emerald-500/10" : "text-gray-500 hover:text-gray-300 hover:bg-white/8"}`}
+                >
+                  {ttsEnabled ? "🔊" : "🔇"}
+                </button>
+              )}
+            </div>
+
             {/* Right: voice + send */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" style={{ flex: 1, justifyContent: "flex-end" }}>
               <VoiceButton
                 onResult={handleVoiceResult}
                 lang={voiceLang}

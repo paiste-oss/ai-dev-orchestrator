@@ -781,15 +781,7 @@ export default function ChatPage() {
           <MobilePinnedPanel
             card={activeCard}
             onClose={() => setMobilePanelOpen(false)}
-            headerExtra={
-              activeCard.id === CHAT_CARD_ID ? (
-                <button
-                  onClick={() => { if (ttsEnabled && audioRef.current) audioRef.current.pause(); else unlockAudio(); setTtsEnabled(v => !v); }}
-                  title={ttsEnabled ? "Stimme aus" : "Stimme ein"}
-                  className={`w-6 h-6 flex items-center justify-center rounded text-sm transition-colors ${ttsEnabled ? "text-emerald-400" : "text-gray-600"}`}
-                >{ttsEnabled ? "🔊" : "🔇"}</button>
-              ) : windowHeaders[activeCard.id]
-            }
+            headerExtra={windowHeaders[activeCard.id]}
           >
             {renderWindowContent(activeCard)}
           </MobilePinnedPanel>
@@ -837,6 +829,7 @@ export default function ChatPage() {
           onAttachClick={() => fileInputRef.current?.click()} onCameraClick={openCamera}
           onVoiceResult={handleVoiceResult} buddyName={uiPrefs.buddyName}
           fontSize={uiPrefs.fontSize} voiceLang={voiceLang} language={uiPrefs.language} textareaRef={textareaRef} compact
+          ttsEnabled={ttsEnabled} onTtsToggle={() => { if (ttsEnabled && audioRef.current) audioRef.current.pause(); else unlockAudio(); setTtsEnabled(v => !v); }}
         />
 
         {/* ── Hidden File Input ── */}
@@ -915,15 +908,7 @@ export default function ChatPage() {
             minimized={card.minimized}
             zIndex={card.zIndex}
             closable={card.id !== CHAT_CARD_ID}
-            headerExtra={card.id === CHAT_CARD_ID ? (
-              <button
-                onClick={() => { if (ttsEnabled && audioRef.current) audioRef.current.pause(); else unlockAudio(); setTtsEnabled(v => !v); }}
-                title={ttsEnabled ? "Stimme aus" : "Stimme ein"}
-                className={`w-6 h-6 flex items-center justify-center rounded text-sm transition-colors ${ttsEnabled ? "text-emerald-400" : "text-gray-600 hover:text-gray-300"}`}
-              >
-                {ttsEnabled ? "🔊" : "🔇"}
-              </button>
-            ) : windowHeaders[card.id]}
+            headerExtra={windowHeaders[card.id]}
             onMove={moveCard}
             onResize={resizeCard}
             onFocus={focusCard}
@@ -1037,6 +1022,7 @@ export default function ChatPage() {
           voiceLang={voiceLang}
           language={uiPrefs.language}
           textareaRef={textareaRef}
+          ttsEnabled={ttsEnabled} onTtsToggle={() => { if (ttsEnabled && audioRef.current) audioRef.current.pause(); else unlockAudio(); setTtsEnabled(v => !v); }}
         />
       </div>
 
