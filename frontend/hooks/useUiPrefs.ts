@@ -77,7 +77,6 @@ const DEFAULT_PREFS: UiPrefs = {
   chatWidth: "normal",
   showTimestamps: "hover",
   fontColor: "white",
-  chatMode: "fokus",
   avatarType: "robot",
   ttsDefault: false,
   ttsVoice: "female",

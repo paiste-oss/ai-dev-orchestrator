@@ -83,7 +83,6 @@ export interface UiPrefs {
   showTimestamps: string;
   backgroundImage?: string;
   fontColor: string;
-  chatMode: string;
   avatarType?: string;
   ttsDefault?: boolean;
   ttsVoice?: string;

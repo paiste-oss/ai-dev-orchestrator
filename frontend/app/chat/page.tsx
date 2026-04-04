@@ -826,26 +826,6 @@ export default function ChatPage() {
         />
 
         {/* ── Input (ganz unten) ── */}
-        {/* ── Modus-Toggle ── */}
-        <div className="flex justify-center pb-1 shrink-0">
-          <button
-            onClick={() => {
-              const next = uiPrefs.chatMode === "fokus" ? "plauder" : "fokus";
-              setUiPrefs(p => ({ ...p, chatMode: next }));
-              apiFetch(`${BACKEND_URL}/v1/user/preferences`, {
-                method: "POST", body: JSON.stringify({ chatMode: next }),
-              }).catch(() => {});
-            }}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium border transition-all"
-            style={{
-              background: uiPrefs.chatMode === "plauder" ? "rgba(234,179,8,0.1)" : "rgba(99,102,241,0.1)",
-              borderColor: uiPrefs.chatMode === "plauder" ? "rgba(234,179,8,0.3)" : "rgba(99,102,241,0.3)",
-              color: uiPrefs.chatMode === "plauder" ? "#fbbf24" : "#818cf8",
-            }}
-          >
-            {uiPrefs.chatMode === "plauder" ? "💬 Plauder-Modus" : "🎯 Fokus-Modus"}
-          </button>
-        </div>
 
         <ChatInput
           input={input} onChange={setInput} onSend={handleSend} onKeyDown={handleKeyDown}
@@ -1011,25 +991,6 @@ export default function ChatPage() {
 
       {/* ── FLOATING INPUT ── */}
       <div className="shrink-0 px-4 pb-3 pt-2" style={{ background: "transparent", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-        <div className="flex justify-center pb-1.5">
-          <button
-            onClick={() => {
-              const next = uiPrefs.chatMode === "fokus" ? "plauder" : "fokus";
-              setUiPrefs(p => ({ ...p, chatMode: next }));
-              apiFetch(`${BACKEND_URL}/v1/user/preferences`, {
-                method: "POST", body: JSON.stringify({ chatMode: next }),
-              }).catch(() => {});
-            }}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium border transition-all"
-            style={{
-              background: uiPrefs.chatMode === "plauder" ? "rgba(234,179,8,0.1)" : "rgba(99,102,241,0.1)",
-              borderColor: uiPrefs.chatMode === "plauder" ? "rgba(234,179,8,0.3)" : "rgba(99,102,241,0.3)",
-              color: uiPrefs.chatMode === "plauder" ? "#fbbf24" : "#818cf8",
-            }}
-          >
-            {uiPrefs.chatMode === "plauder" ? "💬 Plauder-Modus" : "🎯 Fokus-Modus"}
-          </button>
-        </div>
         <ChatInput
           input={input}
           onChange={setInput}
