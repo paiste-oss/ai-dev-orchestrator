@@ -781,6 +781,15 @@ export default function ChatPage() {
           <MobilePinnedPanel
             card={activeCard}
             onClose={() => setMobilePanelOpen(false)}
+            headerExtra={
+              activeCard.id === CHAT_CARD_ID ? (
+                <button
+                  onClick={() => { if (ttsEnabled && audioRef.current) audioRef.current.pause(); else unlockAudio(); setTtsEnabled(v => !v); }}
+                  title={ttsEnabled ? "Stimme aus" : "Stimme ein"}
+                  className={`w-6 h-6 flex items-center justify-center rounded text-sm transition-colors ${ttsEnabled ? "text-emerald-400" : "text-gray-600"}`}
+                >{ttsEnabled ? "🔊" : "🔇"}</button>
+              ) : windowHeaders[activeCard.id]
+            }
           >
             {renderWindowContent(activeCard)}
           </MobilePinnedPanel>
