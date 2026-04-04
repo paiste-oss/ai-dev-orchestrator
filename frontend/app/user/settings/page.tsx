@@ -12,10 +12,14 @@ import { NotificationChannelSection } from "@/components/user/settings/Notificat
 import { ChatAppearanceSection } from "@/components/user/settings/ChatAppearanceSection";
 
 interface Me {
-  id: string; name: string; email: string; role: string;
+  id: string; name: string; first_name: string | null; last_name: string | null;
+  email: string; role: string;
   memory_consent: boolean; language: string; phone: string | null;
   address_street: string | null; address_zip: string | null;
   address_city: string | null; address_country: string | null;
+  billing_same_as_address: boolean;
+  billing_street: string | null; billing_zip: string | null;
+  billing_city: string | null; billing_country: string | null;
   two_fa_enabled: boolean; phone_verified: boolean;
   notification_channel: "sms" | "email";
 }

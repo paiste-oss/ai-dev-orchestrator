@@ -33,6 +33,8 @@ class Customer(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String, nullable=False)
+    first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String, nullable=False, default="")
     role: Mapped[str] = mapped_column(String, default="customer")  # admin, customer
@@ -51,6 +53,13 @@ class Customer(Base):
     address_zip: Mapped[str | None] = mapped_column(String(20), nullable=True)
     address_city: Mapped[str | None] = mapped_column(String(100), nullable=True)
     address_country: Mapped[str | None] = mapped_column(String(100), nullable=True, default="Schweiz")
+
+    # Rechnungsadresse
+    billing_same_as_address: Mapped[bool] = mapped_column(Boolean, default=True)
+    billing_street: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    billing_zip: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    billing_city: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    billing_country: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Beruf & Umfeld
     workplace: Mapped[str | None] = mapped_column(String(200), nullable=True)   # Arbeitgeber / Firma

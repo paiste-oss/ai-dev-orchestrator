@@ -18,7 +18,9 @@ class LoginRequest(BaseModel):
 
 
 class RegisterRequest(BaseModel):
-    name: str
+    name: str                        # Rufname (wie Baddi den User anspricht)
+    first_name: str | None = None
+    last_name: str | None = None
     email: str
     password: str
     birth_year: int | None = None
@@ -108,6 +110,8 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
     user = Customer(
         name=data.name,
+        first_name=data.first_name or None,
+        last_name=data.last_name or None,
         email=data.email.lower(),
         birth_year=data.birth_date.year if data.birth_date else data.birth_year,
         birth_date=data.birth_date,
@@ -153,6 +157,8 @@ async def me(user: Customer = Depends(get_current_user)):
     return {
         "id": str(user.id),
         "name": user.name,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
         "email": user.email,
         "role": user.role,
         "memory_consent": user.memory_consent,
@@ -162,6 +168,11 @@ async def me(user: Customer = Depends(get_current_user)):
         "address_zip": user.address_zip,
         "address_city": user.address_city,
         "address_country": user.address_country,
+        "billing_same_as_address": user.billing_same_as_address,
+        "billing_street": user.billing_street,
+        "billing_zip": user.billing_zip,
+        "billing_city": user.billing_city,
+        "billing_country": user.billing_country,
         "two_fa_enabled": user.two_fa_enabled,
         "phone_verified": user.phone_verified,
         "notification_channel": user.notification_channel or "sms",

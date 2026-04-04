@@ -12,6 +12,8 @@ class CustomerCreate(BaseModel):
 class CustomerOut(BaseModel):
     id: uuid.UUID
     name: str
+    first_name: str | None = None
+    last_name: str | None = None
     email: str
     role: str
     is_active: bool
@@ -27,6 +29,13 @@ class CustomerOut(BaseModel):
     address_zip: str | None = None
     address_city: str | None = None
     address_country: str | None = None
+
+    # Rechnungsadresse
+    billing_same_as_address: bool = True
+    billing_street: str | None = None
+    billing_zip: str | None = None
+    billing_city: str | None = None
+    billing_country: str | None = None
 
     # Beruf & Umfeld
     workplace: str | None = None
@@ -70,12 +79,19 @@ class CustomerUpdate(BaseModel):
 
 class SelfUpdateRequest(BaseModel):
     name: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
     language: str | None = None
     phone: str | None = None
     address_street: str | None = None
     address_zip: str | None = None
     address_city: str | None = None
     address_country: str | None = None
+    billing_same_as_address: bool | None = None
+    billing_street: str | None = None
+    billing_zip: str | None = None
+    billing_city: str | None = None
+    billing_country: str | None = None
     memory_consent: bool | None = None
     notification_channel: str | None = None   # 'sms' | 'email'
 

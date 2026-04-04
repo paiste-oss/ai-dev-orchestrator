@@ -37,7 +37,7 @@ export default function RegisterPage() {
 
   const [language, setLanguage] = useState("de");
   const [form, setForm] = useState({
-    vorname: "", nachname: "",
+    rufname: "", vorname: "", nachname: "",
     geburtstag: "", geburtsmonat: "", geburtsjahr: "",
     email: "", mobile: "", passwort: "", passwortBestaetigung: "",
     website: "",
@@ -88,7 +88,9 @@ export default function RegisterPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: `${form.vorname} ${form.nachname}`.trim(),
+          name: form.rufname.trim() || form.vorname.trim() || `${form.vorname} ${form.nachname}`.trim(),
+          first_name: form.vorname.trim() || null,
+          last_name: form.nachname.trim() || null,
           email: form.email,
           password: form.passwort,
           birth_year: Number(form.geburtsjahr) || null,
@@ -146,15 +148,25 @@ export default function RegisterPage() {
             onChange={(e) => set("website", e.target.value)}
             style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
 
+          <div className="space-y-1">
+            <label className="text-sm text-gray-400">
+              Rufname <span className="text-gray-600">(wie Baddi dich anspricht)</span>
+            </label>
+            <input value={form.rufname} onChange={(e) => set("rufname", e.target.value)}
+              placeholder="z. B. Anna oder Müller"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
+            <p className="text-xs text-gray-600">Leer lassen = Baddi verwendet deinen Vornamen.</p>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-sm text-gray-400">Vorname</label>
+              <label className="text-sm text-gray-400">Vorname <span className="text-gray-600">(rechtlich)</span></label>
               <input required value={form.vorname} onChange={(e) => set("vorname", e.target.value)}
                 placeholder="Anna"
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
             </div>
             <div className="space-y-1">
-              <label className="text-sm text-gray-400">Nachname</label>
+              <label className="text-sm text-gray-400">Nachname <span className="text-gray-600">(rechtlich)</span></label>
               <input required value={form.nachname} onChange={(e) => set("nachname", e.target.value)}
                 placeholder="Müller"
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />

@@ -44,12 +44,17 @@ export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUr
   const userLang = typeof navigator !== "undefined" ? navigator.language : "de-CH";
   const acceptLang = `${userLang},${userLang.split("-")[0]};q=0.9`;
 
-  // Auto-laden wenn initialUrl gesetzt
-  if (initialUrl && !didAutoLoad.current && !loadedUrl) {
-    didAutoLoad.current = true;
-    const normalized = initialUrl.startsWith("http") ? initialUrl : `https://${initialUrl}`;
-    setTimeout(() => { setLoadedUrl(normalized); setActiveStep(0); setFrameError(false); }, 0);
-  }
+  // Auto-laden wenn initialUrl gesetzt (nach Mount)
+  useEffect(() => {
+    if (initialUrl && !didAutoLoad.current && !loadedUrl) {
+      didAutoLoad.current = true;
+      const normalized = initialUrl.startsWith("http") ? initialUrl : `https://${initialUrl}`;
+      setLoadedUrl(normalized);
+      setActiveStep(0);
+      setFrameError(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const currentStep = guide?.steps[activeStep] ?? null;
 
