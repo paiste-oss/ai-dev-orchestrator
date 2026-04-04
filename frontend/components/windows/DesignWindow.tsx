@@ -226,12 +226,6 @@ export default function DesignWindow({ prefs, onPrefsChange }: Props) {
           ]} />
         </OptionRow>
 
-        <OptionRow label="Nachrichten-Stil">
-          <Chips value={prefs.bubbleStyle} onChange={v => update({ bubbleStyle: v })} options={[
-            { v: "rounded", l: "Abgerundet" }, { v: "flat", l: "Flach" }, { v: "minimal", l: "Minimal" },
-          ]} />
-        </OptionRow>
-
         <OptionRow label="Zeilenabstand">
           <Chips value={prefs.lineSpacing} onChange={v => update({ lineSpacing: v })} options={[
             { v: "compact", l: "Kompakt" }, { v: "normal", l: "Normal" }, { v: "wide", l: "Weit" },

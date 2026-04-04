@@ -80,7 +80,6 @@ export interface UiPrefs {
   language: string;
   buddyName: string;
   chatWidth: string;
-  bubbleStyle: string;
   showTimestamps: string;
   backgroundImage?: string;
   fontColor: string;

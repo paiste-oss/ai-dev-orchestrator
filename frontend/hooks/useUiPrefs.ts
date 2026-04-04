@@ -50,7 +50,6 @@ const DEFAULT_PREFS: UiPrefs = {
   language: "de",
   buddyName: "Baddi",
   chatWidth: "normal",
-  bubbleStyle: "rounded",
   showTimestamps: "hover",
   fontColor: "white",
   chatMode: "fokus",
