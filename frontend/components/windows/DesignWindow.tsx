@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { UiPrefs } from "@/lib/chat-types";
-import { ACCENT_COLORS as ACCENT_COLORS_MAP, BG_COLORS, FONT_COLORS, WINDOW_BG_COLORS, WINDOW_BG_SOLID } from "@/hooks/useUiPrefs";
+import { ACCENT_COLORS as ACCENT_COLORS_MAP, BG_COLORS, WINDOW_BG_SOLID } from "@/hooks/useUiPrefs";
 
 interface Props {
   prefs: UiPrefs;
@@ -46,10 +46,10 @@ const ACCENT_COLORS = Object.entries(ACCENT_COLORS_MAP).map(([v, hex]) => ({ v, 
 
 const WINDOW_BG_OPTIONS = Object.entries(WINDOW_BG_SOLID).map(([v, hex]) => ({ v, hex }));
 
-const FONT_COLOR_LABELS: Record<string, string> = {
-  white: "Weiss", silver: "Silber", warm: "Warm", green: "Grün", blue: "Blau", rose: "Rosa", black: "Schwarz",
-};
-const FONT_COLOR_OPTIONS = Object.entries(FONT_COLORS).map(([v, hex]) => ({ v, hex, l: FONT_COLOR_LABELS[v] ?? v }));
+const FONT_COLOR_OPTIONS = [
+  { v: "white", hex: "#ffffff", l: "Weiss" },
+  { v: "black", hex: "#111111", l: "Schwarz" },
+];
 
 const BG_LABELS: Record<string, string> = {
   dark: "Dunkel", darker: "Tiefschwarz", lighter: "Grau",

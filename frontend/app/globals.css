@@ -135,6 +135,16 @@ body {
   animation: shimmer 1.6s infinite;
 }
 
+/* ── Fenster Schriftfarbe (Hell-Theme) ────────────────────────────────────── */
+[data-window-theme="light"] .window-card {
+  color: #111111;
+}
+[data-window-theme="light"] .window-card .text-white,
+[data-window-theme="light"] .window-card [class*="text-gray-"],
+[data-window-theme="light"] .window-card [class*="text-slate-"] {
+  color: #111111 !important;
+}
+
 /* Desktop: SVG-Icons 10% grösser */
 @media (min-width: 1024px) {
   svg.w-3    { width: 13px !important; height: 13px !important; }

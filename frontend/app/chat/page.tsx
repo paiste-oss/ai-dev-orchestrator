@@ -727,6 +727,7 @@ export default function ChatPage() {
   useLayoutEffect(() => {
     const val = FONT_COLORS[uiPrefs.fontColor] ?? "#ffffff";
     document.documentElement.style.setProperty("--window-font-color", val);
+    document.documentElement.setAttribute("data-window-theme", uiPrefs.fontColor === "black" ? "light" : "dark");
   }, [uiPrefs.fontColor]);
   const bgStyle = uiPrefs.backgroundImage
     ? { backgroundImage: `url(${uiPrefs.backgroundImage})`, backgroundSize: "cover", backgroundPosition: "center", color: fontColor }

@@ -98,7 +98,7 @@ function CanvasCard({
         color: "var(--window-font-color, #ffffff)",
         backdropFilter: "blur(16px)",
       }}
-      className="flex flex-col rounded-2xl border border-white/8 shadow-[0_8px_40px_rgba(0,0,0,0.7)]"
+      className="window-card flex flex-col rounded-2xl border border-white/8 shadow-[0_8px_40px_rgba(0,0,0,0.7)]"
       onMouseDown={() => onFocus(id)}
     >
       {/* ── Header (drag handle) ── */}
