@@ -581,7 +581,8 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
       boardIdRef.current = initialBoardId;
       loadBoard(initialBoardId);
     } else {
-      createBoard();
+      // Kein boardId in localStorage (z.B. anderes Gerät) → Backend nach vorhandenem Board fragen
+      findOrCreateBoard();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -589,7 +590,7 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
   async function loadBoard(id: string) {
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/windows/boards/${id}`);
-      if (!res.ok) { await createBoard(); return; }
+      if (!res.ok) { await findOrCreateBoard(); return; }
       const board = await res.json();
       const d: AppData = board.data ?? defaultData();
       if (!d.persons) d.persons = [];
@@ -597,8 +598,33 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
       if (!d.connections) d.connections = [];
       setData(d);
       if (d.networks.length > 0) setActiveNetId(d.networks[0].id);
-    } catch { await createBoard(); }
+    } catch { await findOrCreateBoard(); }
     setLoading(false);
+  }
+
+  async function findOrCreateBoard() {
+    try {
+      // Vorhandenes Netzwerk-Board des Users suchen (geräteübergreifend)
+      const listRes = await apiFetch(`${BACKEND_URL}/v1/windows/boards`);
+      if (listRes.ok) {
+        const boards: Array<{ id: string; board_type: string; data: AppData }> = await listRes.json();
+        const existing = boards.find(b => b.board_type === "netzwerk");
+        if (existing) {
+          boardIdRef.current = existing.id;
+          onBoardId?.(existing.id);
+          const d: AppData = existing.data ?? defaultData();
+          if (!d.persons) d.persons = [];
+          if (!d.networks) d.networks = [];
+          if (!d.connections) d.connections = [];
+          setData(d);
+          if (d.networks.length > 0) setActiveNetId(d.networks[0].id);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch { /* fallthrough */ }
+    // Kein Board vorhanden → neu erstellen
+    await createBoard();
   }
 
   async function createBoard() {
