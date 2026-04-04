@@ -114,15 +114,6 @@ export default function DesignWindow({ prefs, onPrefsChange }: Props) {
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
 
-        <OptionRow label="Name des Baddies">
-          <input
-            value={prefs.buddyName}
-            onChange={e => update({ buddyName: e.target.value.slice(0, 30) })}
-            placeholder="Baddi"
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/25 transition-colors"
-          />
-        </OptionRow>
-
         <OptionRow label="Sprache">
           <Chips value={prefs.language} onChange={v => update({ language: v })} options={[
             { v: "de", l: "Deutsch" }, { v: "en", l: "English" },
