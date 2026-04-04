@@ -1,19 +1,32 @@
-from datetime import date, datetime
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import date, datetime,timezone
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, field_validator
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from core.database import get_db
-from core.security import hash_password, verify_password, create_access_token, create_temp_token, decode_temp_token
+from core.security import hash_password, verify_password, create_access_token, create_temp_token, decode_temp_token, token_blacklist_key
 from core.dependencies import get_current_user
 from models.customer import Customer
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def _get_real_ip(request: Request) -> str:
+    forwarded = request.headers.get("CF-Connecting-IP") or request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=_get_real_ip)
+
+
 class LoginRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 
@@ -21,13 +34,24 @@ class RegisterRequest(BaseModel):
     name: str                        # Rufname (wie Baddi den User anspricht)
     first_name: str | None = None
     last_name: str | None = None
-    email: str
+    email: EmailStr
     password: str
     birth_year: int | None = None
     birth_date: date | None = None
     tos_accepted: bool = False       # Pflicht: AGB & Datenschutz
     memory_consent: bool = True      # Optional: Langzeitgedächtnis
     phone: str | None = None         # Mobilnummer für 2FA
+
+    @field_validator("password")
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Passwort muss mindestens 8 Zeichen lang sein")
+        if not any(c.isupper() for c in v):
+            raise ValueError("Passwort muss mindestens einen Grossbuchstaben enthalten")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Passwort muss mindestens eine Ziffer enthalten")
+        return v
 
 
 class TokenResponse(BaseModel):
@@ -47,7 +71,8 @@ class TwoFAResponse(BaseModel):
 # ─── Login ────────────────────────────────────────────────────────────────────
 
 @router.post("/login")
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, data: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Customer).where(Customer.email == data.email.lower()))
     user = result.scalar_one_or_none()
 
@@ -78,7 +103,8 @@ class Verify2FARequest(BaseModel):
 
 
 @router.post("/verify-2fa", response_model=TokenResponse)
-async def verify_2fa(data: Verify2FARequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def verify_2fa(request: Request, data: Verify2FARequest, db: AsyncSession = Depends(get_db)):
     try:
         email = decode_temp_token(data.temp_token)
     except (JWTError, ValueError):
@@ -100,7 +126,8 @@ async def verify_2fa(data: Verify2FARequest, db: AsyncSession = Depends(get_db))
 # ─── Register ─────────────────────────────────────────────────────────────────
 
 @router.post("/register", status_code=201, response_model=TokenResponse)
-async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def register(request: Request, data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if not data.tos_accepted:
         raise HTTPException(status_code=422, detail="AGB und Datenschutzerklärung müssen akzeptiert werden.")
 
@@ -117,7 +144,7 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
         birth_date=data.birth_date,
         hashed_password=hash_password(data.password),
         role="customer",
-        tos_accepted_at=datetime.utcnow(),
+        tos_accepted_at=datetime.now(timezone.utc),
         memory_consent=data.memory_consent,
         phone=data.phone or None,
     )
@@ -127,6 +154,26 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
     token = create_access_token(subject=user.email, role=user.role)
     return TokenResponse(access_token=token, role=user.role, name=user.name, email=user.email)
+
+
+# ─── Logout ───────────────────────────────────────────────────────────────────
+
+@router.post("/logout", status_code=204)
+async def logout(
+    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
+):
+    """Revoziert den aktuellen JWT-Token (Blacklist via Redis, TTL = Restlaufzeit)."""
+    from core.redis_client import get_async_redis
+    from jose import jwt as _jwt
+    token = credentials.credentials
+    try:
+        payload = _jwt.decode(token, "", algorithms=[settings.algorithm], options={"verify_signature": False})
+        import time
+        ttl = max(1, int(payload.get("exp", 0) - time.time()))
+    except Exception:
+        ttl = settings.access_token_expire_minutes * 60
+    r = await get_async_redis()
+    await r.setex(token_blacklist_key(token), ttl, "1")
 
 
 # ─── Passwort ändern ──────────────────────────────────────────────────────────
@@ -240,7 +287,12 @@ async def disable_2fa(
 # ─── Helper ───────────────────────────────────────────────────────────────────
 
 def _mask_phone(phone: str) -> str:
-    """Maskiert Telefonnummer für Frontend-Anzeige, z.B. '+41 79 *** ** 23'."""
-    if len(phone) < 4:
+    """Maskiert Telefonnummer für Frontend-Anzeige, z.B. '+41 79 *** ** 23'.
+    Zeigt die ersten 4 und letzten 2 Zeichen, der Rest wird mit * ersetzt.
+    """
+    if len(phone) < 6:
         return "***"
-    return phone[:-4].replace(phone[2:-4], "*" * len(phone[2:-4])) + phone[-2:]
+    visible_prefix = phone[:4]
+    visible_suffix = phone[-2:]
+    masked_middle = "*" * (len(phone) - 6)
+    return f"{visible_prefix}{masked_middle}{visible_suffix}"

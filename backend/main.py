@@ -1,4 +1,6 @@
+import logging
 import os
+import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -62,16 +64,21 @@ app = FastAPI(title="AI Buddy", version="2.0.0", lifespan=lifespan, docs_url=Non
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+_PROD_ORIGINS = [
+    "https://baddi.ch",
+    "https://www.baddi.ch",
+    "https://baddi.me",
+    "https://www.baddi.me",
+]
+_DEV_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+]
+_CORS_ORIGINS = _PROD_ORIGINS + (_DEV_ORIGINS if settings.environment != "production" else [])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://baddi.ch",
-        "https://www.baddi.ch",
-        "https://baddi.me",
-        "https://www.baddi.me",
-        "http://localhost:3000",
-        "http://localhost:3001",
-    ],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
@@ -106,6 +113,32 @@ app.include_router(transcribe.router, prefix="/v1")
 app.include_router(dictations.router, prefix="/v1")
 app.include_router(health_admin.router, prefix="/v1")
 app.include_router(assistenz.router, prefix="/v1")
+
+
+@app.middleware("http")
+async def correlation_id_middleware(request: Request, call_next):
+    """Hängt eine Request-ID an jeden Request und jede Response.
+    Wird von Uvicorn-Logs via request.state.correlation_id referenzierbar.
+    """
+    cid = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    request.state.correlation_id = cid
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = cid
+    return response
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Globaler Fallback — verhindert, dass unbehandelte Fehler den Server zum Absturz bringen."""
+    cid = getattr(request.state, "correlation_id", "—")
+    logging.getLogger("uvicorn.error").exception(
+        "[%s] Unbehandelter Fehler: %s %s", cid, request.method, request.url.path, exc_info=exc
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Interner Serverfehler"},
+        headers={"X-Request-ID": cid},
+    )
 
 
 @app.get("/")

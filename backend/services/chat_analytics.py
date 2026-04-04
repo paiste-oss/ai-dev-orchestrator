@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from datetime import datetime
+from datetime import datetime,timezone
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,7 +44,7 @@ async def record_analytics(
     try:
         customer_id = str(customer.id)
         session_hash = hashlib.sha256(customer_id.encode()).hexdigest()[:12]
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         tools_str = ", ".join(tools_used)[:500] if tools_used else ""
 
         await db.execute(

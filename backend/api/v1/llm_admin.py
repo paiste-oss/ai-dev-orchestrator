@@ -171,7 +171,7 @@ async def check_updates(_admin: Customer = Depends(require_admin)):
             "ollama_news":  ollama_news.get("results", []),
             "claude_news":  claude_news.get("results", []),
             "gemini_news":  gemini_news.get("results", []),
-            "checked_at":   datetime.datetime.utcnow().isoformat() + "Z",
+            "checked_at":   datetime.datetime.now(timezone.utc).isoformat() + "Z",
         }
     except Exception as e:
         return {"error": str(e), "ollama_news": [], "claude_news": [], "gemini_news": []}

@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -44,3 +45,9 @@ def decode_temp_token(token: str) -> str:
     if payload.get("scope") != "2fa_pending":
         raise ValueError("Ungültiger Token-Scope")
     return payload["sub"]
+
+
+def token_blacklist_key(token: str) -> str:
+    """Redis-Key für die Token-Blacklist (SHA-256-Hash des Tokens)."""
+    digest = hashlib.sha256(token.encode()).hexdigest()[:32]
+    return f"auth:blacklist:{digest}"

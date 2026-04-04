@@ -8,31 +8,56 @@ Aufteilung in drei Phasen:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-from datetime import datetime
+from datetime import datetime,timezone
 from typing import Any
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from core.redis_client import redis_sync
+from core.database import AsyncSessionLocal
+from core.redis_client import get_async_redis
 from core.utils import safe_json_loads
+from models.capability_request import CapabilityRequest
 from models.chat import ChatMessage, MemoryItem
 from models.customer import Customer
-from services.chat_system_prompt import build_system_prompt
-from services.chat_markers import process_markers
-from services.chat_analytics import record_analytics
-from services.memory_vector_store import search_memories, get_style_memories
-from services.billing_service import check_and_bill_tokens
+from models.document import CustomerDocument
+from models.window import WindowBoard
 from services.buddy_agent import run_buddy_chat
+from services.billing_service import check_and_bill_tokens
+from services.chat_analytics import record_analytics
+from services.chat_markers import process_markers
+from services.chat_system_prompt import build_system_prompt
+from services.entwicklung_engine import analyse_capability_request
+from services.knowledge_store import search_global_knowledge, fetch_topic_chunks
 from services.llm_gateway import chat_with_claude, chat_with_gemini, chat_with_openai
+from services.memory_vector_store import search_memories, get_style_memories
+from services.tool_registry import TOOL_CATALOG
+from tasks.memory_manager import process_memory
 
 _log = logging.getLogger(__name__)
 
 _HISTORY_WINDOW = 20
 _CONTEXT_WINDOW = 10
+
+# Fallback-Boost-Regeln — überschreibbar via baddi_config["knowledge_boost"] in Redis.
+# Format: Liste von {terms, titles, max_per_title}
+_DEFAULT_KNOWLEDGE_BOOST: list[dict] = [
+    {
+        "terms": ["iv ", " iv,", " iv.", "invalidenversicherung", "ivg", "ivv",
+                  "medas", "invaliditätsgrad", "iv-stelle", "eingliederung",
+                  "iv-rente", "iv-anmeldung", "ahv/iv", "ergänzungsleistungen"],
+        "titles": [
+            "IV-Anmeldeprozess Schweiz — Vollständiger Leitfaden (alle Phasen, Fristen, Tipps)",
+            "Bundesgesetz über die Invalidenversicherung (IVG)",
+            "Verordnung über die Invalidenversicherung (IVV)",
+        ],
+        "max_per_title": 2,
+    },
+]
 
 
 # ── Phase 1: Kontext laden ────────────────────────────────────────────────────
@@ -52,7 +77,7 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
     prior_messages = [{"role": m.role, "content": m.content} for m in history[-_CONTEXT_WINDOW:]]
 
     # Globale Baddi-Config
-    baddi_config = _load_global_baddi_config()
+    baddi_config = await _load_global_baddi_config()
 
     # Memories aus Qdrant (Fallback: PostgreSQL)
     try:
@@ -81,7 +106,6 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
     # Namensnetz des Users laden
     netzwerk_context: str | None = None
     try:
-        from models.window import WindowBoard
         netz_result = await db.execute(
             select(WindowBoard)
             .where(WindowBoard.customer_id == customer.id, WindowBoard.board_type == "netzwerk")
@@ -94,7 +118,6 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
         pass
 
     # Kunden-Dokumente automatisch laden
-    from models.document import CustomerDocument
     doc_result = await db.execute(
         select(CustomerDocument)
         .where(
@@ -107,34 +130,33 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
     all_docs = doc_result.scalars().all()
     readable_docs = [d for d in all_docs if d.baddi_readable and d.extracted_text]
     private_docs  = [d for d in all_docs if not d.baddi_readable]
+    # Vorgeladene Docs als Cache — verhindert zweiten DB-Query in _embed_documents
+    doc_cache: dict[str, Any] = {str(d.id): d for d in all_docs}
 
     # Globale Wissensbasis
     knowledge_chunks: list[dict] = []
     if baddi_config.get("knowledge_enabled", True):
         try:
-            from services.knowledge_store import search_global_knowledge, fetch_topic_chunks
             knowledge_chunks = search_global_knowledge(
                 query=message,
                 top_k=int(baddi_config.get("knowledge_max_results", 6)),
                 min_score=float(baddi_config.get("knowledge_min_score", 0.60)),
                 domains=baddi_config.get("knowledge_domains") or None,
             )
-            # Themen-Boost: Bei IV/AHV-Anfragen direkt relevante Chunks injizieren
+            # Themen-Boost: konfigurierbar via baddi_config["knowledge_boost"]
+            # Format: [{"terms": ["..."], "titles": ["..."]}]
+            # Fallback: eingebaute IV/AHV-Regel falls nichts konfiguriert.
+            boost_rules = baddi_config.get("knowledge_boost") or _DEFAULT_KNOWLEDGE_BOOST
             _msg_lower = message.lower()
-            _iv_terms = ["iv ", " iv,", " iv.", "invalidenversicherung", "ivg", "ivv",
-                         "medas", "invaliditätsgrad", "iv-stelle", "eingliederung",
-                         "iv-rente", "iv-anmeldung", "ahv/iv", "ergänzungsleistungen"]
-            if any(t in _msg_lower for t in _iv_terms):
-                boosted = fetch_topic_chunks(
-                    titles=["IV-Anmeldeprozess Schweiz — Vollständiger Leitfaden (alle Phasen, Fristen, Tipps)",
-                            "Bundesgesetz über die Invalidenversicherung (IVG)",
-                            "Verordnung über die Invalidenversicherung (IVV)"],
-                    max_per_title=2,
-                )
-                # Deduplizieren und vorne einfügen
-                existing_texts = {c["text"][:100] for c in knowledge_chunks}
-                extra = [c for c in boosted if c["text"][:100] not in existing_texts]
-                knowledge_chunks = extra + knowledge_chunks
+            for rule in boost_rules:
+                if any(t in _msg_lower for t in rule.get("terms", [])):
+                    boosted = fetch_topic_chunks(
+                        titles=rule.get("titles", []),
+                        max_per_title=rule.get("max_per_title", 2),
+                    )
+                    existing_texts = {c["text"][:100] for c in knowledge_chunks}
+                    extra = [c for c in boosted if c["text"][:100] not in existing_texts]
+                    knowledge_chunks = extra + knowledge_chunks
         except Exception:
             pass
 
@@ -156,6 +178,7 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
         "baddi_config": baddi_config,
         "system_prompt": system_prompt,
         "system_prompt_name": baddi_config.get("name") or baddi_config.get("system_prompt_name") or "Standard",
+        "doc_cache": doc_cache,
     }
 
 
@@ -169,12 +192,10 @@ async def execute_llm(
     prior_messages: list[dict],
     system_prompt: str,
     db: AsyncSession,
+    doc_cache: dict | None = None,
 ) -> dict:
     """Führt den LLM-Call aus (Vision / Text + Tools + Fallbacks)."""
-    from services.tool_registry import TOOL_CATALOG
-
     provider = "claude"
-    _chat_mode = (customer.ui_preferences or {}).get("chatMode", "fokus")
     model_name = "claude-sonnet-4-6"
     response_text: str | None = None
     tokens_used: int = 0
@@ -184,8 +205,8 @@ async def execute_llm(
     structured_data: dict | None = None
     tools_called: list[str] = []
 
-    # Dokumente in Nachricht einbetten
-    user_message = await _embed_documents(message, document_ids, customer, db)
+    # Dokumente in Nachricht einbetten — doc_cache aus load_context verhindert zweiten DB-Query
+    user_message = await _embed_documents(message, document_ids, customer, db, doc_cache or {})
 
     if images:
         response_text, tokens_used, errors = await _run_vision(
@@ -219,7 +240,8 @@ async def execute_llm(
 
 
 async def _embed_documents(
-    message: str, document_ids: list[str] | None, customer: Customer, db: AsyncSession
+    message: str, document_ids: list[str] | None, customer: Customer, db: AsyncSession,
+    doc_cache: dict | None = None,
 ) -> str:
     if not document_ids:
         return message
@@ -228,7 +250,9 @@ async def _embed_documents(
     doc_parts: list[str] = []
     for doc_id in document_ids:
         try:
-            doc = await db.get(CustomerDocument, _uuid.UUID(doc_id))
+            # Cache-Treffer aus load_context vermeidet einen DB-Roundtrip pro angehängtem Dokument
+            import uuid as _uuid
+            doc = (doc_cache or {}).get(doc_id) or await db.get(CustomerDocument, _uuid.UUID(doc_id))
             if doc and doc.customer_id == customer.id and doc.is_active and doc.extracted_text and doc.baddi_readable:
                 doc_text = doc.extracted_text[:12000]
                 truncated = "\n[... Inhalt gekürzt]" if len(doc.extracted_text) > 12000 else ""
@@ -362,10 +386,10 @@ async def finalize(
     llm_result: dict,
     system_prompt_name: str,
     db: AsyncSession,
-) -> tuple[str, dict | None, dict | None]:
+) -> tuple[str, str, str, dict | None, dict | None, str | None]:
     """
     Verarbeitet Marker, persistiert, bucht, startet Background-Tasks.
-    Gibt (response_text, structured_data, ui_update) zurück.
+    Gibt (message_id, response_text, response_type, structured_data, ui_update, emotion) zurück.
     """
     customer_id = str(customer.id)
     response_text = llm_result["response_text"]
@@ -420,7 +444,7 @@ async def finalize(
                                 tokens_used=llm_result["tokens_used"])
     db.add(user_msg)
     db.add(assistant_msg)
-    customer.last_seen = datetime.utcnow()
+    customer.last_seen = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(assistant_msg)
 
@@ -441,13 +465,12 @@ async def finalize(
 
     # CapabilityRequest im Hintergrund
     if marker_result.capability_intent:
-        _schedule_capability_request(customer_id, original_message, marker_result.capability_intent)
+        await _schedule_capability_request(customer_id, original_message, marker_result.capability_intent)
 
     # Memory-Extraktion im Hintergrund
-    _push_short_term_memory(customer_id, original_message, response_text)
+    await _push_short_term_memory(customer_id, original_message, response_text)
     if len(original_message.strip()) >= 20:
         try:
-            from tasks.memory_manager import process_memory
             process_memory.delay(customer_id)
         except Exception as e:
             _log.warning("Memory Manager konnte nicht gestartet werden: %s", e)
@@ -455,14 +478,20 @@ async def finalize(
     return str(assistant_msg.id), response_text, response_type, structured_data, ui_update, emotion
 
 
-def _schedule_capability_request(customer_id: str, message: str, intent: str) -> None:
-    try:
-        import asyncio
-        from models.capability_request import CapabilityRequest
-        from services.entwicklung_engine import analyse_capability_request
-        from core.database import AsyncSessionLocal
+# Hält Referenzen auf laufende Background-Tasks — verhindert vorzeitiges GC.
+_background_tasks: set[asyncio.Task] = set()
 
-        async def _create():
+
+def _track_task(task: asyncio.Task) -> None:
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+
+
+async def _schedule_capability_request(customer_id: str, message: str, intent: str) -> None:
+    try:
+        import asyncio as _asyncio
+
+        async def _create() -> None:
             async with AsyncSessionLocal() as db:
                 cap_req = CapabilityRequest(
                     customer_id=customer_id,
@@ -477,38 +506,39 @@ def _schedule_capability_request(customer_id: str, message: str, intent: str) ->
                             f"Erkannter Intent: {intent}\n"
                             "Ich analysiere was dafür benötigt wird..."
                         ),
-                        "created_at": datetime.utcnow().isoformat(),
+                        "created_at": datetime.now(timezone.utc).isoformat(),
                     }],
                 )
                 db.add(cap_req)
                 await db.commit()
                 _log.info("CapabilityRequest erstellt: %s", intent)
-                asyncio.ensure_future(analyse_capability_request(str(cap_req.id)))
+                _track_task(_asyncio.create_task(analyse_capability_request(str(cap_req.id))))
 
-        asyncio.ensure_future(_create())
+        _track_task(_asyncio.create_task(_create()))
     except Exception as e:
         _log.warning("CapabilityRequest konnte nicht erstellt werden: %s", e)
 
 
 # ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
-def _load_global_baddi_config() -> dict:
+async def _load_global_baddi_config() -> dict:
     try:
-        raw = redis_sync().get("baddi:config")
+        r = await get_async_redis()
+        raw = await r.get("baddi:config")
         return safe_json_loads(raw)
     except Exception as e:
         _log.warning("Globale Baddi-Config konnte nicht geladen werden: %s", e)
         return {}
 
 
-def _push_short_term_memory(customer_id: str, user_msg: str, assistant_msg: str) -> None:
+async def _push_short_term_memory(customer_id: str, user_msg: str, assistant_msg: str) -> None:
     import time
-    r = redis_sync()
+    r = await get_async_redis()
     key = f"chat:recent:{customer_id}"
-    r.lpush(key, json.dumps({"role": "user", "content": user_msg, "ts": time.time()}))
-    r.lpush(key, json.dumps({"role": "assistant", "content": assistant_msg, "ts": time.time()}))
-    r.ltrim(key, 0, 11)
-    r.expire(key, 86400)
+    await r.lpush(key, json.dumps({"role": "user", "content": user_msg, "ts": time.time()}))
+    await r.lpush(key, json.dumps({"role": "assistant", "content": assistant_msg, "ts": time.time()}))
+    await r.ltrim(key, 0, 11)
+    await r.expire(key, 86400)
 
 
 def _format_netzwerk(boards: list, first_name: str) -> str | None:
@@ -563,12 +593,10 @@ def _format_netzwerk(boards: list, first_name: str) -> str | None:
 async def _apply_netzwerk_aktion(customer_id, action: dict, db) -> dict:
     """Wendet eine Netzwerk-Aktion auf das Board des Users an und speichert in der DB."""
     import uuid as _uuid, time as _time, json as _json
-    from models.window import WindowBoard
-    from sqlalchemy import select as _sel, text as _txt
 
     # Board laden oder neu erstellen
     res = await db.execute(
-        _sel(WindowBoard)
+        select(WindowBoard)
         .where(WindowBoard.customer_id == customer_id, WindowBoard.board_type == "netzwerk")
         .order_by(WindowBoard.updated_at.desc())
         .limit(1)
@@ -632,7 +660,7 @@ async def _apply_netzwerk_aktion(customer_id, action: dict, db) -> dict:
 
     # Speichern
     await db.execute(
-        _txt("UPDATE window_boards SET data = CAST(:d AS jsonb), updated_at = NOW() WHERE id = :id"),
+        text("UPDATE window_boards SET data = CAST(:d AS jsonb), updated_at = NOW() WHERE id = :id"),
         {"d": _json.dumps(data), "id": str(board.id)},
     )
     await db.commit()

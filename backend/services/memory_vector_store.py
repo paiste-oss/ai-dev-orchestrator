@@ -6,6 +6,7 @@ Kollektion: customer_memories
   vector:  768-dim (nomic-embed-text via Ollama)
 """
 import logging
+import threading
 import uuid
 from typing import Optional
 
@@ -26,17 +27,24 @@ _log = logging.getLogger(__name__)
 
 COLLECTION = "customer_memories"
 EMBED_DIM = 768
-_EMBED_MODELS = ["nomic-embed-text", "mxbai-embed-large", "all-minilm"]
-_EMBED_DIMS   = {"nomic-embed-text": 768, "mxbai-embed-large": 1024, "all-minilm": 384}
+# Nur nomic-embed-text (768-dim) verwenden — andere Modelle haben andere Dimensionen
+# und würden zu Vektordimensions-Fehlern in der Collection führen.
+_EMBED_MODELS = ["nomic-embed-text"]
+_EMBED_DIMS   = {"nomic-embed-text": 768}
 
 _client: Optional[QdrantClient] = None
+_client_lock = threading.Lock()
 
 
 def _get_client() -> QdrantClient:
+    """Double-checked locking — thread-sicher für mehrere Celery-Worker."""
     global _client
     if _client is None:
-        _client = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
-        _ensure_collection(_client)
+        with _client_lock:
+            if _client is None:
+                c = QdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
+                _ensure_collection(c)
+                _client = c
     return _client
 
 

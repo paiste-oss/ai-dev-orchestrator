@@ -15,11 +15,12 @@ class Settings(BaseSettings):
     qdrant_host: str = "qdrant"
     qdrant_port: int = 6333
 
-    # Ollama
+    # Ollama — nur noch für Embeddings (nomic-embed-text) genutzt.
+    # Chat/Router/Code laufen ausschliesslich über Claude (Anthropic/Bedrock).
     ollama_base_url: str
-    ollama_router_model: str = "phi3"
-    ollama_chat_model: str = "gemma3:12b"
-    ollama_code_model: str = "gemma3:12b"
+    ollama_router_model: str = ""   # nicht mehr in Verwendung
+    ollama_chat_model: str = ""     # nicht mehr in Verwendung
+    ollama_code_model: str = ""     # nicht mehr in Verwendung
 
     # Anthropic
     anthropic_api_key: str = ""
@@ -125,6 +126,10 @@ class Settings(BaseSettings):
     # Health Monitoring — Alert-E-Mail
     health_alert_email: str = ""         # E-Mail für Ausfalls-Benachrichtigungen
     health_alert_threshold: int = 2      # Erst nach N aufeinanderfolgenden Fehlern alertieren (~10 Min)
+
+    # Deployment-Umgebung — steuert CORS-Localhost-Origins und Logging-Level
+    # Werte: "production" | "development" | "staging"
+    environment: str = "production"
 
     # JWT
     secret_key: str

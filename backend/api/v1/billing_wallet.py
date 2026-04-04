@@ -13,7 +13,7 @@ Endpunkte:
 """
 import logging
 import uuid as _uuid
-from datetime import datetime
+from datetime import datetime,timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -271,7 +271,7 @@ async def admin_wallet_credit(
         description=data.description,
         payment_type="bank_transfer",
         status="succeeded",
-        paid_at=datetime.utcnow(),
+        paid_at=datetime.now(timezone.utc),
     ))
     await db.commit()
     _log.info("Admin Wallet Credit: CHF %.2f → Kunde %s (neues Guthaben: %.2f)",

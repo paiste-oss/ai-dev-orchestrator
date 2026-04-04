@@ -76,6 +76,7 @@ async def send_message(
         prior_messages=context["prior_messages"],
         system_prompt=context["system_prompt"],
         db=db,
+        doc_cache=context.get("doc_cache"),
     )
 
     if llm_result["response_text"] is None:
@@ -200,10 +201,10 @@ async def upload_attachment(
     customer: Customer = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    import anyio as _anyio
+    import uuid as _uuid
     from models.document import CustomerDocument
     from services.file_parser import parse_file, is_supported, get_file_extension
-    from sqlalchemy import update as _sa_update
-    import uuid as _uuid
 
     MAX_SIZE = 50 * 1024 * 1024
     content = await file.read()
@@ -216,12 +217,31 @@ async def upload_attachment(
         raise HTTPException(status_code=415, detail=f"Dateityp '{get_file_extension(filename)}' nicht unterstützt.")
 
     total_limit = (customer.storage_limit_bytes or 0) + (customer.storage_extra_bytes or 0)
+
+    # Schneller Pre-Check anhand des gecachten ORM-Werts (nicht autoritativ, aber spart I/O)
     if customer.storage_used_bytes + len(content) > total_limit:
         free_mb = max(0, total_limit - customer.storage_used_bytes) / 1024 / 1024
         raise HTTPException(status_code=507, detail=f"Speicherlimit erreicht. Noch verfügbar: {free_mb:.1f} MB")
 
-    parse_result = parse_file(content, filename, mime_type)
+    from sqlalchemy import text as _sa_text
+    parse_result = await _anyio.to_thread.run_sync(lambda: parse_file(content, filename, mime_type))
     unique_filename = f"{customer.id}_{_uuid.uuid4().hex[:8]}_{filename}"
+
+    # Atomarer Check-and-Increment: verhindert Race Condition bei parallelen Uploads.
+    # Schlägt lautlos fehl (keine RETURNING-Zeile) wenn ein konkurrenter Upload
+    # das Limit zwischenzeitlich erschöpft hat.
+    update_result = await db.execute(
+        _sa_text("""
+            UPDATE customers
+            SET storage_used_bytes = storage_used_bytes + :size
+            WHERE id = :id AND storage_used_bytes + :size <= :limit
+            RETURNING storage_used_bytes
+        """),
+        {"size": len(content), "id": str(customer.id), "limit": int(total_limit)},
+    )
+    if update_result.fetchone() is None:
+        raise HTTPException(status_code=507, detail="Speicherlimit erreicht.")
+
     doc = CustomerDocument(
         customer_id=customer.id, filename=unique_filename, original_filename=filename,
         file_type=get_file_extension(filename) or "unknown", file_size_bytes=len(content),
@@ -232,11 +252,6 @@ async def upload_attachment(
     db.add(doc)
     await db.commit()
     await db.refresh(doc)
-    await db.execute(
-        _sa_update(Customer).where(Customer.id == customer.id)
-        .values(storage_used_bytes=Customer.storage_used_bytes + len(content))
-    )
-    await db.commit()
     return {"document_id": str(doc.id), "filename": filename, "file_type": doc.file_type,
             "page_count": doc.page_count, "char_count": doc.char_count}
 

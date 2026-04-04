@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime,timezone
 from sqlalchemy import String, Float, Boolean, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -19,4 +19,4 @@ class StockAlert(Base):
     currency: Mapped[str] = mapped_column(String(10), default="CHF")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     triggered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # letzter Trigger
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime,timezone
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, Integer, Sequence
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -32,7 +32,7 @@ class AiBuddy(Base):
         "capabilities": ["conversation"],
     })
     avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     @property

@@ -12,7 +12,7 @@ damit das Frontend echtzeitnah den Fortschritt zeigen kann.
 import asyncio
 import subprocess
 import redis as redis_lib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,timezone
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from core.config import settings
@@ -63,7 +63,7 @@ async def _recover_long_running():
     Session, engine = _make_session()
     try:
         async with Session() as db:
-            cutoff = datetime.utcnow() - timedelta(minutes=10)
+            cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
             result = await db.execute(
                 select(DevTask).where(
                     DevTask.status == "running",
@@ -81,7 +81,7 @@ async def _recover_long_running():
 
 
 async def _get_next_task(db) -> DevTask | None:
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # Erst: pausierte Tasks die wieder bereit sind
     r = await db.execute(

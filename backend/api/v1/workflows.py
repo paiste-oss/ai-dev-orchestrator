@@ -4,14 +4,8 @@ from core.config import settings
 from core.dependencies import require_admin
 from models.customer import Customer
 from services import n8n_client
+from services.n8n_credentials import read_n8n_credentials
 import httpx
-import sqlite3
-import json
-import hashlib
-import base64
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import unpad
-import os
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
 
@@ -19,6 +13,10 @@ router = APIRouter(prefix="/workflows", tags=["workflows"])
 # Backend-Tasks (Celery Beat) — MUSS vor /{n8n_id} stehen (Route-Konflikt)
 # ---------------------------------------------------------------------------
 
+# CELERY_TASKS ist eine statische Deklaration der bekannten Hintergrundprozesse.
+# Sie dient ausschliesslich der Admin-UI zur Anzeige und zum manuellen Triggern.
+# Die eigentliche Task-Registrierung und den Zeitplan verwaltet Celery Beat (celery_app.py).
+# Neue Tasks hier eintragen sobald sie in tasks/ implementiert sind.
 CELERY_TASKS = [
     {
         "name": "tasks.memory_manager.process_memory",
@@ -26,8 +24,8 @@ CELERY_TASKS = [
         "description": "Extrahiert dauerhaft Fakten über Kunden aus Gesprächen und speichert sie in Qdrant + PostgreSQL.",
         "schedule": "Nach jeder Chat-Antwort (event-gesteuert)",
         "type": "event",
-        "cost": "lokal",
-        "cost_detail": "~0.007 Rappen/Aufruf (nur Strom, gemma3:12b lokal)",
+        "cost": "api",
+        "cost_detail": "~0.01–0.05 Rappen/Aufruf (Claude Haiku 4.5, Extraktion)",
     },
     {
         "name": "tasks.dev_task_processor.process_dev_tasks",
@@ -76,54 +74,6 @@ async def trigger_celery_task(task_name: str, _: Customer = Depends(require_admi
     return {"triggered": task_name}
 
 N8N_HEADERS = {"X-N8N-API-KEY": settings.n8n_api_key, "Content-Type": "application/json"}
-N8N_SQLITE_PATH = "/n8n_data/database.sqlite"
-N8N_ENCRYPTION_KEY = settings.n8n_encryption_key  # aus .env
-
-# Felder die NICHT an den Client weitergegeben werden
-_SENSITIVE_FIELDS = {"password", "apiKey", "accessToken", "secret", "privateKey", "pass"}
-
-
-def _evp_bytes_to_key(password: bytes, salt: bytes, key_len: int, iv_len: int):
-    """OpenSSL EVP_BytesToKey mit MD5 — entspricht crypto-js Standard."""
-    d, prev = b"", b""
-    while len(d) < key_len + iv_len:
-        prev = hashlib.md5(prev + password + salt).digest()
-        d += prev
-    return d[:key_len], d[key_len:key_len + iv_len]
-
-
-def _decrypt_n8n_credential(encrypted_b64: str) -> dict:
-    """Entschlüsselt einen n8n-Credential-Datensatz (AES-256-CBC, OpenSSL-Format)."""
-    raw = base64.b64decode(encrypted_b64)
-    if raw[:8] != b"Salted__":
-        raise ValueError("Ungültiges Credential-Format: Salted__-Prefix fehlt")
-    salt = raw[8:16]
-    ciphertext = raw[16:]
-    key, iv = _evp_bytes_to_key(N8N_ENCRYPTION_KEY.encode(), salt, 32, 16)
-    cipher = AES.new(key, AES.MODE_CBC, iv)
-    decrypted = unpad(cipher.decrypt(ciphertext), AES.block_size)
-    return json.loads(decrypted.decode("utf-8"))
-
-
-def _read_n8n_credentials() -> list[dict]:
-    """Liest alle Credentials aus der n8n SQLite-DB und entschlüsselt sie."""
-    if not os.path.exists(N8N_SQLITE_PATH):
-        return []
-    results = []
-    con = sqlite3.connect(f"file:{N8N_SQLITE_PATH}?mode=ro", uri=True)
-    try:
-        rows = con.execute("SELECT id, name, type, data FROM credentials_entity").fetchall()
-        for cred_id, name, cred_type, data_enc in rows:
-            try:
-                data = _decrypt_n8n_credential(data_enc)
-                # Sensitive Felder entfernen
-                safe = {k: v for k, v in data.items() if k not in _SENSITIVE_FIELDS}
-                results.append({"id": cred_id, "name": name, "type": cred_type, "data": safe})
-            except Exception:
-                results.append({"id": cred_id, "name": name, "type": cred_type, "data": {}})
-    finally:
-        con.close()
-    return results
 
 
 # ---------------------------------------------------------------------------
@@ -133,17 +83,18 @@ def _read_n8n_credentials() -> list[dict]:
 @router.get("/credentials")
 async def list_credentials(_: Customer = Depends(require_admin)):
     """Gibt entschlüsselte Credential-Metadaten (ohne Passwörter) aus der n8n-DB zurück."""
-    return _read_n8n_credentials()
+    import anyio
+    return await anyio.to_thread.run_sync(read_n8n_credentials)
 
 
 @router.get("")
 async def list_workflows(_: Customer = Depends(require_admin)):
+    import anyio
     async with httpx.AsyncClient() as client:
         r = await client.get(f"{settings.n8n_base_url}/api/v1/workflows", headers=N8N_HEADERS, timeout=10)
         r.raise_for_status()
         data = r.json()
-        # Credential-Infos für jeden Workflow hinzufügen
-        creds_by_id = {c["id"]: c for c in _read_n8n_credentials()}
+        creds_by_id = {c["id"]: c for c in await anyio.to_thread.run_sync(read_n8n_credentials)}
         for wf in data.get("data", []):
             cred_refs = []
             for node in wf.get("nodes", []):

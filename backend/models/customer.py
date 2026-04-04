@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, date
+from datetime import datetime, date,timezone
 from sqlalchemy import String, Boolean, DateTime, Date, Numeric, Integer, BigInteger, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -38,7 +38,7 @@ class Customer(Base):
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String, nullable=False, default="")
     role: Mapped[str] = mapped_column(String, default="customer")  # admin, customer
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     birth_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)

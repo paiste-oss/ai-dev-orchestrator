@@ -82,7 +82,7 @@ async def _on_checkout_completed(session: dict, db: AsyncSession) -> None:
             description=f"Baddi Guthaben-Aufladung CHF {amount:.2f}",
             payment_type="topup",
             status="succeeded",
-            paid_at=datetime.utcnow(),
+            paid_at=datetime.now(timezone.utc),
         )
         db.add(payment)
         await db.commit()
@@ -176,7 +176,7 @@ async def _on_invoice_paid(invoice: dict, db: AsyncSession) -> None:
     amount_chf = invoice.get("amount_paid", 0) / 100
     net, vat = calc_vat(amount_chf)
     inv_no = await next_invoice_number(db)
-    description = invoice.get("description") or f"Baddi Abo — {datetime.utcnow().strftime('%B %Y')}"
+    description = invoice.get("description") or f"Baddi Abo — {datetime.now(timezone.utc).strftime('%B %Y')}"
 
     # Token-Kontingent zurücksetzen
     customer.tokens_used_this_period = 0
@@ -192,7 +192,7 @@ async def _on_invoice_paid(invoice: dict, db: AsyncSession) -> None:
         description=description,
         payment_type="subscription",
         status="succeeded",
-        paid_at=datetime.utcnow(),
+        paid_at=datetime.now(timezone.utc),
     )
     db.add(payment)
     await db.commit()

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime,timezone
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import String, Text, Float, Boolean, DateTime
 from core.database import Base
@@ -23,4 +23,4 @@ class CostEntry(Base):
     payment_method: Mapped[str | None] = mapped_column(String, nullable=True)        # kreditkarte | twint | rechnung | bar
     card_last4: Mapped[str | None] = mapped_column(String(4), nullable=True)         # letzte 4 Ziffern der Kreditkarte
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))

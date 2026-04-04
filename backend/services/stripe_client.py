@@ -300,5 +300,5 @@ def generate_bank_transfer_reference(customer_id: str) -> str:
     Format: BAD-<6-stellige Kunden-Kurzkennung>-<Timestamp>
     """
     short_id = str(customer_id).replace("-", "")[:6].upper()
-    ts = datetime.utcnow().strftime("%m%d%H%M")
+    ts = datetime.now(timezone.utc).strftime("%m%d%H%M")
     return f"BAD-{short_id}-{ts}"

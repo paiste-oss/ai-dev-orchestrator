@@ -9,7 +9,7 @@ Läuft alle 5 Minuten. Pro aktivem Trainingsplan wird geprüft:
 """
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,timezone
 
 from tasks.celery_app import celery_app
 from core.config import settings
@@ -61,7 +61,7 @@ async def _run() -> None:
                 # Kunden laden für Kanal-Präferenz
                 customer = await db.get(Customer, db_reminder.customer_id) if db_reminder.customer_id else None
                 await _notify(customer, db_reminder)
-                db_reminder.last_reminded_at = datetime.utcnow()
+                db_reminder.last_reminded_at = datetime.now(timezone.utc)
                 _log.info(
                     "Trainingserinnerung gesendet: customer=%s type=%s",
                     db_reminder.customer_id, db_reminder.training_type,
@@ -134,7 +134,7 @@ def _should_remind(reminder) -> bool:
 
     # Deduplizierung: heute bereits erinnert?
     if reminder.last_reminded_at:
-        if (datetime.utcnow() - reminder.last_reminded_at).total_seconds() < 23 * 3600:
+        if (datetime.now(timezone.utc) - reminder.last_reminded_at).total_seconds() < 23 * 3600:
             return False
 
     return True

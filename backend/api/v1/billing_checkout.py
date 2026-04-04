@@ -8,7 +8,7 @@ Endpunkte:
   POST /billing/accept-tos    — ToS akzeptieren
   POST /billing/webhook       — Stripe Webhook (kein Auth, Signatur-Check)
 """
-from datetime import datetime
+from datetime import datetime,timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -92,7 +92,7 @@ async def accept_tos(
 ):
     """Speichert Zeitstempel der ToS-Akzeptanz — gesetzlich erforderlich."""
     if not customer.tos_accepted_at:
-        customer.tos_accepted_at = datetime.utcnow()
+        customer.tos_accepted_at = datetime.now(timezone.utc)
         await db.commit()
 
 

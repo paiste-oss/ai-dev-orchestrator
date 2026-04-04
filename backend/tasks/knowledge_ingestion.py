@@ -8,7 +8,7 @@ Aufrufe:
 """
 import json
 import logging
-from datetime import datetime
+from datetime import datetime,timezone
 
 from tasks.celery_app import celery_app
 from core.utils import safe_json_loads
@@ -155,7 +155,7 @@ async def _run_ingestion(source_id: str) -> dict:
                     continue
 
             # Source-Stats aktualisieren
-            source.last_crawled_at = datetime.utcnow()
+            source.last_crawled_at = datetime.now(timezone.utc)
             source.doc_count += stats["docs_added"]
             source.chunk_count += stats["chunks_added"]
             await db.commit()

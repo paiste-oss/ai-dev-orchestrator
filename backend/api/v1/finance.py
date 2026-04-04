@@ -2,7 +2,7 @@
 Finance API — CAPEX/cost overview + Revenue overview for the entire project.
 Admin-only. Pre-seeds known default costs on first load.
 """
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta,timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Response, Query
@@ -208,7 +208,7 @@ async def update_cost(
     payload = data.model_dump()
     # Wenn Balance geändert wurde → Zeitstempel setzen
     if payload.get("balance_chf") != entry.balance_chf:
-        payload["balance_updated_at"] = datetime.utcnow()
+        payload["balance_updated_at"] = datetime.now(timezone.utc)
 
     for field, value in payload.items():
         setattr(entry, field, value)

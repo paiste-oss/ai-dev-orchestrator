@@ -9,7 +9,7 @@ Ablauf pro Durchlauf:
 """
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime,timezone
 
 from tasks.celery_app import celery_app
 from core.config import settings
@@ -72,7 +72,7 @@ async def _run() -> None:
                     continue
 
                 db_alert.is_active = False
-                db_alert.triggered_at = datetime.utcnow()
+                db_alert.triggered_at = datetime.now(timezone.utc)
 
                 # Kunden laden für Kanal-Präferenz
                 customer = None
@@ -102,7 +102,7 @@ async def _notify(customer, alert, price: float) -> None:
         f"Kurs-Alert: {name} ({symbol})\n"
         f"Schwellwert {alert.threshold:.2f} {cur} {direction_de}\n"
         f"Aktueller Kurs: {price:.2f} {cur}\n"
-        f"{datetime.utcnow().strftime('%d.%m.%Y %H:%M')} UTC\n"
+        f"{datetime.now(timezone.utc).strftime('%d.%m.%Y %H:%M')} UTC\n"
         f"baddi.ch"
     )
 

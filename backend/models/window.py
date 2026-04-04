@@ -1,6 +1,6 @@
 """SQLAlchemy Model für Whiteboard/Window-Daten."""
 import uuid
-from datetime import datetime
+from datetime import datetime,timezone
 from sqlalchemy import String, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -16,7 +16,7 @@ class WindowBoard(Base):
     name: Mapped[str] = mapped_column(String(200), default="Neues Board")
     board_type: Mapped[str] = mapped_column(String(50), default="whiteboard")
     data: Mapped[dict] = mapped_column(JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     customer: Mapped["Customer | None"] = relationship("Customer")  # type: ignore

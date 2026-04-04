@@ -1,6 +1,6 @@
 """Window/Whiteboard-Boards API."""
 import uuid
-from datetime import datetime
+from datetime import datetime,timezone
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -113,7 +113,7 @@ async def update_board(
         board.name = body.name
     if body.data is not None:
         board.data = body.data
-    board.updated_at = datetime.utcnow()
+    board.updated_at = datetime.now(timezone.utc)
 
     await db.commit()
     await db.refresh(board)

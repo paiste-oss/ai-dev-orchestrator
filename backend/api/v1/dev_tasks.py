@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,timezone
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
@@ -155,7 +155,7 @@ async def runner_next_task(
     _: None = Depends(_require_runner),
 ):
     """Gibt den nächsten ausstehenden Task zurück und markiert ihn als 'running'."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # Erst: pausierte Tasks die retry_after überschritten haben
     result = await db.execute(
@@ -233,7 +233,7 @@ async def runner_complete(
     task.status = "completed"
     task.output = body.output
     task.token_usage = (task.token_usage or 0) + body.tokens
-    task.completed_at = datetime.utcnow()
+    task.completed_at = datetime.now(timezone.utc)
     task.context_snapshot = None
     task.retry_after = None
     await db.commit()
@@ -270,7 +270,7 @@ async def runner_pause(
     task.status = "paused"
     task.output = body.output
     task.token_usage = (task.token_usage or 0) + body.tokens
-    task.retry_after = datetime.utcnow() + timedelta(seconds=max(body.retry_after_seconds, 60))
+    task.retry_after = datetime.now(timezone.utc) + timedelta(seconds=max(body.retry_after_seconds, 60))
     task.context_snapshot = {"messages": body.context} if body.context else task.context_snapshot
     await db.commit()
     redis_sync().delete(f"devtask:output:{task_id}")
