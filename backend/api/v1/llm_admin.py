@@ -16,25 +16,17 @@ router = APIRouter(prefix="/admin/llm", tags=["admin-llm"])
 
 
 # ---------------------------------------------------------------------------
-# Bekannte Modell-Versionen (Stand: 2026-Q1)
+# Bekannte Modell-Versionen (Stand: 2026-Q2)
 # ---------------------------------------------------------------------------
 
 _OLLAMA_REGISTRY: dict[str, dict] = {
-    "phi3":              {"latest": "phi4",               "description": "Microsoft Phi 3 — veraltet, ersetzt durch phi4"},
-    "phi4":              {"latest": "phi4",               "description": "Microsoft Phi 4 — Router / Klassifizierung (9.1 GB)"},
-    "mistral-small3.1":  {"latest": "mistral-small3.1",   "description": "Mistral Small 3.1 24B — Reserve (15.5 GB)"},
-    "llama3.3":          {"latest": "llama3.3",           "description": "Meta LLaMA 3.3 70B — CPU-only, zu gross für VRAM (42.5 GB)"},
-    "gemma3":            {"latest": "gemma3:12b",         "description": "Google Gemma 3 4B — veraltet, ersetzt durch gemma3:12b"},
-    "gemma3:12b":        {"latest": "gemma3:12b",         "description": "Google Gemma 3 12B — Chat-Fallback / Code (8.1 GB VRAM)"},
-    "qwen2.5":           {"latest": "qwen2.5",            "description": "Alibaba Qwen 2.5 — Multilingual / Reserve (4.7 GB)"},
-    "deepseek-r1":       {"latest": "deepseek-r1",        "description": "DeepSeek R1 — Reasoning / Reserve (5.2 GB)"},
-    "nomic-embed-text":  {"latest": "nomic-embed-text",   "description": "Nomic Embeddings — Semantische Suche / Intent Vector Store (274 MB)"},
+    "nomic-embed-text":  {"latest": "nomic-embed-text",   "description": "Nomic Embeddings — Semantische Suche / Gedächtnis-Vektorstore (274 MB)"},
 }
 
 _ANTHROPIC_MODELS = [
-    {"id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5",  "tier": "Schnell",    "use": "Analyse, Routing, Chat"},
-    {"id": "claude-sonnet-4-6",         "name": "Claude Sonnet 4.6", "tier": "Ausgewogen", "use": "Chat, Vision, Tools"},
-    {"id": "claude-opus-4-6",           "name": "Claude Opus 4.6",   "tier": "Leistungsstark", "use": "Komplexe Aufgaben"},
+    {"id": "claude-haiku-4-5-20251001", "name": "Claude Haiku 4.5",  "tier": "Schnell",        "use": "Memory-Extraktion (Hintergrund)"},
+    {"id": "claude-sonnet-4-6",         "name": "Claude Sonnet 4.6", "tier": "Ausgewogen",     "use": "Chat, Vision, Tools — Hauptmodell"},
+    {"id": "claude-opus-4-6",           "name": "Claude Opus 4.6",   "tier": "Leistungsstark", "use": "Komplexe Aufgaben (Reserve)"},
 ]
 
 _GOOGLE_MODELS = [
@@ -129,7 +121,7 @@ async def get_llm_overview(_admin: Customer = Depends(require_admin)):
         "external": {
             "anthropic": {
                 "configured": bool(settings.anthropic_api_key),
-                "in_use": ["claude-haiku-4-5-20251001", "claude-sonnet-4-6"],
+                "in_use": ["claude-sonnet-4-6", "claude-haiku-4-5-20251001"],
                 "models":  _ANTHROPIC_MODELS,
             },
             "google": {

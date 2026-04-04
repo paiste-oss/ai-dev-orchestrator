@@ -163,9 +163,7 @@ export default function LLMAdminPage() {
                   Ollama <span className="text-gray-500">{overview.ollama_url}</span>
                 </span>
                 <span className="ml-auto text-xs text-gray-500">
-                  Router: <span className="text-gray-300">{overview.roles.router}</span> ·
-                  Chat: <span className="text-gray-300">{overview.roles.chat}</span> ·
-                  Code: <span className="text-gray-300">{overview.roles.code}</span>
+                  Embeddings: <span className="text-gray-300">nomic-embed-text</span>
                 </span>
               </div>
 
