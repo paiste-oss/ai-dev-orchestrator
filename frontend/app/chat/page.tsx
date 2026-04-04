@@ -59,14 +59,14 @@ interface CardData {
   data?: any;
 }
 
-function richCardMeta(responseType: string): { title: string; width: number; height: number } {
+function richCardMeta(responseType: string): { title: string; width: number; height: number } | null {
   switch (responseType) {
     case "stock_card":      return { title: "📈 Aktienkurs",    width: 320, height: 240 };
     case "stock_history":   return { title: "📊 Kursverlauf",   width: 440, height: 340 };
     case "image_gallery":   return { title: "🖼 Bilder",        width: 520, height: 380 };
     case "transport_board": return { title: "🚆 Abfahrten",     width: 400, height: 320 };
     case "action_buttons":  return { title: "⚡ Aktionen",      width: 320, height: 180 };
-    default:                return { title: "📦 Ergebnis",      width: 380, height: 300 };
+    default:                return null; // Unbekannte Typen nicht als Ergebnis-Fenster anzeigen
   }
 }
 
@@ -345,7 +345,8 @@ export default function ChatPage() {
       return;
     }
 
-    const meta = richCardMeta(last.responseType);
+    const meta = richCardMeta(last.responseType ?? "");
+    if (!meta) return; // Interner response type — kein Ergebnis-Fenster anzeigen
     const canvas = canvasRef.current;
     const newRich: CardData = {
       id: `rich-${last.id}`,
