@@ -86,4 +86,6 @@ export interface UiPrefs {
   fontColor: string;
   chatMode: string;
   avatarType?: string;
+  ttsDefault?: boolean;
+  ttsVoice?: string;
 }

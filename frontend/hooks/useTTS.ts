@@ -4,9 +4,17 @@ import { useState, useRef } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 
-export function useTTS() {
+// ElevenLabs Voice-IDs
+export const TTS_VOICES: Record<string, string> = {
+  female: "EXAVITQu4vr4xnSDxMaL", // Sarah
+  male:   "pNInz6obpgDQGcFmaJgB",  // Adam
+};
+
+export function useTTS(initialEnabled = false, voiceGender = "female") {
   const [speaking, setSpeaking] = useState(false);
-  const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(initialEnabled);
+  const voiceGenderRef = useRef(voiceGender);
+  voiceGenderRef.current = voiceGender;
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   function stripMarkdown(text: string): string {
@@ -38,9 +46,10 @@ export function useTTS() {
   async function speak(text: string) {
     if (!ttsEnabled) return;
     try {
+      const voice_id = TTS_VOICES[voiceGenderRef.current] ?? TTS_VOICES.female;
       const res = await apiFetch(`${BACKEND_URL}/v1/chat/tts`, {
         method: "POST",
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, voice_id }),
       });
       if (!res.ok) return;
       const blob = await res.blob();

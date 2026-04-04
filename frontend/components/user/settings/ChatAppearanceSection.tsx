@@ -15,6 +15,8 @@ interface UiPrefs {
   language: string;
   buddyName: string;
   avatarType: string;
+  ttsDefault: boolean;
+  ttsVoice: string;
 }
 
 const inputCls =
@@ -31,6 +33,8 @@ export function ChatAppearanceSection() {
     language: "de",
     buddyName: "Baddi",
     avatarType: "robot",
+    ttsDefault: false,
+    ttsVoice: "female",
   });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -95,6 +99,52 @@ export function ChatAppearanceSection() {
                 onClick={() => setUiPrefs((p) => ({ ...p, avatarType: v }))}
                 className={`py-2.5 rounded-xl text-xs font-medium border transition-all flex flex-col items-center gap-1 ${
                   uiPrefs.avatarType === v
+                    ? "bg-indigo-600 border-indigo-500 text-white"
+                    : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
+                }`}
+              >
+                <span className="text-xl">{icon}</span>
+                <span>{l}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Sprachausgabe */}
+        <div className="space-y-3">
+          <label className="text-xs text-gray-400 font-medium">Sprachausgabe</label>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { v: false, l: "Aus", icon: "🔇" },
+              { v: true,  l: "An",  icon: "🔊" },
+            ].map(({ v, l, icon }) => (
+              <button
+                key={String(v)}
+                onClick={() => setUiPrefs((p) => ({ ...p, ttsDefault: v }))}
+                className={`py-2.5 rounded-xl text-xs font-medium border transition-all flex flex-col items-center gap-1 ${
+                  uiPrefs.ttsDefault === v
+                    ? "bg-indigo-600 border-indigo-500 text-white"
+                    : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
+                }`}
+              >
+                <span className="text-xl">{icon}</span>
+                <span>{l}</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-600">Standard beim Öffnen des Chats. Der 🔊-Button in der Eingabe schaltet jederzeit um.</p>
+
+          <label className="text-xs text-gray-400 font-medium block pt-1">Stimme</label>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { v: "female", l: "Weiblich", icon: "👩" },
+              { v: "male",   l: "Männlich", icon: "👨" },
+            ].map(({ v, l, icon }) => (
+              <button
+                key={v}
+                onClick={() => setUiPrefs((p) => ({ ...p, ttsVoice: v }))}
+                className={`py-2.5 rounded-xl text-xs font-medium border transition-all flex flex-col items-center gap-1 ${
+                  uiPrefs.ttsVoice === v
                     ? "bg-indigo-600 border-indigo-500 text-white"
                     : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
                 }`}

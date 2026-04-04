@@ -55,6 +55,8 @@ const DEFAULT_PREFS: UiPrefs = {
   fontColor: "white",
   chatMode: "fokus",
   avatarType: "robot",
+  ttsDefault: false,
+  ttsVoice: "female",
 };
 
 export function useUiPrefs() {

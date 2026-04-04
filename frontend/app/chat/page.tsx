@@ -194,8 +194,11 @@ export default function ChatPage() {
 
   const { messages, setMessages, loading, historyLoaded, loadHistory, sendMessage } = useChatMessages();
   const { cameraOpen, videoRef, openCamera, closeCamera, capturePhoto } = useCamera();
-  const { speaking, setSpeaking, ttsEnabled, setTtsEnabled, audioRef, speak, stripMarkdown, unlockAudio } = useTTS();
   const { uiPrefs, setUiPrefs, loadPreferences, savePreferences } = useUiPrefs();
+  const { speaking, setSpeaking, ttsEnabled, setTtsEnabled, audioRef, speak, stripMarkdown, unlockAudio } = useTTS(
+    uiPrefs.ttsDefault ?? false,
+    uiPrefs.ttsVoice ?? "female",
+  );
   const [emotion, setEmotion] = useState<string | null>(null);
 
   const firstName = user?.name?.split(" ")[0] ?? "";
