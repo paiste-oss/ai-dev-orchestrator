@@ -35,6 +35,8 @@ class MarkerResult:
     """URL in neuem Tab öffnen."""
     emotion: str | None = None
     """Emotions-Marker für Avatar, z.B. "freudig"."""
+    netzwerk_aktion: dict | None = None
+    """Netzwerk-Aktion, z.B. {"type": "create_network", "name": "Haslen", "persons": ["Christa"]}."""
 
 
 def process_markers(text: str) -> MarkerResult:
@@ -62,6 +64,7 @@ def process_markers(text: str) -> MarkerResult:
     result.text, result.open_document = _extract_document_marker(result.text)
     result.text, result.open_url = _extract_open_url_marker(result.text)
     result.text, result.emotion = _extract_emotion_marker(result.text)
+    result.text, result.netzwerk_aktion = _extract_netzwerk_aktion_marker(result.text)
 
     return result
 
@@ -213,3 +216,23 @@ def _extract_open_url_marker(text: str) -> tuple[str, str | None]:
         url = match.group(1).strip()
         text = re.sub(r"\s*\[OPEN_URL:[^\]]+\]", "", text).strip()
     return text, url
+
+
+def _extract_netzwerk_aktion_marker(text: str) -> tuple[str, dict | None]:
+    """
+    Extrahiert [NETZWERK_AKTION: json]-Marker.
+    Unterstützte Aktionen:
+      {"type": "add_person", "name": "..."}
+      {"type": "create_network", "name": "...", "persons": [...]}
+      {"type": "add_to_network", "network": "...", "persons": [...]}
+    """
+    import json as _json
+    match = re.search(r"\[NETZWERK_AKTION:\s*(\{.*?\})\s*\]", text, re.DOTALL)
+    aktion: dict | None = None
+    if match:
+        try:
+            aktion = _json.loads(match.group(1))
+        except Exception:
+            pass
+        text = re.sub(r"\s*\[NETZWERK_AKTION:[^\]]*\]", "", text).strip()
+    return text, aktion

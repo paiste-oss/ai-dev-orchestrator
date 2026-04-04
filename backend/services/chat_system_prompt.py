@@ -377,6 +377,20 @@ def build_system_prompt(
     # ── Namensnetz ────────────────────────────────────────────────────────────
     if netzwerk_context:
         system_parts.append(netzwerk_context)
+        system_parts.append(
+            "\nNETZWERK-AKTIONEN (du kannst das Namensnetz direkt bearbeiten):\n"
+            "Verwende exakt einen dieser Marker am Ende deiner Antwort:\n"
+            '  Person hinzufügen:       [NETZWERK_AKTION: {"type": "add_person", "name": "Name"}]\n'
+            '  Netzwerk erstellen:      [NETZWERK_AKTION: {"type": "create_network", "name": "Gruppe", "persons": ["Name1", "Name2"]}]\n'
+            '  Person zu Netzwerk:      [NETZWERK_AKTION: {"type": "add_to_network", "network": "Gruppe", "persons": ["Name"]}]\n'
+            "Der Marker wird automatisch ausgeführt und das Fenster aktualisiert."
+        )
+    else:
+        system_parts.append(
+            "\nNETZWERK-AKTIONEN: Falls der User ein Namensnetz-Fenster öffnen will oder Personen/Gruppen\n"
+            "verwalten möchte, öffne zuerst das Netzwerk-Fenster mit [FENSTER: netzwerk], dann kannst du\n"
+            "Aktionen ausführen. Sobald das Namensnetz vorhanden ist, erscheinen hier die verfügbaren Marker."
+        )
 
     # ── Relevante Erinnerungen ────────────────────────────────────────────────
     if relevant_memories:

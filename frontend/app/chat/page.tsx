@@ -128,7 +128,11 @@ function initialCards(): CardData[] {
 
 export default function ChatPage() {
   const router = useRouter();
-  const user = getSession();
+  // getSession() liest localStorage — auf Server undefined, auf Client sofort verfügbar.
+  // useState-Initializer läuft nur auf dem Client (hydration), daher kein SSR-Mismatch.
+  const [user] = useState<ReturnType<typeof getSession>>(() =>
+    typeof window !== "undefined" ? getSession() : null
+  );
 
   const [input, setInput] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
@@ -302,6 +306,34 @@ export default function ChatPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const d = last.structuredData as any;
       if (d?.url) window.open(d.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // Baddi hat eine Netzwerk-Aktion ausgeführt → Fenster öffnen/aktualisieren
+    if (last.responseType === "netzwerk_aktion") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const d = last.structuredData as any;
+      const boardId: string = d?.board_id ?? "";
+      const canvas = canvasRef.current;
+      setCards(cs => {
+        const existing = cs.find(c => c.type === "netzwerk");
+        if (existing) {
+          // Fenster schon offen → reloadKey erhöhen damit es neu lädt
+          return cs.map(c => c.id === existing.id
+            ? { ...c, data: { ...c.data, boardId, reloadKey: ((c.data?.reloadKey ?? 0) as number) + 1 } }
+            : c
+          );
+        }
+        // Fenster noch nicht offen → aufmachen
+        topZ.current++;
+        const newCard: CardData = {
+          id: `netzwerk-${Date.now()}`, title: "🕸 Namensnetz", type: "netzwerk",
+          x: 0, y: 0, width: 700, height: 540, minimized: false, zIndex: topZ.current,
+          data: { boardId, reloadKey: 1 },
+        };
+        const next = [...cs, newCard];
+        return canvas ? computeAutoLayout(next, canvas.clientWidth, canvas.clientHeight) : next;
+      });
       return;
     }
 
@@ -629,6 +661,7 @@ export default function ChatPage() {
       case "netzwerk": return (
         <NetzwerkWindow
           boardId={card.data?.boardId}
+          reloadKey={card.data?.reloadKey}
           onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
         />
       );

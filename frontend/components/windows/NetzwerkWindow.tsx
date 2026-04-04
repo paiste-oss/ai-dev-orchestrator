@@ -492,9 +492,9 @@ function SettingsModal({ onClose, data, onImport, fontScale, setFontScale }: {
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
-interface Props { boardId?: string; onBoardId?: (id: string) => void; }
+interface Props { boardId?: string; onBoardId?: (id: string) => void; reloadKey?: number; }
 
-export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId }: Props) {
+export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, reloadKey }: Props) {
   const [data, setData] = useState<AppData>(defaultData);
   const [loading, setLoading] = useState(true);
   const history = useRef<AppData[]>([]);
@@ -545,6 +545,14 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId }: P
       } catch { /* ignore */ }
     }, 2000);
   }, []);
+
+  // Reload wenn Baddi eine Netzwerk-Aktion ausgeführt hat (reloadKey ändert sich)
+  useEffect(() => {
+    if (reloadKey === undefined || reloadKey === 0) return;
+    const id = boardIdRef.current;
+    if (id) loadBoard(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reloadKey]);
 
   // Sofort speichern bei Seitenentladen oder Fenster-Unmount
   useEffect(() => {

@@ -391,6 +391,13 @@ async def finalize(
     if marker_result.open_url:
         response_type = "open_url"
         structured_data = {"url": marker_result.open_url}
+    if marker_result.netzwerk_aktion:
+        try:
+            netz_result = await _apply_netzwerk_aktion(customer.id, marker_result.netzwerk_aktion, db)
+            response_type = "netzwerk_aktion"
+            structured_data = netz_result
+        except Exception as exc:
+            _log.warning("Netzwerk-Aktion fehlgeschlagen: %s", exc)
 
     emotion = marker_result.emotion
     ui_update = marker_result.ui_update
@@ -551,3 +558,82 @@ def _format_netzwerk(boards: list, first_name: str) -> str | None:
             lines.append(entry)
 
     return "\n".join(lines)
+
+
+async def _apply_netzwerk_aktion(customer_id, action: dict, db) -> dict:
+    """Wendet eine Netzwerk-Aktion auf das Board des Users an und speichert in der DB."""
+    import uuid as _uuid, time as _time, json as _json
+    from models.window import WindowBoard
+    from sqlalchemy import select as _sel, text as _txt
+
+    # Board laden oder neu erstellen
+    res = await db.execute(
+        _sel(WindowBoard)
+        .where(WindowBoard.customer_id == customer_id, WindowBoard.board_type == "netzwerk")
+        .order_by(WindowBoard.updated_at.desc())
+        .limit(1)
+    )
+    board = res.scalar_one_or_none()
+    if not board:
+        board = WindowBoard(customer_id=customer_id, name="Namensnetz", board_type="netzwerk", data={})
+        db.add(board)
+        await db.flush()
+
+    data: dict = dict(board.data or {})
+    if "persons" not in data: data["persons"] = []
+    if "networks" not in data: data["networks"] = []
+    if "connections" not in data: data["connections"] = []
+
+    added: list[str] = []
+    atype = action.get("type", "")
+
+    def _find_or_create_person(name: str) -> dict:
+        p = next((x for x in data["persons"] if x.get("name") == name), None)
+        if not p:
+            p = {"id": str(_uuid.uuid4()), "name": name, "fullName": name,
+                 "photo": None, "x": len(data["persons"]) * 130 + 60, "y": 300, "note": ""}
+            data["persons"].append(p)
+            added.append(f"Person '{name}' hinzugefügt")
+        return p
+
+    def _find_or_create_network(name: str) -> dict:
+        n = next((x for x in data["networks"] if x.get("name") == name), None)
+        if not n:
+            gid = str(_uuid.uuid4())
+            n = {"id": str(_uuid.uuid4()), "name": name,
+                 "x": len(data["networks"]) * 220 + 80, "y": 80,
+                 "groups": [{"id": gid, "color": "#6366f1", "label": "Mitglied"}],
+                 "members": [], "createdAt": int(_time.time() * 1000)}
+            data["networks"].append(n)
+            added.append(f"Netzwerk '{name}' erstellt")
+        return n
+
+    def _add_to_network(net: dict, person: dict) -> None:
+        if any(m["personId"] == person["id"] for m in net["members"]):
+            return
+        gid = net["groups"][0]["id"] if net["groups"] else ""
+        net["members"].append({"personId": person["id"], "group": gid})
+        added.append(f"'{person['name']}' zu '{net['name']}' hinzugefügt")
+
+    if atype == "add_person":
+        _find_or_create_person(action.get("name", "").strip())
+
+    elif atype == "create_network":
+        net = _find_or_create_network(action.get("name", "").strip())
+        for pname in action.get("persons", []):
+            person = _find_or_create_person(pname.strip())
+            _add_to_network(net, person)
+
+    elif atype == "add_to_network":
+        net = _find_or_create_network(action.get("network", "").strip())
+        for pname in action.get("persons", []):
+            person = _find_or_create_person(pname.strip())
+            _add_to_network(net, person)
+
+    # Speichern
+    await db.execute(
+        _txt("UPDATE window_boards SET data = CAST(:d AS jsonb), updated_at = NOW() WHERE id = :id"),
+        {"d": _json.dumps(data), "id": str(board.id)},
+    )
+    await db.commit()
+    return {"board_id": str(board.id), "added": added}
