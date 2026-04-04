@@ -114,14 +114,6 @@ export default function DesignWindow({ prefs, onPrefsChange }: Props) {
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
 
-        <OptionRow label="Sprache">
-          <Chips value={prefs.language} onChange={v => update({ language: v })} options={[
-            { v: "de", l: "Deutsch" }, { v: "en", l: "English" },
-            { v: "fr", l: "Français" }, { v: "it", l: "Italiano" },
-            { v: "gsw", l: "Schweizerdeutsch" },
-          ]} />
-        </OptionRow>
-
         <OptionRow label="Hintergrund">
           <div className="grid grid-cols-4 gap-1.5">
             {BG_OPTIONS.map(bg => (
