@@ -175,7 +175,7 @@ async def execute_llm(
 
     provider = "claude"
     _chat_mode = (customer.ui_preferences or {}).get("chatMode", "fokus")
-    model_name = "claude-sonnet-4-6" if _chat_mode == "plauder" else "claude-haiku-4-5-20251001"
+    model_name = "claude-sonnet-4-6"
     response_text: str | None = None
     tokens_used: int = 0
     generated_image_urls: list[str] = []

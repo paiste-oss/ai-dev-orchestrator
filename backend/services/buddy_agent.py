@@ -20,7 +20,7 @@ async def run_buddy_chat(
     buddy_name: str,
     system_prompt: str,
     tool_keys: list[str],
-    model: str = "claude-haiku-4-5-20251001",
+    model: str = "claude-sonnet-4-6",
     max_tool_rounds: int = 5,
     history: list[dict] | None = None,
     customer_id: str | None = None,
