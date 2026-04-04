@@ -234,5 +234,6 @@ def _extract_netzwerk_aktion_marker(text: str) -> tuple[str, dict | None]:
             aktion = _json.loads(match.group(1))
         except Exception:
             pass
-        text = re.sub(r"\s*\[NETZWERK_AKTION:[^\]]*\]", "", text).strip()
+        # Match-Position direkt verwenden — [^\]]* würde bei ] in JSON-Arrays abbrechen
+        text = (text[:match.start()] + text[match.end():]).strip()
     return text, aktion
