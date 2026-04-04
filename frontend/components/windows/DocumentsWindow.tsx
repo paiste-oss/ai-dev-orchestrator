@@ -278,8 +278,9 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
               const isExpanded = expanded.has(doc.id);
               return (
                 <div key={doc.id} className="group hover:bg-white/3 transition-colors">
-                  {/* Hauptzeile */}
-                  <div className="flex items-center gap-2 px-3 py-2">
+                  {/* Hauptzeile — Doppelklick öffnet Datei */}
+                  <div className="flex items-center gap-2 px-3 py-2 cursor-pointer"
+                    onDoubleClick={() => onOpenFile && openDoc(doc)}>
                     {/* Kategorie-Badge */}
                     <span className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${catColor}`}>
                       {fileIcon(doc.file_type)} {cat}
