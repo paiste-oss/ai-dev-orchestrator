@@ -5,11 +5,6 @@ import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import AdminSidebar from "@/components/AdminSidebar";
 
-interface Config {
-  model: string;
-  system_prompt: string;
-}
-
 interface PromptState {
   value: string;
   original: string;
@@ -17,30 +12,15 @@ interface PromptState {
   saved: boolean;
 }
 
-const KNOWN_MODELS = [
-  "gemma3:12b",
-  "phi4",
-  "qwen2.5",
-  "deepseek-r1",
-  "mistral-small3.1",
-  "llama3.3",
-];
 
 export default function MemoryManagerPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [config, setConfig]   = useState<Config | null>(null);
-  const [saving, setSaving]   = useState(false);
-  const [saved, setSaved]     = useState(false);
-  const [error, setError]     = useState<string | null>(null);
-  const [prompt, setPrompt]   = useState<PromptState>({ value: "", original: "", saving: false, saved: false });
+  const [prompt, setPrompt] = useState<PromptState>({ value: "", original: "", saving: false, saved: false });
 
   useEffect(() => {
-    Promise.all([
-      apiFetch(`${BACKEND_URL}/v1/settings/memory-manager`).then(r => r.json()).then(setConfig),
-      apiFetch(`${BACKEND_URL}/v1/admin/system-prompts/memory-manager`).then(r => r.json()).then(d =>
-        setPrompt({ value: d.prompt, original: d.prompt, saving: false, saved: false })
-      ),
-    ]).catch(() => setError("Konfiguration konnte nicht geladen werden."));
+    apiFetch(`${BACKEND_URL}/v1/admin/system-prompts/memory-manager`).then(r => r.json()).then(d =>
+      setPrompt({ value: d.prompt, original: d.prompt, saving: false, saved: false })
+    ).catch(() => {});
   }, []);
 
   const savePrompt = async () => {
@@ -57,25 +37,6 @@ export default function MemoryManagerPage() {
       }
     } finally {
       setPrompt(p => ({ ...p, saving: false }));
-    }
-  };
-
-  const save = async () => {
-    if (!config) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/settings/memory-manager`, {
-        method: "PUT",
-        body: JSON.stringify(config),
-      });
-      if (!res.ok) throw new Error();
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
-    } catch {
-      setError("Speichern fehlgeschlagen.");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -102,7 +63,7 @@ export default function MemoryManagerPage() {
             <h2 className="text-sm font-semibold text-yellow-400">Wie funktioniert das Gedächtnis?</h2>
             <p className="text-sm text-gray-400 leading-relaxed">
               Nach jeder Baddi-Antwort läuft ein Celery-Task im Hintergrund. Er liest die letzten
-              12 Nachrichten aus dem Redis-Kurzzeitgedächtnis, analysiert sie mit dem lokalen LLM
+              12 Nachrichten aus dem Redis-Kurzzeitgedächtnis, analysiert sie mit Claude Haiku
               und extrahiert dauerhafte Fakten über den Nutzer. Diese werden als Vektoren in Qdrant
               gespeichert und beim nächsten Chat automatisch als Kontext eingebunden.
             </p>
@@ -123,51 +84,16 @@ export default function MemoryManagerPage() {
           </div>
 
           {/* Modell */}
-          {!config ? (
-            <p className="text-sm text-gray-500">{error ?? "Lädt…"}</p>
-          ) : (
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
-              <div>
-                <h2 className="text-sm font-semibold text-white">Lokales LLM für Fakten-Extraktion</h2>
-                <p className="text-xs text-gray-500 mt-1">
-                  Das Ollama-Modell das die Gesprächs-Analyse durchführt. Muss auf dem Ollama-Server installiert sein.
-                </p>
-              </div>
-
-              <div className="flex gap-3 items-center">
-                <input
-                  type="text"
-                  value={config.model}
-                  onChange={e => setConfig({ ...config, model: e.target.value })}
-                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-yellow-500/50 transition-colors"
-                  placeholder="z.B. gemma3:12b"
-                />
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {KNOWN_MODELS.map(m => (
-                  <button
-                    key={m}
-                    onClick={() => setConfig({ ...config, model: m })}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors ${
-                      config.model === m
-                        ? "bg-yellow-400 text-gray-900 font-semibold"
-                        : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 border border-gray-700"
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2 pt-1 border-t border-gray-800">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                <span className="text-xs text-gray-400">
-                  Aktiv: <span className="text-emerald-400 font-mono">{config.model}</span>
-                </span>
-              </div>
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 flex items-center gap-4">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-white">Claude Haiku 4.5</p>
+              <p className="text-xs text-gray-500 mt-0.5">Fixe Modellwahl für Fakten-Extraktion — schnell, günstig, läuft async im Hintergrund</p>
             </div>
-          )}
+            <span className="ml-auto text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full shrink-0">
+              claude-haiku-4-5-20251001
+            </span>
+          </div>
 
           {/* Extraktion-Prompt */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
@@ -175,7 +101,7 @@ export default function MemoryManagerPage() {
               <div>
                 <p className="font-semibold text-white text-sm">Extraktion-Prompt</p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  System-Prompt für die Fakten-Extraktion · gemma3:12b (Ollama)
+                  System-Prompt für die Fakten-Extraktion · Claude Haiku 4.5
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -214,20 +140,6 @@ export default function MemoryManagerPage() {
             </div>
           </div>
 
-          {/* Speichern */}
-          {config && (
-            <div className="flex items-center gap-4">
-              <button
-                onClick={save}
-                disabled={saving}
-                className="px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-semibold text-sm transition-colors disabled:opacity-50"
-              >
-                {saving ? "Speichern…" : "Speichern"}
-              </button>
-              {saved && <span className="text-sm text-emerald-400">✓ Gespeichert</span>}
-              {error && <span className="text-sm text-red-400">{error}</span>}
-            </div>
-          )}
 
         </div>
       </main>
