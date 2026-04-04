@@ -46,6 +46,18 @@ export const WINDOW_BG_COLORS: Record<string, string> = {
   forest:  "rgba(10, 26, 15, 0.92)",
 };
 
+// Solid-Farben für die Kugel-Darstellung im DesignWindow
+export const WINDOW_BG_SOLID: Record<string, string> = {
+  glass:   "#080c16",
+  dark:    "#000000",
+  slate:   "#0f172a",
+  gray:    "#111827",
+  indigo:  "#1e1b4b",
+  navy:    "#0c1445",
+  wine:    "#28091a",
+  forest:  "#0a1a0f",
+};
+
 export const BG_COLORS: Record<string, string> = {
   dark: "#030712", darker: "#000000", lighter: "#111827",
   slate: "#0f172a", navy: "#0c1445", forest: "#0a1a0f", wine: "#1a0a12", warm: "#1a1208",
