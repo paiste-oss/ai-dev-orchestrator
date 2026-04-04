@@ -9,6 +9,7 @@ const STATUS_BADGE: Record<WindowModuleDefinition["status"], { label: string; cl
   active:       { label: "Aktiv",        cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20" },
   beta:         { label: "Beta",         cls: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20" },
   coming_soon:  { label: "Bald",         cls: "bg-gray-500/15 text-gray-500 border-gray-500/20" },
+  hidden:       { label: "Intern",       cls: "bg-gray-500/10 text-gray-600 border-gray-600/20" },
 };
 
 export default function FensterPage() {
