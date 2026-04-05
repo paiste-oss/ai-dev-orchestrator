@@ -145,6 +145,9 @@ export function useChatMessages() {
         body: JSON.stringify(body),
       });
 
+      // 401 → apiFetch leitet zu /login weiter, kein Fehler anzeigen
+      if (res.status === 401) return;
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: "Unbekannter Fehler" }));
         if (res.status === 402) {

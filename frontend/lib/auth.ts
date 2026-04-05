@@ -62,9 +62,6 @@ export async function apiFetch(url: string, init: RequestInit = {}): Promise<Res
   if (res.status === 401 && typeof window !== "undefined") {
     clearSession();
     window.location.replace("/login");
-    // Promise niemals auflösen — verhindert dass Aufrufer nach dem Redirect
-    // noch res.json() lesen und "Failed to fetch" werfen.
-    return new Promise(() => {});
   }
   return res;
 }
