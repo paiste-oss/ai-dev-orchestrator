@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
@@ -55,7 +55,7 @@ export default function AdminDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardData>({ total_customers: 0, online_now: 0, pending_entwicklung: 0, recent: [], health: null });
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -102,8 +102,6 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!mounted) return;
     load();
-    intervalRef.current = setInterval(load, 60000); // auto-refresh every 60s
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [mounted, load]);
 
   if (!mounted || !user) return null;
@@ -309,7 +307,7 @@ export default function AdminDashboard() {
           </div>
 
           <div className="pt-2 text-xs text-gray-800">
-            Baddi Admin · auto-refresh alle 60s
+            Baddi Admin
           </div>
 
         </div>
