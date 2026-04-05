@@ -6,6 +6,7 @@ requests
 anthropic
 httpx
 pydantic-settings
+email-validator
 sqlalchemy[asyncio]
 asyncpg
 alembic
