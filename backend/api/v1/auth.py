@@ -81,13 +81,6 @@ async def login(request: Request, data: LoginRequest, db: AsyncSession = Depends
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account deaktiviert")
 
-    # Admin-Accounts müssen zwingend 2FA aktiviert haben
-    if user.role == "admin" and not (user.two_fa_enabled and user.phone_verified):
-        raise HTTPException(
-            status_code=403,
-            detail="Admin-Login erfordert aktivierte 2FA. Bitte zuerst 2FA via POST /v1/auth/2fa/send-otp und /v1/auth/2fa/enable einrichten.",
-        )
-
     # 2FA aktiv und Telefonnummer verifiziert → OTP senden
     if user.two_fa_enabled and user.phone_verified and user.phone:
         from services.twilio_service import generate_and_send_otp
