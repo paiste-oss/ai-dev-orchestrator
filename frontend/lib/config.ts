@@ -7,7 +7,7 @@
  * Das Backend entscheidet, ob n8n-Services (Email, SMS, etc.) ausgelöst werden.
  */
 
-export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 export const N8N_URL = process.env.NEXT_PUBLIC_N8N_URL ?? "http://localhost:5678";
 
 export const API_ROUTES = {
