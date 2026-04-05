@@ -14,7 +14,6 @@ const NAV: NavEntry[] = [
   { label: "Chat öffnen",      href: "/chat",               icon: "💬" },
   { label: "Analyse",          href: "/admin/analytics",   icon: "◈" },
   { label: "Dashboard",        href: "/admin",              icon: "⬡" },
-  { label: "Dev Orchestrator", href: "/admin/devtool",      icon: "⌥" },
   { label: "Kunden",           href: "/admin/customers",    icon: "◎" },
 
   { label: "Entwicklung",      href: "/admin/entwicklung",  icon: "⚗" },
