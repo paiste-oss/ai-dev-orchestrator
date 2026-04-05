@@ -19,13 +19,13 @@ from core.database import get_db
 from core.dependencies import get_current_user
 from models.customer import Customer
 from services.billing_service import (
-
-_log = logging.getLogger(__name__)
     create_subscription_checkout,
     create_topup_checkout,
     create_billing_portal_session,
     handle_webhook,
 )
+
+_log = logging.getLogger(__name__)
 
 from .billing_schemas import CheckoutRequest, TopupRequest
 
