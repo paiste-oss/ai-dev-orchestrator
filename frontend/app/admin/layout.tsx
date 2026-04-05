@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AdminSidebar from "@/components/AdminSidebar";
@@ -13,18 +13,12 @@ import AdminSidebar from "@/components/AdminSidebar";
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
   useEffect(() => {
-    setMounted(true);
     const u = getSession();
     if (!u || u.role !== "admin") {
       router.replace("/login");
     }
   }, [router]);
-
-  // Verhindert Hydration-Mismatch: localStorage ist server-seitig nicht verfügbar
-  if (!mounted) return null;
 
   return (
     <div className="h-[100dvh] bg-gray-950 text-white flex overflow-hidden">

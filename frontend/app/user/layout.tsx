@@ -11,15 +11,12 @@ import { getSession } from "@/lib/auth";
  */
 export default function UserLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     if (!getSession()) {
       router.replace("/login");
     }
   }, [router]);
 
-  if (!mounted) return null;
   return <>{children}</>;
 }
