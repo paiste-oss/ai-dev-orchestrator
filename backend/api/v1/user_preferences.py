@@ -27,6 +27,8 @@ DEFAULTS: dict = {
     "chartSymbols":   [],         # Liste der Symbole im Dashboard
     "chartPeriod":    "1y",       # Zeitraum im Dashboard
     "avatarType":     "robot",    # robot | teekanne | lichtgestalt
+    "ttsDefault":     False,      # Sprachausgabe standardmässig aktiv
+    "ttsVoice":       "female",   # female | male
 }
 
 
@@ -45,6 +47,8 @@ class PreferencesUpdate(BaseModel):
     chartSymbols:    list[str] | None = None
     chartPeriod:     str | None = None
     avatarType:      str | None = None
+    ttsDefault:      bool | None = None
+    ttsVoice:        str | None = None
 
 
 @router.get("")

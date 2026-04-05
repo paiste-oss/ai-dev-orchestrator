@@ -16,6 +16,9 @@ export function PasswordSection() {
 
   const changePassword = async () => {
     if (!pwNew || pwNew !== pwNew2) { setMsg({ text: "Passwörter stimmen nicht überein", ok: false }); return; }
+    if (pwNew.length < 8) { setMsg({ text: "Passwort muss mindestens 8 Zeichen lang sein", ok: false }); return; }
+    if (!/[A-Z]/.test(pwNew)) { setMsg({ text: "Passwort muss mindestens einen Grossbuchstaben enthalten", ok: false }); return; }
+    if (!/\d/.test(pwNew)) { setMsg({ text: "Passwort muss mindestens eine Ziffer enthalten", ok: false }); return; }
     setSaving(true); setMsg(null);
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/auth/change-password`, {
