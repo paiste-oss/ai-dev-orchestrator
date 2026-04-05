@@ -113,7 +113,7 @@ async def update_board(
         board.name = body.name
     if body.data is not None:
         board.data = body.data
-    board.updated_at = datetime.now(timezone.utc)
+    board.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
     await db.commit()
     await db.refresh(board)

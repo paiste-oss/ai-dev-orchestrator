@@ -144,7 +144,7 @@ async def register(request: Request, data: RegisterRequest, db: AsyncSession = D
         birth_date=data.birth_date,
         hashed_password=hash_password(data.password),
         role="customer",
-        tos_accepted_at=datetime.now(timezone.utc),
+        tos_accepted_at=datetime.now(timezone.utc).replace(tzinfo=None),
         memory_consent=data.memory_consent,
         phone=data.phone or None,
     )

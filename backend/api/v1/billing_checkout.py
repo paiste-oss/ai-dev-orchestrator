@@ -92,7 +92,7 @@ async def accept_tos(
 ):
     """Speichert Zeitstempel der ToS-Akzeptanz — gesetzlich erforderlich."""
     if not customer.tos_accepted_at:
-        customer.tos_accepted_at = datetime.now(timezone.utc)
+        customer.tos_accepted_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await db.commit()
 
 

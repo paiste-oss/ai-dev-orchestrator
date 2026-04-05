@@ -162,7 +162,7 @@ async def _maybe_auto_topup(customer: Customer, db: AsyncSession) -> None:
                     description=f"Baddi Wallet Auto-Topup CHF {amount:.2f}",
                     payment_type="auto_topup",
                     status="succeeded",
-                    paid_at=datetime.now(timezone.utc),
+                    paid_at=datetime.now(timezone.utc).replace(tzinfo=None),
                 ))
                 await db.commit()
                 _log.info("Auto-Topup erfolgreich: CHF %.2f → Guthaben jetzt CHF %.2f",
@@ -187,7 +187,7 @@ async def wallet_debit(
     from decimal import Decimal as D
 
     # Monatszähler zurücksetzen falls neuer Monat
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     reset_at = customer.wallet_month_reset_at
     if reset_at is None or reset_at.month != now.month or reset_at.year != now.year:
         customer.wallet_monthly_spent_chf = D("0")
@@ -219,7 +219,7 @@ async def wallet_debit(
         description=description,
         payment_type="wallet_debit",
         status="succeeded",
-        paid_at=datetime.now(timezone.utc),
+        paid_at=datetime.now(timezone.utc).replace(tzinfo=None),
     ))
     await db.commit()
     await _maybe_auto_topup(customer, db)

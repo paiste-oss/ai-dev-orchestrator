@@ -54,7 +54,7 @@ async def process_event(payload: dict, db: AsyncSession) -> dict:
     priority = payload.get("priority", "medium")
     buddy_id = payload.get("buddy_id")
     customer_id = payload.get("customer_id")
-    timestamp = payload.get("timestamp", datetime.now(timezone.utc).isoformat())
+    timestamp = payload.get("timestamp", datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
 
     # 1. Deduplizierung
     existing = await db.execute(
@@ -145,7 +145,7 @@ async def process_event(payload: dict, db: AsyncSession) -> dict:
         llm_message=llm_message,
         llm_reasoning=reasoning,
         pushed_to_sse=False,
-        processed_at=datetime.now(timezone.utc),
+        processed_at=datetime.now(timezone.utc).replace(tzinfo=None),
     )
     db.add(event)
     await db.commit()
@@ -162,7 +162,7 @@ async def process_event(payload: dict, db: AsyncSession) -> dict:
             "message": llm_message or summary,
             "action": action,
             "buddy_name": buddy_name,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         }
         await publish_event(str(customer_id), notification)
         event.pushed_to_sse = True

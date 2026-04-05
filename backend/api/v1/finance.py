@@ -208,7 +208,7 @@ async def update_cost(
     payload = data.model_dump()
     # Wenn Balance geändert wurde → Zeitstempel setzen
     if payload.get("balance_chf") != entry.balance_chf:
-        payload["balance_updated_at"] = datetime.now(timezone.utc)
+        payload["balance_updated_at"] = datetime.now(timezone.utc).replace(tzinfo=None)
 
     for field, value in payload.items():
         setattr(entry, field, value)

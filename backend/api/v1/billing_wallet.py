@@ -271,7 +271,7 @@ async def admin_wallet_credit(
         description=data.description,
         payment_type="bank_transfer",
         status="succeeded",
-        paid_at=datetime.now(timezone.utc),
+        paid_at=datetime.now(timezone.utc).replace(tzinfo=None),
     ))
     await db.commit()
     _log.info("Admin Wallet Credit: CHF %.2f → Kunde %s (neues Guthaben: %.2f)",

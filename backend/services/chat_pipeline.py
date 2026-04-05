@@ -444,7 +444,7 @@ async def finalize(
                                 tokens_used=llm_result["tokens_used"])
     db.add(user_msg)
     db.add(assistant_msg)
-    customer.last_seen = datetime.now(timezone.utc)
+    customer.last_seen = datetime.now(timezone.utc).replace(tzinfo=None)
     await db.commit()
     await db.refresh(assistant_msg)
 
@@ -506,7 +506,7 @@ async def _schedule_capability_request(customer_id: str, message: str, intent: s
                             f"Erkannter Intent: {intent}\n"
                             "Ich analysiere was dafür benötigt wird..."
                         ),
-                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                     }],
                 )
                 db.add(cap_req)

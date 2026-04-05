@@ -90,7 +90,7 @@ async def analyse_capability_request(request_id: str) -> None:
 
         # Status auf "analyzing" setzen
         req.status = "analyzing"
-        req.updated_at = datetime.now(timezone.utc)
+        req.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await db.commit()
 
         cfg = _load_uhrwerk_config()
@@ -151,7 +151,7 @@ async def analyse_capability_request(request_id: str) -> None:
                 dialog.append({
                     "role": "uhrwerk",
                     "content": summary,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 })
             else:
                 req.status = "needs_input"
@@ -162,11 +162,11 @@ async def analyse_capability_request(request_id: str) -> None:
                         f"um den richtigen Ansatz zu bestimmen.\n\n"
                         f"Rohantwort: {response[:500]}"
                     ),
-                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 })
 
             req.dialog = dialog
-            req.updated_at = datetime.now(timezone.utc)
+            req.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
             await db.commit()
 
         except Exception as e:
@@ -175,10 +175,10 @@ async def analyse_capability_request(request_id: str) -> None:
             dialog.append({
                 "role": "uhrwerk",
                 "content": f"Analyse fehlgeschlagen: {str(e)[:200]}. Admin-Input benötigt.",
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             })
             req.dialog = dialog
-            req.updated_at = datetime.now(timezone.utc)
+            req.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
             await db.commit()
 
 
@@ -241,20 +241,20 @@ async def uhrwerk_reply(request_id: str) -> None:
             dialog.append({
                 "role": "uhrwerk",
                 "content": result.text,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             })
             req.dialog = dialog
-            req.updated_at = datetime.now(timezone.utc)
+            req.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
             await db.commit()
 
         except Exception as e:
             dialog.append({
                 "role": "uhrwerk",
                 "content": f"Fehler beim Verarbeiten: {str(e)[:200]}",
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             })
             req.dialog = dialog
-            req.updated_at = datetime.now(timezone.utc)
+            req.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
             await db.commit()
 
 

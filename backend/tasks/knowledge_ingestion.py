@@ -155,7 +155,7 @@ async def _run_ingestion(source_id: str) -> dict:
                     continue
 
             # Source-Stats aktualisieren
-            source.last_crawled_at = datetime.now(timezone.utc)
+            source.last_crawled_at = datetime.now(timezone.utc).replace(tzinfo=None)
             source.doc_count += stats["docs_added"]
             source.chunk_count += stats["chunks_added"]
             await db.commit()

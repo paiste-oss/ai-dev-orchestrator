@@ -113,7 +113,7 @@ async def _create_invoice(
     payload = {
         "socid": third_id,
         "ref_client": invoice_number,
-        "date": int(datetime.now(timezone.utc).timestamp()),
+        "date": int(datetime.now(timezone.utc).replace(tzinfo=None).timestamp()),
         "note_public": note,
         "lines": [
             {
@@ -146,7 +146,7 @@ async def _validate_invoice(client: httpx.AsyncClient, inv_id: int) -> None:
 async def _add_payment(client: httpx.AsyncClient, inv_id: int, amount_chf: float) -> None:
     """Bucht die Zahlung zur Rechnung."""
     payload = {
-        "datepaye": int(datetime.now(timezone.utc).timestamp()),
+        "datepaye": int(datetime.now(timezone.utc).replace(tzinfo=None).timestamp()),
         "paymentid": 6,         # 6 = CB (Kreditkarte/Online)
         "accountid": 1,         # Bankkonto "Stripe Einnahmen"
         "closepaidinvoices": "yes",

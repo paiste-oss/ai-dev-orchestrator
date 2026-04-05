@@ -72,7 +72,7 @@ async def _run() -> None:
                     continue
 
                 db_alert.is_active = False
-                db_alert.triggered_at = datetime.now(timezone.utc)
+                db_alert.triggered_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
                 # Kunden laden für Kanal-Präferenz
                 customer = None
@@ -102,7 +102,7 @@ async def _notify(customer, alert, price: float) -> None:
         f"Kurs-Alert: {name} ({symbol})\n"
         f"Schwellwert {alert.threshold:.2f} {cur} {direction_de}\n"
         f"Aktueller Kurs: {price:.2f} {cur}\n"
-        f"{datetime.now(timezone.utc).strftime('%d.%m.%Y %H:%M')} UTC\n"
+        f"{datetime.now(timezone.utc).replace(tzinfo=None).strftime('%d.%m.%Y %H:%M')} UTC\n"
         f"baddi.ch"
     )
 

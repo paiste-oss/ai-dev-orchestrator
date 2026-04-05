@@ -23,7 +23,7 @@ async def next_invoice_number(db: AsyncSession) -> str:
     Format: BAD-YYYY-NNNNNN  (z.B. BAD-2026-000001)
     Gesetzlich vorgeschrieben gem. MWSTG Art. 26 Abs. 2 lit. b.
     """
-    year = datetime.now(timezone.utc).year
+    year = datetime.now(timezone.utc).replace(tzinfo=None).year
     row = await db.get(InvoiceCounter, year)
     if row is None:
         row = InvoiceCounter(year=year, last_number=0)

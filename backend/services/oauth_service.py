@@ -70,7 +70,7 @@ async def handle_callback(
         r.raise_for_status()
         tokens = r.json()
 
-    expiry = (datetime.now(timezone.utc) + timedelta(seconds=tokens.get("expires_in", 3600))).isoformat()
+    expiry = (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=tokens.get("expires_in", 3600))).isoformat()
 
     creds = {
         "access_token":  tokens["access_token"],
@@ -92,12 +92,10 @@ async def get_valid_access_token(
     Gibt einen gültigen Access Token zurück.
     Refresht automatisch wenn der Token abgelaufen ist.
     """
-    expiry = datetime.fromisoformat(creds["token_expiry"])
-    if expiry.tzinfo is None:
-        expiry = expiry.replace(tzinfo=timezone.utc)
+    expiry = datetime.fromisoformat(creds["token_expiry"]).replace(tzinfo=None)
 
     # Token noch 5 Minuten gültig → direkt zurückgeben
-    if datetime.now(timezone.utc) < expiry - timedelta(minutes=5):
+    if datetime.now(timezone.utc).replace(tzinfo=None) < expiry - timedelta(minutes=5):
         return creds["access_token"]
 
     # Token abgelaufen → refreshen
@@ -111,7 +109,7 @@ async def get_valid_access_token(
         r.raise_for_status()
         new_tokens = r.json()
 
-    new_expiry = (datetime.now(timezone.utc) + timedelta(seconds=new_tokens.get("expires_in", 3600))).isoformat()
+    new_expiry = (datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=new_tokens.get("expires_in", 3600))).isoformat()
 
     updated_creds = {
         **creds,

@@ -44,7 +44,7 @@ async def record_analytics(
     try:
         customer_id = str(customer.id)
         session_hash = hashlib.sha256(customer_id.encode()).hexdigest()[:12]
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         tools_str = ", ".join(tools_used)[:500] if tools_used else ""
 
         await db.execute(

@@ -218,7 +218,7 @@ async def dashboard_stats(
     _: Customer = Depends(require_admin),
 ):
     from datetime import datetime, timedelta,timezone
-    online_threshold = datetime.now(timezone.utc) - timedelta(minutes=15)
+    online_threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=15)
 
     total_result = await db.execute(select(func.count()).select_from(Customer).where(Customer.role == "customer"))
     total = total_result.scalar() or 0

@@ -151,14 +151,14 @@ async def admin_dialog_message(
     dialog.append({
         "role": "admin",
         "content": msg.content,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
     })
 
     if r.status == "needs_input":
         r.status = "building"
 
     r.dialog = dialog
-    r.updated_at = datetime.now(timezone.utc)
+    r.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     await db.commit()
     await db.refresh(r)
 
@@ -186,7 +186,7 @@ async def update_status(
     r.status = data.status
     if data.admin_notes:
         r.admin_notes = data.admin_notes
-    r.updated_at = datetime.now(timezone.utc)
+    r.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     await db.commit()
     await db.refresh(r)
     return _to_out(r)
@@ -220,14 +220,14 @@ async def deploy_tool(
     r.status = "deployed"
     r.deployed_tool_key = data.tool_key
     r.tool_proposal = data.tool_proposal
-    r.updated_at = datetime.now(timezone.utc)
+    r.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
     dialog = list(r.dialog or [])
     dialog.append({
         "role": "uhrwerk",
         "content": f"✅ Tool '{data.tool_key}' wurde erfolgreich ins Uhrwerk deployed. "
                    f"Kunden können diese Fähigkeit ab sofort nutzen.",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
     })
     r.dialog = dialog
 
@@ -292,7 +292,7 @@ async def start_implementation(
 
     r.dev_task_id = str(task.id)
     r.status = "building"
-    r.updated_at = datetime.now(timezone.utc)
+    r.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
     dialog = list(r.dialog or [])
     dialog.append({
@@ -302,7 +302,7 @@ async def start_implementation(
             f"Claude arbeitet jetzt am Code für **{p.get('display_name', tool_name)}**. "
             f"Du kannst den Fortschritt unter Dev Orchestrator verfolgen."
         ),
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
     })
     r.dialog = dialog
 
@@ -333,7 +333,7 @@ async def create_capability_request(
                 f"Erkannter Intent: {intent or 'unbekannt'}\n"
                 f"Ich analysiere was dafür benötigt wird..."
             ),
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         }],
     )
     db.add(req)

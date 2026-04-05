@@ -63,7 +63,7 @@ async def _recover_long_running():
     Session, engine = _make_session()
     try:
         async with Session() as db:
-            cutoff = datetime.now(timezone.utc) - timedelta(minutes=10)
+            cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=10)
             result = await db.execute(
                 select(DevTask).where(
                     DevTask.status == "running",
@@ -81,7 +81,7 @@ async def _recover_long_running():
 
 
 async def _get_next_task(db) -> DevTask | None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
 
     # Erst: pausierte Tasks die wieder bereit sind
     r = await db.execute(
