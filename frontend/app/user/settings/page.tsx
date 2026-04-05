@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, getSession } from "@/lib/auth";
+import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { ProfileSection } from "@/components/user/settings/ProfileSection";
 import { PasswordSection } from "@/components/user/settings/PasswordSection";
@@ -29,10 +29,8 @@ export default function UserSettingsPage() {
   const [me, setMe] = useState<Me | null>(null);
 
   useEffect(() => {
-    const session = getSession();
-    if (!session) { router.replace("/login"); return; }
     apiFetch(`${BACKEND_URL}/v1/auth/me`).then(r => r.json()).then((d: Me) => setMe(d));
-  }, [router]);
+  }, []);
 
   if (!me) return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center">

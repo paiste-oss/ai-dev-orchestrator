@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { getSession, apiFetch } from "@/lib/auth";
+import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import AdminSidebar from "@/components/AdminSidebar";
 
 interface ServiceStatus {
   [key: string]: "ok" | "fail" | "unknown";
@@ -47,9 +45,6 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function SystemPage() {
-  const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
@@ -68,28 +63,14 @@ export default function SystemPage() {
   }, []);
 
   useEffect(() => {
-    const u = getSession();
-    setMounted(true);
-    if (!u || u.role !== "admin") { router.replace("/login"); return; }
     load();
     const interval = setInterval(load, 60000);
     return () => clearInterval(interval);
-  }, []);
-
-  if (!mounted) return null;
+  }, [load]);
 
   const allOk = health ? Object.values(health.services).every(s => s === "ok") : null;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="flex-1 overflow-y-auto">
-        <header className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 bg-gray-950/80 backdrop-blur-md border-b border-white/5 md:hidden">
-          <button onClick={() => setSidebarOpen(true)} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 text-gray-400">☰</button>
-          <span className="font-bold text-sm text-yellow-400">System</span>
-        </header>
-
         <div className="max-w-3xl mx-auto px-4 md:px-8 pt-8 pb-12 space-y-6">
 
           {/* Header */}
@@ -227,7 +208,5 @@ export default function SystemPage() {
           </div>
 
         </div>
-      </main>
-    </div>
   );
 }

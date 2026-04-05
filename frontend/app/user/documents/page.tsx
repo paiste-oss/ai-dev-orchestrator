@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { apiFetch, apiFetchForm, getSession } from "@/lib/auth";
+import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { fmtBytes as formatBytes, formatDate } from "@/lib/format";
 import { BACKEND_URL } from "@/lib/config";
 
@@ -44,7 +44,6 @@ export default function DocumentsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!getSession()) { router.replace("/login"); return; }
     loadDocs();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

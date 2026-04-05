@@ -4,8 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
 import { API_ROUTES, BACKEND_URL } from "@/lib/config";
-import { useAdminPage } from "@/hooks/useAdminPage";
-import AdminSidebar from "@/components/AdminSidebar";
 import { formatDate } from "@/lib/format";
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
@@ -77,7 +75,6 @@ function DeleteDialog({ customer, onConfirm, onCancel, loading }: {
 
 export default function CustomersPage() {
   const router = useRouter();
-  const { mounted, sidebarOpen, setSidebarOpen } = useAdminPage();
 
   const [search, setSearch]       = useState("");
   const [role, setRole]           = useState("");
@@ -122,7 +119,7 @@ export default function CustomersPage() {
   }, [debouncedSearch, role, activeFilter, page]);
 
   useEffect(() => { setPage(1); }, [debouncedSearch, role, activeFilter]);
-  useEffect(() => { if (mounted) fetchCustomers(); }, [fetchCustomers, mounted]);
+  useEffect(() => { fetchCustomers(); }, [fetchCustomers]);
 
   const toggleActive = async (customer: Customer) => {
     try {
@@ -150,22 +147,16 @@ export default function CustomersPage() {
 
   const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1;
 
-  if (!mounted) return null;
-
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
+    <>
       {deleteConfirm && (
         <DeleteDialog customer={deleteConfirm} onConfirm={handleDelete}
           onCancel={() => setDeleteConfirm(null)} loading={deleting} />
       )}
 
-
-      <main className="flex-1 p-4 md:p-8 space-y-6 overflow-y-auto min-w-0">
+      <main className="flex-1 p-4 md:p-8 space-y-6 min-w-0">
 
         <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white text-2xl md:hidden">☰</button>
           <div className="flex-1">
             <h1 className="text-xl md:text-2xl font-bold">👥 Kunden</h1>
             <p className="text-gray-400 text-sm mt-0.5">
@@ -386,6 +377,6 @@ export default function CustomersPage() {
         )}
 
       </main>
-    </div>
+    </>
   );
 }
