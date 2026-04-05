@@ -10,18 +10,21 @@ export default function LandingPage() {
   const router = useRouter();
   const user = getSession();
   const [showImpressum, setShowImpressum] = useState(false);
-  const [showRegister, setShowRegister] = useState(true);
-  const [showLogin, setShowLogin] = useState(true);
+  const [showRegister, setShowRegister] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
 
   useEffect(() => {
     if (user) router.replace(getDashboardPath(user));
     fetch(`${BACKEND_URL}/v1/settings/portal`)
       .then(r => r.json())
       .then(data => {
-        if (data.show_register_menschen === false) setShowRegister(false);
-        if (data.show_login === false) setShowLogin(false);
+        setShowRegister(data.show_register_menschen === true);
+        setShowLogin(data.show_login !== false);
       })
-      .catch(() => {});
+      .catch(() => {
+        // Fallback: Login immer anzeigen, Register nicht
+        setShowLogin(true);
+      });
   }, []);
 
   return (
