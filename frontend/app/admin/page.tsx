@@ -66,26 +66,26 @@ export default function AdminDashboard() {
         apiFetch(`${BACKEND_URL}/v1/system/health`),
       ]);
 
-      let total_customers = 0, online_now = 0, pending_entwicklung = 0;
-      let recent: RecentCustomer[] = [];
-      let health: HealthData | null = null;
-
-      if (dashRes.status === "fulfilled" && dashRes.value.ok) {
-        const d = await dashRes.value.json();
-        total_customers = d.total_customers ?? 0;
-        online_now = d.online_now ?? 0;
-        recent = d.recent ?? [];
-      }
-      if (entwicklungRes.status === "fulfilled" && entwicklungRes.value.ok) {
-        const d = await entwicklungRes.value.json();
-        const s = d.stats ?? {};
-        pending_entwicklung = (s["pending"] ?? 0) + (s["needs_input"] ?? 0);
-      }
-      if (healthRes.status === "fulfilled" && healthRes.value.ok) {
-        health = await healthRes.value.json();
-      }
-
-      setData({ total_customers, online_now, pending_entwicklung, recent, health });
+      setData(prev => {
+        const next = { ...prev };
+        if (dashRes.status === "fulfilled" && dashRes.value.ok) {
+          dashRes.value.json().then(d => {
+            setData(p => ({ ...p, total_customers: d.total_customers ?? 0, online_now: d.online_now ?? 0, recent: d.recent ?? [] }));
+          });
+        }
+        if (entwicklungRes.status === "fulfilled" && entwicklungRes.value.ok) {
+          entwicklungRes.value.json().then(d => {
+            const s = d.stats ?? {};
+            setData(p => ({ ...p, pending_entwicklung: (s["pending"] ?? 0) + (s["needs_input"] ?? 0) }));
+          });
+        }
+        if (healthRes.status === "fulfilled" && healthRes.value.ok) {
+          healthRes.value.json().then(d => {
+            setData(p => ({ ...p, health: d }));
+          });
+        }
+        return next;
+      });
     } finally {
       setLoading(false);
     }
