@@ -152,19 +152,9 @@ export default function CustomersPage() {
 
   if (!mounted) return null;
 
-  // DEBUG — wird nach Diagnose entfernt
-  const _debugToken = typeof window !== "undefined" ? localStorage.getItem("aibuddy_token") : null;
-  const _debugTokenInfo = _debugToken
-    ? `Token: ...${_debugToken.slice(-12)} | Länge: ${_debugToken.length}`
-    : "KEIN TOKEN";
-
   return (
     <div className="min-h-screen bg-gray-950 text-white flex">
       <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      {/* DEBUG BANNER */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-yellow-900/90 text-yellow-200 text-xs p-2 text-center">
-        {_debugTokenInfo} | Kunden: {data?.total ?? "?"} | Fehler: {error ?? "–"}
-      </div>
 
       {deleteConfirm && (
         <DeleteDialog customer={deleteConfirm} onConfirm={handleDelete}

@@ -6,9 +6,12 @@ GET  /v1/documents/file/{doc_id}  → Einzelnes Dokument
 DELETE /v1/documents/file/{doc_id} → Dokument löschen
 POST /v1/documents/search          → Semantische Suche in Kundendokumenten
 """
+import logging
 import uuid
 from datetime import datetime
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Query
+
+_log = logging.getLogger(__name__)
 from core.exceptions import not_found, file_too_large, storage_limit_exceeded
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
@@ -88,11 +91,12 @@ async def upload_document(
 
     # Speicherlimit prüfen
     customer = await db.get(Customer, customer_id)
-    if customer:
-        total_limit = (customer.storage_limit_bytes or 0) + (customer.storage_extra_bytes or 0)
-        used = customer.storage_used_bytes or 0
-        if used + len(content) > total_limit:
-            raise storage_limit_exceeded(max(0, total_limit - used) / 1024 / 1024)
+    if not customer:
+        raise HTTPException(status_code=404, detail="Kunde nicht gefunden")
+    total_limit = (customer.storage_limit_bytes or 0) + (customer.storage_extra_bytes or 0)
+    used = customer.storage_used_bytes or 0
+    if used + len(content) > total_limit:
+        raise storage_limit_exceeded(max(0, total_limit - used) / 1024 / 1024)
 
     filename = file.filename or "unknown"
     mime_type = file.content_type or ""
@@ -106,7 +110,11 @@ async def upload_document(
         )
 
     # Text extrahieren
-    parse_result = parse_file(content, filename, mime_type)
+    try:
+        parse_result = parse_file(content, filename, mime_type)
+    except Exception as e:
+        _log.error("Datei-Parsing fehlgeschlagen für '%s': %s", filename, e)
+        raise HTTPException(status_code=422, detail=f"Datei konnte nicht verarbeitet werden: {e}")
 
     # Eindeutiger Dateiname für interne Referenz
     unique_filename = f"{customer_id}_{uuid.uuid4().hex[:8]}_{filename}"
@@ -128,16 +136,24 @@ async def upload_document(
         doc_metadata=parse_result.metadata,
     )
     db.add(doc)
-    await db.commit()
-    await db.refresh(doc)
+    try:
+        await db.commit()
+        await db.refresh(doc)
+    except Exception as e:
+        _log.error("Dokument konnte nicht in DB gespeichert werden ('%s'): %s", filename, e)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Dokument konnte nicht gespeichert werden")
 
     # Storage-Zähler erhöhen
-    await db.execute(
-        sa_update(Customer)
-        .where(Customer.id == customer_id)
-        .values(storage_used_bytes=Customer.storage_used_bytes + len(content))
-    )
-    await db.commit()
+    try:
+        await db.execute(
+            sa_update(Customer)
+            .where(Customer.id == customer_id)
+            .values(storage_used_bytes=Customer.storage_used_bytes + len(content))
+        )
+        await db.commit()
+    except Exception as e:
+        _log.warning("Storage-Zähler konnte nicht aktualisiert werden für Kunde %s: %s", customer_id, e)
 
     # Qdrant: Vektoren speichern
     if store_qdrant and parse_result.text.strip():
@@ -156,7 +172,7 @@ async def upload_document(
             await db.refresh(doc)
         except Exception as e:
             # Qdrant-Fehler dürfen den Upload nicht blockieren
-            print(f"[Documents] Qdrant-Speicherung fehlgeschlagen: {e}")
+            _log.error("Qdrant-Speicherung fehlgeschlagen für Dokument %s: %s", doc.id, e)
 
     return doc
 

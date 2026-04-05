@@ -16,7 +16,14 @@ export function saveSession(user: AuthUser) {
 export function getSession(): AuthUser | null {
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem("aibuddy_user");
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    localStorage.removeItem("aibuddy_user");
+    localStorage.removeItem("aibuddy_token");
+    return null;
+  }
 }
 
 export function saveToken(token: string) {

@@ -109,7 +109,7 @@ export default function AdminDashboard() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Guten Morgen" : hour < 18 ? "Guten Tag" : "Guten Abend";
   const firstName = user.name.split(" ")[0];
-  const allOk = data.health ? Object.values(data.health.services).every(s => s === "ok") : false;
+  const allOk = data.health?.services ? Object.values(data.health.services).every(s => s === "ok") : false;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex">

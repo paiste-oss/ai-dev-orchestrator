@@ -2,6 +2,7 @@
 Stocks API — direkte yfinance-Abfragen für das Chart-Dashboard-Fenster.
 Kein AI-Tool-Aufruf nötig; Frontend fragt direkt an.
 """
+import logging
 import uuid
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel
@@ -13,6 +14,8 @@ from core.dependencies import get_current_user
 from models.customer import Customer
 from models.stock_portfolio import StockPortfolio
 from services.yfinance_utils import fetch_history, fetch_price, search_symbols
+
+_log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/stocks", tags=["stocks"])
 
@@ -27,10 +30,14 @@ async def stock_history(
     period: str = Query("1y"),
     _customer: Customer = Depends(get_current_user),
 ):
-    symbol = symbol.upper().strip()
+    symbol = symbol.upper().strip()[:20]  # Länge begrenzen
     if period not in VALID_PERIODS:
         period = "1y"
-    return fetch_history(symbol, period)
+    try:
+        return fetch_history(symbol, period)
+    except Exception as e:
+        _log.warning("Kurshistorie für '%s' nicht verfügbar: %s", symbol, e)
+        raise HTTPException(status_code=503, detail=f"Kursdaten für '{symbol}' nicht verfügbar")
 
 
 # ── Search ─────────────────────────────────────────────────────────────────────
@@ -40,8 +47,12 @@ async def stock_search(
     q: str = Query(...),
     _customer: Customer = Depends(get_current_user),
 ):
-    results = search_symbols(q)
-    return [{"symbol": r["symbol"], "name": r["name"]} for r in results]
+    try:
+        results = search_symbols(q)
+        return [{"symbol": r["symbol"], "name": r["name"]} for r in results]
+    except Exception as e:
+        _log.warning("Symbol-Suche fehlgeschlagen für '%s': %s", q, e)
+        return []
 
 
 # ── News ───────────────────────────────────────────────────────────────────────
@@ -117,7 +128,11 @@ async def get_portfolio(
 
     out = []
     for pos in positions:
-        price, currency = fetch_price(pos.symbol)
+        try:
+            price, currency = fetch_price(pos.symbol)
+        except Exception as e:
+            _log.warning("Kurs für '%s' nicht verfügbar: %s", pos.symbol, e)
+            price, currency = None, "CHF"
         current_value = round(price * pos.quantity, 2) if price else None
         cost_basis = round(pos.buy_price * pos.quantity, 2)
         gain = round(current_value - cost_basis, 2) if current_value is not None else None

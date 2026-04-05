@@ -82,7 +82,8 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
     # Memories aus Qdrant (Fallback: PostgreSQL)
     try:
         relevant = search_memories(customer_id, message, top_k=10)
-    except Exception:
+    except Exception as e:
+        _log.warning("Qdrant Memory-Suche fehlgeschlagen, Fallback auf PostgreSQL: %s", e)
         result_mem = await db.execute(
             select(MemoryItem)
             .where(MemoryItem.customer_id == customer_id, MemoryItem.is_active.is_(True))
@@ -92,7 +93,8 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
 
     try:
         style_prefs = get_style_memories(customer_id)
-    except Exception:
+    except Exception as e:
+        _log.warning("Qdrant Style-Memory-Suche fehlgeschlagen, Fallback auf PostgreSQL: %s", e)
         result_style = await db.execute(
             select(MemoryItem)
             .where(MemoryItem.customer_id == customer_id, MemoryItem.is_active.is_(True),
@@ -114,8 +116,8 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
         )
         netz_boards = netz_result.scalars().all()
         netzwerk_context = _format_netzwerk(netz_boards, first_name)
-    except Exception:
-        pass
+    except Exception as e:
+        _log.warning("Netzwerk-Kontext konnte nicht geladen werden: %s", e)
 
     # Kunden-Dokumente automatisch laden
     doc_result = await db.execute(
@@ -157,8 +159,8 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
                     existing_texts = {c["text"][:100] for c in knowledge_chunks}
                     extra = [c for c in boosted if c["text"][:100] not in existing_texts]
                     knowledge_chunks = extra + knowledge_chunks
-        except Exception:
-            pass
+        except Exception as e:
+            _log.warning("Knowledge-Suche fehlgeschlagen, Chat läuft ohne Wissensbasis: %s", e)
 
     # System-Prompt
     system_prompt = build_system_prompt(
@@ -445,8 +447,13 @@ async def finalize(
     db.add(user_msg)
     db.add(assistant_msg)
     customer.last_seen = datetime.now(timezone.utc).replace(tzinfo=None)
-    await db.commit()
-    await db.refresh(assistant_msg)
+    try:
+        await db.commit()
+        await db.refresh(assistant_msg)
+    except Exception as e:
+        _log.error("Chat-Nachricht konnte nicht gespeichert werden: %s", e)
+        await db.rollback()
+        raise RuntimeError("Nachricht konnte nicht gespeichert werden") from e
 
     # Analytics
     await record_analytics(
@@ -533,12 +540,15 @@ async def _load_global_baddi_config() -> dict:
 
 async def _push_short_term_memory(customer_id: str, user_msg: str, assistant_msg: str) -> None:
     import time
-    r = await get_async_redis()
-    key = f"chat:recent:{customer_id}"
-    await r.lpush(key, json.dumps({"role": "user", "content": user_msg, "ts": time.time()}))
-    await r.lpush(key, json.dumps({"role": "assistant", "content": assistant_msg, "ts": time.time()}))
-    await r.ltrim(key, 0, 11)
-    await r.expire(key, 86400)
+    try:
+        r = await get_async_redis()
+        key = f"chat:recent:{customer_id}"
+        await r.lpush(key, json.dumps({"role": "user", "content": user_msg, "ts": time.time()}))
+        await r.lpush(key, json.dumps({"role": "assistant", "content": assistant_msg, "ts": time.time()}))
+        await r.ltrim(key, 0, 11)
+        await r.expire(key, 86400)
+    except Exception as e:
+        _log.warning("Short-term Memory konnte nicht in Redis gespeichert werden: %s", e)
 
 
 def _format_netzwerk(boards: list, first_name: str) -> str | None:

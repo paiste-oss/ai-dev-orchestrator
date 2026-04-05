@@ -109,17 +109,21 @@ async def get_history(
     customer: Customer = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(ChatMessage)
-        .where(ChatMessage.customer_id == str(customer.id))
-        .order_by(ChatMessage.created_at.desc()).limit(limit)
-    )
-    msgs = list(reversed(result.scalars().all()))
-    return [
-        MessageOut(id=str(m.id), role=m.role, content=m.content,
-                   provider=m.provider, model=m.model, created_at=m.created_at.isoformat())
-        for m in msgs
-    ]
+    try:
+        result = await db.execute(
+            select(ChatMessage)
+            .where(ChatMessage.customer_id == str(customer.id))
+            .order_by(ChatMessage.created_at.desc()).limit(limit)
+        )
+        msgs = list(reversed(result.scalars().all()))
+        return [
+            MessageOut(id=str(m.id), role=m.role, content=m.content,
+                       provider=m.provider, model=m.model, created_at=m.created_at.isoformat())
+            for m in msgs
+        ]
+    except Exception as e:
+        _log.error("Chat-History konnte nicht geladen werden für Kunde %s: %s", customer.id, e)
+        return []
 
 
 @router.get("/memories", response_model=list[MemoryOut])
@@ -183,16 +187,24 @@ async def transcribe_audio(
         raise HTTPException(status_code=503, detail="Whisper nicht verfügbar.")
     audio_bytes = await file.read()
     filename = file.filename or "audio.mp3"
-    async with _httpx.AsyncClient(timeout=60.0) as client:
-        resp = await client.post(
-            "https://api.openai.com/v1/audio/transcriptions",
-            headers={"Authorization": f"Bearer {settings.openai_api_key}"},
-            files={"file": (filename, audio_bytes, file.content_type or "audio/mpeg")},
-            data={"model": "whisper-1", "language": "de"},
-        )
+    try:
+        async with _httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                "https://api.openai.com/v1/audio/transcriptions",
+                headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+                files={"file": (filename, audio_bytes, file.content_type or "audio/mpeg")},
+                data={"model": "whisper-1", "language": "de"},
+            )
         if resp.status_code != 200:
-            raise HTTPException(status_code=502, detail=f"Whisper Fehler: {resp.text}")
-    return {"text": resp.json().get("text", "")}
+            _log.error("Whisper API Fehler %s für Datei '%s'", resp.status_code, filename)
+            raise HTTPException(status_code=502, detail="Transkription nicht verfügbar")
+        data = resp.json()
+        return {"text": data.get("text", "")}
+    except HTTPException:
+        raise
+    except Exception as e:
+        _log.error("Whisper Transkription fehlgeschlagen für '%s': %s", filename, e)
+        raise HTTPException(status_code=502, detail="Transkription nicht verfügbar")
 
 
 @router.post("/upload-attachment")

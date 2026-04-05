@@ -10,6 +10,8 @@ Endpunkte:
 """
 from datetime import datetime,timezone
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +19,8 @@ from core.database import get_db
 from core.dependencies import get_current_user
 from models.customer import Customer
 from services.billing_service import (
+
+_log = logging.getLogger(__name__)
     create_subscription_checkout,
     create_topup_checkout,
     create_billing_portal_session,
@@ -46,6 +50,9 @@ async def start_checkout(
         return {"checkout_url": url}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        _log.error("Stripe Checkout Fehler für Kunde %s: %s", customer.id, e)
+        raise HTTPException(status_code=503, detail="Zahlungsanbieter nicht erreichbar")
 
 
 # ── Topup (Legacy) ─────────────────────────────────────────────────────────────
@@ -66,6 +73,9 @@ async def topup_balance(
         return {"checkout_url": url}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        _log.error("Stripe Topup Fehler für Kunde %s: %s", customer.id, e)
+        raise HTTPException(status_code=503, detail="Zahlungsanbieter nicht erreichbar")
 
 
 # ── Portal ────────────────────────────────────────────────────────────────────
@@ -81,6 +91,9 @@ async def open_billing_portal(
         return {"portal_url": url}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        _log.error("Stripe Portal Fehler für Kunde %s: %s", customer.id, e)
+        raise HTTPException(status_code=503, detail="Zahlungsanbieter nicht erreichbar")
 
 
 # ── ToS-Akzeptanz ─────────────────────────────────────────────────────────────
@@ -116,3 +129,6 @@ async def stripe_webhook(
         return {"received": True}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        _log.error("Stripe Webhook Verarbeitung fehlgeschlagen: %s", e)
+        raise HTTPException(status_code=500, detail="Webhook-Verarbeitung fehlgeschlagen")
