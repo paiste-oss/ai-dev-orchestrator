@@ -222,12 +222,24 @@ services:
       - ai_local
       - ai_external
 
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime_kuma
+    restart: always
+    ports:
+      - "127.0.0.1:3001:3001"   # Nur lokal; via CF-Tunnel oder SSH-Tunnel erreichbar
+    volumes:
+      - uptime_kuma_data:/app/data
+    networks:
+      - ai_local
+      - ai_external
+
   postgres:
     image: postgres:16-alpine
     container_name: ai_postgres
     restart: always
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"   # Nur localhost — kein direkter Internetzugang
     environment:
       POSTGRES_DB: aibuddy
       POSTGRES_USER: aibuddy
@@ -236,6 +248,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - ai_internal
+      - ai_local
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U aibuddy"]
       interval: 10s
@@ -331,6 +344,7 @@ volumes:
   qdrant_data:
   dolibarr_data:
   dolibarr_db_data:
+  uptime_kuma_data:
 
 networks:
   ai_local:
