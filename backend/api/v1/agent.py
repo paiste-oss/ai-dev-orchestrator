@@ -4,8 +4,10 @@ POST /agent/run           → Standard-Prompt ohne Datei
 POST /agent/run-with-file → Prompt + hochgeladene Datei (Multipart)
 """
 import uuid
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
+from core.dependencies import get_current_user
+from models.customer import Customer
 from services.llm_gateway import chat_with_claude
 from services.file_parser import parse_file, is_supported, get_file_extension, SUPPORTED_EXTENSIONS
 from services.vector_store import search_customer_documents
@@ -17,29 +19,29 @@ class AIRequest(BaseModel):
     prompt: str
     model: str = "auto"
     system_prompt: str | None = None
-    customer_id: str | None = None   # Optional: Kundendokumente als Kontext einbeziehen
 
 
 # ─── Standard Chat ────────────────────────────────────────────────────────────
 
 @router.post("/agent/run")
-async def run_agent(request: AIRequest):
+async def run_agent(
+    request: AIRequest,
+    current_user: Customer = Depends(get_current_user),
+):
     """
-    Standard-Prompt. Wenn customer_id angegeben wird, wird semantisch in den
-    Kundendokumenten gesucht und der relevante Kontext dem Prompt hinzugefügt.
+    Standard-Prompt. Kundendokumente des eingeloggten Nutzers werden als Kontext einbezogen.
     """
     try:
+        customer_id = str(current_user.id)
         prompt_with_context = request.prompt
 
-        # Wenn Kunden-ID da: relevante Dokumente als Kontext hinzufügen
-        if request.customer_id:
-            doc_context = _build_document_context(request.customer_id, request.prompt)
-            if doc_context:
-                prompt_with_context = (
-                    f"{doc_context}\n\n"
-                    f"---\n"
-                    f"Nutzer-Frage: {request.prompt}"
-                )
+        doc_context = _build_document_context(customer_id, request.prompt)
+        if doc_context:
+            prompt_with_context = (
+                f"{doc_context}\n\n"
+                f"---\n"
+                f"Nutzer-Frage: {request.prompt}"
+            )
 
         model = "claude-haiku-4-5-20251001" if request.model == "auto" else request.model
         result = await chat_with_claude(
@@ -48,8 +50,10 @@ async def run_agent(request: AIRequest):
             model=model,
         )
         return {"status": "success", "output": result.text, "model_used": model}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Interner Serverfehler")
 
 
 # ─── Chat mit direktem File-Upload ───────────────────────────────────────────
@@ -60,9 +64,9 @@ async def run_agent_with_file(
     prompt: str = Form("Analysiere dieses Dokument und fasse es zusammen."),
     model: str = Form("auto"),
     system_prompt: str = Form(""),
-    customer_id: str = Form(""),
     store_postgres: bool = Form(True),
     store_qdrant: bool = Form(True),
+    current_user: Customer = Depends(get_current_user),
 ):
     """
     Nimmt eine Datei + einen Prompt entgegen.
@@ -70,6 +74,8 @@ async def run_agent_with_file(
     2. Optional: Speichert in PostgreSQL und/oder Qdrant (wenn customer_id angegeben)
     3. Schickt Datei-Inhalt + Prompt an den Agenten
     """
+    customer_id = str(current_user.id)
+
     # Datei lesen
     content = await file.read()
     filename = file.filename or "unknown"
@@ -86,9 +92,9 @@ async def run_agent_with_file(
     # Text extrahieren
     parse_result = parse_file(content, filename, mime_type)
 
-    # Optional: Persistent speichern wenn customer_id angegeben
+    # Optional: Persistent speichern
     saved_doc_id = None
-    if customer_id and (store_postgres or store_qdrant):
+    if store_postgres or store_qdrant:
         saved_doc_id = await _save_document_async(
             content=content,
             filename=filename,
@@ -142,8 +148,10 @@ async def run_agent_with_file(
                 "saved_doc_id": saved_doc_id,
             }
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Interner Serverfehler")
 
 
 # ─── Helper ───────────────────────────────────────────────────────────────────

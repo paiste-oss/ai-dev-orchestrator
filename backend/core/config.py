@@ -4,7 +4,6 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     # Datenbank
     database_url: str
-    postgres_password: str = "aibuddy"
 
     # Redis / Celery
     redis_url: str

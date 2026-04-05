@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 from models.customer import Customer
 from core.dependencies import require_admin
 
-router = APIRouter(prefix="/v1/admin/integrations", tags=["admin-integrations"])
+router = APIRouter(prefix="/admin/integrations", tags=["admin-integrations"])
 
 
 def _set(key: str) -> bool:

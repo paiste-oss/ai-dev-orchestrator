@@ -168,10 +168,10 @@ async def text_to_speech(
     try:
         audio = await synthesize(req.text, req.voice_id)
         return Response(content=audio, media_type="audio/mpeg")
-    except ValueError as e:
-        raise HTTPException(status_code=503, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"TTS Fehler: {e}")
+    except ValueError:
+        raise HTTPException(status_code=503, detail="TTS-Dienst nicht verfügbar")
+    except Exception:
+        raise HTTPException(status_code=502, detail="TTS-Dienst nicht verfügbar")
 
 
 @router.post("/transcribe")

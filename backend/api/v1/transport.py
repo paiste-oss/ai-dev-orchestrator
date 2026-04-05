@@ -20,9 +20,9 @@ async def locations(
     try:
         return await sbb_client.search_locations(query, location_type=type)
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=str(e))
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"SBB API nicht erreichbar: {e}")
+        raise HTTPException(status_code=e.response.status_code, detail="SBB API Fehler")
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="SBB API nicht erreichbar")
 
 
 @router.get("/stationboard")
@@ -43,9 +43,9 @@ async def stationboard(
             datetime_str=datetime,
         )
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=str(e))
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"SBB API nicht erreichbar: {e}")
+        raise HTTPException(status_code=e.response.status_code, detail="SBB API Fehler")
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="SBB API nicht erreichbar")
 
 
 @router.get("/connections")
@@ -72,6 +72,6 @@ async def connections(
             transportations=transportations,
         )
     except httpx.HTTPStatusError as e:
-        raise HTTPException(status_code=e.response.status_code, detail=str(e))
-    except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"SBB API nicht erreichbar: {e}")
+        raise HTTPException(status_code=e.response.status_code, detail="SBB API Fehler")
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="SBB API nicht erreichbar")
