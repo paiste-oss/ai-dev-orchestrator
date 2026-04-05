@@ -30,6 +30,7 @@ async def list_customers(
     is_active: Optional[bool] = Query(None, description="Filter nach aktivem Status"),
     p: PageParams = Depends(),
     db: AsyncSession = Depends(get_db),
+    _: Customer = Depends(require_admin),
 ):
     query = select(Customer)
 
@@ -72,7 +73,7 @@ async def list_customers(
 
 
 @router.post("/", response_model=CustomerOut, status_code=201)
-async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_db)):
+async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_db), _: Customer = Depends(require_admin)):
     from sqlalchemy.exc import IntegrityError
     customer = Customer(
         name=data.name,
@@ -90,7 +91,7 @@ async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_d
 
 
 @router.get("/lookup", response_model=CustomerOut)
-async def lookup_customer_by_email(email: str, db: AsyncSession = Depends(get_db)):
+async def lookup_customer_by_email(email: str, db: AsyncSession = Depends(get_db), _: Customer = Depends(require_admin)):
     result = await db.execute(select(Customer).where(Customer.email == email.lower()))
     customer = result.scalar_one_or_none()
     if not customer:
@@ -99,7 +100,7 @@ async def lookup_customer_by_email(email: str, db: AsyncSession = Depends(get_db
 
 
 @router.get("/{customer_id}", response_model=CustomerOut)
-async def get_customer(customer_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def get_customer(customer_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: Customer = Depends(require_admin)):
     customer = await db.get(Customer, customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
@@ -141,7 +142,7 @@ async def update_customer(
 
 
 @router.patch("/{customer_id}/toggle-active", response_model=CustomerOut)
-async def toggle_customer_active(customer_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def toggle_customer_active(customer_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: Customer = Depends(require_admin)):
     customer = await db.get(Customer, customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
@@ -178,6 +179,7 @@ async def revoke_my_memory_consent(
 async def revoke_memory_consent(
     customer_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _: Customer = Depends(require_admin),
 ):
     """Admin: widerruft Memory-Consent eines Kunden."""
     customer = await db.get(Customer, customer_id)
