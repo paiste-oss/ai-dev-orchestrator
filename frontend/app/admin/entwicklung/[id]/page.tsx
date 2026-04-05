@@ -85,6 +85,8 @@ export default function EntwicklungDetailPage() {
   const [showDeploy, setShowDeploy] = useState(false);
   const [statusChanging, setStatusChanging] = useState(false);
   const [implementing, setImplementing] = useState(false);
+  const [showTask, setShowTask] = useState(false);
+  const [copied, setCopied] = useState(false);
   const dialogEndRef = useRef<HTMLDivElement>(null);
 
   const load = async () => {
@@ -175,6 +177,32 @@ export default function EntwicklungDetailPage() {
     setStatusChanging(false);
   };
 
+  const buildTaskDescription = () => {
+    if (!req?.tool_proposal) return "";
+    const p = req.tool_proposal;
+    const toolName = String(p.tool_name ?? "unbekanntes_tool");
+    return `Implementiere ein neues Tool für den Baddi Agent Router.
+
+## Kundenanfrage
+"${req.original_message}"
+
+## Intent
+${req.detected_intent ?? "unbekannt"}
+
+## Tool-Vorschlag
+\`\`\`json
+${JSON.stringify(p, null, 2)}
+\`\`\`
+
+## Aufgabe
+1. Lies zuerst \`backend/services/agent_router.py\` und \`backend/api/v1/chat.py\` um zu verstehen wie Tools definiert und aufgerufen werden.
+2. Erstelle \`backend/services/tools/${toolName}.py\` mit einer \`execute(params: dict) -> str\` Funktion die die API aufruft.
+3. Integriere das Tool in den Agent Router (keyword_map, Tool-Routing).
+4. API-Keys und URLs kommen immer aus \`.env\` / \`settings\` — niemals hardcoden.
+5. Committe alle Änderungen mit einer aussagekräftigen Commit-Message.
+6. Fasse am Ende zusammen was implementiert wurde.`;
+  };
+
   const startImplementation = async () => {
     setImplementing(true);
     setError(null);
@@ -185,6 +213,7 @@ export default function EntwicklungDetailPage() {
       if (res.ok) {
         const data = await res.json();
         setReq(data);
+        setShowTask(true);
       } else {
         const err = await res.json().catch(() => ({}));
         setError(`Fehler ${res.status}: ${err.detail ?? "Unbekannter Fehler"}`);
@@ -193,6 +222,12 @@ export default function EntwicklungDetailPage() {
       setError("Verbindungsfehler");
     }
     setImplementing(false);
+  };
+
+  const copyTask = () => {
+    navigator.clipboard.writeText(buildTaskDescription());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const deployTool = async () => {
@@ -330,40 +365,45 @@ export default function EntwicklungDetailPage() {
                   </p>
                 )}
 
-                {/* Implementieren-Button */}
-                {!req.dev_task_id && (req.status === "building" || req.status === "needs_input" || req.status === "ready") && (
-                  <div className="border-t border-white/5 pt-3">
-                    <button
-                      onClick={startImplementation}
-                      disabled={implementing}
-                      className="w-full py-2.5 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-sm font-semibold hover:bg-indigo-500/30 transition disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {implementing ? (
-                        <><span className="animate-spin">⟳</span> Starte...</>
-                      ) : (
-                        <><span>⚡</span> Claude implementiert dieses Tool</>
-                      )}
-                    </button>
-                    <p className="text-xs text-gray-600 mt-1.5 text-center">Erstellt einen Dev Orchestrator Task</p>
-                  </div>
-                )}
-
-                {/* Laufender Dev-Task Link */}
-                {req.dev_task_id && (
+                {/* Aufgabe für VS Code */}
+                {(req.status === "building" || req.status === "needs_input" || req.status === "ready") && (
                   <div className="border-t border-white/5 pt-3 space-y-2">
-                    <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-                      <span className="text-indigo-400 text-base">⚡</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-indigo-300">Implementierung läuft</p>
-                        <p className="text-[10px] text-indigo-500 truncate font-mono">{req.dev_task_id}</p>
+                    {!showTask ? (
+                      <>
+                        <button
+                          onClick={startImplementation}
+                          disabled={implementing}
+                          className="w-full py-2.5 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-sm font-semibold hover:bg-indigo-500/30 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {implementing ? (
+                            <><span className="animate-spin">⟳</span> Generiere...</>
+                          ) : (
+                            <><span>📋</span> Aufgabe für VS Code generieren</>
+                          )}
+                        </button>
+                        <p className="text-xs text-gray-600 text-center">Erstellt eine kopierbare Aufgabenbeschreibung</p>
+                      </>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-medium text-indigo-300">Aufgabe für Claude Code</p>
+                          <button
+                            onClick={copyTask}
+                            className="text-xs px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 transition"
+                          >
+                            {copied ? "✓ Kopiert!" : "📋 Kopieren"}
+                          </button>
+                        </div>
+                        <textarea
+                          readOnly
+                          value={buildTaskDescription()}
+                          rows={12}
+                          className="w-full bg-gray-900 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-gray-300 font-mono resize-none focus:outline-none"
+                          onClick={e => (e.target as HTMLTextAreaElement).select()}
+                        />
+                        <p className="text-[10px] text-gray-600 text-center">Ins VS Code einfügen und mit Claude Code ausführen</p>
                       </div>
-                      <a
-                        href="/admin/devtool"
-                        className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2 shrink-0"
-                      >
-                        Fortschritt →
-                      </a>
-                    </div>
+                    )}
                   </div>
                 )}
 

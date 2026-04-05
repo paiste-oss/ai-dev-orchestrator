@@ -243,54 +243,20 @@ async def start_implementation(
     _: Customer = Depends(require_admin),
 ):
     """
-    Startet die automatische Code-Implementierung via Dev Orchestrator.
-    Erstellt einen DevTask mit strukturierter Aufgabenbeschreibung aus dem Tool-Vorschlag.
+    Markiert den Request als "in Bearbeitung" und gibt die Aufgabenbeschreibung
+    für manuelle Implementierung in VS Code zurück.
     """
     import json
-    from models.dev_task import DevTask
 
     r = await db.get(CapabilityRequest, uuid.UUID(request_id))
     if not r:
         raise HTTPException(status_code=404, detail="Nicht gefunden")
     if not r.tool_proposal or r.tool_proposal.get("parse_error"):
         raise HTTPException(status_code=400, detail="Kein gültiger Tool-Vorschlag vorhanden")
-    if r.dev_task_id:
-        raise HTTPException(status_code=409, detail="Implementierung wurde bereits gestartet")
 
     p = r.tool_proposal
     tool_name = p.get("tool_name", "unbekanntes_tool")
 
-    description = f"""Implementiere ein neues Tool für den Baddi Agent Router.
-
-## Kundenanfrage
-"{r.original_message}"
-
-## Intent
-{r.detected_intent or "unbekannt"}
-
-## Tool-Vorschlag vom Uhrwerk
-```json
-{json.dumps(p, indent=2, ensure_ascii=False)}
-```
-
-## Aufgabe
-1. Lies zuerst `backend/services/agent_router.py` und `backend/api/v1/chat.py` um zu verstehen wie Tools definiert und aufgerufen werden.
-2. Erstelle `backend/services/tools/{tool_name}.py` mit einer `execute(params: dict) -> str` Funktion die die API aufruft.
-3. Integriere das Tool in den Agent Router (keyword_map, Tool-Routing).
-4. API-Keys und URLs kommen immer aus `.env` / `settings` — niemals hardcoden.
-5. Committe alle Änderungen (English commit message).
-6. Fasse am Ende zusammen was implementiert wurde.
-"""
-
-    task = DevTask(
-        title=f"Tool: {p.get('display_name', tool_name)}",
-        description=description,
-        priority=5,  # höhere Priorität als normale Tasks
-    )
-    db.add(task)
-    await db.flush()  # ID generieren ohne commit
-
-    r.dev_task_id = str(task.id)
     r.status = "building"
     r.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -298,9 +264,10 @@ async def start_implementation(
     dialog.append({
         "role": "uhrwerk",
         "content": (
-            f"✅ Implementierung gestartet — Dev Orchestrator Task `{task.id}` wurde erstellt.\n\n"
-            f"Claude arbeitet jetzt am Code für **{p.get('display_name', tool_name)}**. "
-            f"Du kannst den Fortschritt unter Dev Orchestrator verfolgen."
+            f"📋 Aufgabe bereit zur manuellen Implementierung in VS Code.\n\n"
+            f"**Tool:** {p.get('display_name', tool_name)}\n"
+            f"**Komplexität:** {p.get('estimated_complexity', '?')}\n\n"
+            f"Die Aufgabenbeschreibung wurde generiert und kann direkt in Claude Code eingefügt werden."
         ),
         "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
     })
