@@ -3,8 +3,8 @@ import type { NextConfig } from "next";
 // Docker-intern: BACKEND_INTERNAL_URL=http://backend:8000
 // Vercel/Prod:   NEXT_PUBLIC_BACKEND_URL=https://api.baddi.ch (aus .env.production)
 const BACKEND_PROXY =
-  process.env.BACKEND_INTERNAL_URL ??
-  process.env.NEXT_PUBLIC_BACKEND_URL ??
+  process.env.BACKEND_INTERNAL_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
   "https://api.baddi.ch";
 
 const nextConfig: NextConfig = {
