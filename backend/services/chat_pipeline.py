@@ -12,7 +12,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime,timezone
-from typing import Any
+from typing import Any, TypedDict
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,6 +40,27 @@ from tasks.memory_manager import process_memory
 
 _log = logging.getLogger(__name__)
 
+
+class ChatContext(TypedDict):
+    prior_messages: list[dict[str, Any]]
+    baddi_config: dict[str, Any]
+    system_prompt: str
+    system_prompt_name: str
+    doc_cache: dict[str, Any]
+
+
+class LLMResult(TypedDict):
+    provider: str
+    model_name: str
+    response_text: str | None
+    tokens_used: int
+    generated_image_urls: list[str]
+    response_type: str
+    structured_data: dict[str, Any] | None
+    tools_called: list[str]
+    errors: list[str]
+
+
 _HISTORY_WINDOW = 20
 _CONTEXT_WINDOW = 10
 
@@ -62,7 +83,7 @@ _DEFAULT_KNOWLEDGE_BOOST: list[dict] = [
 
 # ── Phase 1: Kontext laden ────────────────────────────────────────────────────
 
-async def load_context(customer: Customer, message: str, db: AsyncSession) -> dict:
+async def load_context(customer: Customer, message: str, db: AsyncSession) -> ChatContext:
     """Lädt History, Config, Memories, Knowledge und baut den System-Prompt."""
     customer_id = str(customer.id)
 
@@ -189,13 +210,13 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
 async def execute_llm(
     customer: Customer,
     message: str,
-    images: list | None,
+    images: list[Any] | None,
     document_ids: list[str] | None,
-    prior_messages: list[dict],
+    prior_messages: list[dict[str, Any]],
     system_prompt: str,
     db: AsyncSession,
-    doc_cache: dict | None = None,
-) -> dict:
+    doc_cache: dict[str, Any] | None = None,
+) -> LLMResult:
     """Führt den LLM-Call aus (Vision / Text + Tools + Fallbacks)."""
     provider = "claude"
     model_name = "claude-sonnet-4-6"
@@ -243,7 +264,7 @@ async def execute_llm(
 
 async def _embed_documents(
     message: str, document_ids: list[str] | None, customer: Customer, db: AsyncSession,
-    doc_cache: dict | None = None,
+    doc_cache: dict[str, Any] | None = None,
 ) -> str:
     if not document_ids:
         return message
@@ -270,9 +291,9 @@ async def _embed_documents(
 
 
 async def _run_vision(
-    images: list, user_message: str, prior_messages: list, system_prompt: str,
-    model_name: str, errors: list
-) -> tuple[str | None, int, list]:
+    images: list[Any], user_message: str, prior_messages: list[dict[str, Any]], system_prompt: str,
+    model_name: str, errors: list[str]
+) -> tuple[str | None, int, list[str]]:
     user_content: list[dict] = []
     for img in images:
         user_content.append({"type": "image", "source": {"type": "base64", "media_type": img.media_type, "data": img.data}})
@@ -288,9 +309,9 @@ async def _run_vision(
 
 
 async def _run_text(
-    user_message: str, prior_messages: list, system_prompt: str, model_name: str,
-    tool_keys: list, customer_id: str, errors: list
-) -> tuple:
+    user_message: str, prior_messages: list[dict[str, Any]], system_prompt: str, model_name: str,
+    tool_keys: list[str], customer_id: str, errors: list[str]
+) -> tuple[str | None, str, int, list[str], list[str], list[str], str, dict[str, Any] | None]:
     response_text = None
     tokens_used = 0
     tools_called: list[str] = []
@@ -361,8 +382,8 @@ def _extract_structured_data(
 
 
 async def _run_fallbacks(
-    messages: list, system_prompt: str, errors: list
-) -> tuple[str | None, str, str, int, list]:
+    messages: list[dict[str, Any]], system_prompt: str, errors: list[str]
+) -> tuple[str | None, str, str, int, list[str]]:
     if settings.gemini_api_key:
         try:
             result = await chat_with_gemini(messages, system_prompt)
@@ -385,10 +406,10 @@ async def _run_fallbacks(
 async def finalize(
     customer: Customer,
     original_message: str,
-    llm_result: dict,
+    llm_result: LLMResult,
     system_prompt_name: str,
     db: AsyncSession,
-) -> tuple[str, str, str, dict | None, dict | None, str | None]:
+) -> tuple[str, str, str, dict[str, Any] | None, dict[str, Any] | None, str | None]:
     """
     Verarbeitet Marker, persistiert, bucht, startet Background-Tasks.
     Gibt (message_id, response_text, response_type, structured_data, ui_update, emotion) zurück.
@@ -551,7 +572,7 @@ async def _push_short_term_memory(customer_id: str, user_msg: str, assistant_msg
         _log.warning("Short-term Memory konnte nicht in Redis gespeichert werden: %s", e)
 
 
-def _format_netzwerk(boards: list, first_name: str) -> str | None:
+def _format_netzwerk(boards: list[Any], first_name: str) -> str | None:
     """Formatiert Namensnetz-Boards als lesbaren Kontext für den System-Prompt."""
     all_persons: list[dict] = []
     all_networks: list[dict] = []
@@ -600,7 +621,7 @@ def _format_netzwerk(boards: list, first_name: str) -> str | None:
     return "\n".join(lines)
 
 
-async def _apply_netzwerk_aktion(customer_id, action: dict, db) -> dict:
+async def _apply_netzwerk_aktion(customer_id: Any, action: dict[str, Any], db: AsyncSession) -> dict[str, Any]:
     """Wendet eine Netzwerk-Aktion auf das Board des Users an und speichert in der DB."""
     import uuid as _uuid, time as _time, json as _json
 

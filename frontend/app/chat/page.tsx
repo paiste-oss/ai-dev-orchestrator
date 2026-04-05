@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { apiFetch, apiFetchForm, clearSession, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { AttachedFile } from "@/components/FileDropZone";
-import { MemoryItem } from "@/lib/chat-types";
+import {
+  MemoryItem,
+  OpenWindowData,
+  OpenDocumentData,
+  OpenUrlData,
+  CloseWindowData,
+  NetzwerkAktionData,
+} from "@/lib/chat-types";
 
 import { useChatMessages, UploadedFileInfo } from "@/hooks/useChatMessages";
 import { useCamera } from "@/hooks/useCamera";
@@ -55,8 +62,7 @@ interface CardData {
   height: number;
   minimized: boolean;
   zIndex: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 function richCardMeta(responseType: string): { title: string; width: number; height: number } | null {
@@ -88,8 +94,7 @@ const CANVAS_STORAGE_KEY = "baddi_canvas_cards";
 function stripForStorage(cards: CardData[]): CardData[] {
   return cards.map(c => {
     if (!c.data) return c;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data: any = { ...c.data };
+    const data: Record<string, unknown> = { ...c.data };
     delete data.screenshot_b64; // browser screenshots können MB gross sein
     return { ...c, data };
   });
@@ -269,8 +274,7 @@ export default function ChatPage() {
 
     // Baddi öffnet ein Fenster via [FENSTER:]-Marker
     if (last.responseType === "open_window") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const d = last.structuredData as any;
+      const d = last.structuredData as OpenWindowData;
       const wMeta = openWindowData(d.canvasType);
       if (wMeta) {
         const canvas = canvasRef.current;
@@ -294,8 +298,7 @@ export default function ChatPage() {
 
     // Baddi öffnet ein Dokument via [DOKUMENT:]-Marker
     if (last.responseType === "open_document") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const d = last.structuredData as any;
+      const d = last.structuredData as OpenDocumentData;
       const filename: string = d.filename ?? "";
       // Dokumente laden, passendes finden, öffnen
       apiFetch(`${BACKEND_URL}/v1/documents/mine`).then(async res => {
@@ -318,16 +321,14 @@ export default function ChatPage() {
 
     // Baddi öffnet URL in neuem Tab
     if (last.responseType === "open_url") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const d = last.structuredData as any;
+      const d = last.structuredData as OpenUrlData;
       if (d?.url) window.open(d.url, "_blank", "noopener,noreferrer");
       return;
     }
 
     // Baddi hat eine Netzwerk-Aktion ausgeführt → Fenster öffnen/aktualisieren
     if (last.responseType === "netzwerk_aktion") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const d = last.structuredData as any;
+      const d = last.structuredData as NetzwerkAktionData;
       const boardId: string = d?.board_id ?? "";
       const canvas = canvasRef.current;
       setCards(cs => {
@@ -354,8 +355,7 @@ export default function ChatPage() {
 
     // Baddi schließt ein Fenster via [FENSTER_SCHLIESSEN:]-Marker
     if (last.responseType === "close_window") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const d = last.structuredData as any;
+      const d = last.structuredData as CloseWindowData;
       setCards(cs => cs.filter(c => c.id === CHAT_CARD_ID || c.type !== d.canvasType));
       return;
     }
@@ -610,7 +610,7 @@ export default function ChatPage() {
               };
               img.src = URL.createObjectURL(blob);
             });
-            update = { ...update, backgroundImage: dataUrl as any };
+            update = { ...update, backgroundImage: dataUrl };
             // base64 dauerhaft ins Backend speichern (URL würde ablaufen)
             apiFetch(`${BACKEND_URL}/v1/user/preferences`, {
               method: "POST",

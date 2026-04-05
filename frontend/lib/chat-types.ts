@@ -50,6 +50,54 @@ export interface BrowserViewData {
   error?: string;
 }
 
+// Marker-based structured data types
+export interface OpenWindowData {
+  canvasType: string;
+  symbols?: string[];
+  symbol?: string;
+  east?: number;
+  north?: number;
+  zoom?: number;
+  bgLayer?: string;
+  url?: string;
+  goal?: string;
+}
+
+export interface OpenDocumentData {
+  filename: string;
+}
+
+export interface OpenUrlData {
+  url: string;
+}
+
+export interface CloseWindowData {
+  canvasType: string;
+}
+
+export interface NetzwerkAktionData {
+  board_id: string;
+  added: string[];
+}
+
+export interface QuotaExceededData {
+  message: string;
+}
+
+export type StructuredData =
+  | StockData
+  | StockHistoryData
+  | ImageGalleryData
+  | TransportBoardData
+  | ActionButtonsData
+  | BrowserViewData
+  | OpenWindowData
+  | OpenDocumentData
+  | OpenUrlData
+  | CloseWindowData
+  | NetzwerkAktionData
+  | QuotaExceededData;
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
@@ -57,7 +105,7 @@ export interface Message {
   images?: string[];           // object URLs for display (user uploads)
   generatedImages?: string[];  // URLs from DALL-E
   responseType?: string;
-  structuredData?: StockData | StockHistoryData | ImageGalleryData | TransportBoardData | ActionButtonsData | BrowserViewData;
+  structuredData?: StructuredData;
   provider?: string;
   model?: string;
   created_at: string;

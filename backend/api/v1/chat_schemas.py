@@ -1,4 +1,5 @@
 """Chat API — Pydantic Schemas."""
+from typing import Any
 from pydantic import BaseModel
 
 
@@ -20,8 +21,8 @@ class ChatResponse(BaseModel):
     model: str
     image_urls: list[str] | None = None
     response_type: str = "text"
-    structured_data: dict | None = None
-    ui_update: dict | None = None
+    structured_data: dict[str, Any] | None = None
+    ui_update: dict[str, Any] | None = None
     emotion: str | None = None
 
 
@@ -48,5 +49,5 @@ class TTSRequest(BaseModel):
 
 
 class BrowserActionRequest(BaseModel):
-    action: dict
+    action: dict[str, Any]
     lang: str = "de-CH,de;q=0.9"   # Accept-Language für Browserless

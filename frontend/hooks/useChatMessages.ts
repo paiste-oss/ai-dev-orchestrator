@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import { Message, UiPrefs } from "@/lib/chat-types";
+import { Message, UiPrefs, QuotaExceededData } from "@/lib/chat-types";
 import { AttachedFile } from "@/components/FileDropZone";
 import { fileToBase64, extractVideoFrames } from "@/lib/chat-utils";
 
@@ -154,7 +154,7 @@ export function useChatMessages() {
               id: `quota-${Date.now()}`,
               role: "assistant" as const,
               content: "__QUOTA_EXCEEDED__",
-              structuredData: { message: err.detail } as unknown as Message["structuredData"],
+              structuredData: { message: err.detail } as QuotaExceededData,
               created_at: new Date().toISOString(),
             },
           ]);
