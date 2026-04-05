@@ -1,91 +1,52 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
 import { saveSession, saveToken, getDashboardPath } from "@/lib/auth";
-import { BACKEND_URL } from "@/lib/config";
-
-type Step = "credentials" | "otp";
+import { loginAction, verifyOtpAction, type LoginState } from "./actions";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  // 2FA-Schritt
-  const [step, setStep] = useState<Step>("credentials");
-  const [otp, setOtp] = useState("");
+  const [loginState, loginFormAction, loginPending] = useActionState<LoginState, FormData>(
+    loginAction,
+    null,
+  );
+  const [otpState, otpFormAction, otpPending] = useActionState<LoginState, FormData>(
+    verifyOtpAction,
+    null,
+  );
+
+  // 2FA-Zwischenzustand — kommt aus der Login-Action zurück
+  const [step, setStep] = useState<"credentials" | "otp">("credentials");
   const [tempToken, setTempToken] = useState("");
   const [phoneHint, setPhoneHint] = useState("");
 
-  const router = useRouter();
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/v1/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.toLowerCase(), password }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        setError(err.detail ?? "Anmeldung fehlgeschlagen.");
-        return;
-      }
-
-      const data = await res.json();
-
-      if (data.requires_2fa) {
-        setTempToken(data.temp_token);
-        setPhoneHint(data.phone_hint);
-        setStep("otp");
-        return;
-      }
-
-      saveToken(data.access_token);
-      saveSession({ name: data.name, email: data.email, role: data.role });
-      router.push(getDashboardPath({ name: data.name, email: data.email, role: data.role }));
-    } catch {
-      setError("Verbindungsfehler. Bitte erneut versuchen.");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (!loginState) return;
+    if (loginState.status === "2fa") {
+      setTempToken(loginState.tempToken);
+      setPhoneHint(loginState.phoneHint);
+      setStep("otp");
     }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/v1/auth/verify-2fa`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ temp_token: tempToken, code: otp }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        setError(err.detail ?? "Code ungültig.");
-        return;
-      }
-
-      const data = await res.json();
-      saveToken(data.access_token);
-      saveSession({ name: data.name, email: data.email, role: data.role });
-      router.push(getDashboardPath({ name: data.name, email: data.email, role: data.role }));
-    } catch {
-      setError("Verbindungsfehler. Bitte erneut versuchen.");
-    } finally {
-      setLoading(false);
+    if (loginState.status === "ok") {
+      saveToken(loginState.token);
+      saveSession({ name: loginState.name, email: loginState.email, role: loginState.role });
+      router.push(getDashboardPath({ name: loginState.name, email: loginState.email, role: loginState.role }));
     }
-  };
+  }, [loginState, router]);
+
+  useEffect(() => {
+    if (!otpState || otpState.status !== "ok") return;
+    saveToken(otpState.token);
+    saveSession({ name: otpState.name, email: otpState.email, role: otpState.role });
+    router.push(getDashboardPath({ name: otpState.name, email: otpState.email, role: otpState.role }));
+  }, [otpState, router]);
+
+  const error =
+    step === "credentials"
+      ? loginState?.status === "error" ? loginState.message : null
+      : otpState?.status === "error" ? otpState.message : null;
 
   return (
     <main className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-4">
@@ -100,55 +61,58 @@ export default function LoginPage() {
 
         <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6 space-y-4">
 
+          {/* Schritt 1: E-Mail + Passwort */}
           {step === "credentials" && (
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form action={loginFormAction} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-sm text-gray-400">E-Mail</label>
                 <input
+                  name="email"
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="deine@email.com"
                   required
+                  autoComplete="email"
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500"
                 />
               </div>
               <div className="space-y-1">
                 <label className="text-sm text-gray-400">Passwort</label>
                 <input
+                  name="password"
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
+                  autoComplete="current-password"
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500"
                 />
               </div>
               {error && <p className="text-red-400 text-sm">{error}</p>}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loginPending}
                 className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 transition-colors py-3 rounded-lg font-bold"
               >
-                {loading ? "Anmelden..." : "Anmelden"}
+                {loginPending ? "Anmelden..." : "Anmelden"}
               </button>
             </form>
           )}
 
+          {/* Schritt 2: OTP-Code */}
           {step === "otp" && (
-            <form onSubmit={handleVerifyOtp} className="space-y-4">
+            <form action={otpFormAction} className="space-y-4">
+              {/* temp_token wird als Hidden Field mitgeschickt */}
+              <input type="hidden" name="temp_token" value={tempToken} />
               <p className="text-sm text-gray-400">
                 Code an <span className="text-white font-medium">{phoneHint}</span> gesendet.
               </p>
               <div className="space-y-1">
                 <label className="text-sm text-gray-400">6-stelliger Code</label>
                 <input
+                  name="code"
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]{6}"
                   maxLength={6}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
                   placeholder="123456"
                   required
                   autoFocus
@@ -158,14 +122,14 @@ export default function LoginPage() {
               {error && <p className="text-red-400 text-sm">{error}</p>}
               <button
                 type="submit"
-                disabled={loading || otp.length !== 6}
+                disabled={otpPending}
                 className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 transition-colors py-3 rounded-lg font-bold"
               >
-                {loading ? "Prüfen..." : "Bestätigen"}
+                {otpPending ? "Prüfen..." : "Bestätigen"}
               </button>
               <button
                 type="button"
-                onClick={() => { setStep("credentials"); setOtp(""); setError(""); }}
+                onClick={() => { setStep("credentials"); setTempToken(""); setPhoneHint(""); }}
                 className="w-full text-sm text-gray-500 hover:text-gray-300 transition-colors py-1"
               >
                 ← Zurück

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useEffect, useRef, useMemo, useState, useActionState } from "react";
 import { useRouter } from "next/navigation";
-import { BACKEND_URL } from "@/lib/config";
 import { saveSession, saveToken } from "@/lib/auth";
+import { BACKEND_URL } from "@/lib/config";
+import { registerAction, type RegisterState } from "./actions";
 
 function useMathCaptcha() {
   return useMemo(() => {
@@ -13,7 +14,7 @@ function useMathCaptcha() {
   }, []);
 }
 
-const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
+const DAYS   = Array.from({ length: 31 }, (_, i) => i + 1);
 const MONTHS = [
   "Januar", "Februar", "März", "April", "Mai", "Juni",
   "Juli", "August", "September", "Oktober", "November", "Dezember",
@@ -22,113 +23,49 @@ const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: currentYear - 1920 - 5 }, (_, i) => currentYear - 6 - i);
 
 export default function RegisterPage() {
-  const router = useRouter();
+  const router  = useRouter();
   const captcha = useMathCaptcha();
+
+  const [state, formAction, isPending] = useActionState<RegisterState, FormData>(
+    registerAction,
+    null,
+  );
 
   // Registrierung gesperrt wenn show_register_menschen deaktiviert
   useEffect(() => {
     fetch(`${BACKEND_URL}/v1/settings/portal`)
       .then(r => r.json())
-      .then(data => {
+      .then((data: { show_register_menschen?: boolean }) => {
         if (data.show_register_menschen === false) router.replace("/login");
       })
       .catch(() => {});
   }, [router]);
 
-  const [language, setLanguage] = useState("de");
-  const [form, setForm] = useState({
-    rufname: "", vorname: "", nachname: "",
-    geburtstag: "", geburtsmonat: "", geburtsjahr: "",
-    email: "", mobile: "", passwort: "", passwortBestaetigung: "",
-    website: "",
-  });
+  // Nach erfolgreicher Registrierung — Token + Session in localStorage
+  useEffect(() => {
+    if (!state || state.status !== "ok") return;
+    saveToken(state.token);
+    saveSession({ name: state.name, email: state.email, role: state.role });
+    router.push(`/register/security?name=${encodeURIComponent(state.firstName)}`);
+  }, [state, router]);
+
+  // Kontrollierte Felder die nicht direkt in Form-Inputs passen
+  const [language, setLanguage]       = useState("de");
   const [captchaInput, setCaptchaInput] = useState("");
-  const [tosAccepted, setTosAccepted] = useState(false);
-  const [memoryConsent, setMemoryConsent] = useState(true);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [clientError, setClientError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
-
-  const birthDateString = form.geburtstag && form.geburtsmonat && form.geburtsjahr
-    ? `${form.geburtsjahr}-${String(Number(form.geburtsmonat)).padStart(2, "0")}-${String(Number(form.geburtstag)).padStart(2, "0")}`
-    : null;
-
-  const handleSubmit = async (e: { preventDefault(): void }) => {
-    e.preventDefault();
-    setError("");
-
-    if (form.website) return;
-
-    if (!tosAccepted) {
-      setError("Bitte AGB und Datenschutzerklärung akzeptieren.");
-      return;
+  // Client-seitige Vorab-Validierung (Captcha) vor dem Action-Submit
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    setClientError(null);
+    if (parseInt(captchaInput, 10) !== captcha.answer) {
+      e.preventDefault();
+      setClientError("Sicherheitsfrage falsch. Bitte nochmals versuchen.");
     }
-    if (parseInt(captchaInput) !== captcha.answer) {
-      setError("Sicherheitsfrage falsch. Bitte nochmals versuchen.");
-      return;
-    }
-    if (!form.geburtstag || !form.geburtsmonat || !form.geburtsjahr) {
-      setError("Bitte vollständiges Geburtsdatum angeben.");
-      return;
-    }
-    if (form.passwort !== form.passwortBestaetigung) {
-      setError("Passwörter stimmen nicht überein.");
-      return;
-    }
-    if (form.passwort.length < 8) {
-      setError("Passwort muss mindestens 8 Zeichen haben.");
-      return;
-    }
+  }
 
-    setLoading(true);
-    try {
-      const res = await fetch(`${BACKEND_URL}/v1/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.rufname.trim() || form.vorname.trim() || `${form.vorname} ${form.nachname}`.trim(),
-          first_name: form.vorname.trim() || null,
-          last_name: form.nachname.trim() || null,
-          email: form.email,
-          password: form.passwort,
-          birth_year: Number(form.geburtsjahr) || null,
-          birth_date: birthDateString,
-          tos_accepted: tosAccepted,
-          memory_consent: memoryConsent,
-          phone: form.mobile.trim() || null,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.detail || "Registrierung fehlgeschlagen.");
-        return;
-      }
-
-      saveToken(data.access_token);
-      saveSession({ name: data.name, email: data.email, role: data.role });
-
-      // Gewählte Sprache direkt als UiPref speichern
-      try {
-        await fetch(`${BACKEND_URL}/v1/user/preferences`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${data.access_token}`,
-          },
-          body: JSON.stringify({ language }),
-        });
-      } catch { /* ignorieren — User kann es in Einstellungen ändern */ }
-
-      router.push(`/register/security?name=${encodeURIComponent(form.vorname)}`);
-    } catch {
-      setError("Server nicht erreichbar. Bitte später nochmals versuchen.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const serverError = state?.status === "error" ? state.message : null;
+  const displayError = clientError ?? serverError;
 
   return (
     <main className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-6">
@@ -142,75 +79,111 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-gray-900 rounded-2xl border border-gray-800 p-6 space-y-5">
+        <form
+          ref={formRef}
+          action={formAction}
+          onSubmit={handleSubmit}
+          className="bg-gray-900 rounded-2xl border border-gray-800 p-6 space-y-5"
+        >
+          {/* Hidden-Fields für kontrollierte Werte */}
+          <input type="hidden" name="language" value={language} />
 
-          <input type="text" name="website" value={form.website}
-            onChange={(e) => set("website", e.target.value)}
-            style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
+          {/* Honeypot — verstecktes Feld (Bots füllen es aus, echte User nicht) */}
+          <input type="text" name="website" style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
 
+          {/* Rufname */}
           <div className="space-y-1">
             <label className="text-sm text-gray-400">
               Rufname <span className="text-gray-600">(wie Baddi dich anspricht)</span>
             </label>
-            <input value={form.rufname} onChange={(e) => set("rufname", e.target.value)}
+            <input
+              name="rufname"
               placeholder="z. B. Anna oder Müller"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+            />
             <p className="text-xs text-gray-600">Leer lassen = Baddi verwendet deinen Vornamen.</p>
           </div>
 
+          {/* Vor- + Nachname */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-sm text-gray-400">Vorname <span className="text-gray-600">(rechtlich)</span></label>
-              <input required value={form.vorname} onChange={(e) => set("vorname", e.target.value)}
+              <input
+                required
+                name="vorname"
                 placeholder="Anna"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+              />
             </div>
             <div className="space-y-1">
               <label className="text-sm text-gray-400">Nachname <span className="text-gray-600">(rechtlich)</span></label>
-              <input required value={form.nachname} onChange={(e) => set("nachname", e.target.value)}
+              <input
+                required
+                name="nachname"
                 placeholder="Müller"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+              />
             </div>
           </div>
 
+          {/* Geburtsdatum */}
           <div className="space-y-1">
             <label className="text-sm text-gray-400">Geburtsdatum</label>
             <div className="grid grid-cols-3 gap-2">
-              <select required value={form.geburtstag} onChange={(e) => set("geburtstag", e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500">
+              <select
+                required
+                name="geburtstag"
+                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+              >
                 <option value="">Tag</option>
                 {DAYS.map((d) => <option key={d} value={String(d)}>{d}</option>)}
               </select>
-              <select required value={form.geburtsmonat} onChange={(e) => set("geburtsmonat", e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500">
+              <select
+                required
+                name="geburtsmonat"
+                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+              >
                 <option value="">Monat</option>
                 {MONTHS.map((m, i) => <option key={i} value={String(i + 1)}>{m}</option>)}
               </select>
-              <select required value={form.geburtsjahr} onChange={(e) => set("geburtsjahr", e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500">
+              <select
+                required
+                name="geburtsjahr"
+                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+              >
                 <option value="">Jahr</option>
                 {YEARS.map((y) => <option key={y} value={String(y)}>{y}</option>)}
               </select>
             </div>
           </div>
 
+          {/* E-Mail */}
           <div className="space-y-1">
             <label className="text-sm text-gray-400">E-Mail</label>
-            <input required type="email" value={form.email} onChange={(e) => set("email", e.target.value)}
+            <input
+              required
+              type="email"
+              name="email"
               placeholder="anna@beispiel.ch"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+            />
           </div>
 
+          {/* Mobilnummer */}
           <div className="space-y-1">
             <label className="text-sm text-gray-400">
               Mobilnummer <span className="text-gray-600">(für 2FA-Schutz empfohlen)</span>
             </label>
-            <input type="tel" value={form.mobile} onChange={(e) => set("mobile", e.target.value)}
+            <input
+              type="tel"
+              name="mobile"
               placeholder="+41791234567"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+            />
             <p className="text-xs text-gray-600">Optional — ermöglicht SMS-Sicherheitscode beim Login</p>
           </div>
 
+          {/* Sprachauswahl — kontrollierte Buttons + Hidden-Input */}
           <div className="space-y-2">
             <label className="text-sm text-gray-400">Bevorzugte Sprache</label>
             <div className="grid grid-cols-5 gap-2">
@@ -242,44 +215,55 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          {/* Passwort */}
           <div className="space-y-1">
             <label className="text-sm text-gray-400">Passwort <span className="text-gray-600">(min. 8 Zeichen)</span></label>
-            <input required type="password" value={form.passwort} minLength={8}
-              onChange={(e) => set("passwort", e.target.value)} placeholder="••••••••"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
+            <input
+              required
+              type="password"
+              name="passwort"
+              minLength={8}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+            />
           </div>
 
+          {/* Passwort bestätigen */}
           <div className="space-y-1">
             <label className="text-sm text-gray-400">Passwort bestätigen</label>
-            <input required type="password" value={form.passwortBestaetigung}
-              onChange={(e) => set("passwortBestaetigung", e.target.value)} placeholder="••••••••"
-              className={`w-full bg-gray-800 border rounded-lg p-3 text-white focus:outline-none ${
-                form.passwortBestaetigung && form.passwort !== form.passwortBestaetigung
-                  ? "border-red-500" : "border-gray-700 focus:border-indigo-500"
-              }`} />
-            {form.passwortBestaetigung && form.passwort !== form.passwortBestaetigung && (
-              <p className="text-xs text-red-400">Passwörter stimmen nicht überein</p>
-            )}
+            <input
+              required
+              type="password"
+              name="passwortBestaetigung"
+              placeholder="••••••••"
+              autoComplete="new-password"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+            />
           </div>
 
+          {/* Captcha — Antwort Client-seitig in onSubmit geprüft */}
           <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700 space-y-2">
             <label className="text-sm text-gray-300 font-medium">
               Sicherheitsfrage: Was ist {captcha.a} + {captcha.b}?
             </label>
-            <input required type="number" value={captchaInput}
-              onChange={(e) => setCaptchaInput(e.target.value)} placeholder="Antwort"
-              className="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500" />
+            <input
+              required
+              type="number"
+              value={captchaInput}
+              onChange={(e) => setCaptchaInput(e.target.value)}
+              placeholder="Antwort"
+              className="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+            />
           </div>
 
-          {/* Einwilligungen */}
+          {/* Einwilligungen — native Checkboxes (senden "on" / nicht vorhanden) */}
           <div className="space-y-3">
-            <label className={`flex items-start gap-3 cursor-pointer rounded-xl border p-4 transition-colors ${
-              tosAccepted ? "border-indigo-500/50 bg-indigo-950/20" : "border-gray-700 bg-gray-800/30"
-            }`}>
+            <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-gray-700 bg-gray-800/30 p-4 transition-colors has-[:checked]:border-indigo-500/50 has-[:checked]:bg-indigo-950/20">
               <input
                 type="checkbox"
-                checked={tosAccepted}
-                onChange={e => setTosAccepted(e.target.checked)}
+                name="tos_accepted"
+                required
                 className="mt-0.5 w-4 h-4 accent-indigo-500 shrink-0"
               />
               <span className="text-sm text-gray-300 leading-relaxed">
@@ -294,36 +278,39 @@ export default function RegisterPage() {
                   Datenschutzerklärung
                 </button>
                 .{" "}
-                <span className="text-red-400 text-xs">*&nbsp;Pflichtfeld</span>
+                <span className="text-red-400 text-xs">* Pflichtfeld</span>
               </span>
             </label>
 
-            <label className={`flex items-start gap-3 cursor-pointer rounded-xl border p-4 transition-colors ${
-              memoryConsent ? "border-yellow-500/40 bg-yellow-950/10" : "border-gray-700 bg-gray-800/30"
-            }`}>
+            <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-gray-700 bg-gray-800/30 p-4 transition-colors has-[:checked]:border-yellow-500/40 has-[:checked]:bg-yellow-950/10">
               <input
                 type="checkbox"
-                checked={memoryConsent}
-                onChange={e => setMemoryConsent(e.target.checked)}
+                name="memory_consent"
+                defaultChecked
                 className="mt-0.5 w-4 h-4 accent-yellow-400 shrink-0"
               />
               <span className="text-sm text-gray-300 leading-relaxed">
                 <span className="text-yellow-400 font-medium">Langzeitgedächtnis</span>
                 {" — "}Damit Baddi dein Begleiter fürs Leben wird, merkt er sich wichtige Dinge über dich
                 (Vorlieben, Erlebnisse, Ziele). Stimmst du zu, dass Baddi sein Langzeitgedächtnis für
-                dich aufbaut?
-                {" "}<span className="text-gray-500 text-xs">Jederzeit widerrufbar.</span>
+                dich aufbaut?{" "}
+                <span className="text-gray-500 text-xs">Jederzeit widerrufbar.</span>
               </span>
             </label>
           </div>
 
-          {error && (
-            <p className="text-red-400 text-sm bg-red-950/30 border border-red-800/50 rounded-lg px-4 py-3">{error}</p>
+          {displayError && (
+            <p className="text-red-400 text-sm bg-red-950/30 border border-red-800/50 rounded-lg px-4 py-3">
+              {displayError}
+            </p>
           )}
 
-          <button type="submit" disabled={loading || !tosAccepted}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold transition-colors disabled:opacity-50">
-            {loading ? "Wird registriert…" : "Konto erstellen →"}
+          <button
+            type="submit"
+            disabled={isPending}
+            className="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold transition-colors disabled:opacity-50"
+          >
+            {isPending ? "Wird registriert…" : "Konto erstellen →"}
           </button>
         </form>
 

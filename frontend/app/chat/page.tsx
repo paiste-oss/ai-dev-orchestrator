@@ -371,7 +371,7 @@ export default function ChatPage() {
       width: meta.width, height: meta.height,
       minimized: false,
       zIndex: topZ.current,
-      data: last.structuredData,
+      data: last.structuredData as unknown as Record<string, unknown>,
     };
     setCards(cs => {
       const next = [...cs, newRich];
@@ -493,7 +493,7 @@ export default function ChatPage() {
   }, []);
 
   // Spawn a new card — direkt mit Auto-Layout damit nichts aus dem Canvas ragt
-  const spawnCard = useCallback((type: string, title: string, width: number, height: number, data?: unknown) => {
+  const spawnCard = useCallback((type: string, title: string, width: number, height: number, data?: Record<string, unknown>) => {
     topZ.current++;
     const canvas = canvasRef.current;
     setCards(cs => {
@@ -659,25 +659,25 @@ export default function ChatPage() {
   }
 
   // ── Fenster-Inhalt rendern (geteilt Desktop + Mobile) ─────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function renderWindowContent(card: CardData): React.ReactNode {
+    const d = card.data;
     switch (card.type) {
       case "whiteboard": return (
         <WhiteboardWindow
-          boardId={card.data?.boardId}
+          boardId={d?.boardId as string | undefined}
           onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
         />
       );
       case "image_viewer": return (
         <ImageViewerWindow
-          initialUrl={card.data?.url ?? ""}
+          initialUrl={(d?.url as string | undefined) ?? ""}
           onNaturalSize={(w, h) => resizeCard(card.id, Math.min(w, 900), Math.min(h, 640) + 44)}
         />
       );
       case "netzwerk": return (
         <NetzwerkWindow
-          boardId={card.data?.boardId}
-          reloadKey={card.data?.reloadKey}
+          boardId={d?.boardId as string | undefined}
+          reloadKey={d?.reloadKey as number | undefined}
           onBoardId={(id) => setCards(cs => cs.map(c => c.id === card.id ? { ...c, data: { ...c.data, boardId: id } } : c))}
           setHeaderExtra={(content) => setWindowHeaders(prev => ({ ...prev, [card.id]: content }))}
         />
@@ -686,13 +686,24 @@ export default function ChatPage() {
         <MemoryWindow buddyName={uiPrefs.buddyName ?? "Baddi"} memories={memories} onDelete={deleteMemory} onRefresh={loadMemories} />
       );
       case "chart": return (
-        <ChartWindow initialSymbol={card.data?.symbol} initialSymbols={card.data?.symbols} />
+        <ChartWindow
+          initialSymbol={d?.symbol as string | undefined}
+          initialSymbols={d?.symbols as string[] | undefined}
+        />
       );
       case "geo_map": return (
-        <GeoMapWindow east={card.data?.east} north={card.data?.north} zoom={card.data?.zoom} bgLayer={card.data?.bgLayer} />
+        <GeoMapWindow
+          east={d?.east as number | undefined}
+          north={d?.north as number | undefined}
+          zoom={d?.zoom as number | undefined}
+          bgLayer={d?.bgLayer as string | undefined}
+        />
       );
       case "assistenz": return (
-        <AssistenzWindow initialUrl={card.data?.url} initialGoal={card.data?.goal} />
+        <AssistenzWindow
+          initialUrl={d?.url as string | undefined}
+          initialGoal={d?.goal as string | undefined}
+        />
       );
       case "design": return (
         <DesignWindow prefs={uiPrefs} onPrefsChange={patch => setUiPrefs(p => ({ ...p, ...patch }))} />
@@ -705,10 +716,10 @@ export default function ChatPage() {
       );
       case "file_viewer": return (
         <FileViewerWindow
-          url={card.data?.url ?? ""}
-          filename={card.data?.filename ?? "Datei"}
-          fileType={card.data?.fileType}
-          mimeType={card.data?.mimeType}
+          url={(d?.url as string | undefined) ?? ""}
+          filename={(d?.filename as string | undefined) ?? "Datei"}
+          fileType={d?.fileType as string | undefined}
+          mimeType={d?.mimeType as string | undefined}
         />
       );
       default: return renderRichCard(card.type, card.data);
