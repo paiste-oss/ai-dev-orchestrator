@@ -148,8 +148,9 @@ export default function ChatPage() {
   const [lastProvider, setLastProvider] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
-  // Viewport size tracking
-  const [vw, setVw] = useState<number>(() => (typeof window !== "undefined" ? window.innerWidth : 1280));
+  // Viewport size tracking — Initialwert 1280 fix, wird in useEffect aktualisiert.
+  // Kein typeof-window-Check im Initializer — verhindert Hydration-Mismatch #418.
+  const [vw, setVw] = useState<number>(1280);
   const isMobile = vw < 768;
 
   // Mobile Panel State
@@ -160,6 +161,7 @@ export default function ChatPage() {
   const [showMobileWindowPicker, setShowMobileWindowPicker] = useState(false);
 
   useEffect(() => {
+    setVw(window.innerWidth);
     function onResize() { setVw(window.innerWidth); }
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
@@ -175,19 +177,28 @@ export default function ChatPage() {
     return () => window.visualViewport!.removeEventListener("resize", onVpResize);
   }, []);
 
-  // Canvas cards state — restored from localStorage
-  const [cards, setCards] = useState<CardData[]>(() => initialCards());
+  // Canvas cards state — statischer SSR-Default, wird nach Hydration aus localStorage geladen.
+  const [cards, setCards] = useState<CardData[]>(() => [
+    { id: CHAT_CARD_ID, title: "💬 Gespräch", type: "chat", x: 24, y: 16, width: 500, height: 560, minimized: false, zIndex: 1 },
+  ]);
 
   // Dynamische Header-Inhalte für Fenster (z.B. NetzwerkWindow-Toolbar)
   const [windowHeaders, setWindowHeaders] = useState<Record<string, React.ReactNode>>({});
 
+  // Nach Hydration: gespeicherte Karten aus localStorage laden (verhindert SSR-Mismatch)
+  useEffect(() => {
+    const loaded = initialCards();
+    setCards(loaded);
+    topZ.current = Math.max(2, ...loaded.map(c => c.zIndex));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Persist cards to localStorage whenever they change
   useEffect(() => {
-    if (typeof window === "undefined") return;
     localStorage.setItem(CANVAS_STORAGE_KEY, JSON.stringify(stripForStorage(cards)));
   }, [cards]);
-  // topZ aus gespeicherten Karten initialisieren, damit neue Karten immer zuoberst erscheinen
-  const topZ = useRef(Math.max(2, ...initialCards().map(c => c.zIndex)));
+  // topZ aus gespeicherten Karten initialisieren
+  const topZ = useRef(2);
   const processedMsgs = useRef(new Set<string>());
   const prevMobileCardCountRef = useRef(-1);
 
