@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { clearSession, getSession } from "@/lib/auth";
 
@@ -57,7 +57,8 @@ interface Props { open: boolean; onClose: () => void; }
 export default function AdminSidebar({ open, onClose }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
-  const user     = getSession();
+  const [user, setUser] = useState<ReturnType<typeof getSession>>(null);
+  useEffect(() => { setUser(getSession()); }, []);
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
