@@ -74,7 +74,7 @@ _DEV_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
 ]
-_CORS_ORIGINS = _PROD_ORIGINS + (_DEV_ORIGINS if settings.environment != "production" else [])
+_CORS_ORIGINS = _PROD_ORIGINS + _DEV_ORIGINS  # localhost immer erlaubt (lokale Entwicklung → VPS-Backend)
 
 app.add_middleware(
     CORSMiddleware,
