@@ -65,7 +65,6 @@ function Toggle({ label, description, checked, onChange }: {
 
 export default function AdminSettings() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<ReturnType<typeof getSession>>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [portalOpen, setPortalOpen] = useState(true);
@@ -84,7 +83,6 @@ export default function AdminSettings() {
   useEffect(() => {
     const u = getSession();
     setUser(u);
-    setMounted(true);
     if (!u || u.role !== "admin") { router.replace("/login"); return; }
 
     // Load cache immediately, then fetch live
@@ -147,7 +145,7 @@ export default function AdminSettings() {
   const setImp = (key: keyof ImpressumSettings, value: string) =>
     setImpressum(i => ({ ...i, [key]: value }));
 
-  if (!mounted || !user) return null;
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex">

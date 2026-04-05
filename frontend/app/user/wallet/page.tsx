@@ -49,7 +49,6 @@ interface Invoice {
 function WalletPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [mounted, setMounted] = useState(false);
   const [wallet, setWallet] = useState<WalletStatus | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [addons, setAddons] = useState<StorageAddon[]>([]);
@@ -58,7 +57,6 @@ function WalletPageInner() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     if (!getSession()) { router.replace("/login"); return; }
     load();
     const s = searchParams.get("status");
@@ -66,7 +64,6 @@ function WalletPageInner() {
     if (s === "canceled")     setAlert({ type: "error",   text: "Zahlung abgebrochen." });
   }, []);
 
-  if (!mounted) return null;
 
   async function load() {
     setLoading(true);

@@ -89,7 +89,6 @@ const GROUP_ORDER = ["Public", "Kunde", "Admin", "Dev"];
 // ─── Hauptkomponente ───────────────────────────────────────────────────────────
 export default function TestPagesPage() {
   const router = useRouter();
-  const [mounted, setMounted]         = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Filter
@@ -105,11 +104,8 @@ export default function TestPagesPage() {
 
   useEffect(() => {
     const u = getSession();
-    setMounted(true);
     if (!u || u.role !== "admin") router.replace("/login");
   }, []);
-
-  if (!mounted) return null;
 
   // ── Filterlogik ──────────────────────────────────────────────────────────────
   const filtered = ALL_PAGES.filter((p) => {

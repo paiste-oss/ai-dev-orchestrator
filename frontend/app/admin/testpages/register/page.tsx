@@ -28,7 +28,6 @@ const LANGUAGES = [
 
 export default function RegisterPreviewPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Form-Zustand (nur für visuelle Vorschau — kein Submit)
@@ -47,11 +46,8 @@ export default function RegisterPreviewPage() {
 
   useEffect(() => {
     const u = getSession();
-    setMounted(true);
     if (!u || u.role !== "admin") router.replace("/login");
   }, []);
-
-  if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex overflow-hidden" style={{ height: "100dvh" }}>

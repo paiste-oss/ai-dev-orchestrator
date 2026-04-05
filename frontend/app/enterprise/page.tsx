@@ -44,7 +44,6 @@ function StatCard({
 
 export default function EnterpriseDashboard() {
   const router = useRouter();
-  const [mounted,     setMounted]     = useState(false);
   const [user,        setUser]        = useState<ReturnType<typeof getSession>>(null);
   const [prompt,      setPrompt]      = useState("");
   const [response,    setResponse]    = useState("");
@@ -54,11 +53,10 @@ export default function EnterpriseDashboard() {
   useEffect(() => {
     const u = getSession();
     setUser(u);
-    setMounted(true);
     if (!u || u.role !== "enterprise") router.replace("/login");
   }, []);
 
-  if (!mounted || !user) return null;
+  if (!user) return null;
 
   const handleChat = async () => {
     if (!prompt.trim()) return;

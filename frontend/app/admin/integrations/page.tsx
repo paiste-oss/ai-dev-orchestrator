@@ -47,25 +47,18 @@ function KeyBadge({ envKey, status }: { envKey: string; status: boolean }) {
 
 export default function IntegrationsPage() {
   const router = useRouter();
-  const [mounted, setMounted]       = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [data, setData]             = useState<IntegrationsData | null>(null);
   const [loading, setLoading]       = useState(true);
 
   useEffect(() => {
-    setMounted(true);
     const user = getSession();
     if (!user || user.role !== "admin") router.replace("/login");
-  }, []);
-
-  useEffect(() => {
     apiFetch(`${BACKEND_URL}/v1/admin/integrations`)
       .then(r => r.json())
       .then(setData)
       .finally(() => setLoading(false));
   }, []);
-
-  if (!mounted) return null;
 
   const allOk = data
     ? Object.values(data.key_status).every(Boolean)

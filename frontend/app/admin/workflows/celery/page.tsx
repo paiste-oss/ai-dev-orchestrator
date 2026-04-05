@@ -18,7 +18,6 @@ interface CeleryTask {
 
 export default function BackendTasksPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tasks, setTasks] = useState<CeleryTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,18 +26,13 @@ export default function BackendTasksPage() {
 
   useEffect(() => {
     const u = getSession();
-    setMounted(true);
     if (!u || u.role !== "admin") router.replace("/login");
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
     apiFetch(`${BACKEND_URL}/v1/workflows/celery`)
       .then(r => r.json())
       .then(setTasks)
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [mounted]);
+  }, []);
 
   const trigger = async (taskName: string) => {
     setTriggering(taskName);
@@ -57,7 +51,6 @@ export default function BackendTasksPage() {
     }
   };
 
-  if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex">

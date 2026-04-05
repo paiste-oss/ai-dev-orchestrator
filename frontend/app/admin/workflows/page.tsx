@@ -141,7 +141,6 @@ function getFallbackMeta(wf: N8nWorkflow): WorkflowMeta {
 
 export default function N8nWorkflowsPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workflows, setWorkflows] = useState<N8nWorkflow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,7 +149,6 @@ export default function N8nWorkflowsPage() {
 
   useEffect(() => {
     const u = getSession();
-    setMounted(true);
     if (!u || u.role !== "admin") router.replace("/login");
   }, []);
 
@@ -169,8 +167,8 @@ export default function N8nWorkflowsPage() {
   }, []);
 
   useEffect(() => {
-    if (mounted) load();
-  }, [mounted, load]);
+    load();
+  }, [load]);
 
   const toggle = async (wf: N8nWorkflow) => {
     setToggling(wf.id);
@@ -185,7 +183,6 @@ export default function N8nWorkflowsPage() {
     }
   };
 
-  if (!mounted) return null;
 
   const active = workflows.filter(w => w.active).length;
 

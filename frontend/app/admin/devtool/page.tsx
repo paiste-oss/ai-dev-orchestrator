@@ -44,7 +44,6 @@ const STATUS_DOT: Record<string, string> = {
 
 export default function DevTool() {
   const router = useRouter();
-  const [mounted, setMounted]         = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tasks, setTasks]             = useState<Task[]>([]);
   const [input, setInput]             = useState("");
@@ -55,7 +54,6 @@ export default function DevTool() {
   const userScrolledUp     = useRef(false);
 
   useEffect(() => {
-    setMounted(true);
     const user = getSession();
     if (!user || user.role !== "admin") router.replace("/login");
   }, []);
@@ -132,7 +130,6 @@ export default function DevTool() {
   const running = tasks.filter(t => t.status === "running").length;
   const pending = tasks.filter(t => t.status === "pending").length;
 
-  if (!mounted) return null;
 
   return (
     <div className="h-[100dvh] bg-gray-950 text-white flex overflow-hidden">

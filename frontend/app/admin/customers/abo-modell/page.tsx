@@ -215,7 +215,6 @@ function EditModal({ plan, onSave, onClose }: EditModalProps) {
 
 export default function AboModellPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -225,7 +224,6 @@ export default function AboModellPage() {
 
   useEffect(() => {
     const u = getSession();
-    setMounted(true);
     if (!u || u.role !== "admin") { router.replace("/login"); return; }
     load();
   }, []);
@@ -257,7 +255,6 @@ export default function AboModellPage() {
     premium: "border-yellow-500/40",
   };
 
-  if (!mounted) return null;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex">
