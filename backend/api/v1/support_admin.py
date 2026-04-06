@@ -99,6 +99,28 @@ async def list_tickets(
     ]
 
 
+@router.post("/tickets/resolve-alert")
+async def resolve_alert(body: dict):
+    """Schliesst offene Alert-Tickets die zum Monitor-Namen passen.
+    Kein Auth — intern via n8n aufgerufen wenn Uptime-Kuma UP-Mail ankommt."""
+    monitor_name = (body.get("monitor_name") or "").strip()
+    if not monitor_name:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="monitor_name fehlt")
+    async with AsyncSessionLocal() as db:
+        q = select(SupportTicket).where(
+            SupportTicket.kategorie == "alert",
+            SupportTicket.status == "offen",
+            SupportTicket.email_subject.ilike(f"%{monitor_name}%"),
+        )
+        result = await db.execute(q)
+        tickets = result.scalars().all()
+        for t in tickets:
+            t.status = "geschlossen"
+        await db.commit()
+    return {"closed": len(tickets), "monitor_name": monitor_name}
+
+
 @router.patch("/tickets/{ticket_number}/status")
 async def update_ticket_status(
     ticket_number: str,
