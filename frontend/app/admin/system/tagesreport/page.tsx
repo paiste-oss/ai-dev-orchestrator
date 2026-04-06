@@ -11,11 +11,12 @@ interface Report {
 }
 
 export default function TagesreportPage() {
-  const [reports, setReports]     = useState<Report[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [selected, setSelected]   = useState<Report | null>(null);
+  const [reports, setReports]       = useState<Report[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [selected, setSelected]     = useState<Report | null>(null);
   const [triggering, setTriggering] = useState(false);
-  const [triggered, setTriggered] = useState(false);
+  const [waitingFor, setWaitingFor] = useState<number | null>(null); // Sekunden-Countdown
+  const [error, setError]           = useState<string | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -31,10 +32,27 @@ export default function TagesreportPage() {
 
   async function triggerNow() {
     setTriggering(true);
+    setError(null);
     try {
-      await apiFetch(`${BACKEND_URL}/v1/system/tagesreport/trigger`, { method: "POST" });
-      setTriggered(true);
-      setTimeout(() => setTriggered(false), 4000);
+      const res = await apiFetch(`${BACKEND_URL}/v1/system/tagesreport/trigger`, { method: "POST" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setError(d.detail ?? `Fehler ${res.status}`);
+        return;
+      }
+      // Claude Haiku braucht ~10–20s — Countdown + auto-reload
+      let secs = 20;
+      setWaitingFor(secs);
+      const iv = setInterval(() => {
+        secs -= 1;
+        if (secs <= 0) {
+          clearInterval(iv);
+          setWaitingFor(null);
+          load();
+        } else {
+          setWaitingFor(secs);
+        }
+      }, 1000);
     } finally {
       setTriggering(false);
     }
@@ -66,10 +84,14 @@ export default function TagesreportPage() {
         <div className="flex gap-2">
           <button
             onClick={triggerNow}
-            disabled={triggering}
+            disabled={triggering || waitingFor !== null}
             className="text-sm border border-indigo-700/50 text-indigo-300 hover:border-indigo-500 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
           >
-            {triggering ? "Wird generiert…" : triggered ? "✓ Gestartet" : "▶ Jetzt generieren"}
+            {triggering
+            ? "Starte…"
+            : waitingFor !== null
+            ? `⏳ ${waitingFor}s…`
+            : "▶ Jetzt generieren"}
           </button>
           <button
             onClick={load}
@@ -82,8 +104,14 @@ export default function TagesreportPage() {
 
       {/* Info */}
       <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3 text-xs text-blue-300">
-        💡 Berichte werden täglich um 20:00 automatisch generiert. Über „Jetzt generieren" kann ein Bericht sofort ausgelöst werden — er erscheint nach wenigen Sekunden in der Liste.
+        💡 Berichte werden täglich um 20:00 automatisch generiert. Über „Jetzt generieren" kann ein Bericht sofort ausgelöst werden — er erscheint nach ~20 Sekunden automatisch in der Liste.
       </div>
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/25 rounded-xl px-4 py-3 text-xs text-red-400">
+          Fehler: {error}
+        </div>
+      )}
 
       {loading ? (
         <div className="text-gray-500 text-sm">Laden…</div>

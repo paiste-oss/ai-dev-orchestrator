@@ -4,7 +4,7 @@ Health Admin API — System-Status, Sentry Error-Übersicht und Tagesreports fü
 from __future__ import annotations
 
 import logging
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy import select, desc
 from core.database import AsyncSessionLocal
 from core.dependencies import require_admin
@@ -55,10 +55,13 @@ async def get_tagesreport(
 
 
 @router.post("/tagesreport/trigger")
-async def trigger_tagesreport(_: Customer = Depends(require_admin)):
-    """Löst sofort einen Tagesreport aus (manuell)."""
-    from tasks.summaries import daily_summary
-    daily_summary.delay()
+async def trigger_tagesreport(
+    bg: BackgroundTasks,
+    _: Customer = Depends(require_admin),
+):
+    """Löst sofort einen Tagesreport aus — läuft direkt im Backend, unabhängig von Celery."""
+    from tasks.summaries import _run
+    bg.add_task(_run)
     return {"status": "gestartet"}
 
 
