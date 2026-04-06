@@ -14,8 +14,15 @@ interface SentryInfo {
   project_id?: string;
 }
 
+interface HwMetric {
+  current: number;
+  avg: number;
+  peak: number;
+}
+
 interface HealthData {
   services: ServiceStatus;
+  hardware: { cpu: HwMetric; ram: HwMetric; disk: HwMetric };
   sentry: SentryInfo;
 }
 
@@ -135,6 +142,43 @@ export default function SystemPage() {
           ) : null}
         </div>
       </div>
+
+      {/* Hardware Metriken */}
+      {health?.hardware && (
+        <div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-white/5">
+            <h2 className="text-sm font-semibold text-white">Hardware — VPS</h2>
+            <p className="text-xs text-gray-600 mt-0.5">Letzte 24h · alle 5 Minuten erfasst</p>
+          </div>
+          <div className="divide-y divide-white/5">
+            {([
+              { key: "cpu",  label: "CPU",  icon: "⚡" },
+              { key: "ram",  label: "RAM",  icon: "◈" },
+              { key: "disk", label: "Disk", icon: "◫" },
+            ] as const).map(({ key, label, icon }) => {
+              const m = health.hardware[key];
+              const barColor = m.current > 85 ? "bg-red-500" : m.current > 65 ? "bg-yellow-500" : "bg-emerald-500";
+              return (
+                <div key={key} className="px-5 py-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-300">{icon} {label}</span>
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <span>Ø <span className="text-gray-300">{m.avg}%</span></span>
+                      <span>Peak <span className={m.peak > 85 ? "text-red-400" : "text-gray-300"}>{m.peak}%</span></span>
+                      <span className={`font-mono font-semibold text-sm ${m.current > 85 ? "text-red-400" : m.current > 65 ? "text-yellow-400" : "text-emerald-400"}`}>
+                        {m.current}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${m.current}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Uptime Monitoring */}
       <div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">

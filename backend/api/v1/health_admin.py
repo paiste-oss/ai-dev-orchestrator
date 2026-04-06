@@ -17,17 +17,13 @@ _log = logging.getLogger(__name__)
 
 @router.get("/health")
 async def get_health(_: Customer = Depends(require_admin)):
-    """Gibt gecachten Health-Status + Sentry-Infos zurück."""
-    from tasks.health_monitor import get_current_status
-
-    status = get_current_status()
-
-    # Sentry-Informationen (falls konfiguriert)
-    sentry_info = _get_sentry_info()
+    """Gibt gecachten Health-Status, Hardware-Metriken und Sentry-Infos zurück."""
+    from tasks.health_monitor import get_current_status, get_hw_stats
 
     return {
-        "services": status,
-        "sentry": sentry_info,
+        "services": get_current_status(),
+        "hardware": get_hw_stats(),
+        "sentry":   _get_sentry_info(),
     }
 
 

@@ -23,10 +23,11 @@ _FAIL_COUNT_PREFIX = "health:fail_count:"
 
 @celery_app.task(name="tasks.health_monitor.check_health")
 def check_health():
-    """Prüft alle Dienste und sendet Alerts bei Zustandsänderungen."""
+    """Prüft alle Dienste, erfasst Hardware-Metriken und sendet Alerts bei Zustandsänderungen."""
     try:
         results = _check_all_services_sync()
         _process_alerts(results)
+        _record_hw_metrics()
     except Exception as e:
         _log.error("Health Monitor Fehler: %s", e)
 
@@ -158,6 +159,50 @@ def _send_alert(subject: str, body: str) -> None:
 def _now() -> str:
     from datetime import datetime
     return datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+
+def _record_hw_metrics() -> None:
+    """Schreibt CPU%, RAM%, Disk% als JSON-Snapshot in Redis-Listen (24h Retention)."""
+    import json
+    import time
+    import psutil
+    from core.redis_client import redis_sync
+
+    r = redis_sync()
+    ts = int(time.time())
+    snapshot = json.dumps({
+        "ts":   ts,
+        "cpu":  psutil.cpu_percent(interval=1),
+        "ram":  psutil.virtual_memory().percent,
+        "disk": psutil.disk_usage("/").percent,
+    })
+    # Pro Metrik eine eigene Liste — max 288 Einträge = 24h bei 5-Min-Intervall
+    for key in ("hw:cpu", "hw:ram", "hw:disk"):
+        r.lpush(key, snapshot)
+        r.ltrim(key, 0, 287)
+        r.expire(key, 86400)
+
+
+def get_hw_stats() -> dict[str, dict[str, float]]:
+    """Liest die Hardware-Metriken der letzten 24h aus Redis und berechnet Peak/Avg/Aktuell."""
+    import json
+    from core.redis_client import redis_sync
+
+    r = redis_sync()
+    result: dict[str, dict[str, float]] = {}
+
+    for metric in ("cpu", "ram", "disk"):
+        raw = r.lrange(f"hw:{metric}", 0, -1)
+        if not raw:
+            result[metric] = {"current": 0.0, "avg": 0.0, "peak": 0.0}
+            continue
+        values = [json.loads(e)[metric] for e in raw]
+        result[metric] = {
+            "current": round(values[0], 1),          # neuester Eintrag
+            "avg":     round(sum(values) / len(values), 1),
+            "peak":    round(max(values), 1),
+        }
+    return result
 
 
 def get_current_status() -> dict[str, str]:

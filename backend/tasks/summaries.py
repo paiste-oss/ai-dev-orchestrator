@@ -4,7 +4,7 @@ from tasks.celery_app import celery_app
 
 @celery_app.task(name="tasks.summaries.daily_summary")
 def daily_summary():
-    """Tägliche Projekt-Zusammenfassung via Claude Haiku — wird in PostgreSQL gespeichert."""
+    """Tägliche Projekt-Zusammenfassung via Ollama — wird in PostgreSQL gespeichert."""
     asyncio.run(_run())
 
 
@@ -13,37 +13,44 @@ async def _run() -> None:
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
     from core.config import settings
     from models.daily_summary import DailySummary
+    from tasks.health_monitor import get_hw_stats
 
     print("[Celery] Starte tägliche Zusammenfassung…")
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        # Hardware-Metriken der letzten 24h
+        hw = get_hw_stats()
+        hw_block = (
+            f"Hardware-Metriken (letzte 24h):\n"
+            f"  CPU  — Aktuell: {hw['cpu']['current']}%  Durchschnitt: {hw['cpu']['avg']}%  Peak: {hw['cpu']['peak']}%\n"
+            f"  RAM  — Aktuell: {hw['ram']['current']}%  Durchschnitt: {hw['ram']['avg']}%  Peak: {hw['ram']['peak']}%\n"
+            f"  Disk — Aktuell: {hw['disk']['current']}%  Durchschnitt: {hw['disk']['avg']}%  Peak: {hw['disk']['peak']}%"
+        )
+
+        prompt = (
+            "Du bist der tägliche Berichtgenerator für das Baddi-Projekt (baddi.ch), "
+            "ein KI-Assistent für Schweizer KMUs.\n\n"
+            f"{hw_block}\n\n"
+            "Erstelle einen strukturierten Tagesreport auf Deutsch als Markdown mit diesen Abschnitten:\n"
+            "## Stand\nAllgemeine Einschätzung des Projekts.\n"
+            "## Hardware\nBewertung der obigen Metriken — auffällige Werte kommentieren.\n"
+            "## Offene Punkte\nWas Aufmerksamkeit braucht.\n"
+            "## Nächste Schritte\nEmpfehlungen für die nächsten 1-3 Tage.\n"
+            "Halte jeden Abschnitt auf 2-4 Sätze."
+        )
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": settings.anthropic_api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
+                f"{settings.ollama_base_url}/api/generate",
                 json={
-                    "model": "claude-haiku-4-5-20251001",
-                    "max_tokens": 2048,
-                    "messages": [{
-                        "role": "user",
-                        "content": (
-                            "Du bist der tägliche Berichtgenerator für das Baddi-Projekt (baddi.ch). "
-                            "Erstelle einen strukturierten Tagesreport als Markdown mit folgenden Abschnitten:\n"
-                            "## Stand\nKurze Einschätzung des aktuellen Projektstands.\n"
-                            "## Offene Punkte\nWas noch aussteht oder Aufmerksamkeit braucht.\n"
-                            "## Nächste Schritte\nEmpfehlungen für die nächsten 1-3 Tage.\n"
-                            "Halte jeden Abschnitt auf 2-4 Sätze. Schreibe auf Deutsch."
-                        ),
-                    }],
+                    "model":  "gemma3:4b",
+                    "prompt": prompt,
+                    "stream": False,
                 },
             )
         resp.raise_for_status()
-        content = resp.json().get("content", [{}])[0].get("text", "").strip()
+        content = resp.json().get("response", "").strip()
         if not content:
-            print("[Celery] Zusammenfassung: leere Antwort von Claude")
+            print("[Celery] Zusammenfassung: leere Antwort von Ollama")
             return
 
         engine = create_async_engine(settings.database_url, pool_pre_ping=True)
