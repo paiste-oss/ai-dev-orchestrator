@@ -220,6 +220,7 @@ services:
       - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
       - WEATHER_CITY=${WEATHER_CITY:-Bern}
       - CUSTOMER_REGION=${CUSTOMER_REGION:-Schweiz}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     networks:
       - ai_local
       - ai_external
