@@ -19,12 +19,16 @@ async def _run() -> None:
     try:
         # Hardware-Metriken der letzten 24h
         hw = get_hw_stats()
-        hw_block = (
-            f"Hardware-Metriken (letzte 24h):\n"
-            f"  CPU  — Aktuell: {hw['cpu']['current']}%  Durchschnitt: {hw['cpu']['avg']}%  Peak: {hw['cpu']['peak']}%\n"
-            f"  RAM  — Aktuell: {hw['ram']['current']}%  Durchschnitt: {hw['ram']['avg']}%  Peak: {hw['ram']['peak']}%\n"
-            f"  Disk — Aktuell: {hw['disk']['current']}%  Durchschnitt: {hw['disk']['avg']}%  Peak: {hw['disk']['peak']}%"
-        )
+        has_hw = any(hw[m]["peak"] > 0 for m in ("cpu", "ram", "disk"))
+        if has_hw:
+            hw_block = (
+                "Hardware-Metriken VPS (letzte 24h):\n"
+                f"  CPU  — Aktuell: {hw['cpu']['current']}%  Ø: {hw['cpu']['avg']}%  Peak: {hw['cpu']['peak']}%\n"
+                f"  RAM  — Aktuell: {hw['ram']['current']}%  Ø: {hw['ram']['avg']}%  Peak: {hw['ram']['peak']}%\n"
+                f"  Disk — Aktuell: {hw['disk']['current']}%  Ø: {hw['disk']['avg']}%  Peak: {hw['disk']['peak']}%"
+            )
+        else:
+            hw_block = "Hardware-Metriken: noch keine Daten verfügbar (Monitoring läuft seit weniger als 5 Minuten)."
 
         prompt = (
             "Du bist der tägliche Berichtgenerator für das Baddi-Projekt (baddi.ch), "
@@ -42,7 +46,7 @@ async def _run() -> None:
             resp = await client.post(
                 f"{settings.ollama_base_url}/api/generate",
                 json={
-                    "model":  "gemma3:4b",
+                    "model":  "gemma3:latest",
                     "prompt": prompt,
                     "stream": False,
                 },

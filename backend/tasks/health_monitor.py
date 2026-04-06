@@ -165,22 +165,29 @@ def _record_hw_metrics() -> None:
     """Schreibt CPU%, RAM%, Disk% als JSON-Snapshot in Redis-Listen (24h Retention)."""
     import json
     import time
-    import psutil
-    from core.redis_client import redis_sync
+    try:
+        import psutil
+    except ImportError:
+        _log.debug("psutil nicht verfügbar — Hardware-Metriken werden nicht erfasst")
+        return
 
-    r = redis_sync()
-    ts = int(time.time())
-    snapshot = json.dumps({
-        "ts":   ts,
-        "cpu":  psutil.cpu_percent(interval=1),
-        "ram":  psutil.virtual_memory().percent,
-        "disk": psutil.disk_usage("/").percent,
-    })
-    # Pro Metrik eine eigene Liste — max 288 Einträge = 24h bei 5-Min-Intervall
-    for key in ("hw:cpu", "hw:ram", "hw:disk"):
-        r.lpush(key, snapshot)
-        r.ltrim(key, 0, 287)
-        r.expire(key, 86400)
+    from core.redis_client import redis_sync
+    try:
+        r = redis_sync()
+        ts = int(time.time())
+        snapshot = json.dumps({
+            "ts":   ts,
+            "cpu":  psutil.cpu_percent(interval=1),
+            "ram":  psutil.virtual_memory().percent,
+            "disk": psutil.disk_usage("/").percent,
+        })
+        # Pro Metrik eine eigene Liste — max 288 Einträge = 24h bei 5-Min-Intervall
+        for key in ("hw:cpu", "hw:ram", "hw:disk"):
+            r.lpush(key, snapshot)
+            r.ltrim(key, 0, 287)
+            r.expire(key, 86400)
+    except Exception as e:
+        _log.warning("Hardware-Metriken konnten nicht gespeichert werden: %s", e)
 
 
 def get_hw_stats() -> dict[str, dict[str, float]]:
