@@ -1,12 +1,15 @@
 """
-Health Admin API — System-Status und Sentry Error-Übersicht für die Admin-UI.
+Health Admin API — System-Status, Sentry Error-Übersicht und Tagesreports für die Admin-UI.
 """
 from __future__ import annotations
 
 import logging
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select, desc
+from core.database import AsyncSessionLocal
 from core.dependencies import require_admin
 from models.customer import Customer
+from models.daily_summary import DailySummary
 
 router = APIRouter(prefix="/system", tags=["system"])
 _log = logging.getLogger(__name__)
@@ -26,6 +29,37 @@ async def get_health(_: Customer = Depends(require_admin)):
         "services": status,
         "sentry": sentry_info,
     }
+
+
+@router.get("/tagesreport")
+async def get_tagesreport(
+    limit: int = Query(default=30, le=100),
+    _: Customer = Depends(require_admin),
+):
+    """Gibt die letzten Tagesreporte zurück (neueste zuerst)."""
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(DailySummary)
+            .order_by(desc(DailySummary.created_at))
+            .limit(limit)
+        )
+        summaries = result.scalars().all()
+    return [
+        {
+            "id":         str(s.id),
+            "created_at": s.created_at.isoformat(),
+            "content":    s.content,
+        }
+        for s in summaries
+    ]
+
+
+@router.post("/tagesreport/trigger")
+async def trigger_tagesreport(_: Customer = Depends(require_admin)):
+    """Löst sofort einen Tagesreport aus (manuell)."""
+    from tasks.summaries import daily_summary
+    daily_summary.delay()
+    return {"status": "gestartet"}
 
 
 def _get_sentry_info() -> dict:

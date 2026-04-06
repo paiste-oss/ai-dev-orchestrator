@@ -28,6 +28,7 @@ import models.payment           # noqa: F401
 import models.window            # noqa: F401
 import models.knowledge         # noqa: F401
 import models.stock_portfolio   # noqa: F401
+import models.daily_summary     # noqa: F401
 
 os.environ["OPENAI_API_KEY"] = settings.openai_api_key or "NA"
 
