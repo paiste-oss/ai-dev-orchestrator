@@ -20,7 +20,8 @@ router = APIRouter(prefix="/admin/llm", tags=["admin-llm"])
 # ---------------------------------------------------------------------------
 
 _OLLAMA_REGISTRY: dict[str, dict] = {
-    "nomic-embed-text":  {"latest": "nomic-embed-text",   "description": "Nomic Embeddings — Semantische Suche / Gedächtnis-Vektorstore (274 MB)"},
+    # embed_only=True → wird nie als "empfohlen" vorgeschlagen (ist Systemabhängigkeit, kein Chat-Modell)
+    "nomic-embed-text":  {"latest": "nomic-embed-text", "embed_only": True, "description": "Nomic Embeddings — Semantische Suche / Gedächtnis-Vektorstore (274 MB)"},
 }
 
 _ANTHROPIC_MODELS = [
@@ -96,10 +97,12 @@ async def get_llm_overview(_admin: Customer = Depends(require_admin)):
             "latest":      latest,
         })
 
-    # Empfohlene aber noch nicht installierte Modelle
+    # Empfohlene aber noch nicht installierte Modelle (Embedding-Modelle ausschliessen)
     seen_suggestions: set[str] = set()
     suggested = []
     for name, info in _OLLAMA_REGISTRY.items():
+        if info.get("embed_only"):
+            continue
         latest = info["latest"]
         if latest not in installed_names and latest not in seen_suggestions:
             seen_suggestions.add(latest)
