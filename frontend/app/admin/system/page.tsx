@@ -152,6 +152,9 @@ export default function SystemPage() {
             <p>Alert via E-Mail an: <span className="text-white font-mono text-xs">info@baddi.ch</span></p>
             <p>Auto-Recovery: <span className="text-white">n8n Workflow → deploy.sh auf VPS</span></p>
           </div>
+          <div className="mt-1 px-3 py-2 rounded-lg bg-white/3 border border-white/5 text-xs text-gray-600">
+            Zusätzlich prüft ein <span className="text-gray-400">Celery Beat Task</span> alle 5 Minuten intern DB, Redis und KI-Modelle — als zweite Sicherheitslinie unabhängig vom Tunnel.
+          </div>
           <a
             href="https://status.baddi.ch"
             target="_blank"

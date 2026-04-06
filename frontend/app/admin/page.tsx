@@ -44,7 +44,8 @@ function Dot({ ok }: { ok: boolean }) {
 
 const EXTERNAL_LINKS = [
   { label: "Dolibarr ERP", sub: "Buchhaltung & Rechnungen", icon: "▤", url: "https://erp.baddi.ch" },
-  { label: "n8n Workflows", sub: "Automationen & Services", icon: "⇆", url: "http://localhost:5678" },
+  { label: "n8n Workflows", sub: "Automationen & Services", icon: "⇆", url: "https://n8n.baddi.ch" },
+  { label: "Uptime Kuma", sub: "Verfügbarkeits-Monitoring", icon: "◉", url: "https://status.baddi.ch" },
 ];
 
 export default function AdminDashboard() {
@@ -245,17 +246,26 @@ export default function AdminDashboard() {
               })}
             </div>
             {!loading && data.health && (
-              <div className="px-4 py-2.5 border-t border-white/5 flex items-center justify-between">
-                <span className="text-xs text-gray-600">Error Tracking</span>
-                {data.health.sentry.configured ? (
-                  <a href={data.health.sentry.issues_url} target="_blank" rel="noopener noreferrer"
+              <>
+                <div className="px-4 py-2.5 border-t border-white/5 flex items-center justify-between">
+                  <span className="text-xs text-gray-600">Uptime Monitoring</span>
+                  <a href="https://status.baddi.ch" target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1 text-xs text-emerald-500 hover:text-emerald-400 transition-colors">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Sentry aktiv ↗
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />Kuma aktiv ↗
                   </a>
-                ) : (
-                  <span className="text-xs text-gray-700">Sentry inaktiv</span>
-                )}
-              </div>
+                </div>
+                <div className="px-4 py-2.5 border-t border-white/5 flex items-center justify-between">
+                  <span className="text-xs text-gray-600">Error Tracking</span>
+                  {data.health.sentry.configured ? (
+                    <a href={data.health.sentry.issues_url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-emerald-500 hover:text-emerald-400 transition-colors">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Sentry aktiv ↗
+                    </a>
+                  ) : (
+                    <span className="text-xs text-gray-700">Sentry inaktiv</span>
+                  )}
+                </div>
+              </>
             )}
           </div>
 
