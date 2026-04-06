@@ -48,9 +48,11 @@ export default function SupportPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<Ticket | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [updating, setUpdating] = useState<string | null>(null);
+
+  const selected = tickets.find(t => t.id === selectedId) ?? null;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,16 +63,12 @@ export default function SupportPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: Ticket[] = await res.json();
       setTickets(data);
-      if (selected) {
-        const refreshed = data.find(t => t.id === selected.id);
-        if (refreshed) setSelected(refreshed);
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Fehler beim Laden");
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, selected]);
+  }, [statusFilter]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -155,9 +153,9 @@ export default function SupportPage() {
           {!loading && tickets.map(ticket => (
             <button
               key={ticket.id}
-              onClick={() => setSelected(ticket)}
+              onClick={() => setSelectedId(ticket.id)}
               className={`w-full text-left p-4 rounded-xl border transition-all ${
-                selected?.id === ticket.id
+                selectedId === ticket.id
                   ? "bg-yellow-500/8 border-yellow-500/30"
                   : "bg-white/3 border-white/8 hover:border-white/15 hover:bg-white/5"
               }`}
