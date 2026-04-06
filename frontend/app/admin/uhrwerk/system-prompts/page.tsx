@@ -143,7 +143,6 @@ export default function SystemPromptsPage() {
               ))}
             </div>
           )}
-        </div>
     </div>
   );
 }
