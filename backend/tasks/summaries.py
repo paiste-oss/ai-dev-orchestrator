@@ -34,12 +34,13 @@ async def _run() -> None:
             "Du bist der tägliche Berichtgenerator für das Baddi-Projekt (baddi.ch), "
             "ein KI-Assistent für Schweizer KMUs.\n\n"
             f"{hw_block}\n\n"
-            "Erstelle einen strukturierten Tagesreport auf Deutsch als Markdown mit diesen Abschnitten:\n"
-            "## Stand\nAllgemeine Einschätzung des Projekts.\n"
-            "## Hardware\nBewertung der obigen Metriken — auffällige Werte kommentieren.\n"
-            "## Offene Punkte\nWas Aufmerksamkeit braucht.\n"
-            "## Nächste Schritte\nEmpfehlungen für die nächsten 1-3 Tage.\n"
-            "Halte jeden Abschnitt auf 2-4 Sätze."
+            "Erstelle einen Tagesreport auf Deutsch. Antworte NUR mit dem Bericht selbst — "
+            "kein einleitender Satz, kein Datum-Platzhalter, keine Code-Blöcke, kein Markdown-Wrapper.\n\n"
+            "Verwende exakt diese Struktur:\n\n"
+            "## Stand\n[2-3 Sätze zur aktuellen Projektsituation]\n\n"
+            "## Hardware\n[2-3 Sätze zu den Metriken — auffällige Werte kommentieren]\n\n"
+            "## Offene Punkte\n[2-3 Sätze zu dem was Aufmerksamkeit braucht]\n\n"
+            "## Nächste Schritte\n[2-3 konkrete Empfehlungen für die nächsten 1-3 Tage]"
         )
 
         async with httpx.AsyncClient(timeout=120.0) as client:
