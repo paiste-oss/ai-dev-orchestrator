@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import AdminSidebar from "@/components/AdminSidebar";
 
 interface WebhookEntry {
   name: string;
@@ -47,7 +46,6 @@ function KeyBadge({ envKey, status }: { envKey: string; status: boolean }) {
 
 export default function IntegrationsPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [data, setData]             = useState<IntegrationsData | null>(null);
   const [loading, setLoading]       = useState(true);
 
@@ -69,18 +67,10 @@ export default function IntegrationsPage() {
     : 0;
 
   return (
-    <div className="h-[100dvh] bg-gray-950 text-white flex overflow-hidden">
-
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <div className="flex flex-col min-w-0">
 
         {/* Header */}
         <header className="bg-gray-900/80 backdrop-blur border-b border-white/5 px-4 py-3 flex items-center gap-3 shrink-0">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="md:hidden text-gray-400 hover:text-white text-xl"
-          >☰</button>
           <div className="flex-1">
             <h1 className="text-sm font-bold text-white leading-none">Integrationen</h1>
             <p className="text-[10px] text-gray-600 mt-0.5">Webhooks, API Keys & externe Dienste</p>
@@ -184,7 +174,6 @@ export default function IntegrationsPage() {
 
           </div>
         )}
-      </div>
     </div>
   );
 }

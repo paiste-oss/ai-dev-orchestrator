@@ -4,7 +4,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import AdminSidebar from "@/components/AdminSidebar";
 
 // ─── Alle Seiten des Projekts ──────────────────────────────────────────────────
 
@@ -89,8 +88,6 @@ const GROUP_ORDER = ["Public", "Kunde", "Admin", "Dev"];
 // ─── Hauptkomponente ───────────────────────────────────────────────────────────
 export default function TestPagesPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
   // Filter
   const [filter, setFilter] = useState<PageEntry["role"] | "all">("all");
   const [search, setSearch] = useState("");
@@ -148,10 +145,7 @@ export default function TestPagesPage() {
 
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex overflow-hidden" style={{ height: "100dvh" }}>
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <div className="flex flex-1 overflow-hidden min-w-0">
+    <div className="flex h-full overflow-hidden min-w-0">
 
         {/* ════ LINKE SPALTE — Seitenliste ════ */}
         <div className={`
@@ -159,11 +153,6 @@ export default function TestPagesPage() {
           ${preview ? "w-0 md:w-80 lg:w-96 shrink-0" : "flex-1"}
         `}>
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
-
-            <div className="flex items-center gap-3 md:hidden">
-              <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white text-2xl">☰</button>
-              <h1 className="text-lg font-bold text-yellow-400">Testseiten</h1>
-            </div>
 
             <div>
               <h2 className="text-2xl font-bold hidden md:block">🧪 Testseiten</h2>
@@ -377,7 +366,6 @@ export default function TestPagesPage() {
             <button onClick={() => { setSearch(""); setFilter("all"); }} className="text-xs text-yellow-400 hover:underline mt-1">Filter zurücksetzen</button>
           </div>
         )}
-      </div>
     </div>
   );
 }

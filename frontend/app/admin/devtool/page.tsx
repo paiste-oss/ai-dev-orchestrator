@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, clearSession, apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import AdminSidebar from "@/components/AdminSidebar";
 
 interface Task {
   id: string;
@@ -44,7 +43,6 @@ const STATUS_DOT: Record<string, string> = {
 
 export default function DevTool() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tasks, setTasks]             = useState<Task[]>([]);
   const [input, setInput]             = useState("");
   const [submitting, setSubmitting]   = useState(false);
@@ -132,21 +130,11 @@ export default function DevTool() {
 
 
   return (
-    <div className="h-[100dvh] bg-gray-950 text-white flex overflow-hidden">
-
-      {/* ── Sidebar ── */}
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      {/* ── Hauptbereich ── */}
-      <div className="flex-1 flex flex-col min-w-0">
+    <div className="h-full flex flex-col overflow-hidden">
 
         {/* ── Header ── */}
         <header className="bg-gray-900/80 backdrop-blur border-b border-white/5 px-4 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="md:hidden text-gray-400 hover:text-white text-xl"
-            >☰</button>
             <div>
               <h1 className="text-sm font-bold text-yellow-400 leading-none">Dev Orchestrator</h1>
               <p className="text-[10px] text-gray-600 mt-0.5">Claude Code · claude-sonnet-4-6 · Memory aktiv</p>
@@ -287,7 +275,6 @@ export default function DevTool() {
           </div>
         </div>
 
-      </div>
     </div>
   );
 }

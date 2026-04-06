@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import AdminSidebar from "@/components/AdminSidebar";
 
 interface PortalSettings {
   show_login: boolean;
@@ -66,7 +65,6 @@ function Toggle({ label, description, checked, onChange }: {
 export default function AdminSettings() {
   const router = useRouter();
   const [user, setUser] = useState<ReturnType<typeof getSession>>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [portalOpen, setPortalOpen] = useState(true);
   const [impressumOpen, setImpressumOpen] = useState(false);
   const [settings, setSettings] = useState<PortalSettings>({
@@ -148,15 +146,7 @@ export default function AdminSettings() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-        <div className="flex items-center gap-3 md:hidden mb-4">
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white text-2xl">☰</button>
-          <h1 className="text-lg font-bold text-yellow-400">Konfigurieren</h1>
-        </div>
-
+    <div className="p-4 md:p-8">
         <div className="max-w-2xl mx-auto space-y-6">
           <div>
             <h2 className="text-2xl font-bold hidden md:block">🔧 Konfigurieren</h2>
@@ -268,7 +258,6 @@ export default function AdminSettings() {
           </div>
 
         </div>
-      </main>
     </div>
   );
 }

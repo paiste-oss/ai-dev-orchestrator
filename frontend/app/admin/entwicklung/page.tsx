@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import AdminSidebar from "@/components/AdminSidebar";
 import { formatDateTime as formatDate } from "@/lib/format";
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
@@ -75,7 +74,6 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function EntwicklungPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [items, setItems] = useState<CapabilityRequest[]>([]);
   const [stats, setStats] = useState<Record<string, number>>({});
   const [total, setTotal] = useState(0);
@@ -105,16 +103,9 @@ export default function EntwicklungPage() {
   const pendingCount = (stats["pending"] ?? 0) + (stats["needs_input"] ?? 0);
 
   return (
-    <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="flex-1 overflow-y-auto">
+    <div className="flex flex-col">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-gray-950/95 backdrop-blur border-b border-white/5 px-6 py-4 flex items-center gap-4">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/10"
-          >☰</button>
           <div className="flex-1">
             <h1 className="text-lg font-bold text-white flex items-center gap-2">
               ⚗ Entwicklung
@@ -251,7 +242,6 @@ export default function EntwicklungPage() {
             </div>
           )}
         </div>
-      </main>
     </div>
   );
 }

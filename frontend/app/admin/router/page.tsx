@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import AdminSidebar from "@/components/AdminSidebar";
 
 interface Category {
   id: string;
@@ -50,7 +49,6 @@ const SEVERITY_LABEL: Record<string, string> = {
 };
 
 export default function RouterAdminPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [guard, setGuard]     = useState<GuardInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -103,17 +101,7 @@ export default function RouterAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="flex-1 overflow-y-auto">
-        {/* Mobile Header */}
-        <header className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-gray-950/90 backdrop-blur md:hidden">
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white">☰</button>
-          <span className="font-bold text-sm text-red-400">🛡 Content Guard</span>
-        </header>
-
-        <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
 
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -337,8 +325,6 @@ export default function RouterAdminPage() {
             </p>
           </div>
 
-        </div>
-      </main>
     </div>
   );
 }

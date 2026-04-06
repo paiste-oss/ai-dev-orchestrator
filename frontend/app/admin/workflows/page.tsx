@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, apiFetch } from "@/lib/auth";
 import { BACKEND_URL, N8N_URL } from "@/lib/config";
-import AdminSidebar from "@/components/AdminSidebar";
 
 interface CredentialDetail {
   id: string;
@@ -141,7 +140,6 @@ function getFallbackMeta(wf: N8nWorkflow): WorkflowMeta {
 
 export default function N8nWorkflowsPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [workflows, setWorkflows] = useState<N8nWorkflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -187,13 +185,9 @@ export default function N8nWorkflowsPage() {
   const active = workflows.filter(w => w.active).length;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="flex-1 p-4 md:p-8 space-y-6 overflow-y-auto">
+    <div className="p-4 md:p-8 space-y-6">
 
         <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white text-2xl md:hidden">☰</button>
           <div className="flex-1">
             <h1 className="text-xl md:text-2xl font-bold">🔗 n8n Workflows</h1>
             <p className="text-gray-400 text-sm mt-0.5">
@@ -332,7 +326,6 @@ export default function N8nWorkflowsPage() {
           </div>
         )}
 
-      </main>
     </div>
   );
 }

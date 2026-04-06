@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import AdminSidebar from "@/components/AdminSidebar";
 
 interface ApiStatus {
   provider: string;
@@ -67,7 +66,6 @@ const TIER_STYLE: Record<string, string> = {
 };
 
 export default function ToolsAdminPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tools, setTools]             = useState<Tool[]>([]);
   const [selected, setSelected]       = useState<ToolDetail | null>(null);
   const [loading, setLoading]         = useState(true);
@@ -104,16 +102,7 @@ export default function ToolsAdminPage() {
   const unconfigured = tools.filter(t => t.api_status.key_required && !t.api_status.configured).length;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="flex-1 overflow-y-auto">
-        <header className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-gray-950/90 backdrop-blur md:hidden">
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white">☰</button>
-          <span className="font-bold text-sm text-yellow-400">🔧 Tools</span>
-        </header>
-
-        <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
@@ -282,8 +271,6 @@ export default function ToolsAdminPage() {
               </div>
             ))}
           </div>
-        </div>
-      </main>
     </div>
   );
 }

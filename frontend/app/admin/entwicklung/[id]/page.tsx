@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import AdminSidebar from "@/components/AdminSidebar";
 import { formatDateTime as formatDate } from "@/lib/format";
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
@@ -73,7 +72,6 @@ export default function EntwicklungDetailPage() {
   const params = useParams();
   const id = params?.id as string;
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [req, setReq] = useState<CapabilityRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -265,16 +263,9 @@ ${JSON.stringify(p, null, 2)}
   const transitions = STATUS_TRANSITIONS[req.status] ?? [];
 
   return (
-    <div className="flex h-screen bg-gray-950 text-white overflow-hidden">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="flex-1 overflow-y-auto flex flex-col">
+    <div className="flex flex-col">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-gray-950/95 backdrop-blur border-b border-white/5 px-6 py-4 flex items-center gap-4">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-white hover:bg-white/10"
-          >☰</button>
           <button
             onClick={() => router.push("/admin/entwicklung")}
             className="text-gray-500 hover:text-white transition-colors text-sm flex items-center gap-1"
@@ -534,7 +525,6 @@ ${JSON.stringify(p, null, 2)}
             )}
           </div>
         </div>
-      </main>
     </div>
   );
 }

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import AdminSidebar from "@/components/AdminSidebar";
 
 interface AgentPrompt {
   key: string;
@@ -15,7 +14,6 @@ interface AgentPrompt {
 }
 
 export default function SystemPromptsPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [agents, setAgents]           = useState<AgentPrompt[]>([]);
   const [drafts, setDrafts]           = useState<Record<string, string>>({});
   const [saving, setSaving]           = useState<Record<string, boolean>>({});
@@ -63,16 +61,7 @@ export default function SystemPromptsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="flex-1 overflow-y-auto">
-        <header className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-gray-950/90 backdrop-blur md:hidden">
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white">☰</button>
-          <span className="font-bold text-sm text-yellow-400">Identität</span>
-        </header>
-
-        <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-6 max-w-4xl mx-auto space-y-6">
 
           {/* Header */}
           <div className="flex items-center justify-between">
@@ -155,7 +144,6 @@ export default function SystemPromptsPage() {
             </div>
           )}
         </div>
-      </main>
     </div>
   );
 }

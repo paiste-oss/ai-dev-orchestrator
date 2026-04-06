@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import AdminSidebar from "@/components/AdminSidebar";
 import { useTheme } from "@/components/ThemeProvider";
 import { THEMES, type Theme, type ThemeId } from "@/lib/theme";
 
@@ -170,7 +169,6 @@ function ThemeCard({
 export default function DesignPage() {
   const router = useRouter();
   const { theme: activeTheme, setTheme } = useTheme();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const handleSelect = (id: ThemeId) => {
@@ -183,22 +181,8 @@ export default function DesignPage() {
   const active = THEMES.find(t => t.id === activeTheme) ?? THEMES[0];
 
   return (
-    <div className="min-h-screen flex" style={{ background: "var(--t-bg)", color: "var(--t-text)" }}>
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="flex-1 overflow-y-auto">
-        {/* Mobile Top-Bar */}
-        <header className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b md:hidden"
-          style={{ background: "var(--t-bg)", borderColor: "var(--t-border)" }}>
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="w-9 h-9 flex items-center justify-center rounded-xl"
-            style={{ background: "rgba(255,255,255,0.05)", color: "#9ca3af" }}
-          >☰</button>
-          <span className="font-bold text-sm" style={{ color: "var(--t-accent-hex)" }}>Design</span>
-        </header>
-
-        <div className="max-w-5xl mx-auto px-6 md:px-10 py-10 space-y-10">
+    <>
+      <div className="max-w-5xl mx-auto px-6 md:px-10 py-10 space-y-10">
 
           {/* ── Header ── */}
           <div className="space-y-2">
@@ -260,8 +244,7 @@ export default function DesignPage() {
             style={{ background: "rgba(255,255,255,0.02)", borderColor: "var(--t-border)", color: "var(--t-subtext)" }}>
             Das gewählte Layout wird pro Browser gespeichert. Jeder Admin kann sein eigenes Layout verwenden.
           </div>
-        </div>
-      </main>
+      </div>
 
       {/* Toast */}
       {toast && (
@@ -270,6 +253,6 @@ export default function DesignPage() {
           ✓ {toast}
         </div>
       )}
-    </div>
+    </>
   );
 }

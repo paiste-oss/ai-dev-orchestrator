@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import AdminSidebar from "@/components/AdminSidebar";
 
 interface CeleryTask {
   name: string;
@@ -18,7 +17,6 @@ interface CeleryTask {
 
 export default function BackendTasksPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tasks, setTasks] = useState<CeleryTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState<string | null>(null);
@@ -53,13 +51,9 @@ export default function BackendTasksPage() {
 
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="flex-1 p-4 md:p-8 space-y-6 overflow-y-auto">
+    <div className="p-4 md:p-8 space-y-6">
 
         <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white text-2xl md:hidden">☰</button>
           <div>
             <h1 className="text-xl md:text-2xl font-bold">⏰ Backend Tasks</h1>
             <p className="text-gray-400 text-sm mt-0.5">Celery-Tasks — geplant und manuell auslösbar</p>
@@ -130,7 +124,6 @@ export default function BackendTasksPage() {
           </div>
         )}
 
-      </main>
     </div>
   );
 }

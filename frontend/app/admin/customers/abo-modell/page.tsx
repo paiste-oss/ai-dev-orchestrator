@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getSession, apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import AdminSidebar from "@/components/AdminSidebar";
 
 // ─── Typen ────────────────────────────────────────────────────────────────────
 
@@ -215,8 +214,6 @@ function EditModal({ plan, onSave, onClose }: EditModalProps) {
 
 export default function AboModellPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
   const [plans, setPlans] = useState<Plan[]>([]);
   const [stripe, setStripe] = useState<StripeStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -257,16 +254,13 @@ export default function AboModellPage() {
 
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
+    <>
       {editPlan && <EditModal plan={editPlan} onSave={handleSaved} onClose={() => setEditPlan(null)} />}
 
-      <main className="flex-1 p-4 md:p-8 space-y-8 overflow-y-auto min-w-0">
+      <div className="p-4 md:p-8 space-y-8 min-w-0">
 
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white text-2xl md:hidden">☰</button>
           <div>
             <h1 className="text-xl md:text-2xl font-bold">💳 Abo-Modell</h1>
             <p className="text-gray-400 text-sm mt-0.5">Pläne konfigurieren, Stripe verknüpfen, Preise festlegen</p>
@@ -465,7 +459,7 @@ export default function AboModellPage() {
           <p className="text-xs text-gray-600 mt-3">Nach dem Setzen muss der Backend-Container neu gestartet werden (<code className="font-mono">docker compose restart backend</code>).</p>
         </section>
 
-      </main>
-    </div>
+      </div>
+    </>
   );
 }

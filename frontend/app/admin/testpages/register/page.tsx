@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import AdminSidebar from "@/components/AdminSidebar";
 
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 const MONTHS = [
@@ -28,8 +27,6 @@ const LANGUAGES = [
 
 export default function RegisterPreviewPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
   // Form-Zustand (nur für visuelle Vorschau — kein Submit)
   const [language, setLanguage] = useState("de");
   const [form, setForm] = useState({
@@ -50,18 +47,9 @@ export default function RegisterPreviewPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex overflow-hidden" style={{ height: "100dvh" }}>
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+    <div className="flex flex-col overflow-hidden h-full min-w-0">
         {/* Header */}
         <div className="shrink-0 flex items-center gap-3 px-6 py-4 border-b border-white/5 bg-gray-950">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-1.5 rounded-lg hover:bg-white/8 text-gray-400"
-          >
-            ☰
-          </button>
           <button
             onClick={() => router.push("/admin/testpages")}
             className="text-gray-500 hover:text-white text-sm transition-colors"
@@ -242,7 +230,6 @@ export default function RegisterPreviewPage() {
             </p>
           </div>
         </div>
-      </div>
     </div>
   );
 }

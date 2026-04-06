@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import AdminSidebar from "@/components/AdminSidebar";
 import { AGENTS, Agent, AgentStatus } from "@/lib/agents";
 
 const STATUS_CONFIG: Record<AgentStatus, {
@@ -48,7 +47,6 @@ const SECTIONS: AgentStatus[] = ["tool", "native", "roadmap"];
 export default function AgentsPage() {
   const router = useRouter();
   const user = getSession();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selected, setSelected] = useState<Agent | null>(null);
   const [filter, setFilter] = useState<AgentStatus | "alle">("alle");
 
@@ -65,16 +63,7 @@ export default function AgentsPage() {
     : AGENTS.filter(a => a.status === filter);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="flex-1 overflow-y-auto">
-        <header className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-gray-950/90 backdrop-blur md:hidden">
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white">☰</button>
-          <span className="font-bold text-sm text-yellow-400">◈ Agenten</span>
-        </header>
-
-        <div className="p-6 max-w-6xl mx-auto space-y-8">
+    <div className="p-6 max-w-6xl mx-auto space-y-8">
 
           {/* Header */}
           <div>
@@ -215,8 +204,6 @@ export default function AgentsPage() {
               </div>
             </section>
           )}
-        </div>
-      </main>
     </div>
   );
 }

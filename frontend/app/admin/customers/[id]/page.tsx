@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getSession, apiFetch } from "@/lib/auth";
-import AdminSidebar from "@/components/AdminSidebar";
 import { BACKEND_URL } from "@/lib/config";
 import { CustomerDetail } from "@/lib/customer-admin-utils";
 
@@ -26,7 +25,6 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("profil");
 
   const [customer, setCustomer] = useState<CustomerDetail | null>(null);
@@ -80,7 +78,7 @@ export default function CustomerDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <span className="text-gray-500 text-sm">Wird geladen…</span>
       </div>
     );
@@ -88,19 +86,16 @@ export default function CustomerDetailPage() {
 
   if (!customer) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <p className="text-red-400 text-sm">Kunde nicht gefunden.</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex">
-      <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto min-w-0">
+    <>
+      <div className="p-4 md:p-8 min-w-0">
         <div className="flex items-center gap-3 mb-6">
-          <button onClick={() => setSidebarOpen(true)} className="text-gray-400 hover:text-white text-2xl md:hidden">☰</button>
           <button onClick={() => router.push("/admin/customers")} className="text-gray-400 hover:text-white text-sm transition-colors">
             ← Kunden
           </button>
@@ -184,7 +179,7 @@ export default function CustomerDetailPage() {
           {tab === "wallet"       && <CustomerWalletTab customerId={customer.id} />}
           {tab === "notizen"      && <CustomerNotesTab customerId={customer.id} />}
         </div>
-      </main>
+      </div>
 
       {/* Modal: Langzeitgedächtnis widerrufen */}
       {memoryRevokeOpen && (
@@ -237,6 +232,6 @@ export default function CustomerDetailPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
