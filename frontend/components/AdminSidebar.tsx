@@ -55,6 +55,7 @@ const NAV: NavEntry[] = [
       { label: "Tagesreport",  href: "/admin/system/tagesreport", icon: "📋" },
     ],
   },
+  { label: "Support",    href: "/admin/support",   icon: "📨" },
   { label: "Testseiten", href: "/admin/testpages", icon: "⌘" },
 ];
 
