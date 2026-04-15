@@ -76,7 +76,6 @@ export default function ChatCardContent({ buddyName, buddyInitial, uiPrefs, onRi
             uiPrefs={uiPrefs}
             copied={copied}
             onCopy={handleCopy}
-            buddyInitial={buddyInitial}
           />
         ))}
         {loading && (
