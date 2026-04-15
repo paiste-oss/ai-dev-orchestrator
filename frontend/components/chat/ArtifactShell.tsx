@@ -118,28 +118,6 @@ export default function ArtifactShell({
           );
         })}
 
-        {onAddArtifact && (
-          <button
-            onClick={() => {
-              const t = QUICK_OPEN[0];
-              onAddArtifact(t);
-            }}
-            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-600 hover:text-white bg-white/3 hover:bg-white/8 border border-white/5 transition-colors ml-1"
-            title="Fenster hinzufügen"
-          >
-            <svg
-              className="w-3.5 h-3.5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
-        )}
       </div>
 
       {/* ── Active artifact header ───────────────────────────────────────────── */}
