@@ -1388,6 +1388,10 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#nm-grid)" />
+          {/* DEBUG — entfernen nach Fix */}
+          <text x="8" y="16" fill="#ff4" fontSize="11" fontFamily="monospace" style={{ pointerEvents: "none" }}>
+            {`conn:${connections.length} p:${persons.length}`}
+          </text>
           <g transform={`translate(${viewport.x},${viewport.y}) scale(${viewport.zoom})`}>
             {/* Connections */}
             {connections.map(c => {
@@ -1396,8 +1400,13 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
               const ca = personColor(c.a), cb = personColor(c.b);
               const sameColor = ca === cb;
               const selectedHubId = selected?.type === "hub" ? selected.id : null;
-              const connOpacity = selectedHubId ? (nets.find(n => n.id === selectedHubId)?.members?.some(m => m.personId === c.a || m.personId === c.b) ? 0.4 : 0.06) : 0.4;
-              return <line key={c.id} x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} stroke={sameColor ? ca : "#666"} strokeWidth={3.5 / viewport.zoom} strokeDasharray={!sameColor ? `${6 / viewport.zoom} ${4 / viewport.zoom}` : undefined} opacity={connOpacity} style={{ transition: "opacity 0.2s" }} />;
+              const connOpacity = selectedHubId ? (nets.find(n => n.id === selectedHubId)?.members?.some(m => m.personId === c.a || m.personId === c.b) ? 0.85 : 0.2) : 0.85;
+              return (
+                <g key={c.id}>
+                  <line x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} stroke="#ffffff" strokeWidth={8 / viewport.zoom} opacity={connOpacity * 0.15} />
+                  <line x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} stroke={sameColor ? ca : "#a78bfa"} strokeWidth={3.5 / viewport.zoom} strokeDasharray={!sameColor ? `${6 / viewport.zoom} ${4 / viewport.zoom}` : undefined} opacity={connOpacity} style={{ transition: "opacity 0.2s" }} />
+                </g>
+              );
             })}
             {/* Spokes */}
             {nets.map(net => (net.members || []).map(m => {
