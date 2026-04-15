@@ -1,7 +1,39 @@
 "use client";
 
-import { useReducer, useCallback } from "react";
+import { useReducer, useCallback, useEffect } from "react";
 import { ArtifactEntry } from "@/lib/chat-types";
+
+const STORAGE_KEY = "baddi:artifacts";
+
+// Typen mit temporären blob-URLs oder großen binären Daten — nicht persistieren
+const SKIP_PERSIST_TYPES = new Set(["file_viewer"]);
+
+function sanitizeForStorage(state: ArtifactState): ArtifactState {
+  return {
+    ...state,
+    artifacts: state.artifacts
+      .filter((a) => !SKIP_PERSIST_TYPES.has(a.type))
+      .map((a) => {
+        if (!a.data) return a;
+        // screenshot_b64 nicht persistieren (zu groß, temporär)
+        const { screenshot_b64: _omit, ...rest } = a.data as Record<string, unknown>;
+        return { ...a, data: rest };
+      }),
+  };
+}
+
+function loadFromStorage(): ArtifactState {
+  if (typeof window === "undefined") return { artifacts: [], activeId: null };
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { artifacts: [], activeId: null };
+    const parsed = JSON.parse(raw) as ArtifactState;
+    if (!Array.isArray(parsed.artifacts)) return { artifacts: [], activeId: null };
+    return parsed;
+  } catch {
+    return { artifacts: [], activeId: null };
+  }
+}
 
 // Typen die nur einmal gleichzeitig offen sein können
 const SINGLETON_TYPES = new Set([
@@ -86,7 +118,15 @@ function reducer(state: ArtifactState, action: ArtifactAction): ArtifactState {
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useArtifacts() {
-  const [state, dispatch] = useReducer(reducer, { artifacts: [], activeId: null });
+  const [state, dispatch] = useReducer(reducer, undefined, loadFromStorage);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeForStorage(state)));
+    } catch {
+      // QuotaExceededError ignorieren — kein kritischer Fehler
+    }
+  }, [state]);
 
   /** Öffnet ein Artifact. Singleton-Typen werden aktualisiert statt dupliziert. */
   const openArtifact = useCallback(
