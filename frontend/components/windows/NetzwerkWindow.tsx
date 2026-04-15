@@ -93,7 +93,7 @@ function wrapNodeText(name: string, maxWidth: number, fontScale = 1) {
 // ─── Toast ────────────────────────────────────────────────────────────────────
 function Toast({ message, visible }: { message: string; visible: boolean }) {
   return (
-    <div style={{ position: "absolute", bottom: "70px", left: "50%", transform: `translateX(-50%) translateY(${visible ? 0 : "12px"})`, opacity: visible ? 1 : 0, transition: "all 0.25s", background: "#22c55e22", border: "1px solid #22c55e55", color: "#22c55e", borderRadius: "8px", padding: "8px 20px", fontSize: "13px", pointerEvents: "none", zIndex: 200, whiteSpace: "nowrap" }}>
+    <div className={`absolute bottom-[70px] left-1/2 -translate-x-1/2 transition-all duration-200 bg-green-500/10 border border-green-500/20 text-green-400 rounded-lg px-5 py-2 text-xs pointer-events-none z-[200] whitespace-nowrap ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
       ✓ {message}
     </div>
   );
@@ -101,12 +101,11 @@ function Toast({ message, visible }: { message: string; visible: boolean }) {
 
 // ─── ZoomControls ─────────────────────────────────────────────────────────────
 function ZoomControls({ zoom, onZoomIn, onZoomOut }: { zoom: number; onZoomIn: () => void; onZoomOut: () => void }) {
-  const S: React.CSSProperties = { width: "36px", height: "36px", background: "#1a1a28", border: "1px solid #2a2a3a", color: "#aaa", cursor: "pointer", fontSize: "18px", lineHeight: "1", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" };
   return (
-    <div style={{ position: "absolute", bottom: "14px", right: "14px", display: "flex", flexDirection: "column", borderRadius: "10px", overflow: "hidden", border: "1px solid #2a2a3a", zIndex: 50, boxShadow: "0 4px 20px #00000066" }}>
-      <button onClick={onZoomIn} style={S}>+</button>
-      <div style={{ background: "#13131c", borderTop: "1px solid #2a2a3a", borderBottom: "1px solid #2a2a3a", color: "#555", fontSize: "11px", textAlign: "center", padding: "3px 0", userSelect: "none", fontFamily: "monospace" }}>{Math.round(zoom * 100)}%</div>
-      <button onClick={onZoomOut} style={S}>−</button>
+    <div className="absolute bottom-3.5 right-3.5 flex flex-col rounded-xl overflow-hidden border border-white/5 z-50 shadow-lg">
+      <button onClick={onZoomIn} className="w-9 h-9 bg-[#1a1a28] border-none text-gray-400 cursor-pointer text-lg flex items-center justify-center hover:text-white hover:bg-[#1e1e30] transition-colors">+</button>
+      <div className="bg-[#13131c] border-y border-white/5 text-gray-600 text-[11px] text-center py-0.5 select-none font-mono">{Math.round(zoom * 100)}%</div>
+      <button onClick={onZoomOut} className="w-9 h-9 bg-[#1a1a28] border-none text-gray-400 cursor-pointer text-lg flex items-center justify-center hover:text-white hover:bg-[#1e1e30] transition-colors">−</button>
     </div>
   );
 }
@@ -120,17 +119,17 @@ function HubNode({ net, memberCount, isSelected, isHovered, onMouseDown, onTouch
   const { lines, fontSize, lineHeight } = wrapNodeText(net.name, (HUB_R - 10) * 2, fontScale);
   const totalH = (lines.length - 1) * lineHeight;
   return (
-    <g transform={`translate(${net.x},${net.y})`} onMouseDown={onMouseDown} onTouchStart={onTouchStart} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} style={{ cursor: "grab" }}>
+    <g transform={`translate(${net.x},${net.y})`} onMouseDown={onMouseDown} onTouchStart={onTouchStart} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} className="cursor-grab">
       {isSelected && <circle r={HUB_R + 16} fill="#C8D8E8" opacity="0.08" />}
       {isHovered && !isSelected && <circle r={HUB_R + 10} fill="#C8D8E8" opacity="0.05" />}
       <circle r={HUB_R} fill="#C8D8E8" opacity={isSelected ? 1 : 0.90} stroke={isSelected ? "#C8D8E8" : "#8AAABB"} strokeWidth={isSelected ? 3 : 1.5} />
       <circle r={HUB_R - 8} fill="none" stroke="#00000018" strokeWidth="1" />
-      <text textAnchor="middle" fill="#1a2a38" fontSize={fontSize} fontFamily="'DM Mono',monospace" fontWeight="700" letterSpacing="0.02em">
+      <text textAnchor="middle" fill="#1a2a38" fontSize={fontSize} fontFamily="ui-monospace,monospace" fontWeight="700" letterSpacing="0.02em">
         {lines.map((l, i) => <tspan key={i} x="0" dy={i === 0 ? -totalH / 2 : lineHeight}>{l}</tspan>)}
       </text>
       <g transform={`translate(${HUB_R - 10},${-(HUB_R - 10)})`}>
         <circle r="11" fill="#1a2a38" />
-        <text textAnchor="middle" dominantBaseline="middle" fill="#C8D8E8" fontSize="10" fontFamily="'DM Mono',monospace" fontWeight="700">{memberCount}</text>
+        <text textAnchor="middle" dominantBaseline="middle" fill="#C8D8E8" fontSize="10" fontFamily="ui-monospace,monospace" fontWeight="700">{memberCount}</text>
       </g>
     </g>
   );
@@ -153,7 +152,7 @@ function PersonNode({ person, isSelected, isHovered, isConnectSrc, mode, colors,
   const segLen = circ / segCount - gap;
 
   return (
-    <g transform={`translate(${person.x},${person.y})`} onMouseDown={onMouseDown} onTouchStart={onTouchStart} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} style={{ cursor: mode === "connect" ? "pointer" : "grab" }}>
+    <g transform={`translate(${person.x},${person.y})`} onMouseDown={onMouseDown} onTouchStart={onTouchStart} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave} className={mode === "connect" ? "cursor-pointer" : "cursor-grab"}>
       <defs><clipPath id={clipId}><circle r={R} /></clipPath></defs>
       {(isSelected || isConnectSrc) && <circle r={R + 14} fill={mainColor} opacity="0.13" />}
       {isHovered && !isSelected && <circle r={R + 8} fill={mainColor} opacity="0.07" />}
@@ -176,7 +175,7 @@ function PersonNode({ person, isSelected, isHovered, isConnectSrc, mode, colors,
         const totalH = (lines.length - 1) * lineHeight;
         return <>
           <circle r={R - 5} fill="none" stroke={mainColor} strokeWidth="1" opacity="0.12" />
-          <text textAnchor="middle" fill={mainColor} fontSize={fontSize} fontFamily="'DM Mono',monospace" fontWeight="600" letterSpacing="0.02em">
+          <text textAnchor="middle" fill={mainColor} fontSize={fontSize} fontFamily="ui-monospace,monospace" fontWeight="600" letterSpacing="0.02em">
             {lines.map((l, i) => <tspan key={i} x="0" dy={i === 0 ? -totalH / 2 : lineHeight}>{l}</tspan>)}
           </text>
         </>;
@@ -188,7 +187,7 @@ function PersonNode({ person, isSelected, isHovered, isConnectSrc, mode, colors,
         return (
           <g style={{ pointerEvents: "none" }}>
             <rect x={-R} y={R + GAP - fontSize} width={R * 2} height={totalTextH + 4} fill="#0d0d14" opacity="0.72" rx="3" />
-            <text textAnchor="middle" fill={mainColor} fontSize={fontSize} fontFamily="'DM Mono',monospace" fontWeight="600">
+            <text textAnchor="middle" fill={mainColor} fontSize={fontSize} fontFamily="ui-monospace,monospace" fontWeight="600">
               {lines.map((l, i) => <tspan key={i} x="0" dy={i === 0 ? R + GAP : lineHeight}>{l}</tspan>)}
             </text>
           </g>
@@ -197,6 +196,20 @@ function PersonNode({ person, isSelected, isHovered, isConnectSrc, mode, colors,
     </g>
   );
 }
+
+// ─── Shared panel event blocker ───────────────────────────────────────────────
+const stopAll = {
+  onClick: (e: React.SyntheticEvent) => e.stopPropagation(),
+  onMouseDown: (e: React.SyntheticEvent) => e.stopPropagation(),
+  onMouseMove: (e: React.SyntheticEvent) => e.stopPropagation(),
+  onMouseUp: (e: React.SyntheticEvent) => e.stopPropagation(),
+  onTouchStart: (e: React.SyntheticEvent) => e.stopPropagation(),
+  onTouchMove: (e: React.SyntheticEvent) => e.stopPropagation(),
+  onTouchEnd: (e: React.SyntheticEvent) => e.stopPropagation(),
+};
+
+const fieldLabel = "block text-[10px] text-gray-600 tracking-widest uppercase mb-1.5";
+const panelInput = "w-full bg-[#0d0d14] border border-white/8 rounded-md text-[#e2e2e8] px-3 py-1.5 text-sm outline-none focus:border-white/20 transition-colors";
 
 // ─── PersonPanel ──────────────────────────────────────────────────────────────
 function PersonPanel({ person, networks, connections, allPersons, onClose, onPhotoChange, onRename, onUpdateFields, onGroupChange, onAddToNetwork, onRemoveFromNetwork, onCreateAndAddToNetwork, onDeletePerson, getGroupColor, getGroupLabel, getNetGroups }: {
@@ -220,42 +233,66 @@ function PersonPanel({ person, networks, connections, allPersons, onClose, onPho
   const netGroups = firstMember ? getNetGroups(memberNets[0]?.id) : [];
   const color = firstMember ? getGroupColor(firstMember.group, netGroups) : "#888";
   const saveField = (key: keyof Person, val: string) => onUpdateFields(person.id, { [key]: val } as Partial<Person>);
-  const inputSty: React.CSSProperties = { width: "100%", boxSizing: "border-box", background: "#0d0d14", border: `1px solid ${color}22`, borderRadius: "6px", color: "#e2e2e8", padding: "7px 10px", fontSize: "13px", outline: "none", fontFamily: "inherit" };
 
   return (
-    <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "min(280px, 92%)", background: "#13131c", borderLeft: `2px solid ${color}44`, zIndex: 60, display: "flex", flexDirection: "column", boxShadow: "-8px 0 30px #00000088" }}
-      onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} onMouseMove={e => e.stopPropagation()} onMouseUp={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <span style={{ fontSize: "12px", color, letterSpacing: "0.08em" }}>PERSON</span>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "18px", lineHeight: "1" }}>×</button>
+    <div className="absolute inset-y-0 right-0 w-[min(280px,92%)] bg-[#13131c] z-[60] flex flex-col shadow-[-8px_0_30px_rgba(0,0,0,0.5)]"
+      style={{ borderLeft: `2px solid ${color}40` }} {...stopAll}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
+        <span className="text-[11px] tracking-widest uppercase" style={{ color }}>Person</span>
+        <button onClick={onClose} className="text-gray-600 hover:text-gray-300 text-lg leading-none cursor-pointer bg-transparent border-none transition-colors">×</button>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", touchAction: "pan-y" }} onWheel={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}>
-        <div style={{ padding: "16px 16px 10px" }}>
+
+      {/* Scroll body */}
+      <div className="flex-1 overflow-y-auto" style={{ touchAction: "pan-y" }}
+        onWheel={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}>
+
+        {/* Photo */}
+        <div className="px-4 pt-4 pb-3">
           {person.photo && (
-            <div style={{ width: "90px", height: "90px", borderRadius: "50%", margin: "0 auto", overflow: "hidden", border: `2px solid ${color}`, marginBottom: "6px" }}>
-              <img src={person.photo} alt={person.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <div className="w-[90px] h-[90px] rounded-full mx-auto overflow-hidden mb-2 border-2" style={{ borderColor: color }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={person.photo} alt={person.name} className="w-full h-full object-cover" />
             </div>
           )}
-          <div style={{ display: "flex", gap: "6px", justifyContent: "center", flexWrap: "wrap" }}>
-            <label style={{ display: "inline-block", padding: "6px 12px", background: "#1a1a28", border: `1px solid ${color}44`, borderRadius: "6px", color, fontSize: "11px", cursor: "pointer", fontFamily: "inherit" }}>
+          <div className="flex gap-1.5 justify-center flex-wrap">
+            <label className="inline-block px-3 py-1.5 bg-[#1a1a28] rounded-md text-[11px] cursor-pointer transition-colors hover:bg-[#1e1e30]" style={{ border: `1px solid ${color}40`, color }}>
               📷 {person.photo ? "Foto ändern" : "Foto hochladen"}
-              <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => { const f = e.target.files?.[0]; if (f) { onPhotoChange(person.id, await resizeImage(f)); } e.target.value = ""; }} />
+              <input type="file" accept="image/*" className="hidden" onChange={async e => { const f = e.target.files?.[0]; if (f) { onPhotoChange(person.id, await resizeImage(f)); } e.target.value = ""; }} />
             </label>
-            {person.photo && <button onClick={() => onPhotoChange(person.id, null)} style={{ padding: "6px 12px", background: "none", border: "1px solid #ff444433", color: "#ff4444", borderRadius: "6px", cursor: "pointer", fontSize: "11px", fontFamily: "inherit" }}>✕ Entfernen</button>}
+            {person.photo && (
+              <button onClick={() => onPhotoChange(person.id, null)} className="px-3 py-1.5 bg-transparent border border-red-500/20 text-red-400 rounded-md text-[11px] cursor-pointer hover:bg-red-500/10 transition-colors">
+                ✕ Entfernen
+              </button>
+            )}
           </div>
         </div>
-        <div style={{ margin: "0 16px 12px", borderTop: "1px solid #1e1e2e" }} />
-        <div style={{ padding: "0 16px 12px" }}>
-          <label style={{ fontSize: "10px", color: "#444", letterSpacing: "0.1em" }}>👤 NAME</label>
-          <div style={{ display: "flex", gap: "6px", marginTop: "5px" }}>
-            <input value={editName} maxLength={9} onChange={e => setEditName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") onRename(person.id, editName); }} style={{ flex: 1, background: "#0d0d14", border: `1px solid ${color}44`, borderRadius: "6px", color: "#e2e2e8", padding: "7px 10px", fontSize: "14px", outline: "none", fontFamily: "inherit", fontWeight: "600" }} />
-            <button onClick={() => onRename(person.id, editName)} style={{ background: color, color: "#000", border: "none", borderRadius: "6px", padding: "7px 10px", fontWeight: "700", cursor: "pointer", fontSize: "13px" }}>✓</button>
+
+        <div className="mx-4 mb-3 border-t border-white/5" />
+
+        {/* Name */}
+        <div className="px-4 pb-3">
+          <label className={fieldLabel}>👤 Name</label>
+          <div className="flex gap-1.5">
+            <input value={editName} maxLength={24} onChange={e => setEditName(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") onRename(person.id, editName); }}
+              className={`${panelInput} flex-1 font-semibold`} style={{ borderColor: `${color}30` }} />
+            <button onClick={() => onRename(person.id, editName)}
+              className="px-3 py-1.5 rounded-md text-sm font-bold cursor-pointer border-none transition-opacity hover:opacity-80"
+              style={{ background: color, color: "#000" }}>✓</button>
           </div>
         </div>
-        <div style={{ padding: "0 16px 12px" }}>
-          <label style={{ fontSize: "10px", color: "#444", letterSpacing: "0.1em" }}>✦ GANZER NAME</label>
-          <input type="text" value={fields.fullName} onChange={e => setFields(f => ({ ...f, fullName: e.target.value }))} onBlur={e => saveField("fullName", e.target.value)} onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} placeholder="Vor- und Nachname…" style={{ ...inputSty, marginTop: "5px" }} />
+
+        {/* Full name */}
+        <div className="px-4 pb-3">
+          <label className={fieldLabel}>✦ Ganzer Name</label>
+          <input type="text" value={fields.fullName} onChange={e => setFields(f => ({ ...f, fullName: e.target.value }))}
+            onBlur={e => saveField("fullName", e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+            placeholder="Vor- und Nachname…" className={panelInput} style={{ borderColor: `${color}20` }} />
         </div>
+
+        {/* Group per network */}
         {memberNets.map(net => {
           const m = net.members?.find(m => m.personId === person.id);
           if (!m) return null;
@@ -263,51 +300,79 @@ function PersonPanel({ person, networks, connections, allPersons, onClose, onPho
           const gc = getGroupColor(m.group, ng);
           const gl = getGroupLabel(m.group, ng);
           return (
-            <div key={net.id} style={{ padding: "0 16px 12px" }}>
-              <label style={{ fontSize: "10px", color: "#444", letterSpacing: "0.08em" }}>● GRUPPE in <span style={{ color: "#C8D8E8" }}>{net.name}</span></label>
-              <div style={{ display: "flex", gap: "7px", marginTop: "7px", flexWrap: "wrap" }}>
-                {ng.map(g => <button key={g.id} onClick={() => onGroupChange(person.id, net.id, g.id)} title={g.label} style={{ width: "24px", height: "24px", borderRadius: "50%", background: g.color, cursor: "pointer", border: m.group === g.id ? "3px solid #fff" : "3px solid transparent", transform: m.group === g.id ? "scale(1.18)" : "scale(1)", transition: "transform 0.1s" }} />)}
+            <div key={net.id} className="px-4 pb-3">
+              <label className={fieldLabel}>
+                ● Gruppe in <span className="text-[#C8D8E8]">{net.name}</span>
+              </label>
+              <div className="flex gap-1.5 flex-wrap mt-1.5">
+                {ng.map(g => (
+                  <button key={g.id} onClick={() => onGroupChange(person.id, net.id, g.id)} title={g.label}
+                    className="w-6 h-6 rounded-full cursor-pointer transition-transform"
+                    style={{ background: g.color, border: m.group === g.id ? "3px solid #fff" : "3px solid transparent", transform: m.group === g.id ? "scale(1.18)" : "scale(1)" }} />
+                ))}
               </div>
-              <div style={{ marginTop: "5px", display: "flex", alignItems: "center", gap: "5px" }}>
-                <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: gc, flexShrink: 0 }} />
-                <span style={{ fontSize: "11px", color: gc }}>{gl}</span>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: gc }} />
+                <span className="text-[11px]" style={{ color: gc }}>{gl}</span>
               </div>
             </div>
           );
         })}
-        <div style={{ margin: "0 16px 12px", borderTop: "1px solid #1e1e2e" }} />
-        <div style={{ padding: "0 16px 10px" }}>
-          <label style={{ fontSize: "10px", color: "#444", letterSpacing: "0.1em" }}>📝 NOTIZ</label>
-          <textarea value={fields.note} rows={3} onChange={e => setFields(f => ({ ...f, note: e.target.value }))} onBlur={e => saveField("note", e.target.value)} style={{ ...inputSty, marginTop: "5px", resize: "vertical", lineHeight: "1.5" }} />
+
+        <div className="mx-4 mb-3 border-t border-white/5" />
+
+        {/* Note */}
+        <div className="px-4 pb-3">
+          <label className={fieldLabel}>📝 Notiz</label>
+          <textarea value={fields.note} rows={3}
+            onChange={e => setFields(f => ({ ...f, note: e.target.value }))}
+            onBlur={e => saveField("note", e.target.value)}
+            className={`${panelInput} resize-y leading-relaxed`} style={{ borderColor: `${color}20` }} />
         </div>
-        <div style={{ margin: "0 16px 12px", borderTop: "1px solid #1e1e2e" }} />
-        <div style={{ padding: "0 16px 8px" }}>
-          <label style={{ fontSize: "10px", color: "#444", letterSpacing: "0.1em" }}>◉ NETZWERKE</label>
+
+        <div className="mx-4 mb-3 border-t border-white/5" />
+
+        {/* Networks */}
+        <div className="px-4 pb-2">
+          <label className={fieldLabel}>◉ Netzwerke</label>
           {memberNets.map(net => (
-            <div key={net.id} style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "7px" }}>
-              <div style={{ width: "14px", height: "14px", borderRadius: "50%", background: "#C8D8E8", flexShrink: 0 }} />
-              <span style={{ flex: 1, fontSize: "12px", color: "#ccc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{net.name}</span>
-              <button onClick={() => onRemoveFromNetwork(person.id, net.id)} style={{ background: "none", border: "1px solid #ff444433", color: "#ff4444", borderRadius: "4px", padding: "2px 6px", cursor: "pointer", fontSize: "10px", fontFamily: "inherit", flexShrink: 0 }}>entfernen</button>
+            <div key={net.id} className="flex items-center gap-2 mt-1.5">
+              <div className="w-3 h-3 rounded-full bg-[#C8D8E8] shrink-0" />
+              <span className="flex-1 text-xs text-gray-300 truncate">{net.name}</span>
+              <button onClick={() => onRemoveFromNetwork(person.id, net.id)}
+                className="text-[10px] text-red-400 border border-red-500/20 rounded px-1.5 py-0.5 cursor-pointer hover:bg-red-500/10 transition-colors bg-transparent">
+                entfernen
+              </button>
             </div>
           ))}
-          <div style={{ marginTop: "10px" }}>
-            <label style={{ fontSize: "10px", color: "#333", letterSpacing: "0.08em" }}>Hinzufügen zu:</label>
-            {nonMemberNets.map(net => (
-              <button key={net.id} onClick={() => onAddToNetwork(person.id, net.id)} style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", marginTop: "5px", background: "#1a1a28", border: "1px solid #2a2a3a", borderRadius: "6px", padding: "6px 10px", cursor: "pointer", fontFamily: "inherit", color: "#888" }}>
-                <span style={{ fontSize: "14px" }}>+</span>
-                <span style={{ fontSize: "12px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{net.name}</span>
-              </button>
-            ))}
-            <button onClick={() => onCreateAndAddToNetwork(person.id)} style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", marginTop: "5px", background: "#1a1a28", border: "1px dashed #4ECDC455", borderRadius: "6px", padding: "6px 10px", cursor: "pointer", fontFamily: "inherit", color: "#4ECDC4" }}>
-              <span style={{ fontSize: "14px" }}>✦</span>
-              <span style={{ fontSize: "12px" }}>Neues Netzwerk</span>
-            </button>
-          </div>
+          {nonMemberNets.length > 0 && (
+            <div className="mt-2.5">
+              <span className="text-[10px] text-gray-700">Hinzufügen zu:</span>
+              {nonMemberNets.map(net => (
+                <button key={net.id} onClick={() => onAddToNetwork(person.id, net.id)}
+                  className="flex items-center gap-2 w-full mt-1.5 bg-[#1a1a28] border border-white/5 rounded-md px-2.5 py-1.5 cursor-pointer text-gray-400 hover:border-white/10 hover:text-gray-200 transition-colors text-left">
+                  <span className="text-sm">+</span>
+                  <span className="text-xs truncate">{net.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <button onClick={() => onCreateAndAddToNetwork(person.id)}
+            className="flex items-center gap-2 w-full mt-1.5 bg-[#1a1a28] border border-dashed border-teal-500/30 rounded-md px-2.5 py-1.5 cursor-pointer text-teal-400 hover:border-teal-500/50 transition-colors text-left">
+            <span className="text-sm">✦</span>
+            <span className="text-xs">Neues Netzwerk</span>
+          </button>
         </div>
-        <div style={{ height: "8px" }} />
+
+        <div className="h-2" />
       </div>
-      <div style={{ padding: "12px 16px", borderTop: "1px solid #1e1e2e", flexShrink: 0 }}>
-        <button onClick={() => { onDeletePerson(person.id); onClose(); }} style={{ width: "100%", padding: "9px", background: "#ff444411", border: "1px solid #ff444433", color: "#ff4444", borderRadius: "8px", cursor: "pointer", fontFamily: "inherit", fontSize: "13px" }}>✕ Person überall löschen</button>
+
+      {/* Footer */}
+      <div className="px-4 py-3 border-t border-white/5 shrink-0">
+        <button onClick={() => { onDeletePerson(person.id); onClose(); }}
+          className="w-full py-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm cursor-pointer hover:bg-red-500/15 transition-colors">
+          ✕ Person überall löschen
+        </button>
       </div>
     </div>
   );
@@ -331,79 +396,130 @@ function HubPanel({ net, allPersons, onClose, onRename, onDelete, onSelectPerson
   const groups = net.groups || [];
 
   return (
-    <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: "min(280px, 92%)", background: "#13131c", borderLeft: "2px solid #C8D8E833", zIndex: 60, display: "flex", flexDirection: "column", boxShadow: "-8px 0 30px #00000088" }}
-      onClick={e => e.stopPropagation()} onMouseDown={e => e.stopPropagation()} onMouseMove={e => e.stopPropagation()} onMouseUp={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()} onTouchMove={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <div style={{ width: "18px", height: "18px", borderRadius: "50%", background: "#C8D8E8", flexShrink: 0 }} />
-          <span style={{ fontSize: "12px", color: "#ccc", letterSpacing: "0.08em" }}>NETZWERK</span>
+    <div className="absolute inset-y-0 right-0 w-[min(280px,92%)] bg-[#13131c] border-l-2 border-[#C8D8E8]/15 z-[60] flex flex-col shadow-[-8px_0_30px_rgba(0,0,0,0.5)]"
+      {...stopAll}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-4 h-4 rounded-full bg-[#C8D8E8] shrink-0" />
+          <span className="text-[11px] text-gray-300 tracking-widest uppercase">Netzwerk</span>
         </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "18px", lineHeight: "1" }}>×</button>
+        <button onClick={onClose} className="text-gray-600 hover:text-gray-300 text-lg leading-none cursor-pointer bg-transparent border-none transition-colors">×</button>
       </div>
-      <div style={{ padding: "12px 16px", borderBottom: "1px solid #1e1e2e", flexShrink: 0 }}>
-        <label style={{ fontSize: "10px", color: "#444", letterSpacing: "0.1em" }}>NAME</label>
-        <div style={{ display: "flex", gap: "6px", marginTop: "5px" }}>
-          <input value={editName} maxLength={editName.includes(" ") ? 23 : 15} onChange={e => setEditName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") onRename(net.id, editName); }} style={{ flex: 1, background: "#0d0d14", border: "1px solid #C8D8E822", borderRadius: "6px", color: "#e2e2e8", padding: "7px 10px", fontSize: "14px", outline: "none", fontFamily: "inherit" }} />
-          <button onClick={() => onRename(net.id, editName)} style={{ background: "#C8D8E8", color: "#1a2a38", border: "none", borderRadius: "6px", padding: "7px 10px", fontWeight: "700", cursor: "pointer", fontSize: "13px" }}>✓</button>
+
+      {/* Name */}
+      <div className="px-4 py-3 border-b border-white/5 shrink-0">
+        <label className={fieldLabel}>Name</label>
+        <div className="flex gap-1.5">
+          <input value={editName} maxLength={editName.includes(" ") ? 23 : 15}
+            onChange={e => setEditName(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") onRename(net.id, editName); }}
+            className={`${panelInput} flex-1 text-sm font-semibold`} />
+          <button onClick={() => onRename(net.id, editName)}
+            className="px-3 py-1.5 bg-[#C8D8E8] text-[#1a2a38] rounded-md font-bold text-sm cursor-pointer hover:opacity-90 transition-opacity border-none">
+            ✓
+          </button>
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", touchAction: "pan-y" }} onWheel={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}>
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid #1e1e2e" }}>
-          <label style={{ fontSize: "10px", color: "#444", letterSpacing: "0.1em" }}>📝 NOTIZ</label>
-          <textarea value={note} rows={4} onChange={e => setNote(e.target.value)} onBlur={e => onUpdateNote(net.id, e.target.value)} style={{ width: "100%", boxSizing: "border-box", marginTop: "5px", background: "#0d0d14", border: "1px solid #C8D8E822", borderRadius: "6px", color: "#e2e2e8", padding: "7px 10px", fontSize: "13px", outline: "none", fontFamily: "inherit", resize: "vertical", lineHeight: "1.5" }} />
+
+      {/* Scroll body */}
+      <div className="flex-1 overflow-y-auto" style={{ touchAction: "pan-y" }}
+        onWheel={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}>
+
+        {/* Note */}
+        <div className="px-4 py-3 border-b border-white/5">
+          <label className={fieldLabel}>📝 Notiz</label>
+          <textarea value={note} rows={4}
+            onChange={e => setNote(e.target.value)}
+            onBlur={e => onUpdateNote(net.id, e.target.value)}
+            className={`${panelInput} w-full resize-y leading-relaxed mt-1`} />
         </div>
-        <div style={{ borderBottom: "1px solid #1e1e2e" }}>
-          <div style={{ padding: "10px 16px 4px" }}>
-            <label style={{ fontSize: "10px", color: "#444", letterSpacing: "0.1em" }}>👤 PERSONEN ({members.length})</label>
+
+        {/* Members */}
+        <div className="border-b border-white/5">
+          <div className="px-4 pt-2.5 pb-1">
+            <label className={fieldLabel}>👤 Personen ({members.length})</label>
           </div>
-          {members.length === 0 && <div style={{ padding: "8px 16px 12px", color: "#333", fontSize: "12px" }}>Noch keine Personen</div>}
+          {members.length === 0 && <p className="px-4 pb-3 text-xs text-gray-700">Noch keine Personen</p>}
           {members.map(m => {
             const person = allPersons.find(p => p.id === m.personId);
             if (!person) return null;
             const color = getGroupColor(m.group, net.groups);
             const label = getGroupLabel(m.group, net.groups);
             return (
-              <button key={m.personId} onClick={() => onSelectPerson(person)} style={{ width: "100%", display: "flex", alignItems: "center", gap: "12px", padding: "8px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
-                <div style={{ width: "38px", height: "38px", borderRadius: "50%", flexShrink: 0, overflow: "hidden", border: `2px solid ${color}`, background: "#0d0d14", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {person.photo ? <img src={person.photo} alt={person.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: "13px", color, fontWeight: "700" }}>{person.name.slice(0, 2).toUpperCase()}</span>}
+              <button key={m.personId} onClick={() => onSelectPerson(person)}
+                className="w-full flex items-center gap-3 px-4 py-2 bg-transparent border-none cursor-pointer text-left hover:bg-white/3 transition-colors">
+                <div className="w-9 h-9 rounded-full shrink-0 overflow-hidden flex items-center justify-center bg-[#0d0d14]"
+                  style={{ border: `2px solid ${color}` }}>
+                  {person.photo
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    ? <img src={person.photo} alt={person.name} className="w-full h-full object-cover" />
+                    : <span className="text-xs font-bold" style={{ color }}>{person.name.slice(0, 2).toUpperCase()}</span>}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "13px", color: "#e2e2e8", fontWeight: "600", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{allPersons.filter(p => p.name === person.name).length > 1 && person.fullName ? person.fullName : person.name}</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "3px" }}>
-                    <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: color, flexShrink: 0 }} />
-                    <span style={{ fontSize: "10px", color: "#555" }}>{label}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-[#e2e2e8] font-semibold truncate">
+                    {allPersons.filter(p => p.name === person.name).length > 1 && person.fullName ? person.fullName : person.name}
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
+                    <span className="text-[10px] text-gray-600">{label}</span>
                   </div>
                 </div>
-                <span style={{ color: "#333", fontSize: "14px", flexShrink: 0 }}>›</span>
+                <span className="text-gray-700 text-sm shrink-0">›</span>
               </button>
             );
           })}
         </div>
-        <div style={{ padding: "10px 0 4px" }}>
-          <div style={{ padding: "0 16px 6px" }}>
-            <label style={{ fontSize: "10px", color: "#444", letterSpacing: "0.1em" }}>🎨 GRUPPEN</label>
+
+        {/* Groups */}
+        <div className="py-2">
+          <div className="px-4 pb-1.5">
+            <label className={fieldLabel}>🎨 Gruppen</label>
           </div>
           {groups.map(g => (
-            <div key={g.id} style={{ padding: "6px 16px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <button onClick={() => setColorPickFor(colorPickFor === g.id ? null : g.id)} style={{ width: "26px", height: "26px", borderRadius: "50%", background: g.color, border: "2px solid #2a2a3a", cursor: "pointer", flexShrink: 0, outline: "none" }} />
-                <input value={g.label} onChange={e => onUpdateGroup(net.id, g.id, { label: e.target.value })} onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} style={{ flex: 1, background: "#0d0d14", border: `1px solid ${g.color}44`, borderRadius: "6px", color: "#e2e2e8", padding: "5px 9px", fontSize: "13px", outline: "none", fontFamily: "inherit" }} />
-                {groups.length > 1 && <button onClick={() => { onDeleteGroup(g.id); if (colorPickFor === g.id) setColorPickFor(null); }} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "16px", lineHeight: "1", padding: "0 2px", flexShrink: 0 }}>×</button>}
+            <div key={g.id} className="px-4 py-1.5">
+              <div className="flex items-center gap-2">
+                <button onClick={() => setColorPickFor(colorPickFor === g.id ? null : g.id)}
+                  className="w-6 h-6 rounded-full cursor-pointer shrink-0 outline-none border-2 border-white/10 hover:border-white/30 transition-colors"
+                  style={{ background: g.color }} />
+                <input value={g.label}
+                  onChange={e => onUpdateGroup(net.id, g.id, { label: e.target.value })}
+                  onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                  className="flex-1 bg-[#0d0d14] rounded-md text-[#e2e2e8] px-2 py-1 text-xs outline-none border"
+                  style={{ borderColor: `${g.color}40` }} />
+                {groups.length > 1 && (
+                  <button onClick={() => { onDeleteGroup(g.id); if (colorPickFor === g.id) setColorPickFor(null); }}
+                    className="text-gray-600 hover:text-gray-300 text-base leading-none cursor-pointer bg-transparent border-none px-0.5 shrink-0 transition-colors">
+                    ×
+                  </button>
+                )}
               </div>
               {colorPickFor === g.id && (
-                <div style={{ marginTop: "8px", marginLeft: "34px", display: "flex", flexWrap: "wrap", gap: "5px" }}>
-                  {PALETTE.map(col => <button key={col} onClick={() => { onUpdateGroup(net.id, g.id, { color: col }); setColorPickFor(null); }} style={{ width: "20px", height: "20px", borderRadius: "50%", background: col, border: col === g.color ? "2px solid #fff" : "2px solid transparent", cursor: "pointer", outline: "none" }} />)}
+                <div className="mt-2 ml-8 flex flex-wrap gap-1">
+                  {PALETTE.map(col => (
+                    <button key={col} onClick={() => { onUpdateGroup(net.id, g.id, { color: col }); setColorPickFor(null); }}
+                      className="w-5 h-5 rounded-full cursor-pointer outline-none transition-transform hover:scale-110"
+                      style={{ background: col, border: col === g.color ? "2px solid #fff" : "2px solid transparent" }} />
+                  ))}
                 </div>
               )}
             </div>
           ))}
-          <div style={{ padding: "6px 16px 4px" }}>
-            <button onClick={onAddGroup} style={{ width: "100%", padding: "7px", background: "#1a1a28", border: "1px dashed #2a2a3a", borderRadius: "6px", color: "#555", cursor: "pointer", fontFamily: "inherit", fontSize: "12px" }}>+ Gruppe hinzufügen</button>
+          <div className="px-4 pt-1 pb-1.5">
+            <button onClick={onAddGroup}
+              className="w-full py-1.5 bg-[#1a1a28] border border-dashed border-white/10 rounded-md text-gray-600 cursor-pointer text-xs hover:border-white/20 hover:text-gray-400 transition-colors">
+              + Gruppe hinzufügen
+            </button>
           </div>
         </div>
       </div>
-      <div style={{ padding: "12px 16px", borderTop: "1px solid #1e1e2e", flexShrink: 0 }}>
-        <button onClick={() => { onDelete(net.id); onClose(); }} style={{ width: "100%", padding: "9px", background: "#ff444411", border: "1px solid #ff444433", color: "#ff4444", borderRadius: "8px", cursor: "pointer", fontFamily: "inherit", fontSize: "13px" }}>✕ Netzwerk löschen</button>
+
+      {/* Footer */}
+      <div className="px-4 py-3 border-t border-white/5 shrink-0">
+        <button onClick={() => { onDelete(net.id); onClose(); }}
+          className="w-full py-2 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-sm cursor-pointer hover:bg-red-500/15 transition-colors">
+          ✕ Netzwerk löschen
+        </button>
       </div>
     </div>
   );
@@ -429,22 +545,31 @@ function SettingsModal({ onClose, data, onImport, fontScale, setFontScale }: {
     };
     reader.readAsText(file);
   };
-  const Tab = ({ id, label }: { id: string; label: string }) => (
-    <button onClick={() => setTab(id)} style={{ flex: 1, padding: "9px 0", background: "none", border: "none", borderBottom: tab === id ? "2px solid #C8D8E8" : "2px solid transparent", color: tab === id ? "#C8D8E8" : "#555", cursor: "pointer", fontFamily: "inherit", fontSize: "11px", letterSpacing: "0.08em" }}>{label}</button>
-  );
+
   return (
-    <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "#000000aa", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "min(420px,92%)", maxHeight: "80%", background: "#13131c", border: "1px solid #C8D8E822", borderRadius: "12px", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px #00000088", overflow: "hidden" }}>
-        <div style={{ padding: "14px 18px", borderBottom: "1px solid #1e1e2e", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <span style={{ fontSize: "13px", fontWeight: "700", color: "#C8D8E8", letterSpacing: "0.1em" }}>⚙ EINSTELLUNGEN</span>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "#555", cursor: "pointer", fontSize: "20px", lineHeight: "1" }}>×</button>
+    <div onClick={onClose} className="absolute inset-0 bg-black/60 z-[200] flex items-center justify-center">
+      <div onClick={e => e.stopPropagation()}
+        className="w-[min(420px,92%)] max-h-[80%] bg-[#13131c] border border-white/5 rounded-xl flex flex-col shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/5 shrink-0">
+          <span className="text-sm font-bold text-[#C8D8E8] tracking-widest">⚙ EINSTELLUNGEN</span>
+          <button onClick={onClose} className="text-gray-600 hover:text-gray-300 text-xl leading-none cursor-pointer bg-transparent border-none transition-colors">×</button>
         </div>
-        <div style={{ display: "flex", borderBottom: "1px solid #1e1e2e", flexShrink: 0 }}>
-          <Tab id="data" label="DATEN" /><Tab id="info" label="INFO" />
+
+        {/* Tabs */}
+        <div className="flex border-b border-white/5 shrink-0">
+          {["data", "info"].map(id => (
+            <button key={id} onClick={() => setTab(id)}
+              className={`flex-1 py-2.5 bg-transparent border-none cursor-pointer text-[11px] tracking-widest transition-colors ${tab === id ? "border-b-2 border-[#C8D8E8] text-[#C8D8E8]" : "border-b-2 border-transparent text-gray-600 hover:text-gray-400"}`}>
+              {id === "data" ? "DATEN" : "INFO"}
+            </button>
+          ))}
         </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "18px", touchAction: "pan-y" }}>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-4" style={{ touchAction: "pan-y" }}>
           {tab === "data" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+            <div className="flex flex-col gap-4">
               <button onClick={() => {
                 const json = JSON.stringify(data, null, 2);
                 const a = document.createElement("a");
@@ -452,37 +577,47 @@ function SettingsModal({ onClose, data, onImport, fontScale, setFontScale }: {
                 const d = new Date(); const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
                 a.setAttribute("download", `namensnetz-${stamp}.json`);
                 document.body.appendChild(a); a.click(); setTimeout(() => document.body.removeChild(a), 100);
-              }} style={{ width: "100%", padding: "10px", background: "#C8D8E811", border: "1px solid #C8D8E833", color: "#C8D8E8", borderRadius: "8px", cursor: "pointer", fontFamily: "inherit", fontSize: "13px", fontWeight: "600" }}>
+              }} className="w-full py-2.5 bg-[#C8D8E8]/5 border border-[#C8D8E8]/20 text-[#C8D8E8] rounded-lg cursor-pointer text-sm font-semibold hover:bg-[#C8D8E8]/10 transition-colors">
                 📤 Daten exportieren (JSON)
               </button>
-              <div style={{ borderTop: "1px solid #1e1e2e" }} />
+
+              <div className="border-t border-white/5" />
+
+              {/* Font scale */}
               <div>
-                <label style={{ fontSize: "10px", color: "#444", letterSpacing: "0.1em", display: "block", marginBottom: "8px" }}>🔤 SCHRIFTGRÖSSE</label>
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px" }}>
-                  <button onClick={() => setFontScale(s => Math.max(0.5, +(s - 0.1).toFixed(1)))} style={{ width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #2a2a3a", background: "transparent", color: "#aaa", cursor: "pointer", fontSize: "20px", fontWeight: "900", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
-                  <div style={{ flex: 1, textAlign: "center" }}>
-                    <div style={{ fontSize: "22px", fontWeight: "700", color: "#C8D8E8" }}>{Math.round(fontScale * 100)}%</div>
-                    <div style={{ fontSize: "10px", color: "#444", marginTop: "2px" }}>Standard: 100%</div>
+                <label className={fieldLabel}>🔤 Schriftgrösse</label>
+                <div className="flex items-center gap-3 mt-1">
+                  <button onClick={() => setFontScale(s => Math.max(0.5, +(s - 0.1).toFixed(1)))}
+                    className="w-9 h-9 rounded-lg border border-white/8 bg-transparent text-gray-400 cursor-pointer text-xl font-black flex items-center justify-center hover:text-white hover:border-white/20 transition-colors">−</button>
+                  <div className="flex-1 text-center">
+                    <div className="text-xl font-bold text-[#C8D8E8]">{Math.round(fontScale * 100)}%</div>
+                    <div className="text-[10px] text-gray-600 mt-0.5">Standard: 100%</div>
                   </div>
-                  <button onClick={() => setFontScale(s => Math.min(2, +(s + 0.1).toFixed(1)))} style={{ width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #2a2a3a", background: "transparent", color: "#aaa", cursor: "pointer", fontSize: "20px", fontWeight: "900", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                  <button onClick={() => setFontScale(s => Math.min(2, +(s + 0.1).toFixed(1)))}
+                    className="w-9 h-9 rounded-lg border border-white/8 bg-transparent text-gray-400 cursor-pointer text-xl font-black flex items-center justify-center hover:text-white hover:border-white/20 transition-colors">+</button>
                 </div>
-                <input type="range" min="50" max="200" step="10" value={Math.round(fontScale * 100)} onChange={e => setFontScale(() => +(Number(e.target.value) / 100).toFixed(1) as unknown as number)} style={{ width: "100%", marginTop: "10px", accentColor: "#C8D8E8" } as React.CSSProperties} />
+                <input type="range" min="50" max="200" step="10" value={Math.round(fontScale * 100)}
+                  onChange={e => setFontScale(() => +(Number(e.target.value) / 100).toFixed(1) as unknown as number)}
+                  className="w-full mt-2.5 accent-[#C8D8E8]" />
               </div>
-              <div style={{ borderTop: "1px solid #1e1e2e" }} />
+
+              <div className="border-t border-white/5" />
+
+              {/* Import */}
               <div>
-                <label style={{ display: "block", width: "100%", padding: "10px", background: "#ff444411", border: "1px solid #ff444433", color: "#ff8888", borderRadius: "8px", cursor: "pointer", fontFamily: "inherit", fontSize: "13px", fontWeight: "600", textAlign: "center", boxSizing: "border-box" }}>
+                <label className="block w-full py-2.5 bg-red-500/5 border border-red-500/20 text-red-400 rounded-lg cursor-pointer text-sm font-semibold text-center hover:bg-red-500/10 transition-colors">
                   📥 JSON-Datei importieren
-                  <input type="file" accept=".json,application/json" onChange={handleFileImport} style={{ display: "none" }} />
+                  <input type="file" accept=".json,application/json" onChange={handleFileImport} className="hidden" />
                 </label>
-                <p style={{ fontSize: "11px", color: "#555", margin: "6px 0 0" }}>Achtung: überschreibt alle aktuellen Daten.</p>
-                {importError && <p style={{ color: "#ff6666", fontSize: "11px", margin: "6px 0 0" }}>{importError}</p>}
+                <p className="text-[11px] text-gray-600 mt-1.5">Achtung: überschreibt alle aktuellen Daten.</p>
+                {importError && <p className="text-[11px] text-red-400 mt-1.5">{importError}</p>}
               </div>
             </div>
           )}
           {tab === "info" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px", color: "#888", fontSize: "13px", lineHeight: "1.8" }}>
-              <p style={{ margin: 0, color: "#e2e2e8", fontWeight: "600", fontSize: "15px" }}>◉ Namensnetz</p>
-              <p style={{ margin: 0, fontSize: "12px" }}>Netzwerk-Visualisierungswerkzeug. Daten werden automatisch im Baddi-Backend gespeichert und sind geräteübergreifend verfügbar.</p>
+            <div className="flex flex-col gap-3.5 text-sm text-gray-500 leading-relaxed">
+              <p className="text-[#e2e2e8] font-semibold text-base m-0">◉ Namensnetz</p>
+              <p className="text-xs m-0">Netzwerk-Visualisierungswerkzeug. Daten werden automatisch im Baddi-Backend gespeichert und sind geräteübergreifend verfügbar.</p>
             </div>
           )}
         </div>
@@ -546,14 +681,14 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
     }, 2000);
   }, []);
 
-  // Reload wenn Baddi eine Netzwerk-Aktion ausgeführt hat (reloadKey ändert sich)
+  // Reload when Baddi executed a network action
   useEffect(() => {
     if (reloadKey === undefined || reloadKey === 0) return;
     loadSingleton();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadKey]);
 
-  // Sofort speichern bei Seitenentladen oder Fenster-Unmount
+  // Flush on unload / unmount
   useEffect(() => {
     const flush = () => {
       const id = boardIdRef.current;
@@ -571,13 +706,11 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
     window.addEventListener("beforeunload", flush);
     return () => {
       window.removeEventListener("beforeunload", flush);
-      flush(); // auch beim Unmount (Fenster schließen) speichern
+      flush();
     };
   }, []);
 
   useEffect(() => {
-    // Immer über Singleton-Endpoint laden — verhindert Datenverlust durch Netzwerkfehler
-    // und stellt sicher dass immer dasselbe Board geöffnet wird (kein doppeltes Board möglich).
     loadSingleton();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -585,11 +718,7 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
   async function loadSingleton() {
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/windows/boards/singleton/netzwerk`);
-      if (!res.ok) {
-        // Backend-Fehler → leeres Board zeigen, KEIN neues Board erstellen
-        setLoading(false);
-        return;
-      }
+      if (!res.ok) { setLoading(false); return; }
       const board = await res.json();
       boardIdRef.current = board.id;
       onBoardId?.(board.id);
@@ -598,14 +727,11 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
       if (!d.networks) d.networks = [];
       if (!d.connections) d.connections = [];
       setData(d);
-      // Aktives Netzwerk nur setzen wenn noch keines gewählt oder das gewählte nicht mehr existiert
       setActiveNetId(prev => {
         if (prev && d.networks.some(n => n.id === prev)) return prev;
         return d.networks.length > 0 ? d.networks[0].id : null;
       });
-    } catch {
-      // Netzwerkfehler → leeres Board zeigen, KEIN neues Board erstellen
-    }
+    } catch { /* show empty */ }
     setLoading(false);
   }
 
@@ -648,31 +774,34 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
     return "#888";
   };
 
-  // Toolbar in CanvasCard-Header pushen (nach nets-Definition)
+  // Toolbar into ArtifactShell header
   const setterRef = useRef(setHeaderExtra);
   useEffect(() => { setterRef.current = setHeaderExtra; });
   useEffect(() => {
     if (!setterRef.current) return;
-    const S: React.CSSProperties = { height: "20px", padding: "0 7px", borderRadius: "4px", border: "1px solid #2a2a3a", background: "transparent", cursor: "pointer", fontFamily: "inherit", fontSize: "13px", color: "#aaa", display: "flex", alignItems: "center" };
-    const SActive: React.CSSProperties = { ...S, background: "#1a2a38", border: "1px solid #C8D8E844", color: "#C8D8E8" };
-    const SDim: React.CSSProperties = { ...S, color: "#333", cursor: "default" };
     setterRef.current(
-      <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+      <div className="flex items-center gap-1">
         {nets.map(net => (
           <button key={net.id}
             onClick={() => { setActiveNetId(net.id); setMode("move"); setConnecting(null); }}
-            style={activeNetId === net.id ? SActive : S} title={net.name}>
-            <span style={{ maxWidth: "80px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "10px" }}>{net.name}</span>
+            className={`h-5 px-2 rounded text-[10px] border transition-colors truncate max-w-[80px] cursor-pointer ${activeNetId === net.id ? "bg-[#1a2a38] border-[#C8D8E8]/30 text-[#C8D8E8]" : "bg-transparent border-white/8 text-gray-500 hover:text-gray-300"}`}>
+            {net.name}
           </button>
         ))}
         <button onClick={() => createNetwork()} title="Netzwerk erstellen"
-          style={{ ...S, color: "#4ECDC4", border: "1px dashed #2a2a3a", padding: "0 6px", fontSize: "14px", fontWeight: "bold" }}>+</button>
-        <div style={{ width: "1px", height: "14px", background: "#2a2a3a", margin: "0 2px" }} />
+          className="h-5 px-2 rounded border border-dashed border-white/8 text-teal-400 hover:border-teal-500/40 text-sm font-bold cursor-pointer bg-transparent transition-colors">+</button>
+        <div className="w-px h-3.5 bg-white/8 mx-0.5" />
         <button onClick={() => { setMode(m => m === "connect" ? "move" : "connect"); setConnecting(null); }}
-          title="Verbinden-Modus" style={mode === "connect" ? { ...S, background: "#2a2a3a", color: "#fff", fontWeight: "900" } : S}>—</button>
-        <button onClick={autoLayout} title="Auto-Layout" style={S}>✦</button>
-        <button onClick={undo} title="Rückgängig (Ctrl+Z)" disabled={histLen === 0} style={histLen > 0 ? S : SDim}>↩</button>
-        <button onClick={() => setShowSettings(true)} title="Einstellungen" style={S}>⚙</button>
+          title="Verbinden-Modus"
+          className={`h-5 px-2 rounded border text-[11px] cursor-pointer transition-colors ${mode === "connect" ? "bg-[#2a2a3a] border-white/20 text-white font-black" : "bg-transparent border-white/8 text-gray-500 hover:text-gray-300"}`}>
+          —
+        </button>
+        <button onClick={autoLayout} title="Auto-Layout"
+          className="h-5 px-2 rounded border border-white/8 bg-transparent text-gray-500 hover:text-gray-300 text-[11px] cursor-pointer transition-colors">✦</button>
+        <button onClick={undo} title="Rückgängig (Ctrl+Z)" disabled={histLen === 0}
+          className={`h-5 px-2 rounded border border-white/8 bg-transparent text-[11px] cursor-pointer transition-colors ${histLen > 0 ? "text-gray-500 hover:text-gray-300" : "text-gray-800 cursor-default"}`}>↩</button>
+        <button onClick={() => setShowSettings(true)} title="Einstellungen"
+          className="h-5 px-2 rounded border border-white/8 bg-transparent text-gray-500 hover:text-gray-300 text-[11px] cursor-pointer transition-colors">⚙</button>
       </div>
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1179,11 +1308,21 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
     lastTap.current = { id: netId, time: now }; startDragHub(t.clientX, t.clientY, netId);
   };
 
-  if (loading) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#555", fontSize: "13px", fontFamily: "monospace" }}>Lade Namensnetz…</div>;
+  // ─────────────────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full text-gray-600 text-sm">
+        Lade Namensnetz…
+      </div>
+    );
+  }
+
+  const canvasCursor = dragging ? "grabbing" : mode === "connect" ? (connecting ? "crosshair" : "cell") : "grab";
 
   return (
-    <div style={{ height: "100%", background: "#0d0d14", fontFamily: "'DM Mono','Courier New',monospace", color: "#e2e2e8", display: "flex", flexDirection: "column", overflow: "hidden", touchAction: "none" }}>
+    <div className="h-full bg-[#0d0d14] text-[#e2e2e8] flex flex-col overflow-hidden touch-none">
       <Toast message={toast.message} visible={toast.visible} />
+
       {showSettings && (
         <SettingsModal
           onClose={() => setShowSettings(false)} data={data}
@@ -1193,34 +1332,50 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
       )}
 
       {/* ── Input row ── */}
-      <div style={{ padding: "6px 12px", borderBottom: "1px solid #1e1e2e", display: "flex", alignItems: "center", gap: "8px", background: "#10101a", flexShrink: 0 }}>
-        <input ref={inputRef} value={input}
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-white/5 bg-[#10101a] shrink-0">
+        <input
+          ref={inputRef}
+          value={input}
           onChange={e => {
             const val = e.target.value;
             const parts = val.split(/[,;\n]/);
-            if (parts[parts.length - 1].length > 9) return;
+            if (parts[parts.length - 1].length > 24) return;
             setInput(val);
           }}
           onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addName(); } }}
           placeholder={activeNet ? `Name → ${activeNet.name}` : "Zuerst Netzwerk erstellen"}
-          style={{ flex: 1, background: "#16161f", border: "1px solid #2a2a3a", borderRadius: "8px", color: "#e2e2e8", padding: "7px 12px", fontSize: "13px", outline: "none", fontFamily: "inherit" }} />
+          className="flex-1 bg-[#16161f] border border-white/8 rounded-lg text-[#e2e2e8] px-3 py-1.5 text-sm outline-none focus:border-white/20 transition-colors"
+        />
         {activeNet && (
-          <div style={{ display: "flex", gap: "4px" }}>
+          <div className="flex gap-1">
             {(activeNet.groups || []).map(g => (
               <button key={g.id} onClick={() => setSelGroup(g.id)} title={g.label}
-                style={{ width: "20px", height: "20px", borderRadius: "50%", background: g.color, border: selGroup === g.id ? "2px solid #fff" : "2px solid transparent", cursor: "pointer", flexShrink: 0 }} />
+                className="w-5 h-5 rounded-full cursor-pointer shrink-0 transition-transform hover:scale-110"
+                style={{ background: g.color, border: selGroup === g.id ? "2px solid #fff" : "2px solid transparent" }} />
             ))}
           </div>
         )}
-        <button onClick={addName} style={{ height: "32px", padding: "0 14px", borderRadius: "8px", background: "#C8D8E8", color: "#1a2a38", border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: "13px", fontWeight: "700", flexShrink: 0 }}>+</button>
+        <button onClick={addName}
+          className="h-8 px-3.5 rounded-lg bg-[#C8D8E8] text-[#1a2a38] border-none cursor-pointer text-sm font-bold shrink-0 hover:opacity-90 transition-opacity">
+          +
+        </button>
       </div>
 
       {/* ── Canvas ── */}
-      <div ref={containerRef} style={{ flex: 1, position: "relative", overflow: "hidden", touchAction: "none", cursor: dragging ? "grabbing" : isPanning.current ? "grabbing" : mode === "connect" ? (connecting ? "crosshair" : "cell") : "grab" }}
-        onMouseDown={onCanvasMouseDown} onMouseMove={onMouseMove} onMouseUp={onMouseUp} onMouseLeave={onMouseUp} onClick={onCanvasClick}>
-        <svg width="100%" height="100%" style={{ display: "block", userSelect: "none", touchAction: "none" }}>
+      <div
+        ref={containerRef}
+        className="flex-1 relative overflow-hidden touch-none"
+        style={{ cursor: canvasCursor }}
+        onMouseDown={onCanvasMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        onClick={onCanvasClick}
+      >
+        <svg width="100%" height="100%" className="block select-none touch-none">
           <defs>
-            <pattern id="nm-grid" width="40" height="40" patternUnits="userSpaceOnUse" patternTransform={`translate(${viewport.x % (40 * viewport.zoom)},${viewport.y % (40 * viewport.zoom)}) scale(${viewport.zoom})`}>
+            <pattern id="nm-grid" width="40" height="40" patternUnits="userSpaceOnUse"
+              patternTransform={`translate(${viewport.x % (40 * viewport.zoom)},${viewport.y % (40 * viewport.zoom)}) scale(${viewport.zoom})`}>
               <circle cx="20" cy="20" r="1" fill="#1e1e2e" />
             </pattern>
           </defs>
@@ -1247,7 +1402,12 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
             {/* Hub nodes */}
             {nets.map(net => (
               <g key={`hub-${net.id}`} onClick={e => onHubClick(e, net.id)}>
-                <HubNode net={net} memberCount={net.members?.length || 0} isSelected={selected?.type === "hub" && selected?.id === net.id} isHovered={hovered?.type === "hub" && hovered?.id === net.id} onMouseDown={e => onHubMouseDown(e, net.id)} onTouchStart={e => onHubTouchStart(e, net.id)} onMouseEnter={() => setHovered({ type: "hub", id: net.id })} onMouseLeave={() => setHovered(null)} fontScale={fontScale} />
+                <HubNode net={net} memberCount={net.members?.length || 0}
+                  isSelected={selected?.type === "hub" && selected?.id === net.id}
+                  isHovered={hovered?.type === "hub" && hovered?.id === net.id}
+                  onMouseDown={e => onHubMouseDown(e, net.id)} onTouchStart={e => onHubTouchStart(e, net.id)}
+                  onMouseEnter={() => setHovered({ type: "hub", id: net.id })} onMouseLeave={() => setHovered(null)}
+                  fontScale={fontScale} />
               </g>
             ))}
             {/* Person nodes */}
@@ -1257,31 +1417,58 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
               const selectedHubId = selected?.type === "hub" ? selected.id : null;
               const inSelectedNet = !selectedHubId || nets.find(n => n.id === selectedHubId)?.members?.some(m => m.personId === person.id);
               return (
-                <g key={person.id} onClick={e => onPersonClick(e, person.id)} style={{ opacity: selectedHubId ? (inSelectedNet ? 1 : 0.15) : 1, transition: "opacity 0.2s" }}>
-                  <PersonNode person={person} colors={colors} isSelected={selected?.type === "person" && selected?.id === person.id} isHovered={hovered?.type === "person" && hovered?.id === person.id} isConnectSrc={connecting === person.id} mode={mode} onMouseDown={e => onPersonMouseDown(e, person.id)} onTouchStart={e => onPersonTouchStart(e, person.id)} onMouseEnter={() => setHovered({ type: "person", id: person.id })} onMouseLeave={() => setHovered(null)} fontScale={fontScale} displayLabel={getDisplayLabel(person)} />
+                <g key={person.id} onClick={e => onPersonClick(e, person.id)}
+                  style={{ opacity: selectedHubId ? (inSelectedNet ? 1 : 0.15) : 1, transition: "opacity 0.2s" }}>
+                  <PersonNode person={person} colors={colors}
+                    isSelected={selected?.type === "person" && selected?.id === person.id}
+                    isHovered={hovered?.type === "person" && hovered?.id === person.id}
+                    isConnectSrc={connecting === person.id}
+                    mode={mode}
+                    onMouseDown={e => onPersonMouseDown(e, person.id)}
+                    onTouchStart={e => onPersonTouchStart(e, person.id)}
+                    onMouseEnter={() => setHovered({ type: "person", id: person.id })}
+                    onMouseLeave={() => setHovered(null)}
+                    fontScale={fontScale}
+                    displayLabel={getDisplayLabel(person)} />
                 </g>
               );
             })}
           </g>
         </svg>
 
+        {/* Empty state */}
         {nets.length === 0 && (
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none", gap: "12px" }}>
-            <div style={{ fontSize: "48px", opacity: 0.1 }}>◎</div>
-            <p style={{ color: "#333", fontSize: "13px", letterSpacing: "0.1em" }}>Oben ein Netzwerk erstellen mit +</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none gap-3">
+            <span className="text-5xl opacity-10">◎</span>
+            <p className="text-gray-700 text-sm tracking-widest">Oben ein Netzwerk erstellen mit +</p>
           </div>
         )}
+
+        {/* Connect mode hint */}
         {mode === "connect" && (
-          <div style={{ position: "absolute", bottom: "60px", left: "50%", transform: "translateX(-50%)", background: "#1a1a28cc", backdropFilter: "blur(8px)", border: "1px solid #2a2a3a", borderRadius: "10px", padding: "8px 18px", fontSize: "12px", color: "#888", pointerEvents: "none", whiteSpace: "nowrap", zIndex: 40 }}>
+          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 bg-[#1a1a28]/80 backdrop-blur-sm border border-white/8 rounded-xl px-4 py-2 text-xs text-gray-500 pointer-events-none whitespace-nowrap z-40">
             {connecting ? "Zweite Person antippen" : "Erste Person antippen"}
           </div>
         )}
+
         <ZoomControls zoom={viewport.zoom} onZoomIn={() => zoomBtn(1.25)} onZoomOut={() => zoomBtn(0.8)} />
+
         {panelPerson && (
-          <PersonPanel key={panelPerson.id} person={panelPerson} networks={nets} connections={connections} allPersons={persons} onClose={() => setPanelPerson(null)} onPhotoChange={setPersonPhoto} onRename={renamePerson} onUpdateFields={updatePersonFields} onGroupChange={changePersonGroup} onAddToNetwork={addPersonToNetwork} onRemoveFromNetwork={removePersonFromNetwork} onCreateAndAddToNetwork={createAndAddToNetwork} onDeletePerson={deletePerson} getGroupColor={getGroupColor} getGroupLabel={getGroupLabel} getNetGroups={getNetGroups} />
+          <PersonPanel key={panelPerson.id} person={panelPerson} networks={nets} connections={connections} allPersons={persons}
+            onClose={() => setPanelPerson(null)} onPhotoChange={setPersonPhoto} onRename={renamePerson}
+            onUpdateFields={updatePersonFields} onGroupChange={changePersonGroup}
+            onAddToNetwork={addPersonToNetwork} onRemoveFromNetwork={removePersonFromNetwork}
+            onCreateAndAddToNetwork={createAndAddToNetwork} onDeletePerson={deletePerson}
+            getGroupColor={getGroupColor} getGroupLabel={getGroupLabel} getNetGroups={getNetGroups} />
         )}
         {panelHub && (
-          <HubPanel key={panelHub.id} net={panelHub} allPersons={persons} onClose={() => setPanelHub(null)} onRename={renameNetwork} onDelete={deleteNetwork} onUpdateGroup={updateNetGroup} onAddGroup={() => addNetGroup(panelHub.id)} onDeleteGroup={gid => deleteNetGroup(panelHub.id, gid)} getGroupColor={getGroupColor} getGroupLabel={getGroupLabel} onSelectPerson={person => { setPanelPerson(person); setPanelHub(null); }} onUpdateNote={(netId, note) => update(prev => ({ ...prev, networks: prev.networks.map(n => n.id === netId ? { ...n, note } : n) }))} />
+          <HubPanel key={panelHub.id} net={panelHub} allPersons={persons}
+            onClose={() => setPanelHub(null)} onRename={renameNetwork} onDelete={deleteNetwork}
+            onUpdateGroup={updateNetGroup} onAddGroup={() => addNetGroup(panelHub.id)}
+            onDeleteGroup={gid => deleteNetGroup(panelHub.id, gid)}
+            getGroupColor={getGroupColor} getGroupLabel={getGroupLabel}
+            onSelectPerson={person => { setPanelPerson(person); setPanelHub(null); }}
+            onUpdateNote={(netId, note) => update(prev => ({ ...prev, networks: prev.networks.map(n => n.id === netId ? { ...n, note } : n) }))} />
         )}
       </div>
     </div>
