@@ -18,6 +18,7 @@ interface SendMessageOptions {
   attachedFiles: AttachedFile[];
   canvasContext?: ArtifactEntry[];      // Aktueller Artifact-Panel-Zustand
   activeArtifactId?: string | null;     // Welches Artifact ist gerade aktiv?
+  screenshotB64?: string;               // Base64-Screenshot des aktiven Artifacts (z.B. Whiteboard)
   onUiUpdate: (update: Partial<UiPrefs>) => void;
   speak: (text: string) => void;
   stripMarkdown: (text: string) => string;
@@ -52,7 +53,7 @@ export function useChatMessages() {
   }
 
   async function sendMessage({
-    input, attachedFiles, canvasContext, activeArtifactId,
+    input, attachedFiles, canvasContext, activeArtifactId, screenshotB64,
     onUiUpdate, speak, stripMarkdown,
     onAfterSend, onFilesChange, onFileUploaded, setSpeaking, focusTextarea, onEmotion,
   }: SendMessageOptions) {
@@ -106,6 +107,11 @@ export function useChatMessages() {
         for (const frame of frames) {
           imagesPayload.push({ data: frame, media_type: "image/jpeg" });
         }
+      }
+
+      // Whiteboard-Screenshot als Vision-Input hinzufügen
+      if (screenshotB64) {
+        imagesPayload.push({ data: screenshotB64, media_type: "image/jpeg" });
       }
 
       // Dokumente hochladen und document_ids sammeln

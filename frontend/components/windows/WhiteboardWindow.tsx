@@ -15,9 +15,11 @@ const Excalidraw = dynamic(
 interface Props {
   boardId?: string;
   onBoardId?: (id: string) => void;
+  /** Ref, auf den die Screenshot-Funktion gesetzt wird, sobald Excalidraw bereit ist. */
+  screenshotRef?: React.MutableRefObject<(() => Promise<string | null>) | null>;
 }
 
-export default function WhiteboardWindow({ boardId: initialBoardId, onBoardId }: Props) {
+export default function WhiteboardWindow({ boardId: initialBoardId, onBoardId, screenshotRef }: Props) {
   const [boardId, setBoardId] = useState<string | null>(initialBoardId ?? null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [initialData, setInitialData] = useState<any>(null);
@@ -25,6 +27,8 @@ export default function WhiteboardWindow({ boardId: initialBoardId, onBoardId }:
   const [saving, setSaving] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const boardIdRef = useRef<string | null>(initialBoardId ?? null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const excalidrawAPIRef = useRef<any>(null);
 
   // Board laden oder neu erstellen
   useEffect(() => {
@@ -117,6 +121,30 @@ export default function WhiteboardWindow({ boardId: initialBoardId, onBoardId }:
         <Excalidraw
           initialData={initialData}
           theme="dark"
+          excalidrawAPI={(api) => {
+            excalidrawAPIRef.current = api;
+            if (screenshotRef) {
+              screenshotRef.current = async () => {
+                try {
+                  const { exportToBlob } = await import("@excalidraw/excalidraw");
+                  const blob = await exportToBlob({
+                    elements: api.getSceneElements(),
+                    appState: { ...api.getAppState(), exportBackground: true, theme: "dark" },
+                    files: api.getFiles(),
+                    mimeType: "image/jpeg",
+                    quality: 0.85,
+                  });
+                  const buf = await blob.arrayBuffer();
+                  const bytes = new Uint8Array(buf);
+                  let binary = "";
+                  bytes.forEach(b => { binary += String.fromCharCode(b); });
+                  return btoa(binary);
+                } catch {
+                  return null;
+                }
+              };
+            }
+          }}
           onChange={(elements, appState, files) => scheduleSave(elements, appState, files)}
           UIOptions={{
             canvasActions: {

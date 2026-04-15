@@ -147,6 +147,7 @@ export default function ChatPage() {
   const userScrolledUp = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const whiteboardScreenshotRef = useRef<(() => Promise<string | null>) | null>(null);
 
   const { messages, setMessages, loading, historyLoaded, loadHistory, sendMessage } = useChatMessages();
   const { cameraOpen, videoRef, openCamera, closeCamera, capturePhoto } = useCamera();
@@ -368,10 +369,19 @@ export default function ChatPage() {
   async function handleSend() {
     userScrolledUp.current = false;
     chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: "smooth" });
+
+    // Screenshot vom aktiven Whiteboard einholen (Vision-Input)
+    let screenshotB64: string | undefined;
+    const activeArt = artifacts.find(a => a.id === activeArtifactId);
+    if (activeArt?.type === "whiteboard" && whiteboardScreenshotRef.current) {
+      screenshotB64 = (await whiteboardScreenshotRef.current()) ?? undefined;
+    }
+
     const provider = await sendMessage({
       input, attachedFiles,
       canvasContext: artifacts,
       activeArtifactId,
+      screenshotB64,
       onUiUpdate: async (update) => {
         if (update.backgroundImage && (update.backgroundImage as string).startsWith("http")) {
           try {
@@ -435,6 +445,7 @@ export default function ChatPage() {
         <WhiteboardWindow
           boardId={d?.boardId as string | undefined}
           onBoardId={(id) => updateArtifact(artifact.id, { boardId: id })}
+          screenshotRef={whiteboardScreenshotRef}
         />
       );
       case "image_viewer": return (
@@ -755,6 +766,12 @@ export default function ChatPage() {
 
           {/* Input */}
           <div className="shrink-0 px-3 pb-3 pt-2 border-t border-white/5">
+            {artifacts.find(a => a.id === activeArtifactId)?.type === "whiteboard" && (
+              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-indigo-400/80">
+                <span>🎨</span>
+                <span>Whiteboard-Screenshot wird beim Senden mitgeschickt</span>
+              </div>
+            )}
             <ChatInput
               input={input} onChange={setInput} onSend={handleSend} onKeyDown={handleKeyDown}
               loading={loading} attachedFiles={attachedFiles} onFilesChange={setAttachedFiles}
