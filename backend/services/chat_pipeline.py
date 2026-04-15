@@ -759,6 +759,8 @@ async def _apply_netzwerk_aktion(customer_id: Any, action: dict[str, Any], db: A
     elif atype == "add_connection":
         pa_name = (action.get("person_a") or "").strip()
         pb_name = (action.get("person_b") or "").strip()
+        _log.info("add_connection: person_a=%r person_b=%r persons_in_board=%r",
+                  pa_name, pb_name, [p.get("name") for p in data["persons"]])
         if pa_name and pb_name:
             pa = _find_or_create_person(pa_name)
             pb = _find_or_create_person(pb_name)
@@ -767,11 +769,18 @@ async def _apply_netzwerk_aktion(customer_id: Any, action: dict[str, Any], db: A
                 (c["a"] == pb["id"] and c["b"] == pa["id"])
                 for c in data["connections"]
             )
+            _log.info("add_connection: pa=%r pb=%r already=%s connections_before=%r",
+                      pa["id"], pb["id"], already, data["connections"])
             if not already:
                 data["connections"].append({"id": str(_uuid.uuid4()), "a": pa["id"], "b": pb["id"]})
                 added.append(f"Verbindung '{pa_name}' ↔ '{pb_name}' erstellt")
+        else:
+            _log.warning("add_connection: leere Namen — person_a=%r person_b=%r action=%r",
+                         pa_name, pb_name, action)
 
     # Speichern
+    _log.info("Netzwerk-Aktion speichern: board=%s atype=%s added=%r connections=%r",
+              board.id, atype, added, data.get("connections"))
     await db.execute(
         text("UPDATE window_boards SET data = CAST(:d AS jsonb), updated_at = NOW() WHERE id = :id"),
         {"d": _json.dumps(data), "id": str(board.id)},
