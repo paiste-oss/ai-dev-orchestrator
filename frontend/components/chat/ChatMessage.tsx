@@ -13,6 +13,7 @@ import {
   Message, UiPrefs,
   StockData, StockHistoryData, ImageGalleryData,
   TransportBoardData, ActionButtonsData, BrowserViewData,
+  OpenWindowData, ARTIFACT_RESPONSE_TYPES, ARTIFACT_META,
 } from "@/lib/chat-types";
 import { FONT_SIZES, FONT_FAMILIES, LINE_SPACINGS, ACCENT_COLORS, CHAT_WIDTHS, FONT_COLORS } from "@/hooks/useUiPrefs";
 
@@ -207,6 +208,23 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
           )}
           {!hideRichContent && msg.responseType === "browser_view" && msg.structuredData && (
             <BrowserViewCard data={msg.structuredData as BrowserViewData} />
+          )}
+
+          {/* Artifact badge — zeigt an, wenn Inhalt im Artifact-Panel ist */}
+          {msg.role === "assistant" && msg.responseType && ARTIFACT_RESPONSE_TYPES.has(msg.responseType) && (
+            <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-gray-500 bg-white/4 border border-white/8 rounded-lg px-2.5 py-1.5">
+              <span>
+                {msg.responseType === "open_window" && msg.structuredData
+                  ? (ARTIFACT_META[(msg.structuredData as OpenWindowData).canvasType]?.icon ?? "🪟")
+                  : (ARTIFACT_META[msg.responseType]?.icon ?? "🪟")}
+              </span>
+              <span>
+                {msg.responseType === "open_window" && msg.structuredData
+                  ? (ARTIFACT_META[(msg.structuredData as OpenWindowData).canvasType]?.label ?? "Fenster")
+                  : (ARTIFACT_META[msg.responseType]?.label ?? "Artifact")}
+              </span>
+              <span className="text-gray-600">· im Artifact-Panel</span>
+            </div>
           )}
 
           {/* Copy button (appears on group-hover) */}

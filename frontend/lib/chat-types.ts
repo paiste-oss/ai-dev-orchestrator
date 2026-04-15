@@ -111,6 +111,39 @@ export interface Message {
   created_at: string;
 }
 
+export interface ArtifactEntry {
+  id: string;
+  title: string;
+  type: string;
+  data?: Record<string, unknown>;
+}
+
+// Response types that produce a visual artifact in the right panel
+export const ARTIFACT_RESPONSE_TYPES = new Set([
+  "stock_card", "stock_history", "image_gallery", "transport_board",
+  "browser_view", "open_window", "open_document", "netzwerk_aktion",
+]);
+
+export const ARTIFACT_META: Record<string, { icon: string; label: string }> = {
+  stock_card:      { icon: "📈", label: "Aktienkurs" },
+  stock_history:   { icon: "📊", label: "Kursverlauf" },
+  image_gallery:   { icon: "🖼",  label: "Bilder" },
+  transport_board: { icon: "🚆", label: "Abfahrten" },
+  browser_view:    { icon: "🌐", label: "Browser" },
+  open_window:     { icon: "🪟", label: "Fenster" },
+  netzwerk_aktion: { icon: "🕸",  label: "Namensnetz" },
+  netzwerk:        { icon: "🕸",  label: "Namensnetz" },
+  chart:           { icon: "📊", label: "Chart" },
+  whiteboard:      { icon: "✏️", label: "Whiteboard" },
+  geo_map:         { icon: "🗺",  label: "Karte" },
+  assistenz:       { icon: "🤖", label: "Assistent" },
+  design:          { icon: "🎨", label: "Design" },
+  documents:       { icon: "📁", label: "Dokumente" },
+  file_viewer:     { icon: "📄", label: "Datei" },
+  diktieren:       { icon: "🎤", label: "Diktat" },
+  memory:          { icon: "🧠", label: "Erinnerungen" },
+};
+
 export interface MemoryItem {
   id: string;
   content: string;
