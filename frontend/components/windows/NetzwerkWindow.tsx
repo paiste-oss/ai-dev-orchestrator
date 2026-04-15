@@ -716,6 +716,8 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
   }, []);
 
   async function loadSingleton() {
+    // Cancel any pending debounced save so it doesn't overwrite what we're about to load
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/windows/boards/singleton/netzwerk`);
       if (!res.ok) { setLoading(false); return; }
@@ -726,6 +728,7 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
       if (!d.persons) d.persons = [];
       if (!d.networks) d.networks = [];
       if (!d.connections) d.connections = [];
+      latestDataRef.current = d; // keep flush-on-unmount in sync with freshly loaded data
       setData(d);
       setActiveNetId(prev => {
         if (prev && d.networks.some(n => n.id === prev)) return prev;
