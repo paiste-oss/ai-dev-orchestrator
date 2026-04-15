@@ -86,6 +86,50 @@ export default function ChatPage() {
   const [lastProvider, setLastProvider] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
+  // Split-Panel Resize
+  const [chatWidth, setChatWidth] = useState<number>(() => {
+    if (typeof window === "undefined") return 400;
+    const stored = localStorage.getItem("baddi:chatWidth");
+    const parsed = stored ? parseInt(stored, 10) : NaN;
+    return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 260), 800) : 400;
+  });
+  const isResizing = useRef(false);
+  const resizeStartX = useRef(0);
+  const resizeStartWidth = useRef(0);
+
+  const onResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    isResizing.current = true;
+    resizeStartX.current = e.clientX;
+    resizeStartWidth.current = chatWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [chatWidth]);
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!isResizing.current) return;
+      const delta = e.clientX - resizeStartX.current;
+      const next = Math.min(Math.max(resizeStartWidth.current + delta, 260), 800);
+      setChatWidth(next);
+    }
+    function onMouseUp() {
+      if (!isResizing.current) return;
+      isResizing.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      setChatWidth((w) => {
+        localStorage.setItem("baddi:chatWidth", String(w));
+        return w;
+      });
+    }
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+
   // Viewport
   const [vw, setVw] = useState<number>(1280);
   const isMobile = vw < 768;
@@ -735,8 +779,8 @@ export default function ChatPage() {
 
         {/* ── Chat-Spalte ── */}
         <div
-          className="flex flex-col shrink-0 border-r border-white/5"
-          style={{ width: "400px" }}
+          className="flex flex-col shrink-0"
+          style={{ width: chatWidth }}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -787,6 +831,14 @@ export default function ChatPage() {
               }}
             />
           </div>
+        </div>
+
+        {/* ── Resize Handle ── */}
+        <div
+          className="group relative flex items-center justify-center shrink-0 w-[5px] cursor-col-resize hover:bg-indigo-500/20 active:bg-indigo-500/30 transition-colors border-x border-white/5"
+          onMouseDown={onResizeMouseDown}
+        >
+          <div className="w-[3px] h-8 rounded-full bg-white/10 group-hover:bg-indigo-400/60 transition-colors" />
         </div>
 
         {/* ── Artifact-Shell ── */}
