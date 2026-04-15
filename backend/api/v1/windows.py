@@ -113,7 +113,19 @@ async def update_board(
     if body.name is not None:
         board.name = body.name
     if body.data is not None:
-        board.data = body.data
+        incoming = body.data
+        existing = board.data or {}
+        # Netzwerk-Boards: Verbindungen die im DB existieren aber im Frontend-Payload
+        # fehlen werden BEIBEHALTEN (verhindert Race-Condition wenn Pipeline eine
+        # Verbindung speichert bevor das Frontend neu geladen hat).
+        if board.board_type == "netzwerk":
+            db_conns: list[dict] = existing.get("connections") or []
+            in_conns: list[dict] = incoming.get("connections") or []
+            in_ids = {c.get("id") for c in in_conns if c.get("id")}
+            extra = [c for c in db_conns if c.get("id") not in in_ids]
+            if extra:
+                incoming = {**incoming, "connections": in_conns + extra}
+        board.data = incoming
         # flag_modified ist notwendig damit SQLAlchemy JSONB-Ersatz als dirty markiert
         flag_modified(board, "data")
     board.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
