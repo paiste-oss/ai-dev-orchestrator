@@ -39,10 +39,11 @@ async def _handle_dashboard(tool_name: str, tool_input: dict, customer_id: str |
                 return {"error": f"Preferences konnten nicht gespeichert werden: {e}"}
 
         return {
-            "success": True,
+            "_artifact_action": "open",
+            "canvasType": "chart",
+            "title": f"📈 {', '.join(symbols)}",
             "symbols": symbols,
             "period": period,
-            "marker": f"[FENSTER: chart | {','.join(symbols)}]",
             "message": (
                 f"Dashboard befüllt mit {', '.join(symbols)} "
                 f"(Zeitraum: {period}). Fenster wird automatisch geöffnet."

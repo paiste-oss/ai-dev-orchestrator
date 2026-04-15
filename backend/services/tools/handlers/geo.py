@@ -60,18 +60,16 @@ async def _handle_geo_map(tool_name: str, tool_input: dict) -> Any:
         east = int(east)
         north = int(north)
 
-        # Marker für Frontend — Format: E,N,zoom,bgLayer
-        marker = f"[FENSTER: geo_map | {east},{north},{zoom},{bg_layer}]"
-
         _log.info("Geo-Map: %s → E=%d N=%d zoom=%d", location, east, north, zoom)
 
         return {
-            "success": True,
-            "location": label,
-            "east_lv95": east,
-            "north_lv95": north,
+            "_artifact_action": "open",
+            "canvasType": "geo_map",
+            "title": f"🗺 {label}",
+            "east": east,
+            "north": north,
             "zoom": zoom,
-            "marker": marker,
+            "bgLayer": bg_layer,
             "message": f"Karte für «{label}» geöffnet.",
         }
 

@@ -17,9 +17,13 @@ async def _handle_browser(tool_name: str, tool_input: dict, customer_id: str | N
         url = tool_input.get("url", "")
         if not url.startswith("http"):
             url = f"https://{url}"
+        goal = tool_input.get("goal", "")
         return {
-            "marker": f"[FENSTER: assistenz | {url}]",
-            "text": f"Ich öffne das Assistenz-Fenster für {url}.",
+            "_artifact_action": "open",
+            "canvasType": "assistenz",
+            "title": f"🌐 Assistenz",
+            "url": url,
+            **({"goal": goal} if goal else {}),
         }
 
     return {"error": f"Unbekanntes Browser-Tool: {tool_name}"}

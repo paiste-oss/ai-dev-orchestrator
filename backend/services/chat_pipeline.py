@@ -386,21 +386,37 @@ async def _run_text(
 def _extract_structured_data(
     tool_name: str | None, result: Any, response_type: str, structured_data: dict | None
 ) -> tuple[str, dict | None]:
-    if tool_name == "get_stock_price" and isinstance(result, dict) and "price" in result:
+    if not isinstance(result, dict):
+        return response_type, structured_data
+
+    # ── Neue tool-basierte Artifact-Steuerung (ersetzt [FENSTER:]- und [NETZWERK_AKTION:]-Marker) ──
+    artifact_action = result.get("_artifact_action")
+    if artifact_action == "open":
+        # {canvasType, title, ...typ-spezifische Felder} → open_window
+        payload = {k: v for k, v in result.items() if k != "_artifact_action"}
+        return "open_window", payload
+    if artifact_action == "close":
+        payload = {k: v for k, v in result.items() if k != "_artifact_action"}
+        return "close_window", payload
+
+    if "_netzwerk_aktion" in result:
+        return "netzwerk_aktion", result["_netzwerk_aktion"]
+
+    # ── Bestehende tool-basierte Karten (unverändert) ───────────────────────
+    if tool_name == "get_stock_price" and "price" in result:
         return "stock_card", result
-    if tool_name == "get_stock_history" and isinstance(result, dict) and "data_points" in result:
+    if tool_name == "get_stock_history" and "data_points" in result:
         return "stock_history", result
-    if tool_name == "generate_image" and isinstance(result, dict) and "image_url" in result:
+    if tool_name == "generate_image" and "image_url" in result:
         return "image_gallery", {"images": [{"image_url": result["image_url"], "description": result.get("prompt", "Generiertes Bild"), "source": "DALL-E 3"}]}
     if tool_name == "search_image":
         if isinstance(result, list) and result:
             return "image_gallery", {"images": result}
-        if isinstance(result, dict) and "image_url" in result:
+        if "image_url" in result:
             return "image_gallery", {"images": [result]}
-    if tool_name == "sbb_stationboard" and isinstance(result, dict) and "departures" in result:
+    if tool_name == "sbb_stationboard" and "departures" in result:
         return "transport_board", result
-    if tool_name in ("open_url", "open_assistenz") and isinstance(result, dict) and result.get("marker"):
-        return response_type, structured_data  # Marker wird von chat_markers verarbeitet
+
     return response_type, structured_data
 
 
@@ -467,7 +483,15 @@ async def finalize(
             response_type = "netzwerk_aktion"
             structured_data = netz_result
         except Exception as exc:
-            _log.warning("Netzwerk-Aktion fehlgeschlagen: %s", exc)
+            _log.warning("Netzwerk-Aktion (Marker) fehlgeschlagen: %s", exc)
+
+    # Tool-basierte Netzwerk-Aktion (ersetzt [NETZWERK_AKTION:]-Marker)
+    if response_type == "netzwerk_aktion" and isinstance(structured_data, dict) and "type" in structured_data:
+        try:
+            netz_result = await _apply_netzwerk_aktion(customer.id, structured_data, db)
+            structured_data = netz_result
+        except Exception as exc:
+            _log.warning("Netzwerk-Aktion (Tool) fehlgeschlagen: %s", exc)
 
     emotion = marker_result.emotion
     ui_update = marker_result.ui_update

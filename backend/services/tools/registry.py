@@ -17,6 +17,7 @@ from services.tools.defs import (
     PORTFOLIO_TOOL_DEFS,
     GEO_MAP_TOOL_DEFS,
     DOCUMENT_SEARCH_TOOL_DEFS,
+    ARTIFACT_TOOL_DEFS,
 )
 from services.tools.handlers.transport import _handle_sbb
 from services.tools.handlers.web import _handle_web_fetch, _handle_web_search
@@ -29,6 +30,7 @@ from services.tools.handlers.dashboard import _handle_dashboard
 from services.tools.handlers.portfolio import _handle_portfolio
 from services.tools.handlers.geo import _handle_geo_map
 from services.tools.handlers.documents import _handle_documents
+from services.tools.handlers.artifact import _handle_artifact
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +199,18 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_names": {"search_documents", "list_documents"},
         "handler": _handle_documents,
         "needs_customer_id": True,
+    },
+    "artifact_manager": {
+        "key": "artifact_manager",
+        "name": "Artifact-Fenster verwalten",
+        "description": "Öffnet und schliesst Artifact-Fenster (Chart, Whiteboard, Karte etc.) und verwaltet das Namensnetz.",
+        "prompt_hint": "Artifact-Fenster öffnen/schliessen und Namensnetz-Einträge verwalten",
+        "category": "productivity",
+        "tier": "free",
+        "tool_defs": ARTIFACT_TOOL_DEFS,
+        "tool_names": {"open_artifact", "close_artifact", "netzwerk_aktion"},
+        "handler": _handle_artifact,
+        "needs_customer_id": False,
     },
 }
 
