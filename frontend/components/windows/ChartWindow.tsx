@@ -38,7 +38,13 @@ const LINE_COLORS = ["#6366f1", "#34d399", "#f59e0b", "#f87171", "#38bdf8", "#a7
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
-export default function ChartWindow({ initialSymbol, initialSymbols }: { initialSymbol?: string; initialSymbols?: string[] }) {
+interface ChartWindowProps {
+  initialSymbol?: string;
+  initialSymbols?: string[];
+  onStateChange?: (state: { symbols: string[]; period: string }) => void;
+}
+
+export default function ChartWindow({ initialSymbol, initialSymbols, onStateChange }: ChartWindowProps) {
   const _initSyms = initialSymbols?.map(s => s.toUpperCase()) ?? (initialSymbol ? [initialSymbol.toUpperCase()] : []);
   const [tab, setTab] = useState<Tab>("chart");
   const [symbols, setSymbols] = useState<string[]>(_initSyms);
@@ -111,6 +117,13 @@ export default function ChartWindow({ initialSymbol, initialSymbols }: { initial
     symbols.forEach(sym => fetchSymbol(sym, period));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period]);
+
+  // ── Bidirektionaler State-Sync ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!prefsLoaded || !onStateChange) return;
+    onStateChange({ symbols, period });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbols, period, prefsLoaded]);
 
   // ── Preferences speichern (debounced) ─────────────────────────────────────
 

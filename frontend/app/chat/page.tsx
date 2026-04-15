@@ -465,6 +465,7 @@ export default function ChatPage() {
         <ChartWindow
           initialSymbol={d?.symbol as string | undefined}
           initialSymbols={d?.symbols as string[] | undefined}
+          onStateChange={(s) => updateArtifact(artifact.id, s)}
         />
       );
       case "geo_map": return (
@@ -473,6 +474,7 @@ export default function ChatPage() {
           north={d?.north as number | undefined}
           zoom={d?.zoom as number | undefined}
           bgLayer={d?.bgLayer as string | undefined}
+          onStateChange={(s) => updateArtifact(artifact.id, s)}
         />
       );
       case "assistenz": return (

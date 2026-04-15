@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const LAYERS = [
   { key: "ch.swisstopo.pixelkarte-farbe", label: "Landeskarte" },
@@ -13,13 +13,21 @@ interface Props {
   north?: number;
   zoom?: number;
   bgLayer?: string;
+  onStateChange?: (state: { east: number; north: number; zoom: number; bgLayer: string }) => void;
 }
 
-export default function GeoMapWindow({ east = 2600000, north = 1200000, zoom = 8, bgLayer = "ch.swisstopo.pixelkarte-farbe" }: Props) {
+export default function GeoMapWindow({ east = 2600000, north = 1200000, zoom = 8, bgLayer = "ch.swisstopo.pixelkarte-farbe", onStateChange }: Props) {
   const [activeLayer, setActiveLayer] = useState(bgLayer);
   const [search, setSearch] = useState("");
   const [coords, setCoords] = useState({ east, north, zoom });
   const [loading, setLoading] = useState(false);
+  const mounted = useRef(false);
+
+  useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return; }
+    onStateChange?.({ east: coords.east, north: coords.north, zoom: coords.zoom, bgLayer: activeLayer });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coords, activeLayer]);
 
   const iframeSrc = `https://map.geo.admin.ch/?lang=de&topic=ech&bgLayer=${activeLayer}&E=${coords.east}&N=${coords.north}&zoom=${coords.zoom}`;
 
