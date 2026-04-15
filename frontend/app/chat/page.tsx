@@ -640,7 +640,6 @@ export default function ChatPage() {
           uiPrefs={uiPrefs}
           copied={copied}
           onCopy={handleCopy}
-          buddyInitial={buddyInitial}
           hideRichContent
         />
       ))}

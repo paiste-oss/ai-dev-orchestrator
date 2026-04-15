@@ -2,7 +2,6 @@
 
 import React from "react";
 import ReactMarkdown from "react-markdown";
-import AvatarCircle from "@/components/chat/AvatarCircle";
 import StockCard from "@/components/chat/StockCard";
 import StockHistoryCard from "@/components/chat/StockHistoryCard";
 import ImageGalleryCard from "@/components/chat/ImageGalleryCard";
@@ -22,11 +21,10 @@ interface ChatMessageProps {
   uiPrefs: UiPrefs;
   copied: string | null;
   onCopy: (id: string, content: string) => void;
-  buddyInitial: string;
   hideRichContent?: boolean;
 }
 
-export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial, hideRichContent = false }: ChatMessageProps) {
+export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichContent = false }: ChatMessageProps) {
   const fontSize   = FONT_SIZES[uiPrefs.fontSize]     ?? "15px";
   const fontFamily = FONT_FAMILIES[uiPrefs.fontFamily] ?? FONT_FAMILIES.system;
   const lineHeight = LINE_SPACINGS[uiPrefs.lineSpacing] ?? "1.625";
@@ -38,12 +36,6 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, buddyInitial
 
   return (
     <div className={`group flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-      {/* Assistant avatar */}
-      {msg.role === "assistant" && (
-        <div className="shrink-0 mt-0.5">
-          <AvatarCircle speaking={false} initial={buddyInitial} />
-        </div>
-      )}
 
       {msg.role === "user" ? (
         /* ── USER BUBBLE ── */
