@@ -598,7 +598,11 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
       if (!d.networks) d.networks = [];
       if (!d.connections) d.connections = [];
       setData(d);
-      if (d.networks.length > 0) setActiveNetId(d.networks[0].id);
+      // Aktives Netzwerk nur setzen wenn noch keines gewählt oder das gewählte nicht mehr existiert
+      setActiveNetId(prev => {
+        if (prev && d.networks.some(n => n.id === prev)) return prev;
+        return d.networks.length > 0 ? d.networks[0].id : null;
+      });
     } catch {
       // Netzwerkfehler → leeres Board zeigen, KEIN neues Board erstellen
     }
@@ -1011,7 +1015,7 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
       const newPersons = [...prev.persons];
       const newMembers: NetworkMember[] = [];
       parts.forEach(rawName => {
-        const name = rawName.slice(0, 9);
+        const name = rawName.slice(0, 24);
         const { x, y } = findFreePos(net.x, net.y, NODE_R_MAX, occ, 16);
         occ.push({ x, y, r: NODE_R_MAX });
         const person: Person = { id: newId(), name, photo: null, x, y, note: "", fullName: "" };
@@ -1028,7 +1032,7 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
   };
   const renamePerson = (personId: string, name: string) => {
     if (!name.trim()) return;
-    update(prev => ({ ...prev, persons: prev.persons.map(p => p.id === personId ? { ...p, name: name.trim().slice(0, 9) } : p) }));
+    update(prev => ({ ...prev, persons: prev.persons.map(p => p.id === personId ? { ...p, name: name.trim().slice(0, 24) } : p) }));
     showToast("Umbenannt");
   };
   const setPersonPhoto = (personId: string, photo: string | null) => {

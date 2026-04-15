@@ -356,6 +356,9 @@ async def _run_text(
         model_name = uhrwerk_result.get("model_used", model_name)
         tokens_used = uhrwerk_result.get("total_tokens", 0)
 
+        # Alle netzwerk_aktion-Aufrufe sammeln — werden sequentiell in finalize() angewendet
+        pending_netzwerk_aktions: list[dict] = []
+
         for tc in uhrwerk_result.get("tool_calls", []):
             tool_name = tc.get("tool")
             if tool_name:
@@ -372,10 +375,20 @@ async def _run_text(
                         if url := item.get("image_url"):
                             generated_image_urls.append(url)
 
+            # Netzwerk-Aktionen akkumulieren statt überschreiben
+            if isinstance(result, dict) and "_netzwerk_aktion" in result:
+                pending_netzwerk_aktions.append(result["_netzwerk_aktion"])
+                continue
+
             # Structured data für UI-Karten
             response_type, structured_data = _extract_structured_data(
                 tool_name, result, response_type, structured_data
             )
+
+        # Netzwerk-Aktionen: alle gesammelt → als Liste weitergeben
+        if pending_netzwerk_aktions:
+            response_type = "netzwerk_aktion"
+            structured_data = {"actions": pending_netzwerk_aktions}
 
     except Exception as e:
         errors.append(f"Uhrwerk: {e}")
@@ -485,13 +498,19 @@ async def finalize(
         except Exception as exc:
             _log.warning("Netzwerk-Aktion (Marker) fehlgeschlagen: %s", exc)
 
-    # Tool-basierte Netzwerk-Aktion (ersetzt [NETZWERK_AKTION:]-Marker)
-    if response_type == "netzwerk_aktion" and isinstance(structured_data, dict) and "type" in structured_data:
-        try:
-            netz_result = await _apply_netzwerk_aktion(customer.id, structured_data, db)
-            structured_data = netz_result
-        except Exception as exc:
-            _log.warning("Netzwerk-Aktion (Tool) fehlgeschlagen: %s", exc)
+    # Tool-basierte Netzwerk-Aktionen (sequentiell anwenden — alle aus dem Tool-Loop)
+    if response_type == "netzwerk_aktion" and isinstance(structured_data, dict):
+        actions: list[dict] = structured_data.get("actions") or ([structured_data] if "type" in structured_data else [])
+        last_result: dict | None = None
+        for action in actions:
+            if not isinstance(action, dict) or "type" not in action:
+                continue
+            try:
+                last_result = await _apply_netzwerk_aktion(customer.id, action, db)
+            except Exception as exc:
+                _log.warning("Netzwerk-Aktion (Tool) fehlgeschlagen: %s | action=%s", exc, action)
+        if last_result:
+            structured_data = last_result
 
     emotion = marker_result.emotion
     ui_update = marker_result.ui_update

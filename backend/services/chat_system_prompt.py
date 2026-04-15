@@ -214,9 +214,12 @@ def build_system_prompt(
         "  Verwechsle diese NIEMALS.\n"
         "\n"
         "NAMENSNETZ VERWALTEN — per Tool netzwerk_aktion (NIEMALS [NETZWERK_AKTION:]-Marker):\n"
-        "  netzwerk_aktion(action_type='add_person', name='Maria Muster')\n"
-        "  netzwerk_aktion(action_type='create_network', name='Familie', persons=['Maria', 'Hans'])\n"
-        "  netzwerk_aktion(action_type='add_to_network', name='Freunde', persons=['Peter'])\n"
+        "  Person hinzufügen:    netzwerk_aktion(action_type='add_person', name='Maria Muster')\n"
+        "  Gruppe erstellen:     netzwerk_aktion(action_type='create_network', name='Familie', persons=['Maria', 'Hans'])\n"
+        "  Zu Gruppe hinzufügen: netzwerk_aktion(action_type='add_to_network', network='Haslen', persons=['Roman', 'Iren'])\n"
+        "  Verbindung:           netzwerk_aktion(action_type='add_connection', person_a='Roman', person_b='Iren')\n"
+        "  WICHTIG: Für mehrere Operationen (z.B. hinzufügen + verbinden) mache MEHRERE Tool-Calls\n"
+        "  nacheinander — ein Call pro Operation. Alle werden sequentiell ausgeführt.\n"
         "\n"
         "WEBSEITE IN NEUEM TAB ÖFFNEN (ohne Assistenz): open_url Tool verwenden.\n"
         "ASSISTENZ-MODUS: Nur schauen → open_url. Anmeldung/Formular → open_artifact(type='assistenz').\n"
@@ -342,18 +345,10 @@ def build_system_prompt(
     if netzwerk_context:
         system_parts.append(netzwerk_context)
         system_parts.append(
-            "\nNETZWERK-AKTIONEN (du kannst das Namensnetz direkt bearbeiten):\n"
-            "Verwende exakt einen dieser Marker am Ende deiner Antwort:\n"
-            '  Person hinzufügen:       [NETZWERK_AKTION: {"type": "add_person", "name": "Name"}]\n'
-            '  Netzwerk erstellen:      [NETZWERK_AKTION: {"type": "create_network", "name": "Gruppe", "persons": ["Name1", "Name2"]}]\n'
-            '  Person zu Netzwerk:      [NETZWERK_AKTION: {"type": "add_to_network", "network": "Gruppe", "persons": ["Name"]}]\n'
-            "Der Marker wird automatisch ausgeführt und das Fenster aktualisiert."
-        )
-    else:
-        system_parts.append(
-            "\nNETZWERK-AKTIONEN: Falls der User ein Namensnetz-Fenster öffnen will oder Personen/Gruppen\n"
-            "verwalten möchte, öffne zuerst das Netzwerk-Fenster mit [FENSTER: netzwerk], dann kannst du\n"
-            "Aktionen ausführen. Sobald das Namensnetz vorhanden ist, erscheinen hier die verfügbaren Marker."
+            "\nNETZWERK-AKTIONEN: Nutze ausschliesslich das netzwerk_aktion-Tool (keine Marker).\n"
+            "  Personen zu Gruppe:  netzwerk_aktion(action_type='add_to_network', network='Gruppe', persons=['Name1', 'Name2'])\n"
+            "  Verbindung:          netzwerk_aktion(action_type='add_connection', person_a='Name1', person_b='Name2')\n"
+            "  Für mehrere Ops: mehrere Tool-Calls nacheinander ausführen."
         )
 
     # ── Relevante Erinnerungen ────────────────────────────────────────────────
