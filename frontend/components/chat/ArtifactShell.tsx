@@ -104,8 +104,7 @@ export default function ArtifactShell({
               }`}
               onClick={() => onSetActive(a.id)}
             >
-              <span className="text-sm leading-none">{m.icon}</span>
-              <span className="max-w-[120px] truncate font-medium">{a.title}</span>
+              <span className="max-w-[140px] truncate font-medium">{a.title}</span>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -146,7 +145,6 @@ export default function ArtifactShell({
       {/* ── Active artifact header ───────────────────────────────────────────── */}
       {active && (
         <div className="flex items-center gap-3 px-4 py-2 border-b border-white/5 shrink-0">
-          <span className="text-base leading-none">{meta?.icon}</span>
           <span className="text-sm font-semibold text-gray-200 truncate flex-1">
             {active.title}
           </span>
