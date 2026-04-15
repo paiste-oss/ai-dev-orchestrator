@@ -664,6 +664,7 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
   const boardIdRef = useRef<string | null>(initialBoardId ?? null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestDataRef = useRef<AppData>(defaultData());
+  const hasLoaded = useRef(false); // guard: don't flush empty defaultData before first load
   const MAX_HISTORY = 50;
 
   // ── Backend persistence ────────────────────────────────────────────────────
@@ -688,9 +689,10 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadKey]);
 
-  // Flush on unload / unmount
+  // Flush on unload / unmount — only after real data has been loaded
   useEffect(() => {
     const flush = () => {
+      if (!hasLoaded.current) return; // never flush default-empty state
       const id = boardIdRef.current;
       if (!id) return;
       if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
@@ -729,6 +731,7 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
       if (!d.networks) d.networks = [];
       if (!d.connections) d.connections = [];
       latestDataRef.current = d; // keep flush-on-unmount in sync with freshly loaded data
+      hasLoaded.current = true;
       setData(d);
       setActiveNetId(prev => {
         if (prev && d.networks.some(n => n.id === prev)) return prev;
