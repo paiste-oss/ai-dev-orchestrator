@@ -549,8 +549,7 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
   // Reload wenn Baddi eine Netzwerk-Aktion ausgeführt hat (reloadKey ändert sich)
   useEffect(() => {
     if (reloadKey === undefined || reloadKey === 0) return;
-    const id = boardIdRef.current;
-    if (id) loadBoard(id);
+    loadSingleton();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reloadKey]);
 
@@ -577,67 +576,32 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
   }, []);
 
   useEffect(() => {
-    if (initialBoardId) {
-      boardIdRef.current = initialBoardId;
-      loadBoard(initialBoardId);
-    } else {
-      // Kein boardId in localStorage (z.B. anderes Gerät) → Backend nach vorhandenem Board fragen
-      findOrCreateBoard();
-    }
+    // Immer über Singleton-Endpoint laden — verhindert Datenverlust durch Netzwerkfehler
+    // und stellt sicher dass immer dasselbe Board geöffnet wird (kein doppeltes Board möglich).
+    loadSingleton();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function loadBoard(id: string) {
+  async function loadSingleton() {
     try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/windows/boards/${id}`);
-      if (!res.ok) { await findOrCreateBoard(); return; }
+      const res = await apiFetch(`${BACKEND_URL}/v1/windows/boards/singleton/netzwerk`);
+      if (!res.ok) {
+        // Backend-Fehler → leeres Board zeigen, KEIN neues Board erstellen
+        setLoading(false);
+        return;
+      }
       const board = await res.json();
+      boardIdRef.current = board.id;
+      onBoardId?.(board.id);
       const d: AppData = board.data ?? defaultData();
       if (!d.persons) d.persons = [];
       if (!d.networks) d.networks = [];
       if (!d.connections) d.connections = [];
       setData(d);
       if (d.networks.length > 0) setActiveNetId(d.networks[0].id);
-    } catch { await findOrCreateBoard(); }
-    setLoading(false);
-  }
-
-  async function findOrCreateBoard() {
-    try {
-      // Vorhandenes Netzwerk-Board des Users suchen (geräteübergreifend)
-      const listRes = await apiFetch(`${BACKEND_URL}/v1/windows/boards`);
-      if (listRes.ok) {
-        const boards: Array<{ id: string; board_type: string; data: AppData }> = await listRes.json();
-        const existing = boards.find(b => b.board_type === "netzwerk");
-        if (existing) {
-          boardIdRef.current = existing.id;
-          onBoardId?.(existing.id);
-          const d: AppData = existing.data ?? defaultData();
-          if (!d.persons) d.persons = [];
-          if (!d.networks) d.networks = [];
-          if (!d.connections) d.connections = [];
-          setData(d);
-          if (d.networks.length > 0) setActiveNetId(d.networks[0].id);
-          setLoading(false);
-          return;
-        }
-      }
-    } catch { /* fallthrough */ }
-    // Kein Board vorhanden → neu erstellen
-    await createBoard();
-  }
-
-  async function createBoard() {
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/windows/boards`, {
-        method: "POST",
-        body: JSON.stringify({ name: "Namensnetz", board_type: "netzwerk" }),
-      });
-      if (!res.ok) return;
-      const board = await res.json();
-      boardIdRef.current = board.id;
-      onBoardId?.(board.id);
-    } catch { /* ignore */ }
+    } catch {
+      // Netzwerkfehler → leeres Board zeigen, KEIN neues Board erstellen
+    }
     setLoading(false);
   }
 

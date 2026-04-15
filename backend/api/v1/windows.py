@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm.attributes import flag_modified
 from core.database import get_db
 from core.dependencies import get_current_user
 from models.window import WindowBoard
@@ -113,8 +114,45 @@ async def update_board(
         board.name = body.name
     if body.data is not None:
         board.data = body.data
+        # flag_modified ist notwendig damit SQLAlchemy JSONB-Ersatz als dirty markiert
+        flag_modified(board, "data")
     board.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
+    await db.commit()
+    await db.refresh(board)
+    return board
+
+
+@router.get("/windows/boards/singleton/{board_type}", response_model=BoardResponse)
+async def get_or_create_singleton_board(
+    board_type: str,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Gibt das einzige Board dieses Typs für den User zurück.
+    Existiert noch keines, wird es atomar erstellt.
+    Verhindert doppelte Boards und Data-Loss durch Netzwerkfehler.
+    """
+    result = await db.execute(
+        select(WindowBoard)
+        .where(
+            WindowBoard.customer_id == current_user.id,
+            WindowBoard.board_type == board_type,
+        )
+        .order_by(WindowBoard.updated_at.desc())
+        .limit(1)
+    )
+    board = result.scalar_one_or_none()
+    if board:
+        return board
+
+    board = WindowBoard(
+        customer_id=current_user.id,
+        name=board_type.capitalize(),
+        board_type=board_type,
+    )
+    db.add(board)
     await db.commit()
     await db.refresh(board)
     return board
