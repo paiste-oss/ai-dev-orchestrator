@@ -16,6 +16,7 @@ import {
 } from "@/lib/chat-types";
 
 import { useChatMessages, UploadedFileInfo } from "@/hooks/useChatMessages";
+import { useArtifacts } from "@/hooks/useArtifacts";
 import { useCamera } from "@/hooks/useCamera";
 import { useTTS } from "@/hooks/useTTS";
 import { useUiPrefs, BG_COLORS, FONT_COLORS, WINDOW_BG_COLORS } from "@/hooks/useUiPrefs";
@@ -111,20 +112,14 @@ export default function ChatPage() {
     return () => window.visualViewport!.removeEventListener("resize", onVpResize);
   }, []);
 
-  // ── Artifact state ────────────────────────────────────────────────────────
-  const [artifacts, setArtifacts] = useState<ArtifactEntry[]>([]);
-  const [activeArtifactId, setActiveArtifactId] = useState<string | null>(null);
+  // ── Artifact state (einheitliche State-Quelle für User + KI) ────────────────
+  const {
+    artifacts, activeId: activeArtifactId,
+    openArtifact, updateArtifact, closeArtifact, closeArtifactByType, focusArtifact,
+  } = useArtifacts();
   const [windowHeaders, setWindowHeaders] = useState<Record<string, React.ReactNode>>({});
 
-  // Auto-aktiviere letztes Artifact wenn aktives geschlossen wird
-  useEffect(() => {
-    if (activeArtifactId && !artifacts.find((a) => a.id === activeArtifactId)) {
-      const last = artifacts[artifacts.length - 1];
-      setActiveArtifactId(last?.id ?? null);
-    }
-  }, [artifacts, activeArtifactId]);
-
-  // Mobile: Auto-open panel wenn neues Artifact spawnt
+  // Mobile: Auto-open panel wenn neues Artifact gespawnt wird
   const prevArtifactCountRef = useRef(-1);
   useEffect(() => {
     if (!isMobile) return;
@@ -145,40 +140,6 @@ export default function ChatPage() {
     prevArtifactCountRef.current = artifacts.length;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [artifacts, isMobile]);
-
-  const updateArtifactData = useCallback((id: string, patch: Record<string, unknown>) => {
-    setArtifacts((as) => as.map((a) => a.id === id ? { ...a, data: { ...a.data, ...patch } } : a));
-  }, []);
-
-  const spawnArtifact = useCallback((type: string, title: string, data?: Record<string, unknown>) => {
-    const id = `${type}-${Date.now()}`;
-    setArtifacts((as) => {
-      // Netzwerk-Fenster: Bestehendes aktualisieren statt neues öffnen
-      if (type === "netzwerk") {
-        const existing = as.find((a) => a.type === "netzwerk");
-        if (existing) {
-          return as.map((a) => a.id === existing.id
-            ? { ...a, data: { ...a.data, ...data } }
-            : a
-          );
-        }
-      }
-      return [...as, { id, title, type, data }];
-    });
-    setActiveArtifactId((prev) => {
-      if (type === "netzwerk") {
-        const existing = artifacts.find((a) => a.type === "netzwerk");
-        return existing?.id ?? id;
-      }
-      return id;
-    });
-    return id;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [artifacts]);
-
-  const closeArtifact = useCallback((id: string) => {
-    setArtifacts((as) => as.filter((a) => a.id !== id));
-  }, []);
 
   // ── Process refs ─────────────────────────────────────────────────────────
   const processedMsgs = useRef(new Set<string>());
@@ -264,7 +225,7 @@ export default function ChatPage() {
       if (d.symbol)  data.symbol  = d.symbol;
       if (d.east)    { data.east = d.east; data.north = d.north; data.zoom = d.zoom; data.bgLayer = d.bgLayer; }
       if (d.url)     { data.url = d.url; data.goal = d.goal; }
-      spawnArtifact(d.canvasType, title, data);
+      openArtifact(d.canvasType, title, data);
       return;
     }
 
@@ -282,7 +243,7 @@ export default function ChatPage() {
         if (!contentRes.ok) return;
         const blob = await contentRes.blob();
         const url = URL.createObjectURL(blob);
-        spawnArtifact("file_viewer", `📄 ${doc.original_filename}`, {
+        openArtifact("file_viewer", `📄 ${doc.original_filename}`, {
           url, filename: doc.original_filename, fileType: doc.file_type, mimeType: doc.mime_type,
         });
       });
@@ -296,34 +257,28 @@ export default function ChatPage() {
       return;
     }
 
-    // Netzwerk-Aktion
+    // Netzwerk-Aktion: openArtifact merged Daten in bestehende Instanz (Singleton-Logik)
     if (last.responseType === "netzwerk_aktion") {
       const d = last.structuredData as NetzwerkAktionData;
-      const boardId = d?.board_id ?? "";
       const existing = artifacts.find((a) => a.type === "netzwerk");
-      if (existing) {
-        updateArtifactData(existing.id, {
-          boardId,
-          reloadKey: ((existing.data?.reloadKey ?? 0) as number) + 1,
-        });
-        setActiveArtifactId(existing.id);
-      } else {
-        spawnArtifact("netzwerk", "🕸 Namensnetz", { boardId, reloadKey: 1 });
-      }
+      openArtifact("netzwerk", "🕸 Namensnetz", {
+        boardId: d?.board_id ?? "",
+        reloadKey: ((existing?.data?.reloadKey ?? 0) as number) + 1,
+      });
       return;
     }
 
     // Fenster schliessen
     if (last.responseType === "close_window") {
       const d = last.structuredData as CloseWindowData;
-      setArtifacts((as) => as.filter((a) => a.type !== d.canvasType));
+      closeArtifactByType(d.canvasType);
       return;
     }
 
     // Standard rich cards (stock, transport, images)
     const title = richCardTitle(last.responseType ?? "");
     if (!title) return;
-    spawnArtifact(
+    openArtifact(
       last.responseType ?? "text",
       title,
       last.structuredData as unknown as Record<string, unknown>
@@ -331,19 +286,20 @@ export default function ChatPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
-  // ── Card management ───────────────────────────────────────────────────────
+  // ── Artifact öffnen (User-Klick auf + Schaltfläche) ──────────────────────
+  // Derselbe openArtifact-Aufruf wie bei KI-Responses — eine einzige State-Quelle.
   const handleAddCard = useCallback((canvasType: string) => {
     const mod = WINDOW_MODULES.find((m) => m.canvasType === canvasType);
     if (mod) {
-      spawnArtifact(mod.canvasType, `${mod.icon} ${mod.label}`);
+      openArtifact(mod.canvasType, `${mod.icon} ${mod.label}`);
       if (canvasType === "memory") loadMemories();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spawnArtifact]);
+  }, [openArtifact]);
 
   const handleOpenFile = useCallback(({ url, filename, fileType }: { url: string; filename: string; fileType: string }) => {
-    spawnArtifact("file_viewer", `📄 ${filename}`, { url, filename, fileType });
-  }, [spawnArtifact]);
+    openArtifact("file_viewer", `📄 ${filename}`, { url, filename, fileType });
+  }, [openArtifact]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   async function loadMemories() {
@@ -450,7 +406,7 @@ export default function ChatPage() {
       onAfterSend: () => setInput(""),
       onFilesChange: setAttachedFiles,
       onFileUploaded: ({ filename, blobUrl, fileType }: UploadedFileInfo) => {
-        spawnArtifact("file_viewer", `📄 ${filename}`, { url: blobUrl, filename, fileType });
+        openArtifact("file_viewer", `📄 ${filename}`, { url: blobUrl, filename, fileType });
       },
       setSpeaking,
       focusTextarea: () => textareaRef.current?.focus(),
@@ -478,7 +434,7 @@ export default function ChatPage() {
       case "whiteboard": return (
         <WhiteboardWindow
           boardId={d?.boardId as string | undefined}
-          onBoardId={(id) => updateArtifactData(artifact.id, { boardId: id })}
+          onBoardId={(id) => updateArtifact(artifact.id, { boardId: id })}
         />
       );
       case "image_viewer": return (
@@ -491,7 +447,7 @@ export default function ChatPage() {
         <NetzwerkWindow
           boardId={d?.boardId as string | undefined}
           reloadKey={d?.reloadKey as number | undefined}
-          onBoardId={(id) => updateArtifactData(artifact.id, { boardId: id })}
+          onBoardId={(id) => updateArtifact(artifact.id, { boardId: id })}
           setHeaderExtra={(content) =>
             setWindowHeaders((prev) => ({ ...prev, [artifact.id]: content }))
           }
@@ -818,7 +774,7 @@ export default function ChatPage() {
         <ArtifactShell
           artifacts={artifacts}
           activeId={activeArtifactId}
-          onSetActive={setActiveArtifactId}
+          onSetActive={focusArtifact}
           onClose={closeArtifact}
           windowHeaders={windowHeaders}
           renderContent={renderWindowContent}
