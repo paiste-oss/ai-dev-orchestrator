@@ -8,10 +8,19 @@ class ImageAttachment(BaseModel):
     media_type: str
 
 
+class CanvasArtifact(BaseModel):
+    """Zustand eines geöffneten Artifacts im rechten Panel."""
+    type: str                          # z.B. "netzwerk", "stock_history", "chart"
+    title: str                         # z.B. "📊 Kursverlauf NVDA"
+    data: dict[str, Any] | None = None # Artifact-Daten (binäre Felder bereits entfernt)
+    active: bool = False               # Ist dieses Artifact gerade sichtbar?
+
+
 class ChatRequest(BaseModel):
     message: str
     images: list[ImageAttachment] | None = None
     document_ids: list[str] | None = None
+    canvas_context: list[CanvasArtifact] | None = None  # Aktuelle Artifact-Panel-Inhalte
 
 
 class ChatResponse(BaseModel):

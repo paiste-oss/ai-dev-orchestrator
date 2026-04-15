@@ -77,6 +77,7 @@ async def send_message(
         system_prompt=context["system_prompt"],
         db=db,
         doc_cache=context.get("doc_cache"),
+        canvas_context=[a.model_dump() for a in req.canvas_context] if req.canvas_context else None,
     )
 
     if llm_result["response_text"] is None:

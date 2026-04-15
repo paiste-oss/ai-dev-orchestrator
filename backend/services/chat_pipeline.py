@@ -207,6 +207,23 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> Ch
 
 # ── Phase 2: LLM ausführen ────────────────────────────────────────────────────
 
+def _build_canvas_note(canvas: list[dict[str, Any]]) -> str:
+    """Baut einen kompakten Kontext-Block über den aktuellen Artifact-Panel-Zustand."""
+    import json as _json
+    lines = ["[Artifact-Panel — aktuell geöffnet:]"]
+    for a in canvas:
+        mark = " ◀ aktiv" if a.get("active") else ""
+        line = f"  • {a.get('title', a.get('type', '?'))} [Typ: {a.get('type', '?')}]{mark}"
+        data = a.get("data")
+        if data:
+            summary = _json.dumps(data, ensure_ascii=False, default=str)
+            if len(summary) > 400:
+                summary = summary[:400] + "…"
+            line += f"\n    Daten: {summary}"
+        lines.append(line)
+    return "\n".join(lines)
+
+
 async def execute_llm(
     customer: Customer,
     message: str,
@@ -216,6 +233,7 @@ async def execute_llm(
     system_prompt: str,
     db: AsyncSession,
     doc_cache: dict[str, Any] | None = None,
+    canvas_context: list[dict[str, Any]] | None = None,
 ) -> LLMResult:
     """Führt den LLM-Call aus (Vision / Text + Tools + Fallbacks)."""
     provider = "claude"
@@ -230,6 +248,11 @@ async def execute_llm(
 
     # Dokumente in Nachricht einbetten — doc_cache aus load_context verhindert zweiten DB-Query
     user_message = await _embed_documents(message, document_ids, customer, db, doc_cache or {})
+
+    # Canvas-Kontext prependen damit das LLM weiss, was rechts geöffnet ist
+    if canvas_context:
+        canvas_note = _build_canvas_note(canvas_context)
+        user_message = f"{canvas_note}\n\n{user_message}"
 
     if images:
         response_text, tokens_used, errors = await _run_vision(

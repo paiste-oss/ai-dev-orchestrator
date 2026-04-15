@@ -414,6 +414,8 @@ export default function ChatPage() {
     chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: "smooth" });
     const provider = await sendMessage({
       input, attachedFiles,
+      canvasContext: artifacts,
+      activeArtifactId,
       onUiUpdate: async (update) => {
         if (update.backgroundImage && (update.backgroundImage as string).startsWith("http")) {
           try {

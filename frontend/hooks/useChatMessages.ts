@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import { Message, UiPrefs, QuotaExceededData } from "@/lib/chat-types";
+import { Message, UiPrefs, QuotaExceededData, ArtifactEntry } from "@/lib/chat-types";
 import { AttachedFile } from "@/components/FileDropZone";
 import { fileToBase64, extractVideoFrames } from "@/lib/chat-utils";
 
@@ -16,6 +16,8 @@ export interface UploadedFileInfo {
 interface SendMessageOptions {
   input: string;
   attachedFiles: AttachedFile[];
+  canvasContext?: ArtifactEntry[];      // Aktueller Artifact-Panel-Zustand
+  activeArtifactId?: string | null;     // Welches Artifact ist gerade aktiv?
   onUiUpdate: (update: Partial<UiPrefs>) => void;
   speak: (text: string) => void;
   stripMarkdown: (text: string) => string;
@@ -25,6 +27,14 @@ interface SendMessageOptions {
   setSpeaking: (v: boolean) => void;
   focusTextarea: () => void;
   onEmotion?: (emotion: string | null) => void;
+}
+
+/** Entfernt grosse Binärdaten aus Artifact-Daten vor dem Senden. */
+function sanitizeArtifactData(data: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  if (!data) return undefined;
+  const clean = { ...data };
+  delete clean.screenshot_b64;
+  return clean;
 }
 
 export function useChatMessages() {
@@ -42,7 +52,8 @@ export function useChatMessages() {
   }
 
   async function sendMessage({
-    input, attachedFiles, onUiUpdate, speak, stripMarkdown,
+    input, attachedFiles, canvasContext, activeArtifactId,
+    onUiUpdate, speak, stripMarkdown,
     onAfterSend, onFilesChange, onFileUploaded, setSpeaking, focusTextarea, onEmotion,
   }: SendMessageOptions) {
     const text = input.trim();
@@ -139,6 +150,14 @@ export function useChatMessages() {
       const body: Record<string, unknown> = { message: fullMessage };
       if (imagesPayload.length > 0) body.images = imagesPayload;
       if (documentIds.length > 0) body.document_ids = documentIds;
+      if (canvasContext && canvasContext.length > 0) {
+        body.canvas_context = canvasContext.map((a) => ({
+          type: a.type,
+          title: a.title,
+          data: sanitizeArtifactData(a.data),
+          active: a.id === activeArtifactId,
+        }));
+      }
 
       const res = await apiFetch(`${BACKEND_URL}/v1/chat/message`, {
         method: "POST",
