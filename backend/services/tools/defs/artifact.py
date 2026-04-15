@@ -64,35 +64,51 @@ ARTIFACT_TOOL_DEFS = [
     {
         "name": "netzwerk_aktion",
         "description": (
-            "Verwaltet das persönliche Namensnetz (Personen & Gruppen). "
-            "Nutze dieses Tool wenn der Nutzer Personen hinzufügen, Gruppen erstellen "
-            "oder Personen zu Gruppen hinzufügen möchte. "
-            "Schreibe NIEMALS [NETZWERK_AKTION:]-Marker — nutze immer dieses Tool."
+            "Verwaltet das persönliche Namensnetz (Personen, Gruppen, Verbindungen). "
+            "Nutze dieses Tool wenn der Nutzer Personen hinzufügen, Gruppen erstellen, "
+            "Personen zu Gruppen hinzufügen oder Verbindungen zwischen Personen erstellen möchte. "
+            "Schreibe NIEMALS [NETZWERK_AKTION:]-Marker — nutze immer dieses Tool. "
+            "WICHTIG Feldzuordnung: "
+            "  add_person → name=Personenname. "
+            "  create_network → name=Gruppenname, persons=[Personenliste]. "
+            "  add_to_network → network=Gruppenname, persons=[Personenliste]. "
+            "  add_connection → person_a=Name1, person_b=Name2."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "action_type": {
                     "type": "string",
-                    "enum": ["add_person", "create_network", "add_to_network"],
+                    "enum": ["add_person", "create_network", "add_to_network", "add_connection"],
                     "description": (
-                        "add_person: Einzelne Person hinzufügen. "
-                        "create_network: Neue Gruppe erstellen (optional mit Personen). "
-                        "add_to_network: Bestehende Person(en) zu einer Gruppe hinzufügen."
+                        "add_person: Einzelne Person hinzufügen (Feld: name). "
+                        "create_network: Neue Gruppe erstellen, optional mit Personen (Felder: name, persons). "
+                        "add_to_network: Person(en) zu einer bestehenden oder neuen Gruppe hinzufügen "
+                        "(Felder: network=Gruppenname, persons=Personenliste). "
+                        "add_connection: Verbindungslinie zwischen zwei Personen erstellen "
+                        "(Felder: person_a, person_b)."
                     ),
                 },
                 "name": {
                     "type": "string",
-                    "description": "Name der Person (add_person) oder der Gruppe (create_network, add_to_network)",
+                    "description": "Name der Person (add_person) oder der Gruppe (create_network). NICHT für add_to_network verwenden.",
                 },
                 "network": {
                     "type": "string",
-                    "description": "Name der Ziel-Gruppe (nur bei add_to_network)",
+                    "description": "Name der Ziel-Gruppe (NUR für add_to_network). Beispiel: 'Haslen'",
                 },
                 "persons": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Liste von Personennamen (create_network, add_to_network)",
+                    "description": "Liste von Personennamen (für create_network und add_to_network)",
+                },
+                "person_a": {
+                    "type": "string",
+                    "description": "Name der ersten Person für add_connection",
+                },
+                "person_b": {
+                    "type": "string",
+                    "description": "Name der zweiten Person für add_connection",
                 },
             },
             "required": ["action_type"],

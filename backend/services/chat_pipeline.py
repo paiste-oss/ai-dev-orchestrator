@@ -731,10 +731,26 @@ async def _apply_netzwerk_aktion(customer_id: Any, action: dict[str, Any], db: A
             _add_to_network(net, person)
 
     elif atype == "add_to_network":
-        net = _find_or_create_network(action.get("network", "").strip())
+        net_name = (action.get("network") or action.get("name") or "").strip()
+        net = _find_or_create_network(net_name)
         for pname in action.get("persons", []):
             person = _find_or_create_person(pname.strip())
             _add_to_network(net, person)
+
+    elif atype == "add_connection":
+        pa_name = (action.get("person_a") or "").strip()
+        pb_name = (action.get("person_b") or "").strip()
+        if pa_name and pb_name:
+            pa = _find_or_create_person(pa_name)
+            pb = _find_or_create_person(pb_name)
+            already = any(
+                (c["a"] == pa["id"] and c["b"] == pb["id"]) or
+                (c["a"] == pb["id"] and c["b"] == pa["id"])
+                for c in data["connections"]
+            )
+            if not already:
+                data["connections"].append({"id": str(_uuid.uuid4()), "a": pa["id"], "b": pb["id"]})
+                added.append(f"Verbindung '{pa_name}' ↔ '{pb_name}' erstellt")
 
     # Speichern
     await db.execute(
