@@ -104,11 +104,11 @@ ARTIFACT_TOOL_DEFS = [
                 },
                 "person_a": {
                     "type": "string",
-                    "description": "Name der ersten Person für add_connection",
+                    "description": "PFLICHTFELD bei add_connection: Name der ersten Person. Beispiel: 'Roman'",
                 },
                 "person_b": {
                     "type": "string",
-                    "description": "Name der zweiten Person für add_connection",
+                    "description": "PFLICHTFELD bei add_connection: Name der zweiten Person. Beispiel: 'Iren'",
                 },
             },
             "required": ["action_type"],

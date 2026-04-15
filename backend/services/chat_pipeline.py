@@ -759,6 +759,11 @@ async def _apply_netzwerk_aktion(customer_id: Any, action: dict[str, Any], db: A
     elif atype == "add_connection":
         pa_name = (action.get("person_a") or "").strip()
         pb_name = (action.get("person_b") or "").strip()
+        # Fallback: LLM nutzt manchmal persons-Liste statt person_a/person_b
+        if not pa_name or not pb_name:
+            fallback = [p.strip() for p in (action.get("persons") or []) if p.strip()]
+            if len(fallback) >= 2:
+                pa_name, pb_name = fallback[0], fallback[1]
         _log.info("add_connection: person_a=%r person_b=%r persons_in_board=%r",
                   pa_name, pb_name, [p.get("name") for p in data["persons"]])
         if pa_name and pb_name:
