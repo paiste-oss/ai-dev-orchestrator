@@ -674,9 +674,11 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       try {
+        // Use latestDataRef.current (not closure) so a loadSingleton() that ran
+        // between scheduleSave() and the timer firing always wins.
         await apiFetch(`${BACKEND_URL}/v1/windows/boards/${id}`, {
           method: "PUT",
-          body: JSON.stringify({ data: d }),
+          body: JSON.stringify({ data: latestDataRef.current }),
         });
       } catch { /* ignore */ }
     }, 2000);
