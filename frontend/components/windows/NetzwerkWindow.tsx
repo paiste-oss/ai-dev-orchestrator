@@ -1393,22 +1393,7 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
             {`conn:${connections.length} p:${persons.length}`}
           </text>
           <g transform={`translate(${viewport.x},${viewport.y}) scale(${viewport.zoom})`}>
-            {/* Connections */}
-            {connections.map(c => {
-              const pa = getPerson(c.a), pb = getPerson(c.b);
-              if (!pa || !pb) return null;
-              const ca = personColor(c.a), cb = personColor(c.b);
-              const sameColor = ca === cb;
-              const selectedHubId = selected?.type === "hub" ? selected.id : null;
-              const connOpacity = selectedHubId ? (nets.find(n => n.id === selectedHubId)?.members?.some(m => m.personId === c.a || m.personId === c.b) ? 0.85 : 0.2) : 0.85;
-              return (
-                <g key={c.id}>
-                  <line x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} stroke="#ffffff" strokeWidth={8 / viewport.zoom} opacity={connOpacity * 0.15} />
-                  <line x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y} stroke={sameColor ? ca : "#a78bfa"} strokeWidth={3.5 / viewport.zoom} strokeDasharray={!sameColor ? `${6 / viewport.zoom} ${4 / viewport.zoom}` : undefined} opacity={connOpacity} style={{ transition: "opacity 0.2s" }} />
-                </g>
-              );
-            })}
-            {/* Spokes */}
+            {/* Spokes (hub → person, rendered first / below connections) */}
             {nets.map(net => (net.members || []).map(m => {
               const p = getPerson(m.personId); if (!p) return null;
               const spokeColor = getGroupColor(m.group, net.groups);
@@ -1416,6 +1401,28 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
               const spokeOpacity = selectedHubId ? (net.id === selectedHubId ? 0.7 : 0.06) : 0.4;
               return <line key={`spoke-${net.id}-${m.personId}`} x1={net.x} y1={net.y} x2={p.x} y2={p.y} stroke={spokeColor} strokeWidth={3.5 / viewport.zoom} opacity={spokeOpacity} style={{ transition: "opacity 0.2s" }} />;
             }))}
+            {/* Connections (person → person, curved + rendered above spokes) */}
+            {connections.map(c => {
+              const pa = getPerson(c.a), pb = getPerson(c.b);
+              if (!pa || !pb) return null;
+              const ca = personColor(c.a), cb = personColor(c.b);
+              const selectedHubId = selected?.type === "hub" ? selected.id : null;
+              const connOpacity = selectedHubId ? (nets.find(n => n.id === selectedHubId)?.members?.some(m => m.personId === c.a || m.personId === c.b) ? 0.9 : 0.25) : 0.9;
+              // Curved bezier so the line is visible even when persons share x/y with a hub spoke
+              const mx = (pa.x + pb.x) / 2, my = (pa.y + pb.y) / 2;
+              const dx = pb.x - pa.x, dy = pb.y - pa.y;
+              const len = Math.sqrt(dx * dx + dy * dy) || 1;
+              const offset = Math.min(50, len * 0.35);
+              const cpx = mx - (dy / len) * offset, cpy = my + (dx / len) * offset;
+              const d = `M ${pa.x} ${pa.y} Q ${cpx} ${cpy} ${pb.x} ${pb.y}`;
+              const strokeColor = ca === cb ? ca : "#a78bfa";
+              return (
+                <g key={c.id} style={{ transition: "opacity 0.2s" }} opacity={connOpacity}>
+                  <path d={d} fill="none" stroke="#ffffff" strokeWidth={7 / viewport.zoom} opacity={0.12} strokeLinecap="round" />
+                  <path d={d} fill="none" stroke={strokeColor} strokeWidth={3 / viewport.zoom} strokeDasharray={`${7 / viewport.zoom} ${4 / viewport.zoom}`} strokeLinecap="round" />
+                </g>
+              );
+            })}
             {/* Hub nodes */}
             {nets.map(net => (
               <g key={`hub-${net.id}`} onClick={e => onHubClick(e, net.id)}>
