@@ -13,6 +13,7 @@ import {
   OpenUrlData,
   CloseWindowData,
   NetzwerkAktionData,
+  ImageGalleryData,
 } from "@/lib/chat-types";
 
 import { useChatMessages, UploadedFileInfo } from "@/hooks/useChatMessages";
@@ -320,6 +321,21 @@ export default function ChatPage() {
       return;
     }
 
+    // Bildgalerie: DALL-E Bild auto-speichern + als ImageViewer öffnen
+    if (last.responseType === "image_gallery") {
+      const imgData = last.structuredData as ImageGalleryData;
+      const dalleImages = imgData?.images?.filter(img => img.source === "DALL-E 3") ?? [];
+      dalleImages.forEach(img => {
+        const fname = img.description ? `${img.description.slice(0, 50).replace(/[^a-z0-9äöü ]/gi, "_")}.png` : "bild.png";
+        apiFetch(`${BACKEND_URL}/v1/documents/save_image`, {
+          method: "POST",
+          body: JSON.stringify({ url: img.image_url, filename: fname }),
+        }).catch(() => {});
+      });
+      openArtifact("image_gallery", richCardTitle("image_gallery") ?? "🖼 Bild", last.structuredData as unknown as Record<string, unknown>);
+      return;
+    }
+
     // Standard rich cards (stock, transport, images)
     const title = richCardTitle(last.responseType ?? "");
     if (!title) return;
@@ -345,6 +361,10 @@ export default function ChatPage() {
   const handleOpenFile = useCallback(({ url, filename, fileType }: { url: string; filename: string; fileType: string }) => {
     openArtifact("file_viewer", `📄 ${filename}`, { url, filename, fileType });
   }, [openArtifact]);
+
+  const handleRemoveGeneratedImage = useCallback((msgId: string) => {
+    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, generatedImages: undefined } : m));
+  }, [setMessages]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   async function loadMemories() {
@@ -566,10 +586,15 @@ export default function ChatPage() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         <div className="h-full overflow-auto p-4"><StockHistoryCard data={d as any} /></div>
       );
-      case "image_gallery": return (
+      case "image_gallery": {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        <div className="h-full overflow-auto p-4"><ImageGalleryCard data={d as any} /></div>
-      );
+        const imgData = d as any as ImageGalleryData;
+        // Einzelbild (DALL-E) → voller Viewer ohne Beschneidung
+        if (imgData?.images?.length === 1) {
+          return <ImageViewerWindow initialUrl={imgData.images[0].image_url} onNaturalSize={() => {}} />;
+        }
+        return <div className="h-full overflow-auto p-4"><ImageGalleryCard data={imgData} /></div>;
+      }
       case "transport_board": return (
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         <div className="h-full overflow-auto p-4"><TransportBoardCard data={d as any} /></div>
@@ -641,6 +666,7 @@ export default function ChatPage() {
           copied={copied}
           onCopy={handleCopy}
           hideRichContent
+          onRemoveGeneratedImage={handleRemoveGeneratedImage}
         />
       ))}
       {loading && (

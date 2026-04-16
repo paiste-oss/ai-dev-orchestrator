@@ -22,9 +22,10 @@ interface ChatMessageProps {
   copied: string | null;
   onCopy: (id: string, content: string) => void;
   hideRichContent?: boolean;
+  onRemoveGeneratedImage?: (msgId: string) => void;
 }
 
-export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichContent = false }: ChatMessageProps) {
+export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichContent = false, onRemoveGeneratedImage }: ChatMessageProps) {
   const fontSize   = FONT_SIZES[uiPrefs.fontSize]     ?? "15px";
   const fontFamily = FONT_FAMILIES[uiPrefs.fontFamily] ?? FONT_FAMILIES.system;
   const lineHeight = LINE_SPACINGS[uiPrefs.lineSpacing] ?? "1.625";
@@ -165,18 +166,27 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
             )}
           </div>
 
-          {/* DALL-E generated images — nur anzeigen wenn kein Canvas-Fenster */}
-          {!hideRichContent && msg.generatedImages && msg.generatedImages.length > 0 && !msg.structuredData && (
+          {/* DALL-E generated images — immer in der Chat-Nachricht anzeigen */}
+          {msg.generatedImages && msg.generatedImages.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-3">
               {msg.generatedImages.map((src, i) => (
-                <a key={i} href={src} target="_blank" rel="noopener noreferrer">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={src}
-                    alt="Generiertes Bild"
-                    className="rounded-2xl max-w-[280px] max-h-[280px] object-cover shadow-lg hover:scale-105 transition-transform cursor-pointer"
-                  />
-                </a>
+                <div key={i} className="relative group/genimg">
+                  {onRemoveGeneratedImage && (
+                    <button
+                      onClick={() => onRemoveGeneratedImage(msg.id)}
+                      title="Bild aus Chat entfernen"
+                      className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/70 border border-white/20 text-white flex items-center justify-center opacity-0 group-hover/genimg:opacity-100 transition-opacity text-sm z-10 cursor-pointer leading-none hover:bg-black/90"
+                    >×</button>
+                  )}
+                  <a href={src} target="_blank" rel="noopener noreferrer">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={src}
+                      alt="Generiertes Bild"
+                      className="rounded-2xl max-w-[280px] max-h-[280px] object-cover shadow-lg hover:scale-105 transition-transform cursor-pointer block"
+                    />
+                  </a>
+                </div>
               ))}
             </div>
           )}

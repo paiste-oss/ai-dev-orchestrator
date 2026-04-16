@@ -229,6 +229,76 @@ async def set_document_visibility(
     return {"id": str(doc_id), "baddi_readable": doc.baddi_readable}
 
 
+class SaveImageRequest(BaseModel):
+    url: str
+    filename: str = "bild.png"
+
+
+@router.post("/save_image", response_model=DocumentOut, status_code=201)
+async def save_image_from_url(
+    body: SaveImageRequest,
+    customer: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Lädt ein Bild von einer URL herunter und speichert es als Dokument."""
+    import httpx as _httpx
+    try:
+        async with _httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            resp = await client.get(body.url)
+            resp.raise_for_status()
+            content = resp.content
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Bild konnte nicht heruntergeladen werden: {e}")
+
+    content_type = resp.headers.get("content-type", "image/png").split(";")[0].strip()
+    ext = "png" if "png" in content_type else "jpg"
+    filename = body.filename if body.filename.strip() else f"bild.{ext}"
+    if not filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+        filename = filename + "." + ext
+
+    total_limit = (customer.storage_limit_bytes or 0) + (customer.storage_extra_bytes or 0)
+    used = customer.storage_used_bytes or 0
+    if total_limit > 0 and used + len(content) > total_limit:
+        raise storage_limit_exceeded(max(0, total_limit - used) / 1024 / 1024)
+
+    unique_filename = f"{customer.id}_{uuid.uuid4().hex[:8]}_{filename}"
+    doc = CustomerDocument(
+        customer_id=customer.id,
+        filename=unique_filename,
+        original_filename=filename,
+        file_type=ext,
+        file_size_bytes=len(content),
+        mime_type=content_type,
+        file_content=content,
+        extracted_text="",
+        page_count=1,
+        char_count=0,
+        stored_in_postgres=True,
+        stored_in_qdrant=False,
+        doc_metadata={"source": "DALL-E 3", "original_url": body.url},
+    )
+    db.add(doc)
+    try:
+        await db.commit()
+        await db.refresh(doc)
+    except Exception as e:
+        _log.error("Bild-Dokument konnte nicht gespeichert werden: %s", e)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Bild konnte nicht gespeichert werden")
+
+    try:
+        await db.execute(
+            sa_update(Customer)
+            .where(Customer.id == customer.id)
+            .values(storage_used_bytes=Customer.storage_used_bytes + len(content))
+        )
+        await db.commit()
+    except Exception as e:
+        _log.warning("Storage-Zähler konnte nicht aktualisiert werden: %s", e)
+
+    return doc
+
+
 @router.delete("/mine/{doc_id}")
 async def delete_my_document(
     doc_id: uuid.UUID,
