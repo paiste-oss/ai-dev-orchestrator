@@ -91,6 +91,9 @@ services:
       - DOLIBARR_API_KEY=${DOLIBARR_API_KEY}
       - DOLIBARR_URL=${DOLIBARR_URL:-http://dolibarr/api/index.php}
       - DOLI_DB_PASSWORD=${DOLI_DB_PASSWORD}
+      # Externe Daten-APIs
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      - AVIATIONSTACK_API_KEY=${AVIATIONSTACK_API_KEY}
     extra_hosts:
       - "host.docker.internal:host-gateway"   # Ollama auf dem Host erreichbar
     depends_on:
