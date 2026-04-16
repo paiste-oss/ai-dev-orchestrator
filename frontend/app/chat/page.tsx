@@ -15,6 +15,7 @@ import {
   NetzwerkAktionData,
   ImageGalleryData,
 } from "@/lib/chat-types";
+// ImageGalleryData used in renderWindowContent
 
 import { useChatMessages, UploadedFileInfo } from "@/hooks/useChatMessages";
 import { useArtifacts } from "@/hooks/useArtifacts";
@@ -321,21 +322,6 @@ export default function ChatPage() {
       return;
     }
 
-    // Bildgalerie: DALL-E Bild auto-speichern + als ImageViewer öffnen
-    if (last.responseType === "image_gallery") {
-      const imgData = last.structuredData as ImageGalleryData;
-      const dalleImages = imgData?.images?.filter(img => img.source === "DALL-E 3") ?? [];
-      dalleImages.forEach(img => {
-        const fname = img.description ? `${img.description.slice(0, 50).replace(/[^a-z0-9äöü ]/gi, "_")}.png` : "bild.png";
-        apiFetch(`${BACKEND_URL}/v1/documents/save_image`, {
-          method: "POST",
-          body: JSON.stringify({ url: img.image_url, filename: fname }),
-        }).catch(() => {});
-      });
-      openArtifact("image_gallery", richCardTitle("image_gallery") ?? "🖼 Bild", last.structuredData as unknown as Record<string, unknown>);
-      return;
-    }
-
     // Standard rich cards (stock, transport, images)
     const title = richCardTitle(last.responseType ?? "");
     if (!title) return;
@@ -364,7 +350,10 @@ export default function ChatPage() {
 
   const handleRemoveGeneratedImage = useCallback((msgId: string) => {
     setMessages(prev => prev.map(m => m.id === msgId ? { ...m, generatedImages: undefined } : m));
-  }, [setMessages]);
+    // Auch das zugehörige Artifact-Fenster schliessen
+    closeArtifactByType("image_gallery");
+    closeArtifactByType("image_viewer");
+  }, [setMessages, closeArtifactByType]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   async function loadMemories() {
