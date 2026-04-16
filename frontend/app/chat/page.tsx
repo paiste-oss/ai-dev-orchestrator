@@ -345,7 +345,12 @@ export default function ChatPage() {
   }, [openArtifact]);
 
   const handleOpenFile = useCallback(({ url, filename, fileType }: { url: string; filename: string; fileType: string }) => {
-    openArtifact("file_viewer", `📄 ${filename}`, { url, filename, fileType });
+    const isImage = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes((fileType ?? "").toLowerCase());
+    if (isImage) {
+      openArtifact("image_gallery", `🖼 ${filename}`, { images: [{ image_url: url, filename }] });
+    } else {
+      openArtifact("file_viewer", `📄 ${filename}`, { url, filename, fileType });
+    }
   }, [openArtifact]);
 
   const handleRemoveGeneratedImage = useCallback((msgId: string) => {
