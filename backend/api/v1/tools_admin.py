@@ -89,9 +89,21 @@ async def get_tool_detail(key: str, _admin: Customer = Depends(require_admin)):
 def _check_api_status(key: str, settings) -> dict:
     """Prüft ob das benötigte API-Key konfiguriert ist."""
     checks = {
-        "sbb_transport":   {"provider": "SBB Open Data", "key_required": False,  "configured": True},
-        "web_fetch":       {"provider": "Jina Reader",   "key_required": False,  "configured": True},
-        "web_search":      {"provider": "Exa",           "key_required": True,   "configured": bool(settings.exa_api_key)},
-        "image_generation":{"provider": "OpenAI DALL-E 3","key_required": True,  "configured": bool(settings.openai_api_key)},
+        "sbb_transport":      {"provider": "SBB Open Data",     "key_required": False, "configured": True},
+        "web_fetch":          {"provider": "Jina Reader",       "key_required": False, "configured": True},
+        "web_search":         {"provider": "Exa",               "key_required": True,  "configured": bool(settings.exa_api_key)},
+        "image_generation":   {"provider": "OpenAI DALL-E 3",   "key_required": True,  "configured": bool(settings.openai_api_key)},
+        "image_search":       {"provider": "Unsplash",          "key_required": True,  "configured": bool(getattr(settings, "unsplash_access_key", ""))},
+        "stock_prices":       {"provider": "Yahoo Finance",     "key_required": False, "configured": True},
+        "stock_alerts":       {"provider": "Interner Dienst",   "key_required": False, "configured": True},
+        "browser":            {"provider": "Interner Dienst",   "key_required": False, "configured": True},
+        "training_reminders": {"provider": "Interner Dienst",   "key_required": False, "configured": True},
+        "weather":            {"provider": "OpenWeatherMap",    "key_required": True,  "configured": bool(getattr(settings, "OPENWEATHER_API_KEY", ""))},
+        "portfolio_manager":  {"provider": "Interner Dienst",   "key_required": False, "configured": True},
+        "dashboard":          {"provider": "Yahoo Finance",     "key_required": False, "configured": True},
+        "geo_map":            {"provider": "swisstopo",         "key_required": False, "configured": True},
+        "document_search":    {"provider": "Qdrant",            "key_required": False, "configured": True},
+        "flight_data":        {"provider": "AviationStack",     "key_required": True,  "configured": bool(getattr(settings, "AVIATIONSTACK_API_KEY", ""))},
+        "artifact_manager":   {"provider": "Interner Dienst",   "key_required": False, "configured": True},
     }
     return checks.get(key, {"provider": "Unbekannt", "key_required": False, "configured": True})
