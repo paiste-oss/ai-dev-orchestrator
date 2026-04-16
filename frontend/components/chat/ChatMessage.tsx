@@ -166,8 +166,8 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
             )}
           </div>
 
-          {/* DALL-E generated images — immer in der Chat-Nachricht (Thumbnail mit X-Button) */}
-          {msg.generatedImages && msg.generatedImages.length > 0 && (
+          {/* DALL-E generated images — nur anzeigen wenn kein Artifact-Panel offen */}
+          {!hideRichContent && msg.generatedImages && msg.generatedImages.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-3">
               {msg.generatedImages.map((src, i) => (
                 <div key={i} className="relative group/genimg">
