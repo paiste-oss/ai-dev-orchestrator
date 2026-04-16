@@ -429,6 +429,8 @@ def _extract_structured_data(
             return "image_gallery", {"images": [result]}
     if tool_name == "sbb_stationboard" and "departures" in result:
         return "transport_board", result
+    if tool_name in ("flight_status", "airport_board") and result.get("flight_board"):
+        return "flight_board", result
 
     return response_type, structured_data
 

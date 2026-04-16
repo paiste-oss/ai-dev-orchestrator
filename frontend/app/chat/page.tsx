@@ -14,6 +14,7 @@ import {
   CloseWindowData,
   NetzwerkAktionData,
   ImageGalleryData,
+  FlightBoardData,
 } from "@/lib/chat-types";
 // ImageGalleryData used in renderWindowContent
 
@@ -43,6 +44,7 @@ import DesignWindow from "@/components/windows/DesignWindow";
 import ChartWindow from "@/components/windows/ChartWindow";
 import GeoMapWindow from "@/components/windows/GeoMapWindow";
 import AssistenzWindow from "@/components/windows/AssistenzWindow";
+import FlightBoardWindow from "@/components/windows/FlightBoardWindow";
 import StockCard from "@/components/chat/StockCard";
 import StockHistoryCard from "@/components/chat/StockHistoryCard";
 import ImageGalleryCard from "@/components/chat/ImageGalleryCard";
@@ -592,6 +594,9 @@ export default function ChatPage() {
       case "transport_board": return (
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         <div className="h-full overflow-auto p-4"><TransportBoardCard data={d as any} /></div>
+      );
+      case "flight_board": return (
+        <FlightBoardWindow data={d as unknown as FlightBoardData} />
       );
       case "action_buttons": return (
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

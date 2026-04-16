@@ -4,6 +4,7 @@ from typing import Any
 
 from services.tools.defs import (
     SBB_TOOL_DEFS,
+    FLIGHT_TOOL_DEFS,
     WEB_FETCH_TOOL_DEFS,
     WEB_SEARCH_TOOL_DEFS,
     DALLE_TOOL_DEFS,
@@ -31,6 +32,7 @@ from services.tools.handlers.portfolio import _handle_portfolio
 from services.tools.handlers.geo import _handle_geo_map
 from services.tools.handlers.documents import _handle_documents
 from services.tools.handlers.artifact import _handle_artifact
+from services.tools.handlers.flights import _handle_flights
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +201,17 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_names": {"search_documents", "list_documents"},
         "handler": _handle_documents,
         "needs_customer_id": True,
+    },
+    "flight_data": {
+        "key": "flight_data",
+        "name": "Flugdaten (AviationStack)",
+        "description": "Echtzeit-Flugstatus, Gates, Verspätungen und Abflugs-/Ankunftstafeln für Flughäfen weltweit.",
+        "prompt_hint": "Flugstatus abfragen, Gates und Verspätungen checken, Abflugstafel eines Flughafens anzeigen",
+        "category": "transport",
+        "tier": "free",
+        "tool_defs": FLIGHT_TOOL_DEFS,
+        "tool_names": {"flight_status", "airport_board"},
+        "handler": _handle_flights,
     },
     "artifact_manager": {
         "key": "artifact_manager",

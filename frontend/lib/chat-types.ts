@@ -84,6 +84,37 @@ export interface QuotaExceededData {
   message: string;
 }
 
+export interface FlightEntry {
+  flight_number: string;
+  airline: string;
+  status: string;
+  status_raw: string;
+  dep_airport: string;
+  dep_iata: string | null;
+  dep_scheduled: string | null;
+  dep_actual: string | null;
+  dep_terminal: string | null;
+  dep_gate: string | null;
+  dep_delay: number;
+  arr_airport: string;
+  arr_iata: string | null;
+  arr_scheduled: string | null;
+  arr_actual: string | null;
+  arr_terminal: string | null;
+  arr_gate: string | null;
+  arr_delay: number;
+  delay: number;
+}
+
+export interface FlightBoardData {
+  airport_iata?: string;
+  airport_name?: string;
+  board_type?: "departure" | "arrival";
+  query?: string;
+  flights: FlightEntry[];
+  total?: number;
+}
+
 export type StructuredData =
   | StockData
   | StockHistoryData
@@ -96,7 +127,8 @@ export type StructuredData =
   | OpenUrlData
   | CloseWindowData
   | NetzwerkAktionData
-  | QuotaExceededData;
+  | QuotaExceededData
+  | FlightBoardData;
 
 export interface Message {
   id: string;
@@ -122,6 +154,7 @@ export interface ArtifactEntry {
 export const ARTIFACT_RESPONSE_TYPES = new Set([
   "stock_card", "stock_history", "image_gallery", "transport_board",
   "browser_view", "open_window", "open_document", "netzwerk_aktion",
+  "flight_board",
 ]);
 
 export const ARTIFACT_META: Record<string, { icon: string; label: string }> = {
@@ -129,6 +162,7 @@ export const ARTIFACT_META: Record<string, { icon: string; label: string }> = {
   stock_history:   { icon: "📊", label: "Kursverlauf" },
   image_gallery:   { icon: "🖼",  label: "Bilder" },
   transport_board: { icon: "🚆", label: "Abfahrten" },
+  flight_board:    { icon: "✈",  label: "Flugplan" },
   browser_view:    { icon: "🌐", label: "Browser" },
   open_window:     { icon: "🪟", label: "Fenster" },
   netzwerk_aktion: { icon: "🕸",  label: "Namensnetz" },

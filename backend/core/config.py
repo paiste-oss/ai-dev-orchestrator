@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     # OpenWeatherMap
     OPENWEATHER_API_KEY: str = ""
 
+    # AviationStack (Flugdaten — kostenlos 500 Req/Mt auf aviationstack.com)
+    AVIATIONSTACK_API_KEY: str = ""
+
     # GitHub
     github_token: str = ""
     github_repo: str = "paiste-oss/ai-dev-orchestrator"

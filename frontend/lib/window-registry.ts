@@ -126,6 +126,16 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     canvasType: "assistenz",
   },
   {
+    id: "flight_board",
+    label: "Flugplan",
+    icon: "✈",
+    description: "Echtzeit-Abflüge und Ankünfte mit Gate, Terminal, Verspätung und Status.",
+    defaultWidth: 680,
+    defaultHeight: 500,
+    status: "active",
+    canvasType: "flight_board",
+  },
+  {
     id: "3d_renderer",
     label: "3D-Renderer",
     icon: "🧊",
