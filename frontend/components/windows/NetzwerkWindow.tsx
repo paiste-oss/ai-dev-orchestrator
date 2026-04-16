@@ -847,9 +847,9 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
   useEffect(() => {
     if (!setterRef.current) return;
     setterRef.current(
-      <div className="flex items-center gap-1 min-w-0">
+      <div className="flex items-center gap-1 w-full min-w-0">
         {/* Scrollable network tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto shrink min-w-0" style={{ scrollbarWidth: "none" }}>
+        <div className="flex items-center gap-1 overflow-x-auto flex-1 min-w-0" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           {nets.map(net => (
             <button key={net.id}
               onClick={() => { setActiveNetId(net.id); setMode("move"); setConnecting(null); }}

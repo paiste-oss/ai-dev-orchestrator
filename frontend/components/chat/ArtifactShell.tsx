@@ -122,12 +122,12 @@ export default function ArtifactShell({
 
       {/* ── Active artifact header ───────────────────────────────────────────── */}
       {active && (
-        <div className="flex items-center gap-3 px-4 py-2 border-b border-white/5 shrink-0">
-          <span className="text-sm font-semibold text-gray-200 truncate flex-1">
+        <div className="flex items-center gap-3 px-4 py-2 border-b border-white/5 shrink-0 min-w-0">
+          <span className="text-sm font-semibold text-gray-200 truncate shrink-0">
             {active.title}
           </span>
           {windowHeaders?.[active.id] && (
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex-1 min-w-0 overflow-hidden">
               {windowHeaders[active.id]}
             </div>
           )}
