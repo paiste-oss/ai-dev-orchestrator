@@ -247,15 +247,30 @@ export default function ChatPage() {
     }
   }, [messages, loading]);
 
+  // ResizeObserver — nur auf signifikante Grössenänderungen reagieren (Fenster-/Panel-Resize),
+  // NICHT auf kleine Schwankungen durch Textarea-Reflow beim Tippen (Threshold: 4px)
   useEffect(() => {
     const el = chatScrollRef.current;
     if (!el) return;
+    let lastH = el.clientHeight;
     const observer = new ResizeObserver(() => {
-      if (!userScrolledUp.current) el.scrollTop = el.scrollHeight;
+      const h = el.clientHeight;
+      if (Math.abs(h - lastH) > 4) {
+        lastH = h;
+        if (!userScrolledUp.current) el.scrollTop = el.scrollHeight;
+      }
     });
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  // Textarea auto-resize: wächst mit dem Inhalt bis max-h-40 (160px)
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = `${Math.min(ta.scrollHeight, 160)}px`;
+  }, [input]);
 
   // ── Spawn artifacts für rich responses ──────────────────────────────────
   useEffect(() => {

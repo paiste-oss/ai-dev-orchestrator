@@ -58,7 +58,7 @@ export default function ChatInput({
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder={`Nachricht an ${buddyName}…`}
-            className="w-full bg-transparent resize-none outline-none text-sm text-white placeholder-gray-500 px-4 pt-3.5 pb-2 max-h-40"
+            className="w-full bg-transparent resize-none outline-none text-sm text-white placeholder-gray-500 px-4 pt-3.5 pb-2 max-h-40 overflow-y-hidden"
             style={{ fontSize: FONT_SIZES[fontSize] ?? "15px" }}
           />
 
