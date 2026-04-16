@@ -3,7 +3,7 @@
 import { FlightBoardData, FlightEntry } from "@/lib/chat-types";
 
 interface Props {
-  data: FlightBoardData;
+  data: FlightBoardData | undefined;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -99,6 +99,16 @@ function FlightRow({ flight, boardType }: { flight: FlightEntry; boardType: "dep
 }
 
 export default function FlightBoardWindow({ data }: Props) {
+  if (!data) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-6 bg-[#0d0d14]">
+        <span className="text-4xl opacity-20">✈</span>
+        <p className="text-gray-500 text-sm">Frag Baddi nach einem Flug oder Flughafen,</p>
+        <p className="text-gray-600 text-xs">z.B. „Zeig mir die Abflüge in Zürich"</p>
+      </div>
+    );
+  }
+
   const isDep = (data.board_type ?? "departure") === "departure";
   const flights = data.flights ?? [];
 
