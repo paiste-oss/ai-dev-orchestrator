@@ -72,7 +72,7 @@ ARTIFACT_TOOL_DEFS = [
             "  add_person → name=Personenname. "
             "  create_network → name=Gruppenname, persons=[Personenliste]. "
             "  add_to_network → network=Gruppenname, persons=[Personenliste]. "
-            "  add_connection → person_a=Name1, person_b=Name2."
+            "  add_connection → persons=[Name1, Name2] (GENAU 2 Namen in der Liste!)."
         ),
         "input_schema": {
             "type": "object",
@@ -86,7 +86,7 @@ ARTIFACT_TOOL_DEFS = [
                         "add_to_network: Person(en) zu einer bestehenden oder neuen Gruppe hinzufügen "
                         "(Felder: network=Gruppenname, persons=Personenliste). "
                         "add_connection: Verbindungslinie zwischen zwei Personen erstellen "
-                        "(Felder: person_a, person_b)."
+                        "(Feld: persons=['Name1','Name2'] — GENAU 2 Namen angeben!)."
                     ),
                 },
                 "name": {
@@ -101,14 +101,6 @@ ARTIFACT_TOOL_DEFS = [
                     "type": "array",
                     "items": {"type": "string"},
                     "description": "Liste von Personennamen (für create_network und add_to_network)",
-                },
-                "person_a": {
-                    "type": "string",
-                    "description": "PFLICHTFELD bei add_connection: Name der ersten Person. Beispiel: 'Roman'",
-                },
-                "person_b": {
-                    "type": "string",
-                    "description": "PFLICHTFELD bei add_connection: Name der zweiten Person. Beispiel: 'Iren'",
                 },
             },
             "required": ["action_type"],

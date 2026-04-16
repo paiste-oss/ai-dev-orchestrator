@@ -757,14 +757,11 @@ async def _apply_netzwerk_aktion(customer_id: Any, action: dict[str, Any], db: A
             _add_to_network(net, person)
 
     elif atype == "add_connection":
-        pa_name = (action.get("person_a") or "").strip()
-        pb_name = (action.get("person_b") or "").strip()
-        # Fallback 1: LLM nutzt manchmal persons-Liste statt person_a/person_b
-        if not pa_name or not pb_name:
-            fallback = [p.strip() for p in (action.get("persons") or []) if p.strip()]
-            if len(fallback) >= 2:
-                pa_name, pb_name = fallback[0], fallback[1]
-        # Fallback 2: Wenn immer noch leer und Board genau 2 Personen hat → verbinde beide
+        # Primär: persons-Liste (LLM befüllt diese konsistent)
+        persons_list = [p.strip() for p in (action.get("persons") or []) if p.strip()]
+        pa_name = persons_list[0] if len(persons_list) >= 1 else (action.get("person_a") or "").strip()
+        pb_name = persons_list[1] if len(persons_list) >= 2 else (action.get("person_b") or "").strip()
+        # Fallback: Board hat genau 2 Personen → verbinde beide
         if (not pa_name or not pb_name) and len(data["persons"]) == 2:
             pa_name = data["persons"][0].get("name", "")
             pb_name = data["persons"][1].get("name", "")
