@@ -847,28 +847,34 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
   useEffect(() => {
     if (!setterRef.current) return;
     setterRef.current(
-      <div className="flex items-center gap-1">
-        {nets.map(net => (
-          <button key={net.id}
-            onClick={() => { setActiveNetId(net.id); setMode("move"); setConnecting(null); }}
-            className={`h-5 px-2 rounded text-[10px] border transition-colors truncate max-w-[80px] cursor-pointer ${activeNetId === net.id ? "bg-[#1a2a38] border-[#C8D8E8]/30 text-[#C8D8E8]" : "bg-transparent border-white/8 text-gray-500 hover:text-gray-300"}`}>
-            {net.name}
+      <div className="flex items-center gap-1 min-w-0">
+        {/* Scrollable network tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto shrink min-w-0" style={{ scrollbarWidth: "none" }}>
+          {nets.map(net => (
+            <button key={net.id}
+              onClick={() => { setActiveNetId(net.id); setMode("move"); setConnecting(null); }}
+              className={`h-5 px-2 rounded text-[10px] border transition-colors truncate shrink-0 max-w-[80px] cursor-pointer ${activeNetId === net.id ? "bg-[#1a2a38] border-[#C8D8E8]/30 text-[#C8D8E8]" : "bg-transparent border-white/8 text-gray-500 hover:text-gray-300"}`}>
+              {net.name}
+            </button>
+          ))}
+        </div>
+        {/* Static action buttons — always visible */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={() => createNetwork()} title="Netzwerk erstellen"
+            className="h-5 px-2 rounded border border-dashed border-white/8 text-teal-400 hover:border-teal-500/40 text-sm font-bold cursor-pointer bg-transparent transition-colors">+</button>
+          <div className="w-px h-3.5 bg-white/8 mx-0.5" />
+          <button onClick={() => { setMode(m => m === "connect" ? "move" : "connect"); setConnecting(null); }}
+            title="Verbinden-Modus"
+            className={`h-5 px-2 rounded border text-[11px] cursor-pointer transition-colors ${mode === "connect" ? "bg-[#2a2a3a] border-white/20 text-white font-black" : "bg-transparent border-white/8 text-gray-500 hover:text-gray-300"}`}>
+            —
           </button>
-        ))}
-        <button onClick={() => createNetwork()} title="Netzwerk erstellen"
-          className="h-5 px-2 rounded border border-dashed border-white/8 text-teal-400 hover:border-teal-500/40 text-sm font-bold cursor-pointer bg-transparent transition-colors">+</button>
-        <div className="w-px h-3.5 bg-white/8 mx-0.5" />
-        <button onClick={() => { setMode(m => m === "connect" ? "move" : "connect"); setConnecting(null); }}
-          title="Verbinden-Modus"
-          className={`h-5 px-2 rounded border text-[11px] cursor-pointer transition-colors ${mode === "connect" ? "bg-[#2a2a3a] border-white/20 text-white font-black" : "bg-transparent border-white/8 text-gray-500 hover:text-gray-300"}`}>
-          —
-        </button>
-        <button onClick={autoLayout} title="Auto-Layout"
-          className="h-5 px-2 rounded border border-white/8 bg-transparent text-gray-500 hover:text-gray-300 text-[11px] cursor-pointer transition-colors">✦</button>
-        <button onClick={undo} title="Rückgängig (Ctrl+Z)" disabled={histLen === 0}
-          className={`h-5 px-2 rounded border border-white/8 bg-transparent text-[11px] cursor-pointer transition-colors ${histLen > 0 ? "text-gray-500 hover:text-gray-300" : "text-gray-800 cursor-default"}`}>↩</button>
-        <button onClick={() => setShowSettings(true)} title="Einstellungen"
-          className="h-5 px-2 rounded border border-white/8 bg-transparent text-gray-500 hover:text-gray-300 text-[11px] cursor-pointer transition-colors">⚙</button>
+          <button onClick={autoLayout} title="Auto-Layout"
+            className="h-5 px-2 rounded border border-white/8 bg-transparent text-gray-500 hover:text-gray-300 text-[11px] cursor-pointer transition-colors">✦</button>
+          <button onClick={undo} title="Rückgängig (Ctrl+Z)" disabled={histLen === 0}
+            className={`h-5 px-2 rounded border border-white/8 bg-transparent text-[11px] cursor-pointer transition-colors ${histLen > 0 ? "text-gray-500 hover:text-gray-300" : "text-gray-800 cursor-default"}`}>↩</button>
+          <button onClick={() => setShowSettings(true)} title="Einstellungen"
+            className="h-5 px-2 rounded border border-white/8 bg-transparent text-gray-500 hover:text-gray-300 text-[11px] cursor-pointer transition-colors">⚙</button>
+        </div>
       </div>
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1482,14 +1488,6 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
                 <g key={c.id} style={{ transition: "opacity 0.2s" }} opacity={connOpacity}>
                   <path d={d} fill="none" stroke="#ffffff" strokeWidth={7 / viewport.zoom} opacity={0.12} strokeLinecap="round" />
                   <path d={d} fill="none" stroke={strokeColor} strokeWidth={3 / viewport.zoom} strokeDasharray={`${7 / viewport.zoom} ${4 / viewport.zoom}`} strokeLinecap="round" />
-                  {c.label && (
-                    <text x={cpx} y={cpy} textAnchor="middle" dominantBaseline="middle"
-                      fill={strokeColor} fontSize={10 / viewport.zoom}
-                      fontFamily="ui-monospace,monospace" opacity={0.8}
-                      style={{ pointerEvents: "none", userSelect: "none" }}>
-                      {c.label}
-                    </text>
-                  )}
                 </g>
               );
             })}
