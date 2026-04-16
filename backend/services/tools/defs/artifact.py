@@ -100,7 +100,14 @@ ARTIFACT_TOOL_DEFS = [
                 "persons": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Liste von Personennamen (für create_network und add_to_network)",
+                    "description": "Liste von Personennamen (für create_network, add_to_network und add_connection)",
+                },
+                "label": {
+                    "type": "string",
+                    "description": (
+                        "Art der Verbindung (NUR für add_connection). "
+                        "Beispiele: 'Freund', 'Freundin', 'Kollege', 'Kollegin', 'Familie', 'Bekannter', 'Partner'."
+                    ),
                 },
             },
             "required": ["action_type"],

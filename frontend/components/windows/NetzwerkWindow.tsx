@@ -15,8 +15,9 @@ interface NetworkNode {
 interface Person {
   id: string; name: string; photo: string | null;
   x: number; y: number; note: string; fullName: string;
+  createdAt?: number; lastMentionedAt?: number;
 }
-interface Connection { id: string; a: string; b: string; }
+interface Connection { id: string; a: string; b: string; label?: string; }
 interface AppData { persons: Person[]; networks: NetworkNode[]; connections: Connection[]; }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -212,7 +213,7 @@ const fieldLabel = "block text-[10px] text-gray-600 tracking-widest uppercase mb
 const panelInput = "w-full bg-[#0d0d14] border border-white/8 rounded-md text-[#e2e2e8] px-3 py-1.5 text-sm outline-none focus:border-white/20 transition-colors";
 
 // ─── PersonPanel ──────────────────────────────────────────────────────────────
-function PersonPanel({ person, networks, connections, allPersons, onClose, onPhotoChange, onRename, onUpdateFields, onGroupChange, onAddToNetwork, onRemoveFromNetwork, onCreateAndAddToNetwork, onDeletePerson, getGroupColor, getGroupLabel, getNetGroups }: {
+function PersonPanel({ person, networks, connections, allPersons, onClose, onPhotoChange, onRename, onUpdateFields, onGroupChange, onAddToNetwork, onRemoveFromNetwork, onCreateAndAddToNetwork, onDeletePerson, onUpdateConnectionLabel, getGroupColor, getGroupLabel, getNetGroups }: {
   person: Person; networks: NetworkNode[]; connections: Connection[]; allPersons: Person[];
   onClose: () => void; onPhotoChange: (id: string, photo: string | null) => void;
   onRename: (id: string, name: string) => void; onUpdateFields: (id: string, fields: Partial<Person>) => void;
@@ -221,6 +222,7 @@ function PersonPanel({ person, networks, connections, allPersons, onClose, onPho
   onRemoveFromNetwork: (personId: string, netId: string) => void;
   onCreateAndAddToNetwork: (personId: string) => void;
   onDeletePerson: (id: string) => void;
+  onUpdateConnectionLabel: (connId: string, label: string) => void;
   getGroupColor: (groupId: string, netGroups: Group[]) => string;
   getGroupLabel: (groupId: string, netGroups: Group[]) => string;
   getNetGroups: (netId: string) => Group[];
@@ -291,6 +293,27 @@ function PersonPanel({ person, networks, connections, allPersons, onClose, onPho
             onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
             placeholder="Vor- und Nachname…" className={panelInput} style={{ borderColor: `${color}20` }} />
         </div>
+
+        {/* Dates */}
+        {(person.createdAt || person.lastMentionedAt) && (() => {
+          const fmt = (ms: number) => new Date(ms).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" });
+          return (
+            <div className="px-4 pb-3">
+              {person.createdAt && (
+                <div className="flex justify-between text-[10px] text-gray-700 mb-0.5">
+                  <span>Hinzugefügt</span>
+                  <span>{fmt(person.createdAt)}</span>
+                </div>
+              )}
+              {person.lastMentionedAt && (
+                <div className="flex justify-between text-[10px] text-gray-700">
+                  <span>Zuletzt erwähnt</span>
+                  <span>{fmt(person.lastMentionedAt)}</span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Group per network */}
         {memberNets.map(net => {
@@ -363,6 +386,42 @@ function PersonPanel({ person, networks, connections, allPersons, onClose, onPho
             <span className="text-xs">Neues Netzwerk</span>
           </button>
         </div>
+
+        {/* Connections */}
+        {(() => {
+          const myConns = connections.filter(c => c.a === person.id || c.b === person.id);
+          if (myConns.length === 0) return null;
+          return (
+            <>
+              <div className="mx-4 mb-3 border-t border-white/5" />
+              <div className="px-4 pb-2">
+                <label className={fieldLabel}>🔗 Verbindungen ({myConns.length})</label>
+                {myConns.map(c => {
+                  const otherId = c.a === person.id ? c.b : c.a;
+                  const other = allPersons.find(p => p.id === otherId);
+                  if (!other) return null;
+                  return (
+                    <div key={c.id} className="mt-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-2 h-2 rounded-full bg-purple-400/60 shrink-0" />
+                        <span className="text-xs text-gray-300 truncate flex-1">{other.name}</span>
+                      </div>
+                      <input
+                        type="text"
+                        defaultValue={c.label || ""}
+                        placeholder="Art (Freund, Familie…)"
+                        maxLength={32}
+                        onBlur={e => onUpdateConnectionLabel(c.id, e.target.value.trim())}
+                        onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                        className="w-full bg-[#0d0d14] border border-white/8 rounded-md text-[#e2e2e8] px-2.5 py-1 text-xs outline-none focus:border-purple-500/30 transition-colors"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          );
+        })()}
 
         <div className="h-2" />
       </div>
@@ -1155,7 +1214,7 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
         const name = rawName.slice(0, 24);
         const { x, y } = findFreePos(net.x, net.y, NODE_R_MAX, occ, 16);
         occ.push({ x, y, r: NODE_R_MAX });
-        const person: Person = { id: newId(), name, photo: null, x, y, note: "", fullName: "" };
+        const person: Person = { id: newId(), name, photo: null, x, y, note: "", fullName: "", createdAt: Date.now() };
         newPersons.push(person);
         newMembers.push({ personId: person.id, group: effectiveGroup! });
       });
@@ -1207,6 +1266,13 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
       connections: (prev.connections || []).filter(c => c.a !== personId && c.b !== personId),
     }));
     showToast("Person gelöscht");
+  };
+
+  const updateConnectionLabel = (connId: string, label: string) => {
+    update(prev => ({
+      ...prev,
+      connections: prev.connections.map(c => c.id === connId ? { ...c, label: label || undefined } : c),
+    }));
   };
 
   // ── Connections ────────────────────────────────────────────────────────────
@@ -1388,10 +1454,6 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#nm-grid)" />
-          {/* DEBUG — entfernen nach Fix */}
-          <text x="8" y="16" fill="#ff4" fontSize="11" fontFamily="monospace" style={{ pointerEvents: "none" }}>
-            {`conn:${connections.length} p:${persons.length}`}
-          </text>
           <g transform={`translate(${viewport.x},${viewport.y}) scale(${viewport.zoom})`}>
             {/* Spokes (hub → person, rendered first / below connections) */}
             {nets.map(net => (net.members || []).map(m => {
@@ -1420,6 +1482,14 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
                 <g key={c.id} style={{ transition: "opacity 0.2s" }} opacity={connOpacity}>
                   <path d={d} fill="none" stroke="#ffffff" strokeWidth={7 / viewport.zoom} opacity={0.12} strokeLinecap="round" />
                   <path d={d} fill="none" stroke={strokeColor} strokeWidth={3 / viewport.zoom} strokeDasharray={`${7 / viewport.zoom} ${4 / viewport.zoom}`} strokeLinecap="round" />
+                  {c.label && (
+                    <text x={cpx} y={cpy} textAnchor="middle" dominantBaseline="middle"
+                      fill={strokeColor} fontSize={10 / viewport.zoom}
+                      fontFamily="ui-monospace,monospace" opacity={0.8}
+                      style={{ pointerEvents: "none", userSelect: "none" }}>
+                      {c.label}
+                    </text>
+                  )}
                 </g>
               );
             })}
@@ -1483,6 +1553,7 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
             onUpdateFields={updatePersonFields} onGroupChange={changePersonGroup}
             onAddToNetwork={addPersonToNetwork} onRemoveFromNetwork={removePersonFromNetwork}
             onCreateAndAddToNetwork={createAndAddToNetwork} onDeletePerson={deletePerson}
+            onUpdateConnectionLabel={updateConnectionLabel}
             getGroupColor={getGroupColor} getGroupLabel={getGroupLabel} getNetGroups={getNetGroups} />
         )}
         {panelHub && (

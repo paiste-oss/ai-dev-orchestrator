@@ -542,6 +542,11 @@ async def finalize(
         await db.rollback()
         raise RuntimeError("Nachricht konnte nicht gespeichert werden") from e
 
+    # Namensnetz: lastMentionedAt aktualisieren (Hintergrund — Fehler ignorieren)
+    asyncio.ensure_future(
+        _update_netzwerk_mentions(customer.id, original_message, AsyncSessionLocal())
+    )
+
     # Analytics
     await record_analytics(
         db=db, customer=customer,
@@ -640,17 +645,23 @@ async def _push_short_term_memory(customer_id: str, user_msg: str, assistant_msg
 
 def _format_netzwerk(boards: list[Any], first_name: str) -> str | None:
     """Formatiert Namensnetz-Boards als lesbaren Kontext für den System-Prompt."""
+    import time as _t
+    now_ms = int(_t.time() * 1000)
+
     all_persons: list[dict] = []
     all_networks: list[dict] = []
+    all_connections: list[dict] = []
 
     for board in boards:
         data = board.data or {}
         persons: list[dict] = data.get("persons", [])
         networks: list[dict] = data.get("networks", [])
+        connections: list[dict] = data.get("connections", [])
         if not persons and not networks:
             continue
         person_map = {p["id"]: p for p in persons}
         all_persons.extend(persons)
+        all_connections.extend(connections)
         for net in networks:
             members = [
                 person_map.get(m.get("personId", ""), {}).get("name") or "?"
@@ -665,7 +676,11 @@ def _format_netzwerk(boards: list[Any], first_name: str) -> str | None:
     if not all_persons:
         return None
 
+    person_map_all = {p["id"]: p for p in all_persons}
+
     lines = [f"\nNAMENSNETZ von {first_name} (persönliche Kontakte — nutze dieses Wissen proaktiv):"]
+    reminders: list[str] = []
+
     lines.append(f"Personen ({len(all_persons)}):")
     for p in all_persons:
         name = p.get("name") or p.get("fullName") or "?"
@@ -673,6 +688,14 @@ def _format_netzwerk(boards: list[Any], first_name: str) -> str | None:
         entry = f"  - {name}"
         if note:
             entry += f": {note}"
+        last_ms = p.get("lastMentionedAt") or p.get("createdAt")
+        if last_ms:
+            days = (now_ms - last_ms) // (1000 * 60 * 60 * 24)
+            if days >= 60:
+                entry += f" [nicht erwähnt seit {days} Tagen]"
+                reminders.append(f"  → {name} wurde seit {days} Tagen nicht mehr erwähnt — bei passender Gelegenheit nachfragen.")
+            elif days >= 14:
+                entry += f" [zuletzt vor {days} Tagen erwähnt]"
         lines.append(entry)
 
     if all_networks:
@@ -684,7 +707,59 @@ def _format_netzwerk(boards: list[Any], first_name: str) -> str | None:
                 entry += f" — {net['note']}"
             lines.append(entry)
 
+    if all_connections:
+        conn_lines: list[str] = []
+        for c in all_connections:
+            pa = person_map_all.get(c.get("a", ""), {})
+            pb = person_map_all.get(c.get("b", ""), {})
+            na = pa.get("name") or "?"
+            nb = pb.get("name") or "?"
+            label = (c.get("label") or "").strip()
+            conn_lines.append(f"  - {na} ↔ {nb}" + (f" ({label})" if label else ""))
+        if conn_lines:
+            lines.append(f"Verbindungen ({len(conn_lines)}):")
+            lines.extend(conn_lines)
+
+    if reminders:
+        lines.append("Erinnerungshinweise (proaktiv aufgreifen wenn das Gespräch passt):")
+        lines.extend(reminders)
+
     return "\n".join(lines)
+
+
+async def _update_netzwerk_mentions(customer_id: Any, user_msg: str, db: AsyncSession) -> None:
+    """Scannt die User-Nachricht nach bekannten Personennamen und aktualisiert lastMentionedAt."""
+    import time as _time_m, json as _json_m
+    try:
+        res = await db.execute(
+            select(WindowBoard)
+            .where(WindowBoard.customer_id == customer_id, WindowBoard.board_type == "netzwerk")
+            .order_by(WindowBoard.updated_at.desc())
+            .limit(1)
+        )
+        board = res.scalar_one_or_none()
+        if not board:
+            return
+        data: dict = dict(board.data or {})
+        persons: list[dict] = data.get("persons") or []
+        now_ms = int(_time_m.time() * 1000)
+        msg_lower = user_msg.lower()
+        updated = False
+        for p in persons:
+            name = (p.get("name") or "").strip()
+            full = (p.get("fullName") or "").strip()
+            if (name and len(name) >= 2 and name.lower() in msg_lower) or \
+               (full and len(full) >= 2 and full.lower() in msg_lower):
+                p["lastMentionedAt"] = now_ms
+                updated = True
+        if updated:
+            await db.execute(
+                text("UPDATE window_boards SET data = CAST(:d AS jsonb), updated_at = NOW() WHERE id = :id"),
+                {"d": _json_m.dumps(data), "id": str(board.id)},
+            )
+            await db.commit()
+    except Exception as e:
+        _log.warning("lastMentionedAt konnte nicht aktualisiert werden: %s", e)
 
 
 async def _apply_netzwerk_aktion(customer_id: Any, action: dict[str, Any], db: AsyncSession) -> dict[str, Any]:
@@ -715,8 +790,10 @@ async def _apply_netzwerk_aktion(customer_id: Any, action: dict[str, Any], db: A
     def _find_or_create_person(name: str) -> dict:
         p = next((x for x in data["persons"] if x.get("name") == name), None)
         if not p:
+            now_ms = int(_time.time() * 1000)
             p = {"id": str(_uuid.uuid4()), "name": name, "fullName": name,
-                 "photo": None, "x": len(data["persons"]) * 130 + 60, "y": 300, "note": ""}
+                 "photo": None, "x": len(data["persons"]) * 130 + 60, "y": 300, "note": "",
+                 "createdAt": now_ms, "lastMentionedAt": now_ms}
             data["persons"].append(p)
             added.append(f"Person '{name}' hinzugefügt")
         return p
@@ -778,8 +855,13 @@ async def _apply_netzwerk_aktion(customer_id: Any, action: dict[str, Any], db: A
             _log.info("add_connection: pa=%r pb=%r already=%s connections_before=%r",
                       pa["id"], pb["id"], already, data["connections"])
             if not already:
-                data["connections"].append({"id": str(_uuid.uuid4()), "a": pa["id"], "b": pb["id"]})
-                added.append(f"Verbindung '{pa_name}' ↔ '{pb_name}' erstellt")
+                conn: dict[str, str] = {"id": str(_uuid.uuid4()), "a": pa["id"], "b": pb["id"]}
+                label = (action.get("label") or "").strip()
+                if label:
+                    conn["label"] = label
+                data["connections"].append(conn)
+                label_str = f" ({label})" if label else ""
+                added.append(f"Verbindung '{pa_name}' ↔ '{pb_name}'{label_str} erstellt")
         else:
             _log.warning("add_connection: leere Namen — person_a=%r person_b=%r action=%r",
                          pa_name, pb_name, action)
