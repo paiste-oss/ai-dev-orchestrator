@@ -117,7 +117,7 @@ def _resolve_airport_name(iata: str | None, api_name: str | None) -> str:
 
 
 def _fmt_time(iso: str | None) -> str | None:
-    """ISO → 'HH:MM', None wenn nicht vorhanden."""
+    """ISO → 'HH:MM' (Lokalzeit des Flughafens wie von AviationStack geliefert)."""
     if not iso:
         return None
     try:
@@ -125,6 +125,19 @@ def _fmt_time(iso: str | None) -> str | None:
         return dt.astimezone(timezone.utc).strftime("%H:%M")
     except Exception:
         return iso[:5] if len(iso) >= 5 else iso
+
+
+def _calc_duration(dep_iso: str | None, arr_iso: str | None) -> int | None:
+    """Flugdauer in Minuten — timezone-aware, daher keine Zeitumstellungs-Artefakte."""
+    if not dep_iso or not arr_iso:
+        return None
+    try:
+        dep_dt = datetime.fromisoformat(dep_iso.replace("Z", "+00:00"))
+        arr_dt = datetime.fromisoformat(arr_iso.replace("Z", "+00:00"))
+        mins = int((arr_dt - dep_dt).total_seconds() / 60)
+        return mins if mins > 0 else None
+    except Exception:
+        return None
 
 
 def _parse_flight(f: dict, board_type: str) -> dict:
@@ -160,6 +173,8 @@ def _parse_flight(f: dict, board_type: str) -> dict:
         "arr_delay": delay_arr or 0,
         # Relevante Verspätung je nach Boardtyp
         "delay": delay or 0,
+        # Flugdauer in Minuten (timezone-aware, keine Zeitumstellungs-Artefakte)
+        "duration_min": _calc_duration(dep.get("scheduled"), arr.get("scheduled")),
     }
 
 

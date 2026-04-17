@@ -104,6 +104,7 @@ export interface FlightEntry {
   arr_gate: string | null;
   arr_delay: number;
   delay: number;
+  duration_min: number | null;
 }
 
 export interface FlightBoardData {

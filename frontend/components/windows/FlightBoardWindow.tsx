@@ -46,6 +46,13 @@ function TimeCell({ scheduled, actual, delay }: { scheduled: string | null; actu
   return <span className="text-xs font-mono tabular-nums text-gray-300 whitespace-nowrap">{scheduled ?? "—"}</span>;
 }
 
+function fmtDuration(mins: number | null | undefined): string {
+  if (!mins || mins <= 0) return "—";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${h}h ${m.toString().padStart(2, "0")}m` : `${m}m`;
+}
+
 function FlightRow({ flight, boardType }: { flight: FlightEntry; boardType: "departure" | "arrival" }) {
   const statusClass = STATUS_COLORS[flight.status] ?? "text-gray-500 bg-white/4 border-white/8";
   const isDep = boardType === "departure";
@@ -53,6 +60,11 @@ function FlightRow({ flight, boardType }: { flight: FlightEntry; boardType: "dep
   const counterpartIata = isDep ? flight.arr_iata      : flight.dep_iata;
   const terminal        = isDep ? flight.dep_terminal  : flight.arr_terminal;
   const gate            = isDep ? flight.dep_gate      : flight.arr_gate;
+
+  // Verspätung nur auf der relevanten Seite anzeigen.
+  // AviationStack liefert oft nur arr.delay → als Fallback auch auf Abflug-Zelle verwenden.
+  const depDelay = isDep ? (flight.dep_delay || flight.arr_delay) : 0;
+  const arrDelay = isDep ? 0 : (flight.arr_delay || flight.dep_delay);
 
   return (
     <tr className="border-b border-white/4 hover:bg-white/3 transition-colors">
@@ -81,7 +93,7 @@ function FlightRow({ flight, boardType }: { flight: FlightEntry; boardType: "dep
         <TimeCell
           scheduled={flight.dep_scheduled}
           actual={flight.dep_actual}
-          delay={flight.dep_delay}
+          delay={depDelay}
         />
       </td>
 
@@ -90,8 +102,13 @@ function FlightRow({ flight, boardType }: { flight: FlightEntry; boardType: "dep
         <TimeCell
           scheduled={flight.arr_scheduled}
           actual={flight.arr_actual}
-          delay={flight.arr_delay}
+          delay={arrDelay}
         />
+      </td>
+
+      {/* Dauer */}
+      <td className="px-3 py-2 text-center">
+        <span className="text-xs font-mono text-gray-500 whitespace-nowrap">{fmtDuration(flight.duration_min)}</span>
       </td>
 
       {/* Terminal */}
@@ -191,6 +208,7 @@ export default function FlightBoardWindow({ data, onRefresh, isRefreshing = fals
                 <th className="px-3 py-1.5 text-left   text-[9px] text-gray-600 uppercase tracking-wider font-semibold">{isDep ? "Ziel" : "Herkunft"}</th>
                 <th className="px-3 py-1.5 text-right  text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Abflug</th>
                 <th className="px-3 py-1.5 text-right  text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Ankunft</th>
+                <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Dauer</th>
                 <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Terminal</th>
                 <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Gate</th>
                 <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Status</th>
