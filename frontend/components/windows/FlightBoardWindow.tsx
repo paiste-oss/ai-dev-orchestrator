@@ -55,8 +55,8 @@ function FlightRow({ flight, boardType }: { flight: FlightEntry; boardType: "dep
       <td className="px-3 py-2 min-w-0">
         <span className="text-xs text-gray-200 font-medium">
           {counterpart}
-          {counterpartIata && counterpartIata !== counterpart && (
-            <span className="text-gray-500 ml-1 text-[10px]">({counterpartIata})</span>
+          {counterpartIata && (
+            <span className="text-gray-500 ml-1 text-[10px] font-normal">({counterpartIata})</span>
           )}
         </span>
       </td>
