@@ -2,6 +2,7 @@
 
 import React from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import StockCard from "@/components/chat/StockCard";
 import StockHistoryCard from "@/components/chat/StockHistoryCard";
 import ImageGalleryCard from "@/components/chat/ImageGalleryCard";
@@ -97,8 +98,27 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
               </div>
             ) : (
               <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
                 urlTransform={(url) => url}
                 components={{
+                  table: ({ children }) => (
+                    <div className="overflow-x-auto my-3 rounded-xl border border-white/10">
+                      <table className="w-full text-sm border-collapse">{children}</table>
+                    </div>
+                  ),
+                  thead: ({ children }) => (
+                    <thead className="bg-white/6 border-b border-white/10">{children}</thead>
+                  ),
+                  tbody: ({ children }) => <tbody>{children}</tbody>,
+                  tr: ({ children }) => (
+                    <tr className="border-b border-white/5 last:border-0 hover:bg-white/3 transition-colors">{children}</tr>
+                  ),
+                  th: ({ children }) => (
+                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">{children}</th>
+                  ),
+                  td: ({ children }) => (
+                    <td className="px-3 py-2 text-gray-200 align-middle">{children}</td>
+                  ),
                   p: ({ children }) => <p className="mb-2 last:mb-0" style={{ fontFamily, fontSize, lineHeight }}>{children}</p>,
                   strong: ({ children }) => <strong className="font-semibold" style={{ color: fontColor }}>{children}</strong>,
                   ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-1" style={{ fontFamily, fontSize, lineHeight }}>{children}</ul>,
