@@ -389,8 +389,9 @@ async def _fetch_opensky_past_flights(airport_icao: str, board_type: str) -> lis
 
     now_utc = datetime.now(timezone.utc)
     today_midnight = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
-    # 1h Puffer für OpenSky Verarbeitungsverzögerung
-    end_time = now_utc - timedelta(hours=1)
+    # Kein künstlicher Puffer — Deduplication per Flugnummer löst Überlappungen auf.
+    # OpenSky liefert was es hat; AviationStack deckt den Rest ab.
+    end_time = now_utc
 
     if end_time <= today_midnight:
         _log.info("OpenSky: zu früh am Tag, keine vergangenen Daten")
