@@ -4,6 +4,8 @@ import { FlightBoardData, FlightEntry } from "@/lib/chat-types";
 
 interface Props {
   data: FlightBoardData | undefined;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -105,7 +107,7 @@ function FlightRow({ flight, boardType }: { flight: FlightEntry; boardType: "dep
   );
 }
 
-export default function FlightBoardWindow({ data }: Props) {
+export default function FlightBoardWindow({ data, onRefresh, isRefreshing = false }: Props) {
   if (!data) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-6 bg-[#0d0d14]">
@@ -130,10 +132,34 @@ export default function FlightBoardWindow({ data }: Props) {
       {/* Header */}
       <div className="shrink-0 px-4 py-3 border-b border-white/5 bg-[#10101a] flex items-center gap-3">
         <span className="text-lg">✈</span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-white truncate">{header}</p>
           <p className="text-[10px] text-gray-600">{flights.length} Flüge</p>
         </div>
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            title="Aktualisieren"
+            className="shrink-0 flex items-center justify-center w-7 h-7 rounded-lg border border-white/10 bg-white/4 hover:bg-white/10 text-gray-400 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+            >
+              <path d="M21 2v6h-6" />
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+              <path d="M3 22v-6h6" />
+              <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Tabelle */}

@@ -166,6 +166,38 @@ export default function ChatPage() {
     openArtifact, updateArtifact, closeArtifact, closeArtifactByType, focusArtifact,
   } = useArtifacts();
   const [windowHeaders, setWindowHeaders] = useState<Record<string, React.ReactNode>>({});
+  const [refreshingArtifacts, setRefreshingArtifacts] = useState<Set<string>>(new Set());
+
+  const handleFlightRefresh = useCallback(async (artifactId: string, data: FlightBoardData) => {
+    if (!data.airport_iata && !data.query) return;
+    setRefreshingArtifacts((prev) => new Set(prev).add(artifactId));
+    try {
+      const params = new URLSearchParams();
+      if (data.airport_iata) {
+        params.set("airport_iata", data.airport_iata);
+        params.set("board_type", data.board_type ?? "departure");
+        params.set("limit", "20");
+        const res = await apiFetch(`${BACKEND_URL}/v1/flights/board?${params}`);
+        if (res.ok) {
+          const fresh = await res.json() as FlightBoardData;
+          updateArtifact(artifactId, fresh as unknown as Record<string, unknown>);
+        }
+      } else if (data.query) {
+        params.set("flight_iata", data.query);
+        const res = await apiFetch(`${BACKEND_URL}/v1/flights/status?${params}`);
+        if (res.ok) {
+          const fresh = await res.json() as FlightBoardData;
+          updateArtifact(artifactId, fresh as unknown as Record<string, unknown>);
+        }
+      }
+    } finally {
+      setRefreshingArtifacts((prev) => {
+        const next = new Set(prev);
+        next.delete(artifactId);
+        return next;
+      });
+    }
+  }, [updateArtifact]);
 
   // Mobile: Auto-open panel wenn neues Artifact gespawnt wird
   const prevArtifactCountRef = useRef(-1);
@@ -621,7 +653,11 @@ export default function ChatPage() {
         <div className="h-full overflow-auto p-4"><TransportBoardCard data={d as any} /></div>
       );
       case "flight_board": return (
-        <FlightBoardWindow data={d as unknown as FlightBoardData} />
+        <FlightBoardWindow
+          data={d as unknown as FlightBoardData}
+          onRefresh={() => handleFlightRefresh(artifact.id, d as unknown as FlightBoardData)}
+          isRefreshing={refreshingArtifacts.has(artifact.id)}
+        />
       );
       case "action_buttons": return (
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
