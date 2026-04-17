@@ -127,13 +127,44 @@ def _fmt_time(iso: str | None) -> str | None:
         return iso[:5] if len(iso) >= 5 else iso
 
 
-def _calc_duration(dep_iso: str | None, arr_iso: str | None) -> int | None:
-    """Flugdauer in Minuten — timezone-aware, daher keine Zeitumstellungs-Artefakte."""
+def _calc_duration(
+    dep_iso: str | None,
+    arr_iso: str | None,
+    dep_iata: str | None = None,
+    arr_iata: str | None = None,
+) -> int | None:
+    """
+    Flugdauer in Minuten — korrekt auch bei Zeitzonen-Sprüngen und Tageswechsel.
+
+    AviationStack Free-Tier liefert Lokalzeiten mit Offset +00:00 (fälschlicherweise
+    als UTC markiert). Wenn beide Offsets = 0 sind und IATA-Codes bekannt sind, werden
+    die echten Flughafen-Zeitzonen aus airportsdata angewendet.
+    """
     if not dep_iso or not arr_iso:
         return None
     try:
+        from zoneinfo import ZoneInfo
         dep_dt = datetime.fromisoformat(dep_iso.replace("Z", "+00:00"))
         arr_dt = datetime.fromisoformat(arr_iso.replace("Z", "+00:00"))
+
+        # Beide Zeiten haben Offset 0 → wahrscheinlich Lokalzeiten als UTC markiert.
+        # Echte Zeitzonen aus airportsdata anwenden.
+        dep_offset = dep_dt.utcoffset()
+        arr_offset = arr_dt.utcoffset()
+        both_zero = (
+            dep_iata and arr_iata
+            and (dep_offset is None or dep_offset.total_seconds() == 0)
+            and (arr_offset is None or arr_offset.total_seconds() == 0)
+        )
+        if both_zero:
+            db = _get_airports_db()
+            dep_tz_name = db.get(dep_iata.upper(), {}).get("tz")  # type: ignore[union-attr]
+            arr_tz_name = db.get(arr_iata.upper(), {}).get("tz")  # type: ignore[union-attr]
+            if dep_tz_name and arr_tz_name:
+                # Naiven Datetime mit korrekter Zeitzone versehen (kein Shift, nur Annotation)
+                dep_dt = dep_dt.replace(tzinfo=None).replace(tzinfo=ZoneInfo(dep_tz_name))
+                arr_dt = arr_dt.replace(tzinfo=None).replace(tzinfo=ZoneInfo(arr_tz_name))
+
         mins = int((arr_dt - dep_dt).total_seconds() / 60)
         return mins if mins > 0 else None
     except Exception:
@@ -173,8 +204,11 @@ def _parse_flight(f: dict, board_type: str) -> dict:
         "arr_delay": delay_arr or 0,
         # Relevante Verspätung je nach Boardtyp
         "delay": delay or 0,
-        # Flugdauer in Minuten (timezone-aware, keine Zeitumstellungs-Artefakte)
-        "duration_min": _calc_duration(dep.get("scheduled"), arr.get("scheduled")),
+        # Flugdauer — IATA-Codes für korrekte Zeitzonennormalisierung mitgeben
+        "duration_min": _calc_duration(
+            dep.get("scheduled"), arr.get("scheduled"),
+            dep.get("iata"), arr.get("iata"),
+        ),
     }
 
 
