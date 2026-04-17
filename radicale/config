@@ -7,7 +7,7 @@ timeout = 30
 [auth]
 type = htpasswd
 htpasswd_filename = /data/users
-htpasswd_encryption = bcrypt
+htpasswd_encryption = md5
 # Delay nach fehlgeschlagenem Login (Brute-Force-Schutz)
 delay = 1
 
