@@ -115,6 +115,8 @@ class Settings(BaseSettings):
     # Brevo Transactional API Key (für Outbound von per-User baddi_email-Adressen)
     # https://app.brevo.com/settings/keys/api
     brevo_api_key: str = ""
+    # Brevo Inbound Webhook Secret (optional — in Brevo Inbound-Settings eintragen)
+    brevo_webhook_secret: str = ""
 
     # Dev Orchestrator — Projekt-Root im Container
     project_root: str = "/project"
