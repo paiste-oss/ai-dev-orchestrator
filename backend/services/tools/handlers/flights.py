@@ -168,10 +168,6 @@ async def _handle_flights(tool_name: str, tool_input: dict) -> Any:
             "flights": flights,
             "total": len(flights),
             "flight_board": True,
-            # Für automatisches Fenster-Öffnen
-            "_artifact_action": "open",
-            "canvasType": "flight_board",
-            "title": f"✈ {_airport_name(airport_iata)} — {'Abflüge' if board_type == 'departure' else 'Ankünfte'}",
         }
 
     return {"error": f"Unbekanntes Tool: {tool_name}"}

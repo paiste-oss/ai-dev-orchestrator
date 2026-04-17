@@ -280,6 +280,16 @@ export default function ChatPage() {
     if (processedMsgs.current.has(last.id)) return;
     processedMsgs.current.add(last.id);
 
+    // Flugplan-Fenster automatisch öffnen
+    if (last.responseType === "flight_board") {
+      const d = last.structuredData as FlightBoardData;
+      const title = d.airport_name
+        ? `✈ ${d.airport_name} — ${d.board_type === "arrival" ? "Ankünfte" : "Abflüge"}`
+        : `✈ Flug ${d.query ?? ""}`;
+      openArtifact("flight_board", title, d as unknown as Record<string, unknown>);
+      return;
+    }
+
     // Fenster öffnen via [FENSTER:]-Marker
     if (last.responseType === "open_window") {
       const d = last.structuredData as OpenWindowData;
