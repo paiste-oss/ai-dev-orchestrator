@@ -10,6 +10,7 @@ services:
       - ./backend:/app
       - ./:/project          # Dev Orchestrator: ganzes Projekt für Claude lesbar/schreibbar
       - n8n_data:/n8n_data:ro  # n8n DB read-only für Credential-Entschlüsselung
+      - radicale_data:/radicale_data  # CalDAV htpasswd schreiben
     environment:
       # Datenbank
       - DATABASE_URL=${DATABASE_URL}
@@ -332,6 +333,19 @@ services:
       - ai_local
       - ai_external
 
+  radicale:
+    image: tomsquest/docker-radicale:latest
+    container_name: ai_radicale
+    restart: always
+    ports:
+      - "127.0.0.1:5232:5232"
+    volumes:
+      - ./radicale/config:/config/config:ro   # Konfigurationsdatei (read-only)
+      - radicale_data:/data                   # Kalender-Daten + htpasswd
+    networks:
+      - ai_local
+      - ai_external
+
   tunnel:
     image: cloudflare/cloudflared:latest
     container_name: cloudflare_tunnel
@@ -351,6 +365,7 @@ volumes:
   dolibarr_data:
   dolibarr_db_data:
   uptime_kuma_data:
+  radicale_data:
 
 networks:
   ai_local:

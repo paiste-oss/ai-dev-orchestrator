@@ -108,6 +108,10 @@ class Customer(Base):
     # Persönliche Baddi-E-Mail-Adresse (vorname.id@mail.baddi.ch)
     baddi_email: Mapped[str | None] = mapped_column(String(100), nullable=True, unique=True)
 
+    # CalDAV-Kalender (Radicale)
+    caldav_username: Mapped[str | None] = mapped_column(String(100), nullable=True, unique=True)
+    caldav_password: Mapped[str | None] = mapped_column(String(100), nullable=True)  # Klartext für einmalige Anzeige
+
     # Benachrichtigungskanal: 'sms' | 'email'  (erweiterbar: 'whatsapp', 'push')
     notification_channel: Mapped[str] = mapped_column(String(20), default="sms")
 

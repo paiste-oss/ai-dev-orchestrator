@@ -19,7 +19,7 @@ from api.v1 import (
     router_admin, llm_admin, system_prompts_admin, tools_admin,
     integrations_admin, analytics_admin, user_preferences, windows,
     knowledge, stocks, transcribe, health_admin, dictations, assistenz,
-    support_admin, flights, email,
+    support_admin, flights, email, calendar,
 )
 from api.v1 import settings as portal_settings
 import models.chat              # noqa: F401
@@ -121,6 +121,7 @@ app.include_router(assistenz.router, prefix="/v1")
 app.include_router(support_admin.router, prefix="/v1")
 app.include_router(flights.router, prefix="/v1")
 app.include_router(email.router, prefix="/v1")
+app.include_router(calendar.router, prefix="/v1")
 
 
 @app.middleware("http")
