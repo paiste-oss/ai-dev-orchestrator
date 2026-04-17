@@ -34,13 +34,10 @@ function TimeCell({ scheduled, actual, delay }: { scheduled: string | null; actu
 function FlightRow({ flight, boardType }: { flight: FlightEntry; boardType: "departure" | "arrival" }) {
   const statusClass = STATUS_COLORS[flight.status] ?? "text-gray-500 bg-white/4 border-white/8";
   const isDep = boardType === "departure";
-  const counterpart    = isDep ? flight.arr_airport   : flight.dep_airport;
-  const counterpartIata = isDep ? flight.arr_iata     : flight.dep_iata;
-  const scheduled      = isDep ? flight.dep_scheduled : flight.arr_scheduled;
-  const actual         = isDep ? flight.dep_actual    : flight.arr_actual;
-  const delay          = isDep ? flight.dep_delay     : flight.arr_delay;
-  const terminal       = isDep ? flight.dep_terminal  : flight.arr_terminal;
-  const gate           = isDep ? flight.dep_gate      : flight.arr_gate;
+  const counterpart     = isDep ? flight.arr_airport   : flight.dep_airport;
+  const counterpartIata = isDep ? flight.arr_iata      : flight.dep_iata;
+  const terminal        = isDep ? flight.dep_terminal  : flight.arr_terminal;
+  const gate            = isDep ? flight.dep_gate      : flight.arr_gate;
 
   return (
     <tr className="border-b border-white/4 hover:bg-white/3 transition-colors">
@@ -49,20 +46,37 @@ function FlightRow({ flight, boardType }: { flight: FlightEntry; boardType: "dep
         {flight.flight_number}
       </td>
 
-      {/* Ziel / Herkunft */}
-      <td className="px-3 py-2 min-w-0">
-        <p className="text-xs text-gray-200 font-medium truncate">
-          {counterpart}
-          {counterpartIata && (
-            <span className="text-gray-600 ml-1 text-[10px]">({counterpartIata})</span>
-          )}
-        </p>
-        <p className="text-[10px] text-gray-600 truncate">{flight.airline}</p>
+      {/* Airline */}
+      <td className="px-3 py-2 text-xs text-gray-400 whitespace-nowrap">
+        {flight.airline}
       </td>
 
-      {/* Zeit */}
+      {/* Ziel / Herkunft */}
+      <td className="px-3 py-2 min-w-0">
+        <span className="text-xs text-gray-200 font-medium">
+          {counterpart}
+          {counterpartIata && (
+            <span className="text-gray-500 ml-1 text-[10px]">({counterpartIata})</span>
+          )}
+        </span>
+      </td>
+
+      {/* Abflug */}
       <td className="px-3 py-2 text-right">
-        <TimeCell scheduled={scheduled} actual={actual} delay={delay} />
+        <TimeCell
+          scheduled={flight.dep_scheduled}
+          actual={flight.dep_actual}
+          delay={flight.dep_delay}
+        />
+      </td>
+
+      {/* Ankunft */}
+      <td className="px-3 py-2 text-right">
+        <TimeCell
+          scheduled={flight.arr_scheduled}
+          actual={flight.arr_actual}
+          delay={flight.arr_delay}
+        />
       </td>
 
       {/* Terminal */}
@@ -133,9 +147,11 @@ export default function FlightBoardWindow({ data }: Props) {
           <table className="w-full border-collapse">
             <thead className="sticky top-0 bg-[#13131c] border-b border-white/5 z-10">
               <tr>
-                <th className="px-3 py-1.5 text-left text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Flug</th>
-                <th className="px-3 py-1.5 text-left text-[9px] text-gray-600 uppercase tracking-wider font-semibold">{isDep ? "Ziel" : "Herkunft"}</th>
-                <th className="px-3 py-1.5 text-right text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">{isDep ? "Abflug" : "Ankunft"}</th>
+                <th className="px-3 py-1.5 text-left   text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Flug</th>
+                <th className="px-3 py-1.5 text-left   text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Airline</th>
+                <th className="px-3 py-1.5 text-left   text-[9px] text-gray-600 uppercase tracking-wider font-semibold">{isDep ? "Ziel" : "Herkunft"}</th>
+                <th className="px-3 py-1.5 text-right  text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Abflug</th>
+                <th className="px-3 py-1.5 text-right  text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Ankunft</th>
                 <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Terminal</th>
                 <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Gate</th>
                 <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Status</th>
