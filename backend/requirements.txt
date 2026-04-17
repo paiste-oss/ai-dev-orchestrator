@@ -5,6 +5,7 @@ python-dotenv
 requests
 anthropic
 httpx
+airportsdata
 pydantic-settings
 email-validator
 sqlalchemy[asyncio]

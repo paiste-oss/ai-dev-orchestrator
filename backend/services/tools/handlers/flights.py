@@ -6,18 +6,32 @@ from datetime import datetime, timezone
 
 _log = logging.getLogger(__name__)
 
-# Bekannte Flughafennamen (IATA → Name) für saubere Anzeige
-_AIRPORT_NAMES: dict[str, str] = {
-    "ZRH": "Zürich", "GVA": "Genf", "BSL": "Basel-Mülhausen",
+# Lazy-loaded airportsdata (7883 IATA-Codes mit Stadtname + Land)
+_AIRPORTS_DB: dict | None = None
+
+def _get_airports_db() -> dict:
+    global _AIRPORTS_DB
+    if _AIRPORTS_DB is None:
+        try:
+            import airportsdata
+            _AIRPORTS_DB = airportsdata.load("IATA")
+            _log.info("airportsdata geladen: %d Einträge", len(_AIRPORTS_DB))
+        except Exception as e:
+            _log.warning("airportsdata nicht verfügbar: %s", e)
+            _AIRPORTS_DB = {}
+    return _AIRPORTS_DB
+
+# Deutschsprachige Überschreibungen für bekannte Flughäfen
+_DE_OVERRIDES: dict[str, str] = {
+    "ZRH": "Zürich", "GVA": "Genf", "BSL": "Basel",
     "FRA": "Frankfurt", "MUC": "München", "BER": "Berlin", "HAM": "Hamburg",
-    "VIE": "Wien", "ZRH": "Zürich", "LHR": "London Heathrow", "LGW": "London Gatwick",
-    "CDG": "Paris Charles de Gaulle", "ORY": "Paris Orly",
+    "VIE": "Wien", "LHR": "London Heathrow", "LGW": "London Gatwick",
+    "LCY": "London City", "CDG": "Paris CDG", "ORY": "Paris Orly",
     "AMS": "Amsterdam", "BRU": "Brüssel", "MAD": "Madrid", "BCN": "Barcelona",
-    "FCO": "Rom Fiumicino", "MXP": "Mailand Malpensa", "LIN": "Mailand Linate",
-    "DXB": "Dubai", "DOH": "Doha", "IST": "Istanbul", "ATH": "Athen",
-    "JFK": "New York JFK", "EWR": "New York Newark", "LAX": "Los Angeles",
-    "SFO": "San Francisco", "ORD": "Chicago O'Hare", "MIA": "Miami",
-    "SIN": "Singapur", "HKG": "Hongkong", "NRT": "Tokio Narita",
+    "FCO": "Rom", "MXP": "Mailand", "DXB": "Dubai", "DOH": "Doha",
+    "IST": "Istanbul", "ATH": "Athen", "JFK": "New York JFK",
+    "LAX": "Los Angeles", "SFO": "San Francisco", "MIA": "Miami",
+    "SIN": "Singapur", "HKG": "Hongkong", "NRT": "Tokio",
     "SYD": "Sydney", "MEL": "Melbourne",
 }
 
@@ -32,10 +46,36 @@ _STATUS_LABELS: dict[str, str] = {
 }
 
 
-def _airport_name(iata: str | None) -> str:
+def _resolve_airport_name(iata: str | None, api_name: str | None) -> str:
+    """
+    Flughafenname in dieser Priorität:
+    1. Deutsche Überschreibung (für bekannte Flughäfen)
+    2. airportsdata Stadtname (7883 Einträge)
+    3. AviationStack API-Name (falls vorhanden)
+    4. IATA-Code als Fallback
+    """
     if not iata:
         return "Unbekannt"
-    return _AIRPORT_NAMES.get(iata.upper(), iata.upper())
+    code = iata.upper()
+
+    # 1. Deutsche Überschreibung
+    if code in _DE_OVERRIDES:
+        return _DE_OVERRIDES[code]
+
+    # 2. airportsdata → Stadtname (kürzer und lesbarer als Flughafenname)
+    db = _get_airports_db()
+    entry = db.get(code)
+    if entry:
+        city = (entry.get("city") or "").strip()
+        if city:
+            return city
+
+    # 3. AviationStack API-Name bereinigen
+    if api_name and api_name.strip() and api_name.strip().lower() not in ("null", "none", "unknown", ""):
+        return api_name.strip()
+
+    # 4. IATA-Code
+    return code
 
 
 def _fmt_time(iso: str | None) -> str | None:
@@ -47,16 +87,6 @@ def _fmt_time(iso: str | None) -> str | None:
         return dt.astimezone(timezone.utc).strftime("%H:%M")
     except Exception:
         return iso[:5] if len(iso) >= 5 else iso
-
-
-def _resolve_airport_name(iata: str | None, api_name: str | None) -> str:
-    """Flughafenname: API-Name > eigene Liste > IATA-Code."""
-    if not iata:
-        return "Unbekannt"
-    # API-Name bereinigen (manchmal leer, "null" oder Whitespace)
-    if api_name and api_name.strip() and api_name.strip().lower() not in ("null", "none", "unknown"):
-        return api_name.strip()
-    return _AIRPORT_NAMES.get(iata.upper(), iata.upper())
 
 
 def _parse_flight(f: dict, board_type: str) -> dict:
@@ -173,7 +203,7 @@ async def _handle_flights(tool_name: str, tool_input: dict) -> Any:
 
         return {
             "airport_iata": airport_iata,
-            "airport_name": _airport_name(airport_iata),
+            "airport_name": _resolve_airport_name(airport_iata, None),
             "board_type": board_type,
             "flights": flights,
             "total": len(flights),
