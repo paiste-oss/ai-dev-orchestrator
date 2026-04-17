@@ -49,6 +49,16 @@ def _fmt_time(iso: str | None) -> str | None:
         return iso[:5] if len(iso) >= 5 else iso
 
 
+def _resolve_airport_name(iata: str | None, api_name: str | None) -> str:
+    """Flughafenname: API-Name > eigene Liste > IATA-Code."""
+    if not iata:
+        return "Unbekannt"
+    # API-Name bereinigen (manchmal leer, "null" oder Whitespace)
+    if api_name and api_name.strip() and api_name.strip().lower() not in ("null", "none", "unknown"):
+        return api_name.strip()
+    return _AIRPORT_NAMES.get(iata.upper(), iata.upper())
+
+
 def _parse_flight(f: dict, board_type: str) -> dict:
     dep = f.get("departure") or {}
     arr = f.get("arrival") or {}
@@ -65,7 +75,7 @@ def _parse_flight(f: dict, board_type: str) -> dict:
         "status": _STATUS_LABELS.get(f.get("flight_status", "unknown"), f.get("flight_status", "—")),
         "status_raw": f.get("flight_status", "unknown"),
         # Abflug
-        "dep_airport": _airport_name(dep.get("iata")),
+        "dep_airport": _resolve_airport_name(dep.get("iata"), dep.get("airport")),
         "dep_iata": dep.get("iata"),
         "dep_scheduled": _fmt_time(dep.get("scheduled")),
         "dep_actual": _fmt_time(dep.get("actual") or dep.get("estimated")),
@@ -73,7 +83,7 @@ def _parse_flight(f: dict, board_type: str) -> dict:
         "dep_gate": dep.get("gate"),
         "dep_delay": delay_dep or 0,
         # Ankunft
-        "arr_airport": _airport_name(arr.get("iata")),
+        "arr_airport": _resolve_airport_name(arr.get("iata"), arr.get("airport")),
         "arr_iata": arr.get("iata"),
         "arr_scheduled": _fmt_time(arr.get("scheduled")),
         "arr_actual": _fmt_time(arr.get("actual") or arr.get("estimated")),
