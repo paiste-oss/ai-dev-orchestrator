@@ -272,11 +272,16 @@ export default function ChatPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-scroll
+  // Auto-scroll — rAF stellt sicher dass DOM vollständig gerendert ist bevor
+  // scrollHeight gemessen wird. Bei loading=true sofort scrollen (kein smooth),
+  // damit der "Baddi denkt"-Indikator immer sichtbar ist.
   useEffect(() => {
-    if (!userScrolledUp.current) {
-      chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: "smooth" });
-    }
+    if (userScrolledUp.current) return;
+    const el = chatScrollRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollTo({ top: el.scrollHeight, behavior: loading ? "instant" : "smooth" });
+    });
   }, [messages, loading]);
 
   // ResizeObserver — nur auf signifikante Grössenänderungen reagieren (Fenster-/Panel-Resize),
@@ -864,7 +869,7 @@ export default function ChatPage() {
 
         {/* ── Chat-Spalte ── */}
         <div
-          className="flex flex-col shrink-0"
+          className="flex flex-col shrink-0 min-h-0"
           style={{ width: chatWidth }}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
