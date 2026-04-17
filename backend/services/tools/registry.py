@@ -5,6 +5,7 @@ from typing import Any
 from services.tools.defs import (
     SBB_TOOL_DEFS,
     FLIGHT_TOOL_DEFS,
+    CALENDAR_TOOL_DEFS,
     WEB_FETCH_TOOL_DEFS,
     WEB_SEARCH_TOOL_DEFS,
     DALLE_TOOL_DEFS,
@@ -33,6 +34,7 @@ from services.tools.handlers.geo import _handle_geo_map
 from services.tools.handlers.documents import _handle_documents
 from services.tools.handlers.artifact import _handle_artifact
 from services.tools.handlers.flights import _handle_flights
+from services.tools.handlers.calendar import _handle_calendar
 
 
 # ---------------------------------------------------------------------------
@@ -212,6 +214,18 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_defs": FLIGHT_TOOL_DEFS,
         "tool_names": {"flight_status", "airport_board"},
         "handler": _handle_flights,
+    },
+    "calendar": {
+        "key": "calendar",
+        "name": "Kalender (CalDAV)",
+        "description": "Persönlicher Kalender — Termine lesen, erstellen und löschen. Daten bleiben lokal auf dem Server.",
+        "prompt_hint": "Termine eintragen, Kalender abfragen, Arzttermine oder Erinnerungen verwalten",
+        "category": "productivity",
+        "tier": "free",
+        "tool_defs": CALENDAR_TOOL_DEFS,
+        "tool_names": {"calendar_list_events", "calendar_create_event", "calendar_delete_event"},
+        "handler": _handle_calendar,
+        "needs_customer_id": True,
     },
     "artifact_manager": {
         "key": "artifact_manager",

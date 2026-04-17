@@ -11,6 +11,7 @@ from services.tools.defs.geo import GEO_MAP_TOOL_DEFS
 from services.tools.defs.documents import DOCUMENT_SEARCH_TOOL_DEFS
 from services.tools.defs.artifact import ARTIFACT_TOOL_DEFS
 from services.tools.defs.flights import FLIGHT_TOOL_DEFS
+from services.tools.defs.calendar import CALENDAR_TOOL_DEFS
 
 __all__ = [
     "SBB_TOOL_DEFS",
@@ -22,4 +23,5 @@ __all__ = [
     "DOCUMENT_SEARCH_TOOL_DEFS",
     "ARTIFACT_TOOL_DEFS",
     "FLIGHT_TOOL_DEFS",
+    "CALENDAR_TOOL_DEFS",
 ]

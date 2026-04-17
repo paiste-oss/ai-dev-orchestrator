@@ -1,5 +1,6 @@
 fastapi
 uvicorn
+icalendar
 redis[asyncio]
 python-dotenv
 requests
