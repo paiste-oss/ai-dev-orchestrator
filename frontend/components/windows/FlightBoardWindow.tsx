@@ -19,6 +19,8 @@ const STATUS_COLORS: Record<string, string> = {
 
 function TimeCell({ scheduled, actual, delay }: { scheduled: string | null; actual: string | null; delay: number }) {
   const isDelayed = delay > 0;
+
+  // Actual time known and differs → strike through scheduled, show actual
   if (actual && actual !== scheduled) {
     return (
       <div className="flex flex-col items-end leading-none gap-0.5 whitespace-nowrap">
@@ -30,6 +32,17 @@ function TimeCell({ scheduled, actual, delay }: { scheduled: string | null; actu
       </div>
     );
   }
+
+  // No actual yet but delay known → show scheduled + delay badge
+  if (isDelayed) {
+    return (
+      <div className="flex flex-col items-end leading-none gap-0.5 whitespace-nowrap">
+        <span className="text-xs font-mono tabular-nums text-gray-300">{scheduled ?? "—"}</span>
+        <span className="text-[10px] text-red-400 tabular-nums">+{delay}&apos;</span>
+      </div>
+    );
+  }
+
   return <span className="text-xs font-mono tabular-nums text-gray-300 whitespace-nowrap">{scheduled ?? "—"}</span>;
 }
 

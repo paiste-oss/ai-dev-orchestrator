@@ -23,16 +23,54 @@ def _get_airports_db() -> dict:
 
 # Deutschsprachige Überschreibungen für bekannte Flughäfen
 _DE_OVERRIDES: dict[str, str] = {
+    # Schweiz / DACH
     "ZRH": "Zürich", "GVA": "Genf", "BSL": "Basel",
     "FRA": "Frankfurt", "MUC": "München", "BER": "Berlin", "HAM": "Hamburg",
-    "VIE": "Wien", "LHR": "London Heathrow", "LGW": "London Gatwick",
-    "LCY": "London City", "CDG": "Paris CDG", "ORY": "Paris Orly",
-    "AMS": "Amsterdam", "BRU": "Brüssel", "MAD": "Madrid", "BCN": "Barcelona",
-    "FCO": "Rom", "MXP": "Mailand", "DXB": "Dubai", "DOH": "Doha",
-    "IST": "Istanbul", "ATH": "Athen", "JFK": "New York JFK",
+    "DUS": "Düsseldorf", "CGN": "Köln", "STR": "Stuttgart", "NUE": "Nürnberg",
+    "VIE": "Wien", "GRZ": "Graz", "INN": "Innsbruck", "SZG": "Salzburg",
+    # UK
+    "LHR": "London Heathrow", "LGW": "London Gatwick",
+    "LCY": "London City", "STN": "London Stansted", "LTN": "London Luton",
+    "MAN": "Manchester", "EDI": "Edinburgh", "BHX": "Birmingham",
+    # Frankreich
+    "CDG": "Paris CDG", "ORY": "Paris Orly", "NCE": "Nizza", "LYS": "Lyon",
+    # Benelux / Skandinavien
+    "AMS": "Amsterdam", "BRU": "Brüssel",
+    "CPH": "Kopenhagen", "OSL": "Oslo", "ARN": "Stockholm",
+    "HEL": "Helsinki", "GOT": "Göteborg", "BGO": "Bergen",
+    # Iberische Halbinsel
+    "MAD": "Madrid", "BCN": "Barcelona", "LIS": "Lissabon",
+    "VLC": "Valencia", "AGP": "Málaga", "PMI": "Mallorca",
+    # Italien
+    "FCO": "Rom", "MXP": "Mailand", "LIN": "Mailand City",
+    "NAP": "Neapel", "VCE": "Venedig", "TRN": "Turin",
+    "BRI": "Bari", "BDS": "Brindisi", "PMO": "Palermo", "CTA": "Catania",
+    # Osteuropa / Balkan
+    "VIE": "Wien",
+    "PRG": "Prag", "BUD": "Budapest", "WAW": "Warschau", "KRK": "Krakau",
+    "BEG": "Belgrad", "ZAG": "Zagreb", "LJU": "Ljubljana", "SKP": "Skopje",
+    "PRN": "Pristina", "TGD": "Podgorica", "OHD": "Ohrid",
+    "SOF": "Sofia", "OTP": "Bukarest", "CLJ": "Cluj-Napoca",
+    "SKG": "Thessaloniki", "ATH": "Athen", "HER": "Heraklion", "RHO": "Rhodos",
+    "CFU": "Korfu", "KGS": "Kos", "JMK": "Mykonos", "JTR": "Santorin",
+    "KLX": "Kalamata",
+    # Mittelmeer / Inseln
+    "MLA": "Malta", "IBZ": "Ibiza", "GRO": "Girona",
+    # Naher Osten / Afrika
+    "DXB": "Dubai", "DOH": "Doha", "AUH": "Abu Dhabi",
+    "IST": "Istanbul", "SAW": "Istanbul Sabiha",
+    "CAI": "Kairo", "TUN": "Tunis", "CMN": "Casablanca", "RAK": "Marrakesch",
+    "HRG": "Hurghada", "SSH": "Sharm el-Sheikh",
+    # Nordamerika
+    "JFK": "New York JFK", "EWR": "New York Newark",
     "LAX": "Los Angeles", "SFO": "San Francisco", "MIA": "Miami",
-    "SIN": "Singapur", "HKG": "Hongkong", "NRT": "Tokio",
-    "SYD": "Sydney", "MEL": "Melbourne",
+    "ORD": "Chicago", "BOS": "Boston", "YYZ": "Toronto",
+    "IAD": "Washington", "DCA": "Washington DC", "ATL": "Atlanta",
+    # Asien / Pazifik
+    "SIN": "Singapur", "HKG": "Hongkong", "NRT": "Tokio", "HND": "Tokio Haneda",
+    "PEK": "Peking", "PVG": "Shanghai", "BKK": "Bangkok",
+    "KUL": "Kuala Lumpur", "MNL": "Manila",
+    "SYD": "Sydney", "MEL": "Melbourne", "BNE": "Brisbane",
 }
 
 _STATUS_LABELS: dict[str, str] = {
