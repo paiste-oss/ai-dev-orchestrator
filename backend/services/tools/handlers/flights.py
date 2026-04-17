@@ -2,7 +2,7 @@
 from __future__ import annotations
 import logging
 from typing import Any
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date as _date
 
 _log = logging.getLogger(__name__)
 
@@ -234,6 +234,8 @@ async def _handle_flights(tool_name: str, tool_input: dict) -> Any:
             "access_key": api_key,
             "limit": limit,
             "offset": 0,
+            # flight_date erzwingt den vollen Tagesplan inkl. bereits gestarteter Flüge
+            "flight_date": _date.today().isoformat(),
         }
         if board_type == "departure":
             params["dep_iata"] = airport_iata
@@ -253,6 +255,9 @@ async def _handle_flights(tool_name: str, tool_input: dict) -> Any:
         data = r.json()
         flights_raw = data.get("data") or []
         flights = [_parse_flight(f, board_type) for f in flights_raw]
+
+        # Sortierung nach geplanter Abflugzeit aufsteigend (API-Reihenfolge ist nicht garantiert)
+        flights.sort(key=lambda f: f["dep_scheduled"] or "99:99")
 
         return {
             "airport_iata": airport_iata,

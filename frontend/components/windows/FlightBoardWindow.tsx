@@ -53,7 +53,7 @@ function fmtDuration(mins: number | null | undefined): string {
   return h > 0 ? `${h}h ${m.toString().padStart(2, "0")}m` : `${m}m`;
 }
 
-function FlightRow({ flight, boardType }: { flight: FlightEntry; boardType: "departure" | "arrival" }) {
+function FlightRow({ flight, boardType, showTerminal }: { flight: FlightEntry; boardType: "departure" | "arrival"; showTerminal: boolean }) {
   const statusClass = STATUS_COLORS[flight.status] ?? "text-gray-500 bg-white/4 border-white/8";
   const isDep = boardType === "departure";
   const counterpart     = isDep ? flight.arr_airport   : flight.dep_airport;
@@ -111,13 +111,15 @@ function FlightRow({ flight, boardType }: { flight: FlightEntry; boardType: "dep
         <span className="text-xs font-mono text-gray-500 whitespace-nowrap">{fmtDuration(flight.duration_min)}</span>
       </td>
 
-      {/* Terminal */}
-      <td className="px-3 py-2 text-center">
-        {terminal
-          ? <span className="text-xs font-mono text-[#C8D8E8]">T{terminal}</span>
-          : <span className="text-xs text-gray-700">—</span>
-        }
-      </td>
+      {/* Terminal — nur wenn showTerminal */}
+      {showTerminal && (
+        <td className="px-3 py-2 text-center">
+          {terminal
+            ? <span className="text-xs font-mono text-[#C8D8E8]">T{terminal}</span>
+            : <span className="text-xs text-gray-700">—</span>
+          }
+        </td>
+      )}
 
       {/* Gate */}
       <td className="px-3 py-2 text-center">
@@ -150,6 +152,7 @@ export default function FlightBoardWindow({ data, onRefresh, isRefreshing = fals
 
   const isDep = (data.board_type ?? "departure") === "departure";
   const flights = data.flights ?? [];
+  const hasTerminal = flights.some((f) => isDep ? !!f.dep_terminal : !!f.arr_terminal);
 
   const header = data.airport_name
     ? `${data.airport_name} (${data.airport_iata}) — ${isDep ? "Abflüge" : "Ankünfte"}`
@@ -209,14 +212,14 @@ export default function FlightBoardWindow({ data, onRefresh, isRefreshing = fals
                 <th className="px-3 py-1.5 text-right  text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Abflug</th>
                 <th className="px-3 py-1.5 text-right  text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Ankunft</th>
                 <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Dauer</th>
-                <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Terminal</th>
+                {hasTerminal && <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Terminal</th>}
                 <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Gate</th>
                 <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Status</th>
               </tr>
             </thead>
             <tbody>
               {flights.map((f, i) => (
-                <FlightRow key={`${f.flight_number}-${i}`} flight={f} boardType={data.board_type ?? "departure"} />
+                <FlightRow key={`${f.flight_number}-${i}`} flight={f} boardType={data.board_type ?? "departure"} showTerminal={hasTerminal} />
               ))}
             </tbody>
           </table>
