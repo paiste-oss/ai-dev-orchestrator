@@ -112,6 +112,10 @@ class Settings(BaseSettings):
     system_smtp_password: str = ""
     system_smtp_from: str = "noreply@baddi.ch"
 
+    # Brevo Transactional API Key (für Outbound von per-User baddi_email-Adressen)
+    # https://app.brevo.com/settings/keys/api
+    brevo_api_key: str = ""
+
     # Dev Orchestrator — Projekt-Root im Container
     project_root: str = "/project"
 

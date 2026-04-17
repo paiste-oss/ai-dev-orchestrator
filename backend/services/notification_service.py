@@ -11,8 +11,9 @@ Verwendung:
     from services.notification_service import notify_customer
     await notify_customer(customer, message="Dein Alert wurde ausgelöst", subject="Kurs-Alert")
 """
-import smtplib
 from email.message import EmailMessage
+
+import aiosmtplib
 
 from core.config import settings
 
@@ -77,10 +78,14 @@ async def _send_email(customer, message: str, subject: str) -> bool:
         msg["To"] = email
         msg.set_content(message)
 
-        with smtplib.SMTP(settings.system_smtp_host, settings.system_smtp_port) as smtp:
-            smtp.starttls()
-            smtp.login(settings.system_smtp_user, settings.system_smtp_password)
-            smtp.send_message(msg)
+        await aiosmtplib.send(
+            msg,
+            hostname=settings.system_smtp_host,
+            port=settings.system_smtp_port,
+            start_tls=True,
+            username=settings.system_smtp_user,
+            password=settings.system_smtp_password,
+        )
         return True
     except Exception as e:
         print(f"[Notify] E-Mail-Versand fehlgeschlagen an {email}: {e}")
