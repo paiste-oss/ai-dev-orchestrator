@@ -36,7 +36,6 @@ async def run_buddy_chat(
         {"output": str, "model_used": str, "tool_calls": list, "total_tokens": int}
     """
     tool_defs = get_tool_defs(tool_keys)
-    _log.warning("run_buddy_chat: %d tool_defs geladen: %s", len(tool_defs), [t["name"] for t in tool_defs])
     messages = list(history) if history else []
     messages.append({"role": "user", "content": message})
 
@@ -150,7 +149,6 @@ async def _run_anthropic(
 
         if response.stop_reason == "end_turn":
             text = _extract_text(response.content)
-            _log.warning("Anthropic end_turn ohne Tool-Call. tools_called: %s", [tc["tool"] for tc in tool_calls_log])
             return {"output": text, "model_used": model, "tool_calls": tool_calls_log, "total_tokens": total_tokens}
 
         if response.stop_reason == "tool_use":
@@ -159,7 +157,6 @@ async def _run_anthropic(
             tool_results = []
             for block in assistant_content:
                 if block.type == "tool_use":
-                    _log.warning("Tool-Call: %s input=%s", block.name, block.input)
                     result = await call_tool(block.name, block.input, customer_id=customer_id)
                     tool_calls_log.append({
                         "tool": block.name,
