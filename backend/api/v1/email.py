@@ -24,13 +24,13 @@ from typing import Any
 
 from sqlalchemy import text
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
-from core.database import get_db
+from core.database import AsyncSessionLocal, get_db
 from core.dependencies import get_current_user, require_admin
 from models.customer import Customer
 from models.email_message import EmailMessage
@@ -82,12 +82,17 @@ class EmailMessageOut(BaseModel):
 @router.post("/inbound", include_in_schema=False)
 async def inbound_webhook(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
     """
     Brevo Inbound Parsing Webhook.
     Brevo POSTet JSON mit `items`-Array für jeden eingehenden E-Mail.
-    Unbekannte Empfänger werden still ignoriert (kein Bounce).
+
+    Routing-Logik:
+      - from == customer.email (eigene Adresse) → Chat-Pipeline (BackgroundTask)
+      - from in trusted_senders                 → email_messages (für EmailWindow)
+      - unbekannte Absender                     → email_messages (Unbekannt-Tab)
     """
     body = await request.body()
 
@@ -136,6 +141,24 @@ async def inbound_webhook(
 
         from_addr = _extract_from_address(item)
         from_lower = from_addr.lower()
+
+        # Eigene Registrierungs-Email → Chat-Pipeline (erscheint im Chat, nicht im EmailWindow)
+        if from_lower == customer.email.lower():
+            body = (item.TextBody or item.HtmlBody or "").strip()
+            if body:
+                message_text = (
+                    f"[Via E-Mail — Betreff: {item.Subject}]\n\n{body}"
+                    if item.Subject else body
+                )
+                background_tasks.add_task(
+                    _process_email_as_chat,
+                    customer_id=str(customer.id),
+                    message_text=message_text,
+                    reply_to=from_lower,
+                    reply_subject=item.Subject or "",
+                )
+                log.info("[Email/Inbound] Eigene Email → Chat-Pipeline: %s", customer.id)
+            continue
 
         # Gesperrte Absender still ignorieren
         blocked_list = [s.lower() for s in (customer.blocked_senders or [])]
@@ -462,6 +485,63 @@ async def provision_all_emails(
         log.info("[Email] Bulk-Provisioning: %d Adressen vergeben", len(provisioned))
 
     return {"provisioned": len(provisioned), "details": provisioned}
+
+
+async def _process_email_as_chat(
+    customer_id: str,
+    message_text: str,
+    reply_to: str,
+    reply_subject: str,
+) -> None:
+    """
+    Verarbeitet eine eingehende E-Mail von der eigenen Registrierungs-Adresse des Users
+    als normalen Chat-Input. Baddi antwortet im Chat UND schickt die Antwort per E-Mail
+    zurück an den User (reply_to).
+
+    Läuft als BackgroundTask — der Inbound-Webhook gibt sofort 200 zurück.
+    """
+    from services.chat_pipeline import load_context, execute_llm, finalize
+
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(Customer).where(Customer.id == uuid.UUID(customer_id))
+            )
+            customer = result.scalar_one_or_none()
+            if not customer:
+                log.warning("[Email/Chat] Kunde nicht gefunden: %s", customer_id)
+                return
+
+            context = await load_context(customer, message_text, db)
+            llm_result = await execute_llm(
+                customer=customer,
+                message=message_text,
+                images=[],
+                document_ids=[],
+                prior_messages=context["prior_messages"],
+                system_prompt=context["system_prompt"],
+                db=db,
+                doc_cache=context.get("doc_cache"),
+                canvas_context=None,
+            )
+
+            if llm_result["response_text"] is None:
+                log.error("[Email/Chat] Pipeline lieferte kein Ergebnis für %s", customer_id)
+                return
+
+            await finalize(
+                customer=customer,
+                original_message=message_text,
+                llm_result=llm_result,
+                system_prompt_name=context["system_prompt_name"],
+                db=db,
+                reply_via_email=reply_to,
+                reply_subject=reply_subject,
+            )
+            log.info("[Email/Chat] Verarbeitet und beantwortet: %s → %s", customer_id, reply_to)
+
+    except Exception as exc:
+        log.error("[Email/Chat] Fehler bei der Verarbeitung: %s — %s", customer_id, exc)
 
 
 def _extract_from_address(item: InboundItem) -> str:

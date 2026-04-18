@@ -463,6 +463,8 @@ async def finalize(
     llm_result: LLMResult,
     system_prompt_name: str,
     db: AsyncSession,
+    reply_via_email: str | None = None,
+    reply_subject: str | None = None,
 ) -> tuple[str, str, str, dict[str, Any] | None, dict[str, Any] | None, str | None]:
     """
     Verarbeitet Marker, persistiert, bucht, startet Background-Tasks.
@@ -543,6 +545,20 @@ async def finalize(
         _log.error("Chat-Nachricht konnte nicht gespeichert werden: %s", e)
         await db.rollback()
         raise RuntimeError("Nachricht konnte nicht gespeichert werden") from e
+
+    # E-Mail-Antwort — nur wenn Anfrage per Mail einging (reply_via_email gesetzt)
+    # Nie beim normalen Chat-Endpoint (dort wird reply_via_email nie übergeben)
+    if reply_via_email and customer.baddi_email and response_text:
+        from services.email_service import send_from_baddi_address
+        subject = reply_subject or "Antwort von Baddi"
+        if not subject.startswith("Re:"):
+            subject = f"Re: {subject}"
+        asyncio.ensure_future(send_from_baddi_address(
+            from_baddi_email=customer.baddi_email,
+            to_address=reply_via_email,
+            subject=subject,
+            body_text=response_text,
+        ))
 
     # Namensnetz: lastMentionedAt aktualisieren (Hintergrund — Fehler ignorieren)
     asyncio.ensure_future(
