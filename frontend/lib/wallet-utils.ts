@@ -1,5 +1,6 @@
 export function chf(n: number): string {
-  return new Intl.NumberFormat("de-CH", { style: "currency", currency: "CHF" }).format(n);
+  if (Number.isInteger(n)) return `CHF ${n}.-`;
+  return `CHF ${n.toFixed(2).replace(/\.00$/, ".-")}`;
 }
 
 export { fmtBytes, formatDate } from "@/lib/format";

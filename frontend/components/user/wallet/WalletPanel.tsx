@@ -18,13 +18,6 @@ interface WalletStatus {
   has_active_subscription: boolean;
 }
 
-interface BankTransfer {
-  reference: string;
-  amount_chf: number;
-  iban: string;
-  recipient: string;
-  note: string;
-}
 
 interface Props {
   wallet: WalletStatus;
@@ -47,12 +40,10 @@ function ProgressBar({ value, max, color }: { value: number; max: number; color:
 }
 
 export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Props) {
-  const [topupMode, setTopupMode] = useState<"stripe" | "bank" | null>(null);
-  const [topupAmount, setTopupAmount] = useState("20");
+  const [topupMode, setTopupMode] = useState<"stripe" | null>(null);
+  const [topupAmount, setTopupAmount] = useState(20);
   const [topupLoading, setTopupLoading] = useState(false);
-  const [bankTransfer, setBankTransfer] = useState<BankTransfer | null>(null);
   const [topupError, setTopupError] = useState("");
-  const [copied, setCopied] = useState("");
 
   const [settings, setSettings] = useState({
     monthly_limit_chf: String(wallet.monthly_limit_chf),
@@ -64,37 +55,17 @@ export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Pr
   const [saving, setSaving] = useState(false);
   const [saveOk, setSaveOk] = useState(false);
 
-  function copy(val: string, key: string) {
-    navigator.clipboard.writeText(val);
-    setCopied(key);
-    setTimeout(() => setCopied(""), 2000);
-  }
-
   async function doStripeTopup() {
     setTopupError("");
     setTopupLoading(true);
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/billing/wallet/topup/stripe`, {
         method: "POST",
-        body: JSON.stringify({ amount_chf: parseFloat(topupAmount) }),
+        body: JSON.stringify({ amount_chf: topupAmount }),
       });
       const data = await res.json();
       if (!res.ok) { setTopupError(data.detail || "Fehler"); return; }
       window.location.href = data.checkout_url;
-    } finally { setTopupLoading(false); }
-  }
-
-  async function doBankTopup() {
-    setTopupError("");
-    setTopupLoading(true);
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/billing/wallet/topup/bank`, {
-        method: "POST",
-        body: JSON.stringify({ amount_chf: parseFloat(topupAmount) }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setTopupError(data.detail || "Fehler"); return; }
-      setBankTransfer(data);
     } finally { setTopupLoading(false); }
   }
 
@@ -159,13 +130,14 @@ export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Pr
             </div>
           ) : (
             <>
-              <div className="flex gap-1.5 flex-wrap items-center">
+              {/* Betrag wählen */}
+              <div className="flex gap-1.5 flex-wrap">
                 {AMOUNTS.map(a => (
                   <button
                     key={a}
-                    onClick={() => setTopupAmount(String(a))}
+                    onClick={() => setTopupAmount(a)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                      topupAmount === String(a)
+                      topupAmount === a
                         ? "bg-blue-500/10 border-blue-500/50 text-blue-400"
                         : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"
                     }`}
@@ -173,98 +145,36 @@ export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Pr
                     {chf(a)}
                   </button>
                 ))}
-                <input
-                  type="number" min="5" max="500"
-                  value={topupAmount}
-                  onChange={e => setTopupAmount(e.target.value)}
-                  className="w-20 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-blue-500"
-                  placeholder="CHF"
-                />
               </div>
               <p className="text-xs text-gray-600">Für zusätzliche Tokens (Overage).</p>
 
               {topupMode === null && (
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => { setTopupMode("stripe"); setBankTransfer(null); setTopupError(""); }}
-                    className="flex items-center gap-2 p-2.5 rounded-xl border border-indigo-800/50 bg-indigo-950/30 hover:bg-indigo-950/50 transition-colors"
-                  >
-                    <span>💳</span>
-                    <div className="text-left">
-                      <p className="text-xs font-medium text-indigo-300">Kreditkarte</p>
-                      <p className="text-[10px] text-gray-500">Sofort via Stripe</p>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => { setTopupMode("bank"); setBankTransfer(null); setTopupError(""); }}
-                    className="flex items-center gap-2 p-2.5 rounded-xl border border-cyan-800/50 bg-cyan-950/30 hover:bg-cyan-950/50 transition-colors"
-                  >
-                    <span>🏦</span>
-                    <div className="text-left">
-                      <p className="text-xs font-medium text-cyan-300">Banküberweisung</p>
-                      <p className="text-[10px] text-gray-500">1–2 Werktage</p>
-                    </div>
-                  </button>
-                </div>
+                <button
+                  onClick={() => { setTopupMode("stripe"); setTopupError(""); }}
+                  className="flex items-center gap-2 p-2.5 rounded-xl border border-indigo-800/50 bg-indigo-950/30 hover:bg-indigo-950/50 transition-colors w-full"
+                >
+                  <span>💳</span>
+                  <div className="text-left">
+                    <p className="text-xs font-medium text-indigo-300">Kreditkarte via Stripe</p>
+                    <p className="text-[10px] text-gray-500">Sofortige Gutschrift</p>
+                  </div>
+                </button>
               )}
 
               {topupMode === "stripe" && (
                 <div className="bg-indigo-950/20 border border-indigo-800/40 rounded-xl p-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-indigo-300">Kreditkarte — {chf(parseFloat(topupAmount) || 0)}</p>
+                    <p className="text-xs font-medium text-indigo-300">{chf(topupAmount)} via Kreditkarte</p>
                     <button onClick={() => setTopupMode(null)} className="text-gray-500 hover:text-white text-xs">✕</button>
                   </div>
                   {topupError && <p className="text-red-400 text-xs">{topupError}</p>}
                   <button
                     onClick={doStripeTopup}
-                    disabled={topupLoading || parseFloat(topupAmount) < 5}
+                    disabled={topupLoading}
                     className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors disabled:opacity-50"
                   >
-                    {topupLoading ? "Weiterleitung…" : `${chf(parseFloat(topupAmount) || 0)} via Stripe →`}
+                    {topupLoading ? "Weiterleitung…" : `${chf(topupAmount)} jetzt aufladen →`}
                   </button>
-                </div>
-              )}
-
-              {topupMode === "bank" && (
-                <div className="bg-cyan-950/20 border border-cyan-800/40 rounded-xl p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-cyan-300">Banküberweisung — {chf(parseFloat(topupAmount) || 0)}</p>
-                    <button onClick={() => { setTopupMode(null); setBankTransfer(null); }} className="text-gray-500 hover:text-white text-xs">✕</button>
-                  </div>
-                  {topupError && <p className="text-red-400 text-xs">{topupError}</p>}
-                  {!bankTransfer ? (
-                    <>
-                      <p className="text-xs text-gray-400">Eindeutige Referenz, Gutschrift nach 1–2 Werktagen.</p>
-                      <button
-                        onClick={doBankTopup}
-                        disabled={topupLoading || parseFloat(topupAmount) < 10}
-                        className="w-full py-2 rounded-xl bg-cyan-700 hover:bg-cyan-600 text-white font-semibold text-xs transition-colors disabled:opacity-50"
-                      >
-                        {topupLoading ? "Generiere…" : "Zahlungsdetails →"}
-                      </button>
-                      <p className="text-[10px] text-gray-600">Min. CHF 10.00.</p>
-                    </>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {[
-                        { label: "Empfänger", value: bankTransfer.recipient },
-                        { label: "IBAN", value: bankTransfer.iban },
-                        { label: "Betrag", value: chf(bankTransfer.amount_chf) },
-                        { label: "Referenz", value: bankTransfer.reference },
-                      ].map(({ label, value }) => (
-                        <div key={label} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
-                          <div>
-                            <p className="text-[10px] text-gray-500">{label}</p>
-                            <p className="text-xs font-mono text-white">{value}</p>
-                          </div>
-                          <button onClick={() => copy(value, label)} className="text-gray-500 hover:text-blue-400 text-xs px-1.5 py-0.5 rounded transition-colors">
-                            {copied === label ? "✓" : "⎘"}
-                          </button>
-                        </div>
-                      ))}
-                      <p className="text-[10px] text-yellow-500/70">{bankTransfer.note}</p>
-                    </div>
-                  )}
                 </div>
               )}
             </>
