@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,7 +28,7 @@ from core.database import get_db
 from core.dependencies import get_current_user, require_admin
 from models.customer import Customer
 from models.email_message import EmailMessage
-from services.email_service import provision_baddi_email, send_from_baddi_address
+from services.email_service import provision_baddi_email
 
 log = logging.getLogger("uvicorn.error")
 router = APIRouter(prefix="/email", tags=["email"])
@@ -53,11 +53,6 @@ class InboundItem(BaseModel):
 class InboundPayload(BaseModel):
     items: list[InboundItem]
 
-
-class SendRequest(BaseModel):
-    to: EmailStr
-    subject: str
-    body: str
 
 
 class EmailMessageOut(BaseModel):
@@ -207,42 +202,6 @@ async def mark_read(
     if not msg or msg.customer_id != user.id:
         raise HTTPException(status_code=404, detail="Nicht gefunden")
     msg.read = True
-    await db.commit()
-    return {"ok": True}
-
-
-@router.post("/send")
-async def send_email(
-    req: SendRequest,
-    user: Customer = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Sendet eine E-Mail von der Baddi-Adresse des Users."""
-    if not user.baddi_email:
-        raise HTTPException(status_code=400, detail="Keine Baddi-E-Mail-Adresse vorhanden")
-
-    ok = await send_from_baddi_address(
-        from_baddi_email=user.baddi_email,
-        to_address=req.to,
-        subject=req.subject,
-        body_text=req.body,
-    )
-    if not ok:
-        raise HTTPException(status_code=502, detail="E-Mail-Versand fehlgeschlagen")
-
-    # Ausgehende E-Mail protokollieren
-    msg = EmailMessage(
-        id=uuid.uuid4(),
-        customer_id=user.id,
-        direction="outbound",
-        from_address=user.baddi_email,
-        to_address=req.to,
-        subject=req.subject,
-        body_text=req.body,
-        received_at=datetime.now(timezone.utc),
-        read=True,
-    )
-    db.add(msg)
     await db.commit()
     return {"ok": True}
 
