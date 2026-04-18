@@ -140,7 +140,11 @@ async def _on_subscription_updated(sub: dict, db: AsyncSession) -> None:
         return
 
     customer.stripe_subscription_id = sub["id"]
-    customer.subscription_status = sub["status"]  # active | past_due | canceled | ...
+    # cancel_at_period_end=true → Kündigung geplant, Status noch active/trialing
+    if sub.get("cancel_at_period_end"):
+        customer.subscription_status = "canceling"
+    else:
+        customer.subscription_status = sub["status"]  # active | trialing | past_due | canceled | ...
 
     period_end = sub.get("current_period_end")
     if period_end:

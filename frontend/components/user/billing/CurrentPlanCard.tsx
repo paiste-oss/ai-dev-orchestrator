@@ -14,20 +14,22 @@ interface BillingStatus {
 }
 
 function circleColor(s: string) {
-  if (s === "active")   return "bg-green-400";
-  if (s === "trialing") return "bg-blue-400";
-  if (s === "past_due") return "bg-yellow-400";
-  if (s === "canceled") return "bg-red-400";
+  if (s === "active")    return "bg-green-400";
+  if (s === "trialing")  return "bg-blue-400";
+  if (s === "canceling") return "bg-orange-400";
+  if (s === "past_due")  return "bg-yellow-400";
+  if (s === "canceled")  return "bg-red-400";
   return "bg-gray-600";
 }
 
 function statusLabel(s: string) {
   const map: Record<string, string> = {
-    active:   "Aktiv",
-    trialing: "Testphase",
-    past_due: "Zahlung ausstehend",
-    canceled: "Gekündigt",
-    inactive: "Kein Abo",
+    active:    "Aktiv",
+    trialing:  "Testphase",
+    canceling: "Kündigung geplant",
+    past_due:  "Zahlung ausstehend",
+    canceled:  "Gekündigt",
+    inactive:  "Kein Abo",
   };
   return map[s] ?? s;
 }

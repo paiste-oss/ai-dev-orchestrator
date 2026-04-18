@@ -147,7 +147,7 @@ export default function PlanGrid({ plans, currentPlanSlug, currentStatus, loadin
           <PlanCard
             key={plan.id}
             plan={plan}
-            isCurrentPlan={currentPlanSlug === plan.slug && (currentStatus === "active" || currentStatus === "trialing")}
+            isCurrentPlan={currentPlanSlug === plan.slug && ["active", "trialing", "canceling"].includes(currentStatus)}
             cycle={cycle}
             onSelect={() => onSelectPlan(plan.slug, cycle)}
             loading={loading}
