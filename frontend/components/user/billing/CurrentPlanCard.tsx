@@ -42,6 +42,7 @@ interface Props {
 
 export default function CurrentPlanCard({ status, loading, onOpenPortal }: Props) {
   const isActive = status.subscription_status === "active" || status.subscription_status === "trialing";
+  const isCanceling = status.subscription_status === "canceling";
   const label = statusLabel(status.subscription_status);
   const planName = status.plan_name ?? "Kein Abo";
 
@@ -54,7 +55,7 @@ export default function CurrentPlanCard({ status, loading, onOpenPortal }: Props
         {label !== planName && (
           <span className="text-xs text-gray-500">{label}</span>
         )}
-        {isActive && (
+        {(isActive || isCanceling) && (
           <button
             onClick={onOpenPortal}
             disabled={loading}
