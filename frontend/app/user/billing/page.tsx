@@ -284,7 +284,7 @@ function BillingPageInner() {
           {status && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-6 border-t border-white/6">
               <TokensCard status={status} />
-              {wallet && <StorageCard wallet={wallet} />}
+              {wallet && <StorageAddons wallet={wallet} addons={addons} onAddonPurchased={load} />}
             </div>
           )}
         </section>
@@ -301,13 +301,6 @@ function BillingPageInner() {
           </section>
         )}
 
-        {/* Speicher */}
-        {wallet && (
-          <section className="border-t border-white/6 pt-8">
-            <SectionHeader>Speicher</SectionHeader>
-            <StorageAddons wallet={wallet} addons={addons} onAddonPurchased={load} />
-          </section>
-        )}
 
         {/* Rechnungen */}
         <section className="border-t border-white/6 pt-8">
