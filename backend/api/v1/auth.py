@@ -148,14 +148,26 @@ async def register(request: Request, data: RegisterRequest, db: AsyncSession = D
         memory_consent=data.memory_consent,
         phone=data.phone or None,
     )
-    # Baddi-E-Mail-Adresse automatisch vergeben
+    # Baddi-E-Mail + CalDAV automatisch vergeben
     first = data.first_name or data.name.split()[0]
     from services.email_service import provision_baddi_email
+    from services.calendar_service import provision_caldav_account, generate_caldav_password
     user.baddi_email = provision_baddi_email(first)
 
     db.add(user)
     await db.commit()
     await db.refresh(user)
+
+    # CalDAV nach Commit provisionieren (braucht die user.id für Username-Ableitung)
+    try:
+        caldav_user = user.baddi_email.split("@")[0]
+        caldav_pass = generate_caldav_password()
+        provision_caldav_account(caldav_user, caldav_pass)
+        user.caldav_username = caldav_user
+        user.caldav_password = caldav_pass
+        await db.commit()
+    except Exception:
+        pass  # Kalender kann Admin später nachprovisionieren — kein Registrierungs-Blocker
 
     token = create_access_token(subject=user.email, role=user.role)
     return TokenResponse(access_token=token, role=user.role, name=user.name, email=user.email)

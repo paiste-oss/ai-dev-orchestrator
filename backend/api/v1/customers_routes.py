@@ -74,10 +74,15 @@ async def list_customers(
 @router.post("/", response_model=CustomerOut, status_code=201)
 async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_db), _: Customer = Depends(require_admin)):
     from sqlalchemy.exc import IntegrityError
+    from services.email_service import provision_baddi_email
+    from services.calendar_service import provision_caldav_account, generate_caldav_password
+
+    first = (data.name or "").split()[0] or "user"
     customer = Customer(
         name=data.name,
         email=data.email.lower(),
         hashed_password=hash_password(data.password) if data.password else "",
+        baddi_email=provision_baddi_email(first),
     )
     db.add(customer)
     try:
@@ -86,6 +91,17 @@ async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_d
         await db.rollback()
         raise HTTPException(status_code=409, detail="Email already registered")
     await db.refresh(customer)
+
+    try:
+        caldav_user = customer.baddi_email.split("@")[0]
+        caldav_pass = generate_caldav_password()
+        provision_caldav_account(caldav_user, caldav_pass)
+        customer.caldav_username = caldav_user
+        customer.caldav_password = caldav_pass
+        await db.commit()
+    except Exception:
+        pass
+
     return customer
 
 
