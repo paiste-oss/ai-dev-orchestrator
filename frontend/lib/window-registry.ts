@@ -12,6 +12,7 @@ export interface WindowModuleDefinition {
   defaultHeight: number;
   status: "active" | "beta" | "coming_soon" | "hidden";
   canvasType: string; // type-String für CardData
+  singleton: boolean; // true = nur einmal gleichzeitig offen
 }
 
 export const WINDOW_MODULES: WindowModuleDefinition[] = [
@@ -24,6 +25,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 420,
     status: "active",
     canvasType: "chart",
+    singleton: true,
   },
   {
     id: "whiteboard",
@@ -34,6 +36,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 520,
     status: "active",
     canvasType: "whiteboard",
+    singleton: true,
   },
   {
     id: "netzwerk",
@@ -44,6 +47,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 540,
     status: "active",
     canvasType: "netzwerk",
+    singleton: true,
   },
   {
     id: "image_viewer",
@@ -54,6 +58,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 440,
     status: "hidden",
     canvasType: "image_viewer",
+    singleton: true,
   },
   {
     id: "file_viewer",
@@ -64,6 +69,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 560,
     status: "hidden",
     canvasType: "file_viewer",
+    singleton: false,
   },
   {
     id: "documents",
@@ -74,6 +80,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 520,
     status: "active",
     canvasType: "documents",
+    singleton: true,
   },
   {
     id: "diktieren",
@@ -84,6 +91,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 520,
     status: "active",
     canvasType: "diktieren",
+    singleton: true,
   },
   {
     id: "memory",
@@ -94,6 +102,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 480,
     status: "active",
     canvasType: "memory",
+    singleton: true,
   },
   {
     id: "design",
@@ -104,6 +113,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 560,
     status: "active",
     canvasType: "design",
+    singleton: true,
   },
   {
     id: "geo_map",
@@ -114,6 +124,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 520,
     status: "active",
     canvasType: "geo_map",
+    singleton: true,
   },
   {
     id: "assistenz",
@@ -124,6 +135,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 560,
     status: "active",
     canvasType: "assistenz",
+    singleton: true,
   },
   {
     id: "flight_board",
@@ -134,6 +146,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 500,
     status: "active",
     canvasType: "flight_board",
+    singleton: true,
   },
   {
     id: "calendar",
@@ -144,6 +157,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 560,
     status: "active",
     canvasType: "calendar",
+    singleton: true,
   },
   {
     id: "email",
@@ -154,6 +168,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 520,
     status: "active",
     canvasType: "email",
+    singleton: true,
   },
   {
     id: "3d_renderer",
@@ -164,6 +179,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 520,
     status: "coming_soon",
     canvasType: "3d_renderer",
+    singleton: true,
   },
 ];
 

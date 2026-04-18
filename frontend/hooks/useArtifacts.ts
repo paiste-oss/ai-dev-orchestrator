@@ -2,6 +2,7 @@
 
 import { useReducer, useCallback, useEffect } from "react";
 import { ArtifactEntry } from "@/lib/chat-types";
+import { WINDOW_MODULES } from "@/lib/window-registry";
 
 const STORAGE_KEY = "baddi:artifacts";
 
@@ -35,11 +36,10 @@ function loadFromStorage(): ArtifactState {
   }
 }
 
-// Typen die nur einmal gleichzeitig offen sein können
-const SINGLETON_TYPES = new Set([
-  "chart", "netzwerk", "whiteboard", "geo_map", "assistenz",
-  "design", "memory", "documents", "diktieren", "image_viewer",
-]);
+// Typen die nur einmal gleichzeitig offen sein können — aus Registry abgeleitet
+const SINGLETON_TYPES = new Set(
+  WINDOW_MODULES.filter((m) => m.singleton).map((m) => m.canvasType)
+);
 
 // ── State & Actions ──────────────────────────────────────────────────────────
 
