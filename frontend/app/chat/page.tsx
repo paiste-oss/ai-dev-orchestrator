@@ -46,6 +46,7 @@ import GeoMapWindow from "@/components/windows/GeoMapWindow";
 import AssistenzWindow from "@/components/windows/AssistenzWindow";
 import FlightBoardWindow from "@/components/windows/FlightBoardWindow";
 import EmailWindow from "@/components/windows/EmailWindow";
+import CalendarWindow from "@/components/windows/CalendarWindow";
 import StockCard from "@/components/chat/StockCard";
 import StockHistoryCard from "@/components/chat/StockHistoryCard";
 import ImageGalleryCard from "@/components/chat/ImageGalleryCard";
@@ -670,6 +671,7 @@ export default function ChatPage() {
         <div className="h-full overflow-auto p-4"><ActionButtonsCard data={d as any} /></div>
       );
       case "email": return <EmailWindow />;
+      case "calendar": return <CalendarWindow />;
       default: return (
         <div className="p-4 text-sm text-gray-400 font-mono whitespace-pre-wrap">
           {JSON.stringify(d, null, 2)}

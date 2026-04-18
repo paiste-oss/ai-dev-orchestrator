@@ -1,16 +1,23 @@
 """
 Kalender-Endpunkte — CalDAV via Radicale.
 
-  GET  /v1/calendar/info              — CalDAV-URL + Credentials abrufen (User)
-  POST /v1/calendar/provision/{id}    — CalDAV-Account anlegen (Admin)
-  POST /v1/calendar/reset-password/{id} — Passwort zurücksetzen (Admin)
-  DELETE /v1/calendar/provision/{id}  — CalDAV-Account entfernen (Admin)
+  GET    /v1/calendar/info                — CalDAV-URL + Credentials (User)
+  GET    /v1/calendar/events              — Termine im Zeitraum (User)
+  POST   /v1/calendar/events              — Termin erstellen (User)
+  DELETE /v1/calendar/events/{uid}        — Termin löschen (User)
+  POST   /v1/calendar/provision/{id}      — CalDAV-Account anlegen (Admin)
+  POST   /v1/calendar/reset-password/{id} — Passwort zurücksetzen (Admin)
+  DELETE /v1/calendar/provision/{id}      — CalDAV-Account entfernen (Admin)
 """
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+import httpx
+from pydantic import BaseModel
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
@@ -26,6 +33,120 @@ from services.calendar_service import (
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
 
+
+# ── Pydantic-Schemas ──────────────────────────────────────────────────────────
+
+class CalEventOut(BaseModel):
+    uid: str
+    title: str
+    start: str
+    end: str
+    description: str | None = None
+    location: str | None = None
+
+
+class CreateEventReq(BaseModel):
+    title: str
+    start: str          # "YYYY-MM-DD HH:MM" or "YYYY-MM-DD"
+    end: str            # "YYYY-MM-DD HH:MM" or "YYYY-MM-DD"
+    all_day: bool = False
+    description: str | None = None
+    location: str | None = None
+
+
+# ── User-Endpunkte: Termine ───────────────────────────────────────────────────
+
+@router.get("/events", response_model=list[CalEventOut])
+async def list_events(
+    start: str = Query(..., description="Startdatum YYYY-MM-DD"),
+    end: str = Query(..., description="Enddatum YYYY-MM-DD"),
+    user: Customer = Depends(get_current_user),
+):
+    """Gibt Termine im Zeitraum [start, end] zurück."""
+    if not user.caldav_username or not user.caldav_password:
+        return []
+    from services.tools.handlers.calendar import _fetch_events, _ensure_collection
+    try:
+        start_dt = datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        end_dt = datetime.strptime(end, "%Y-%m-%d").replace(
+            hour=23, minute=59, second=59, tzinfo=timezone.utc
+        )
+        await _ensure_collection(user.caldav_username, user.caldav_password)
+        return await _fetch_events(user.caldav_username, user.caldav_password, start_dt, end_dt)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=f"Ungültiges Datum: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Kalender nicht erreichbar: {e}")
+
+
+@router.post("/events", response_model=CalEventOut, status_code=201)
+async def create_event(
+    req: CreateEventReq,
+    user: Customer = Depends(get_current_user),
+):
+    """Erstellt einen neuen Termin im persönlichen Kalender."""
+    if not user.caldav_username or not user.caldav_password:
+        raise HTTPException(status_code=400, detail="Kein Kalender-Account konfiguriert")
+    from services.tools.handlers.calendar import (
+        _ensure_collection, _build_ics, _event_url, _parse_dt,
+    )
+    try:
+        start_dt = _parse_dt(req.start)
+        end_dt = _parse_dt(req.end) if req.end else start_dt + timedelta(hours=1)
+        if end_dt <= start_dt:
+            raise HTTPException(status_code=422, detail="Endzeit muss nach der Startzeit liegen")
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=f"Ungültiges Datum: {e}")
+
+    uid = str(uuid.uuid4())
+    ics = _build_ics(
+        uid, req.title.strip(), start_dt, end_dt,
+        req.description, req.location, req.all_day,
+    )
+    await _ensure_collection(user.caldav_username, user.caldav_password)
+
+    async with httpx.AsyncClient(timeout=8.0) as client:
+        resp = await client.put(
+            _event_url(user.caldav_username, uid),
+            content=ics,
+            headers={"Content-Type": "text/calendar; charset=utf-8"},
+            auth=(user.caldav_username, user.caldav_password),
+        )
+    if resp.status_code not in (201, 204):
+        raise HTTPException(status_code=502, detail=f"CalDAV-Fehler {resp.status_code}")
+
+    return CalEventOut(
+        uid=uid,
+        title=req.title.strip(),
+        start=req.start,
+        end=req.end,
+        description=req.description,
+        location=req.location,
+    )
+
+
+@router.delete("/events/{uid}", status_code=204)
+async def delete_event(
+    uid: str,
+    user: Customer = Depends(get_current_user),
+):
+    """Löscht einen Termin anhand seiner UID."""
+    if not user.caldav_username or not user.caldav_password:
+        raise HTTPException(status_code=400, detail="Kein Kalender-Account konfiguriert")
+    from services.tools.handlers.calendar import _event_url
+
+    async with httpx.AsyncClient(timeout=8.0) as client:
+        resp = await client.delete(
+            _event_url(user.caldav_username, uid),
+            auth=(user.caldav_username, user.caldav_password),
+        )
+    if resp.status_code not in (200, 204, 404):
+        raise HTTPException(status_code=502, detail=f"CalDAV-Fehler {resp.status_code}")
+
+
+# ── Connection Info ───────────────────────────────────────────────────────────
 
 @router.get("/info")
 async def get_calendar_info(user: Customer = Depends(get_current_user)):

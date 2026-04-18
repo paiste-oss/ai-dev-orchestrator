@@ -136,6 +136,16 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     canvasType: "flight_board",
   },
   {
+    id: "calendar",
+    label: "Kalender",
+    icon: "📅",
+    description: "Persönlicher Kalender mit Monatsansicht, Wochennummern und Terminen. Erstellen, ansehen und löschen.",
+    defaultWidth: 660,
+    defaultHeight: 560,
+    status: "active",
+    canvasType: "calendar",
+  },
+  {
     id: "email",
     label: "E-Mail",
     icon: "✉️",
