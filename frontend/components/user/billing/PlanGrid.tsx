@@ -28,6 +28,7 @@ const TRIAL_SLUG = "basis";
 function PlanCard({
   plan,
   isCurrentPlan,
+  showTrial,
   cycle,
   onSelect,
   loading,
