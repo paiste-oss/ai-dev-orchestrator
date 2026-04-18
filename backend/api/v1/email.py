@@ -6,8 +6,11 @@ Endpunkte:
   GET  /v1/email/address          — eigene Baddi-Adresse abrufen (User)
   GET  /v1/email/inbox            — Posteingang (User)
   PUT  /v1/email/inbox/{id}/read  — als gelesen markieren (User)
-  POST /v1/email/send             — E-Mail von eigener Adresse senden (User)
   POST /v1/email/provision/{id}   — Adresse für User anlegen (Admin)
+  POST /v1/email/provision-all    — Bulk-Migration bestehende User (Admin)
+
+Versand ausschliesslich via Baddi-Tools (send_from_baddi_address in email_service.py).
+Kein direkter Send-Endpoint für User — verhindert Spam und unkontrollierte Kosten.
 """
 from __future__ import annotations
 
