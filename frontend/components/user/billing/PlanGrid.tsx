@@ -125,8 +125,7 @@ export default function PlanGrid({ plans, currentPlanSlug, currentStatus, loadin
 
   return (
     <section className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-white">Abonnement wählen</h2>
+      <div className="flex items-center justify-end">
         <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-0.5">
           {(["monthly", "yearly"] as const).map((c) => (
             <button

@@ -184,7 +184,6 @@ export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Pr
 
       {/* ── Monatsausgaben ─────────────────────────────────────────────────────── */}
       <div className="p-5 space-y-4">
-        <p className="text-xs text-gray-500 uppercase tracking-wider">Monatsausgaben</p>
 
         {/* Laufbalken */}
         <div className="space-y-1.5">
@@ -195,57 +194,55 @@ export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Pr
           <ProgressBar value={wallet.monthly_spent_chf} max={wallet.monthly_limit_chf} color={spendColor} />
         </div>
 
-        {/* Limits */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
+        {/* Limits + Auto-Nachzahlen auf einer Linie */}
+        <div className="flex items-end gap-3 flex-wrap">
+          <div className="space-y-1">
             <label className="text-xs text-gray-400">Max. / Monat (CHF)</label>
             <input type="number" step="10" min="0" value={settings.monthly_limit_chf}
               onChange={e => setSettings(s => ({ ...s, monthly_limit_chf: e.target.value }))}
-              className={inputCls} />
+              className="w-28 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition-colors" />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <label className="text-xs text-gray-400">Max. / Transaktion (CHF)</label>
             <input type="number" step="5" min="0" value={settings.per_tx_limit_chf}
               onChange={e => setSettings(s => ({ ...s, per_tx_limit_chf: e.target.value }))}
-              className={inputCls} />
+              className="w-28 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition-colors" />
           </div>
-        </div>
-
-        {/* Auto-Topup */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-400">Auto-Nachzahlen</p>
-            <button
-              onClick={() => setSettings(s => ({ ...s, auto_topup_enabled: !s.auto_topup_enabled }))}
-              className={`w-10 h-5 rounded-full transition-colors relative ${settings.auto_topup_enabled ? "bg-blue-500" : "bg-gray-700"}`}
-            >
-              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${settings.auto_topup_enabled ? "translate-x-5" : "translate-x-0.5"}`} />
-            </button>
-          </div>
-
-          {settings.auto_topup_enabled && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs text-gray-400">Auslösen wenn &lt; (CHF)</label>
-                <input type="number" step="1" min="1" value={settings.auto_topup_threshold_chf}
-                  onChange={e => setSettings(s => ({ ...s, auto_topup_threshold_chf: e.target.value }))}
-                  className={inputCls} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs text-gray-400">Nachzahlen (CHF)</label>
-                <input type="number" step="5" min="5" value={settings.auto_topup_amount_chf}
-                  onChange={e => setSettings(s => ({ ...s, auto_topup_amount_chf: e.target.value }))}
-                  className={inputCls} />
-              </div>
+          <div className="space-y-1">
+            <label className="text-xs text-gray-400">Auto-Nachzahlen</label>
+            <div className="flex items-center h-[38px]">
+              <button
+                onClick={() => setSettings(s => ({ ...s, auto_topup_enabled: !s.auto_topup_enabled }))}
+                className={`w-10 h-5 rounded-full transition-colors relative ${settings.auto_topup_enabled ? "bg-blue-500" : "bg-gray-700"}`}
+              >
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${settings.auto_topup_enabled ? "translate-x-5" : "translate-x-0.5"}`} />
+              </button>
             </div>
-          )}
-
-          {settings.auto_topup_enabled && !wallet.has_saved_card && (
-            <p className="text-xs text-yellow-500 bg-yellow-950/20 border border-yellow-900/30 rounded-xl px-3 py-2">
-              Für Auto-Nachzahlen benötigst du eine gespeicherte Karte. Lade das Wallet einmal via Stripe auf — deine Karte wird dann gespeichert.
-            </p>
-          )}
+          </div>
         </div>
+
+        {settings.auto_topup_enabled && (
+          <div className="flex items-end gap-3 flex-wrap">
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Auslösen wenn &lt; (CHF)</label>
+              <input type="number" step="1" min="1" value={settings.auto_topup_threshold_chf}
+                onChange={e => setSettings(s => ({ ...s, auto_topup_threshold_chf: e.target.value }))}
+                className="w-28 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition-colors" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Nachzahlen (CHF)</label>
+              <input type="number" step="5" min="5" value={settings.auto_topup_amount_chf}
+                onChange={e => setSettings(s => ({ ...s, auto_topup_amount_chf: e.target.value }))}
+                className="w-28 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition-colors" />
+            </div>
+          </div>
+        )}
+
+        {settings.auto_topup_enabled && !wallet.has_saved_card && (
+          <p className="text-xs text-yellow-500 bg-yellow-950/20 border border-yellow-900/30 rounded-xl px-3 py-2">
+            Für Auto-Nachzahlen benötigst du eine gespeicherte Karte. Lade das Wallet einmal via Stripe auf — deine Karte wird dann gespeichert.
+          </p>
+        )}
 
         <div className="flex items-center gap-3">
           <button
