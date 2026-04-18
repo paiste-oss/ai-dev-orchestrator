@@ -148,6 +148,11 @@ async def register(request: Request, data: RegisterRequest, db: AsyncSession = D
         memory_consent=data.memory_consent,
         phone=data.phone or None,
     )
+    # Baddi-E-Mail-Adresse automatisch vergeben
+    first = data.first_name or data.name.split()[0]
+    from services.email_service import provision_baddi_email
+    user.baddi_email = provision_baddi_email(first)
+
     db.add(user)
     await db.commit()
     await db.refresh(user)

@@ -46,6 +46,8 @@ class InboundItem(BaseModel):
     TextBody: str | None = None
     HtmlBody: str | None = None
     Headers: dict[str, Any] | None = None
+    Dkim: str | None = None        # "pass" | "fail" | None
+    SpfResult: str | None = None   # "pass" | "fail" | "softfail" | None
 
 
 class InboundPayload(BaseModel):
@@ -67,6 +69,7 @@ class EmailMessageOut(BaseModel):
     body_text: str | None
     received_at: datetime
     read: bool
+    sender_trusted: bool
 
     model_config = {"from_attributes": True}
 
@@ -129,6 +132,10 @@ async def inbound_webhook(
             continue
 
         from_addr = _extract_from_address(item)
+        sender_trusted = (
+            (item.Dkim or "").lower() == "pass"
+            and (item.SpfResult or "").lower() == "pass"
+        )
         msg = EmailMessage(
             id=uuid.uuid4(),
             customer_id=customer.id,
@@ -141,6 +148,7 @@ async def inbound_webhook(
             message_id=item.MessageId,
             received_at=datetime.now(timezone.utc),
             read=False,
+            sender_trusted=sender_trusted,
             raw_headers=item.Headers,
         )
         db.add(msg)
@@ -258,6 +266,33 @@ async def provision_address(
 
 
 # ── Hilfsfunktionen ───────────────────────────────────────────────────────────
+
+@router.post("/provision-all", include_in_schema=False)
+async def provision_all_emails(
+    admin: Customer = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Vergibt Baddi-E-Mail-Adressen an alle User die noch keine haben (einmalige Migration)."""
+    from sqlalchemy import select as _select
+    from services.email_service import provision_baddi_email
+
+    result = await db.execute(
+        _select(Customer).where(Customer.baddi_email.is_(None), Customer.is_active.is_(True))
+    )
+    customers = result.scalars().all()
+    provisioned = []
+
+    for customer in customers:
+        first = customer.first_name or customer.name.split()[0]
+        customer.baddi_email = provision_baddi_email(first)
+        provisioned.append({"id": str(customer.id), "name": customer.name, "baddi_email": customer.baddi_email})
+
+    if provisioned:
+        await db.commit()
+        log.info("[Email] Bulk-Provisioning: %d Adressen vergeben", len(provisioned))
+
+    return {"provisioned": len(provisioned), "details": provisioned}
+
 
 def _extract_from_address(item: InboundItem) -> str:
     if isinstance(item.From, dict):

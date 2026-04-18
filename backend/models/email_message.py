@@ -32,6 +32,9 @@ class EmailMessage(Base):
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), index=True
     )
     read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # SPF+DKIM-Prüfung bestanden → Baddi darf autonom auf diese Mail reagieren.
+    # False = unbekannter Absender → nur speichern, nie automatisch handeln.
+    sender_trusted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     raw_headers: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     customer: Mapped["Customer"] = relationship("Customer")  # type: ignore
