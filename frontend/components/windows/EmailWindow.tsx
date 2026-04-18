@@ -16,6 +16,7 @@ interface EmailMsg {
   sender_trusted: boolean;
   baddi_action: string | null;
   replied: boolean;
+  archived: boolean;
 }
 
 type Tab = "trusted" | "untrusted";
@@ -29,11 +30,8 @@ function fmtDate(iso: string): string {
 
 function RefreshIcon({ spinning }: { spinning: boolean }) {
   return (
-    <svg
-      className={`w-3.5 h-3.5 ${spinning ? "animate-spin" : ""}`}
-      viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-    >
+    <svg className={`w-3.5 h-3.5 ${spinning ? "animate-spin" : ""}`} viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="23 4 23 10 17 10" />
       <polyline points="1 20 1 14 7 14" />
       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
@@ -43,11 +41,8 @@ function RefreshIcon({ spinning }: { spinning: boolean }) {
 
 function ChevronIcon({ down }: { down: boolean }) {
   return (
-    <svg
-      className={`w-3 h-3 transition-transform ${down ? "rotate-180" : ""}`}
-      viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-    >
+    <svg className={`w-3 h-3 transition-transform ${down ? "rotate-180" : ""}`} viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="6 9 12 15 18 9" />
     </svg>
   );
@@ -58,10 +53,20 @@ export default function EmailWindow() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("trusted");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  // Manual reply state
   const [replyOpen, setReplyOpen] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
-  const [sending, setSending] = useState<string | null>(null);
+  const [replySending, setReplySending] = useState<string | null>(null);
+
+  // Baddi refine mini-chat state
+  const [refineOpen, setRefineOpen] = useState<string | null>(null);
+  const [refineText, setRefineText] = useState("");
+
+  // Per-message loading states
+  const [baddiBusy, setBaddiBusy] = useState<Set<string>>(new Set());
   const [actionPending, setActionPending] = useState<string | null>(null);
+
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -83,9 +88,18 @@ export default function EmailWindow() {
   const untrusted = messages.filter(m => !m.sender_trusted);
   const shown = tab === "trusted" ? trusted : untrusted;
 
+  function updateMsg(id: string, patch: Partial<EmailMsg>) {
+    setMessages(prev => prev.map(m => m.id === id ? { ...m, ...patch } : m));
+  }
+
+  function removeMsg(id: string) {
+    setMessages(prev => prev.filter(m => m.id !== id));
+    setExpanded(prev => { const s = new Set(prev); s.delete(id); return s; });
+  }
+
   async function markRead(id: string) {
     await apiFetch(`${BACKEND_URL}/v1/email/inbox/${id}/read`, { method: "PUT" });
-    setMessages(prev => prev.map(m => m.id === id ? { ...m, read: true } : m));
+    updateMsg(id, { read: true });
   }
 
   function toggleExpand(id: string, isRead: boolean) {
@@ -95,15 +109,18 @@ export default function EmailWindow() {
       return s;
     });
     if (!isRead) markRead(id);
+    // Close sub-panels when collapsing
+    if (expanded.has(id)) {
+      if (replyOpen === id) setReplyOpen(null);
+      if (refineOpen === id) setRefineOpen(null);
+    }
   }
 
   async function trustSender(id: string) {
     setActionPending(id);
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/email/inbox/${id}/trust`, { method: "POST" });
-      if (res.ok) {
-        setMessages(prev => prev.map(m => m.id === id ? { ...m, sender_trusted: true } : m));
-      }
+      if (res.ok) updateMsg(id, { sender_trusted: true });
     } finally { setActionPending(null); }
   }
 
@@ -114,7 +131,6 @@ export default function EmailWindow() {
       if (res.ok) {
         const blocked = messages.find(m => m.id === id)?.from_address.toLowerCase();
         setMessages(prev => prev.filter(m => m.from_address.toLowerCase() !== blocked));
-        setExpanded(prev => { const s = new Set(prev); s.delete(id); return s; });
       }
     } finally { setActionPending(null); }
   }
@@ -123,16 +139,21 @@ export default function EmailWindow() {
     setActionPending(id);
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/email/inbox/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        setMessages(prev => prev.filter(m => m.id !== id));
-        setExpanded(prev => { const s = new Set(prev); s.delete(id); return s; });
-      }
+      if (res.ok) removeMsg(id);
+    } finally { setActionPending(null); }
+  }
+
+  async function archiveMsg(id: string) {
+    setActionPending(id);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/email/inbox/${id}/archive`, { method: "POST" });
+      if (res.ok) removeMsg(id);
     } finally { setActionPending(null); }
   }
 
   async function sendReply(id: string) {
     if (!replyText.trim()) return;
-    setSending(id);
+    setReplySending(id);
     setError(null);
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/email/inbox/${id}/reply`, {
@@ -140,14 +161,72 @@ export default function EmailWindow() {
         body: JSON.stringify({ reply_text: replyText }),
       });
       if (res.ok) {
-        setMessages(prev => prev.map(m => m.id === id ? { ...m, replied: true } : m));
+        updateMsg(id, { replied: true });
         setReplyOpen(null);
         setReplyText("");
       } else {
         const d = await res.json().catch(() => null);
         setError(d?.detail ?? "Senden fehlgeschlagen");
       }
-    } finally { setSending(null); }
+    } finally { setReplySending(null); }
+  }
+
+  async function askBaddi(id: string) {
+    setBaddiBusy(prev => new Set(prev).add(id));
+    setError(null);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/email/inbox/${id}/ask-baddi`, { method: "POST" });
+      if (res.ok) {
+        const updated: EmailMsg = await res.json();
+        updateMsg(id, { baddi_action: updated.baddi_action });
+      } else {
+        const d = await res.json().catch(() => null);
+        setError(d?.detail ?? "Baddi konnte keinen Entwurf generieren");
+      }
+    } finally {
+      setBaddiBusy(prev => { const s = new Set(prev); s.delete(id); return s; });
+    }
+  }
+
+  async function refineBaddi(id: string) {
+    if (!refineText.trim()) return;
+    setBaddiBusy(prev => new Set(prev).add(id));
+    setError(null);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/email/inbox/${id}/refine`, {
+        method: "POST",
+        body: JSON.stringify({ instruction: refineText }),
+      });
+      if (res.ok) {
+        const updated: EmailMsg = await res.json();
+        updateMsg(id, { baddi_action: updated.baddi_action });
+        setRefineText("");
+        setRefineOpen(null);
+      } else {
+        const d = await res.json().catch(() => null);
+        setError(d?.detail ?? "Anpassen fehlgeschlagen");
+      }
+    } finally {
+      setBaddiBusy(prev => { const s = new Set(prev); s.delete(id); return s; });
+    }
+  }
+
+  async function executeBaddi(id: string) {
+    setBaddiBusy(prev => new Set(prev).add(id));
+    setError(null);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/email/inbox/${id}/execute`, { method: "POST" });
+      if (res.ok) {
+        const updated: EmailMsg = await res.json();
+        updateMsg(id, { replied: updated.replied, baddi_action: updated.baddi_action });
+        setRefineOpen(null);
+      } else {
+        const d = await res.json().catch(() => null);
+        setError(d?.detail ?? "Ausführen fehlgeschlagen");
+      }
+    } finally {
+      setBaddiBusy(prev => { const s = new Set(prev); s.delete(id); return s; });
+    }
   }
 
   return (
@@ -215,7 +294,11 @@ export default function EmailWindow() {
             {shown.map(msg => {
               const isExpanded = expanded.has(msg.id);
               const isReplyCompose = replyOpen === msg.id;
+              const isRefineOpen = refineOpen === msg.id;
               const isPending = actionPending === msg.id;
+              const isBaddiBusy = baddiBusy.has(msg.id);
+              const hasPendingProposal = !!msg.baddi_action && !msg.replied;
+              const hasExecutedProposal = !!msg.baddi_action && msg.replied;
 
               return (
                 <div key={msg.id} className={`${!msg.read ? "bg-white/[0.025]" : ""}`}>
@@ -225,11 +308,9 @@ export default function EmailWindow() {
                     className="flex items-start gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-white/4 transition-colors"
                     onClick={() => toggleExpand(msg.id, msg.read)}
                   >
-                    {/* Unread dot */}
                     <div className="shrink-0 mt-[7px] w-1.5 h-1.5 rounded-full flex-none"
                       style={{ backgroundColor: !msg.read ? "rgb(129,140,248)" : "transparent" }}
                     />
-
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-semibold text-white truncate">{msg.from_address}</span>
@@ -245,18 +326,22 @@ export default function EmailWindow() {
                               {msg.body_text.slice(0, 80)}
                             </p>
                           )}
-                          {msg.sender_trusted && msg.baddi_action && (
-                            <p className="text-[10px] text-emerald-500/80 mt-0.5 truncate">
-                              ↳ {msg.baddi_action}
+                          {hasPendingProposal && (
+                            <p className="text-[10px] text-amber-400/70 mt-0.5 truncate">
+                              ✏️ Entwurf bereit — warte auf Ausführung
                             </p>
                           )}
-                          {msg.replied && (
+                          {hasExecutedProposal && (
+                            <p className="text-[10px] text-emerald-500/80 mt-0.5 truncate">
+                              ✓ Baddi hat geantwortet
+                            </p>
+                          )}
+                          {msg.replied && !msg.baddi_action && (
                             <span className="inline-block text-[10px] text-indigo-400/70 mt-0.5">↩ Beantwortet</span>
                           )}
                         </>
                       )}
                     </div>
-
                     <div className="text-gray-600 shrink-0 mt-1">
                       <ChevronIcon down={isExpanded} />
                     </div>
@@ -264,7 +349,7 @@ export default function EmailWindow() {
 
                   {/* Expanded body */}
                   {isExpanded && (
-                    <div className="px-5 pb-3 space-y-2.5">
+                    <div className="px-5 pb-3 space-y-2.5" onClick={e => e.stopPropagation()}>
 
                       {/* Meta */}
                       <p className="text-[10px] text-gray-600">
@@ -276,67 +361,158 @@ export default function EmailWindow() {
                         )}
                       </p>
 
-                      {/* Body text */}
+                      {/* Body */}
                       {msg.body_text && (
                         <div className="bg-gray-900/60 rounded-xl px-3 py-2.5 text-xs text-gray-300 whitespace-pre-wrap leading-relaxed max-h-44 overflow-auto border border-white/5">
                           {msg.body_text}
                         </div>
                       )}
 
-                      {/* Baddi action — trusted only */}
-                      {msg.sender_trusted && (
-                        msg.baddi_action ? (
-                          <div className="flex items-start gap-2 bg-emerald-950/40 border border-emerald-800/30 rounded-xl px-3 py-2.5">
-                            <span className="text-emerald-400 text-sm shrink-0 mt-0.5">🤖</span>
-                            <div>
-                              <p className="text-[10px] text-emerald-500/70 font-medium mb-0.5">Baddi hat unternommen:</p>
-                              <p className="text-xs text-emerald-300 leading-relaxed">{msg.baddi_action}</p>
-                            </div>
+                      {/* ── Baddi Proposal / Action Box ── */}
+                      {hasExecutedProposal ? (
+                        <div className="flex items-start gap-2 bg-emerald-950/40 border border-emerald-800/30 rounded-xl px-3 py-2.5">
+                          <span className="text-emerald-400 text-sm shrink-0 mt-0.5">🤖</span>
+                          <div>
+                            <p className="text-[10px] text-emerald-500/70 font-medium mb-0.5">Baddi hat geantwortet:</p>
+                            <p className="text-xs text-emerald-300 leading-relaxed whitespace-pre-wrap">{msg.baddi_action}</p>
                           </div>
-                        ) : (
-                          <p className="text-[10px] text-gray-600 flex items-center gap-1.5">
-                            <span>🤖</span>
-                            <span>Baddi hat diese E-Mail noch nicht verarbeitet.</span>
-                          </p>
-                        )
+                        </div>
+                      ) : hasPendingProposal ? (
+                        <div className="bg-amber-950/30 border border-amber-700/30 rounded-xl px-3 py-2.5 space-y-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-amber-400 text-sm">✏️</span>
+                            <p className="text-[10px] text-amber-400/80 font-medium">Baddi-Entwurf — noch nicht gesendet</p>
+                          </div>
+                          <p className="text-xs text-amber-100/80 leading-relaxed whitespace-pre-wrap">{msg.baddi_action}</p>
+
+                          {/* Execute / Adjust buttons */}
+                          {!isRefineOpen && (
+                            <div className="flex gap-2 pt-0.5">
+                              <button
+                                onClick={() => executeBaddi(msg.id)}
+                                disabled={isBaddiBusy}
+                                className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white font-semibold transition-colors disabled:opacity-40"
+                              >
+                                {isBaddiBusy ? "…" : "▶ Ausführen"}
+                              </button>
+                              <button
+                                onClick={() => { setRefineOpen(msg.id); setRefineText(""); }}
+                                disabled={isBaddiBusy}
+                                className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-white/8 hover:bg-white/14 text-gray-300 transition-colors disabled:opacity-40"
+                              >
+                                ✏️ Anpassen
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Refine mini-chat */}
+                          {isRefineOpen && (
+                            <div className="space-y-2 pt-1 border-t border-white/8">
+                              <p className="text-[10px] text-gray-500">Gib Baddi eine Anweisung zur Überarbeitung:</p>
+                              <textarea
+                                value={refineText}
+                                onChange={e => setRefineText(e.target.value)}
+                                placeholder="z.B. «Mach es formeller» oder «Erwähne auch den Termin am Montag»"
+                                rows={3}
+                                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 resize-none transition-colors"
+                                autoFocus
+                                onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) refineBaddi(msg.id); }}
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => refineBaddi(msg.id)}
+                                  disabled={!refineText.trim() || isBaddiBusy}
+                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition-colors disabled:opacity-40"
+                                >
+                                  {isBaddiBusy ? "Überarbeite…" : "Aktualisieren"}
+                                </button>
+                                <button
+                                  onClick={() => { setRefineOpen(null); setRefineText(""); }}
+                                  className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-[11px] transition-colors"
+                                >
+                                  Abbrechen
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        /* No proposal yet */
+                        <button
+                          onClick={() => askBaddi(msg.id)}
+                          disabled={isBaddiBusy}
+                          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 transition-colors disabled:opacity-40 w-full justify-center"
+                        >
+                          {isBaddiBusy ? (
+                            <>
+                              <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity=".3"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+                              Baddi denkt nach…
+                            </>
+                          ) : (
+                            <>🤖 Baddi antworten lassen</>
+                          )}
+                        </button>
                       )}
 
-                      {/* Actions — untrusted only */}
-                      {!msg.sender_trusted && (
-                        <div className="flex items-center gap-2 flex-wrap">
+                      {/* ── Action buttons ── */}
+                      <div className="flex items-center gap-2 flex-wrap">
+
+                        {/* Manual reply — untrusted only */}
+                        {!msg.sender_trusted && (
                           <button
-                            onClick={e => { e.stopPropagation(); setReplyOpen(isReplyCompose ? null : msg.id); setReplyText(""); }}
+                            onClick={() => { setReplyOpen(isReplyCompose ? null : msg.id); setReplyText(""); }}
                             className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 transition-colors"
                           >
                             ↩ Beantworten
                           </button>
+                        )}
+
+                        {/* Trust — untrusted only */}
+                        {!msg.sender_trusted && (
                           <button
-                            onClick={e => { e.stopPropagation(); trustSender(msg.id); }}
+                            onClick={() => trustSender(msg.id)}
                             disabled={isPending}
                             className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors disabled:opacity-40"
                           >
                             ✓ Vertrauen
                           </button>
+                        )}
+
+                        {/* Block — untrusted only */}
+                        {!msg.sender_trusted && (
                           <button
-                            onClick={e => { e.stopPropagation(); blockSender(msg.id); }}
+                            onClick={() => blockSender(msg.id)}
                             disabled={isPending}
                             className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-colors disabled:opacity-40"
                           >
                             🚫 Sperren
                           </button>
+                        )}
+
+                        {/* Delete — untrusted only */}
+                        {!msg.sender_trusted && (
                           <button
-                            onClick={e => { e.stopPropagation(); deleteMsg(msg.id); }}
+                            onClick={() => deleteMsg(msg.id)}
                             disabled={isPending}
                             className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors disabled:opacity-40"
                           >
                             🗑 Löschen
                           </button>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Reply compose */}
+                        {/* Archive — all emails */}
+                        <button
+                          onClick={() => archiveMsg(msg.id)}
+                          disabled={isPending}
+                          className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-40"
+                        >
+                          📦 Archivieren
+                        </button>
+                      </div>
+
+                      {/* Manual reply compose */}
                       {isReplyCompose && (
-                        <div className="space-y-2 pt-0.5" onClick={e => e.stopPropagation()}>
+                        <div className="space-y-2 pt-0.5">
                           <textarea
                             value={replyText}
                             onChange={e => setReplyText(e.target.value)}
@@ -348,10 +524,10 @@ export default function EmailWindow() {
                           <div className="flex gap-2">
                             <button
                               onClick={() => sendReply(msg.id)}
-                              disabled={!replyText.trim() || sending === msg.id}
+                              disabled={!replyText.trim() || replySending === msg.id}
                               className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition-colors disabled:opacity-40"
                             >
-                              {sending === msg.id ? "Sendet…" : "Senden"}
+                              {replySending === msg.id ? "Sendet…" : "Senden"}
                             </button>
                             <button
                               onClick={() => { setReplyOpen(null); setReplyText(""); }}

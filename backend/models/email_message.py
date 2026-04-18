@@ -37,8 +37,10 @@ class EmailMessage(Base):
     sender_trusted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # Was Baddi mit dieser Mail gemacht hat (z.B. "Kalendertermin am 22.04. angelegt")
     baddi_action: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # True wenn User manuell geantwortet hat
+    # True wenn User oder Baddi geantwortet hat
     replied: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # True = aus Hauptansicht ausgeblendet (nicht gelöscht)
+    archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     raw_headers: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     customer: Mapped["Customer"] = relationship("Customer")  # type: ignore
