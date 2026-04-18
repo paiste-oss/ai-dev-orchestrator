@@ -194,19 +194,19 @@ export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Pr
           <ProgressBar value={wallet.monthly_spent_chf} max={wallet.monthly_limit_chf} color={spendColor} />
         </div>
 
-        {/* Limits + Auto-Nachzahlen auf einer Linie */}
-        <div className="flex items-end gap-3 flex-wrap">
+        {/* Limits + Auto-Nachzahlen auf einer Linie, volle Breite */}
+        <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1">
             <label className="text-xs text-gray-400">Max. / Monat (CHF)</label>
             <input type="number" step="10" min="0" value={settings.monthly_limit_chf}
               onChange={e => setSettings(s => ({ ...s, monthly_limit_chf: e.target.value }))}
-              className="w-28 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition-colors" />
+              className={inputCls} />
           </div>
           <div className="space-y-1">
             <label className="text-xs text-gray-400">Max. / Transaktion (CHF)</label>
             <input type="number" step="5" min="0" value={settings.per_tx_limit_chf}
               onChange={e => setSettings(s => ({ ...s, per_tx_limit_chf: e.target.value }))}
-              className="w-28 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-blue-500 transition-colors" />
+              className={inputCls} />
           </div>
           <div className="space-y-1">
             <label className="text-xs text-gray-400">Auto-Nachzahlen</label>
