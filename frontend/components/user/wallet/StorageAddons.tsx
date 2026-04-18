@@ -65,8 +65,6 @@ export default function StorageAddons({ wallet, addons, onAddonPurchased }: Prop
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-4">
-      <h2 className="font-semibold text-white">Speicher</h2>
-
       {/* Usage bar */}
       <div className="space-y-2">
         <div className="flex justify-between text-xs text-gray-400">

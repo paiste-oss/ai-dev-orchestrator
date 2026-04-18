@@ -143,9 +143,6 @@ export default function PlanGrid({ plans, currentPlanSlug, currentStatus, loadin
         ))}
       </div>
 
-      <p className="text-xs text-gray-600 text-center">
-        Alle Preise inkl. 8.1% MwSt · Monatlich kündbar · Sichere Zahlung via Stripe
-      </p>
     </section>
   );
 }

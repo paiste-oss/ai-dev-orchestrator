@@ -82,6 +82,10 @@ function authHeaders() {
   return { Authorization: `Bearer ${getToken()}`, "Content-Type": "application/json" };
 }
 
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return <h2 className="text-sm font-semibold text-white mb-4">{children}</h2>;
+}
+
 function BillingPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -155,30 +159,18 @@ function BillingPageInner() {
     } finally { setLoading(false); }
   }
 
-  const isActive = status?.subscription_status === "active" || status?.subscription_status === "trialing";
-
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <div className="max-w-4xl mx-auto px-5 py-10 space-y-10">
 
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <button onClick={() => router.push("/chat")} className="text-xs text-gray-600 hover:text-gray-400 mb-3 flex items-center gap-1">
-              ← Zurück zum Chat
-            </button>
-            <h1 className="text-2xl font-bold text-white">Abonnement & Wallet</h1>
-            <p className="text-sm text-gray-500 mt-1">Plan verwalten, Guthaben aufladen, Rechnungen herunterladen</p>
-          </div>
-          {isActive && (
-            <button
-              onClick={openPortal}
-              disabled={loading}
-              className="text-xs bg-white/5 border border-white/10 hover:bg-white/10 px-4 py-2 rounded-xl transition-all"
-            >
-              Karte / Abo verwalten →
-            </button>
-          )}
+        <div>
+          <button onClick={() => router.push("/chat")} className="text-xs text-gray-600 hover:text-gray-400 mb-3 flex items-center gap-1">
+            ← Zurück zum Chat
+          </button>
+          <h1 className="text-2xl font-bold text-white">Abonnement & Wallet</h1>
+          <p className="text-sm text-gray-500 mt-1">Plan verwalten, Guthaben aufladen, Rechnungen herunterladen</p>
+          <p className="text-xs text-gray-700 mt-0.5">Alle Preise inkl. 8.1% MwSt · Monatlich kündbar · Sichere Zahlung via Stripe</p>
         </div>
 
         {/* Alert */}
@@ -193,8 +185,13 @@ function BillingPageInner() {
           </div>
         )}
 
-        {/* Aktueller Plan */}
-        {status && <CurrentPlanCard status={status} loading={loading} onOpenPortal={openPortal} />}
+        {/* Übersicht: Plan · Tokens · Speicher */}
+        {status && (
+          <section>
+            <SectionHeader>Übersicht</SectionHeader>
+            <CurrentPlanCard status={status} wallet={wallet} loading={loading} onOpenPortal={openPortal} />
+          </section>
+        )}
 
         {/* ToS */}
         {status && !status.tos_accepted && (
@@ -219,33 +216,38 @@ function BillingPageInner() {
           </div>
         )}
 
-        {/* Plan-Auswahl */}
-        <PlanGrid
-          plans={plans}
-          currentPlanSlug={status?.plan_slug ?? null}
-          currentStatus={status?.subscription_status ?? ""}
-          loading={loading}
-          onSelectPlan={startCheckout}
-        />
+        {/* Abonnement wählen */}
+        <section className="border-t border-white/6 pt-8">
+          <PlanGrid
+            plans={plans}
+            currentPlanSlug={status?.plan_slug ?? null}
+            currentStatus={status?.subscription_status ?? ""}
+            loading={loading}
+            onSelectPlan={startCheckout}
+          />
+        </section>
 
-        {/* Wallet */}
+        {/* Guthaben aufladen */}
         {wallet && (
-          <>
-            <div className="border-t border-white/6 pt-8">
-              <h2 className="text-sm font-semibold text-white mb-5">Wallet & Guthaben</h2>
-              <div className="space-y-5">
-                <WalletBalanceCard wallet={wallet} onOpenSettings={() => setSettingsOpen(true)} />
-                <TopupModal hasActiveSubscription={wallet.has_active_subscription} />
-                <StorageAddons wallet={wallet} addons={addons} onAddonPurchased={load} />
-              </div>
-            </div>
-          </>
+          <section className="border-t border-white/6 pt-8 space-y-4">
+            <SectionHeader>Guthaben aufladen</SectionHeader>
+            <WalletBalanceCard wallet={wallet} onOpenSettings={() => setSettingsOpen(true)} />
+            <TopupModal hasActiveSubscription={wallet.has_active_subscription} />
+          </section>
+        )}
+
+        {/* Speicher */}
+        {wallet && (
+          <section className="border-t border-white/6 pt-8">
+            <SectionHeader>Speicher</SectionHeader>
+            <StorageAddons wallet={wallet} addons={addons} onAddonPurchased={load} />
+          </section>
         )}
 
         {/* Rechnungen */}
-        <div className="border-t border-white/6 pt-8">
+        <section className="border-t border-white/6 pt-8">
           <BillingHistory invoices={invoices} />
-        </div>
+        </section>
 
       </div>
 
