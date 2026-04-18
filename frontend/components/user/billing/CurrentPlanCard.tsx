@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 
 interface BillingStatus {
   plan_name: string | null;
@@ -47,7 +46,6 @@ interface Props {
 }
 
 export default function CurrentPlanCard({ status, loading, onOpenPortal }: Props) {
-  const router = useRouter();
   const isActive = status.subscription_status === "active" || status.subscription_status === "trialing";
 
   const tokenPct = Math.min(100, (status.tokens_used_this_period / Math.max(1, status.tokens_included)) * 100);
@@ -93,12 +91,6 @@ export default function CurrentPlanCard({ status, loading, onOpenPortal }: Props
         <p className="text-xs text-gray-600">
           Overage: CHF {(status.overage_rate_chf_per_1k * 100).toFixed(2)}/100k Tokens
         </p>
-        <button
-          onClick={() => router.push("/user/billing")}
-          className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
-        >
-          Wallet verwalten →
-        </button>
       </div>
     </div>
   );
