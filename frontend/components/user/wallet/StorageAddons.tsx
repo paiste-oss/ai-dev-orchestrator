@@ -19,6 +19,7 @@ interface WalletStatus {
   storage_extra_bytes: number;
   storage_addon_items: { key: string; bytes: number; added_at: string }[];
   has_active_subscription: boolean;
+  can_purchase_addons: boolean;
 }
 
 interface Props {
@@ -88,13 +89,12 @@ export default function StorageAddons({ wallet, addons, onAddonPurchased }: Prop
             <span className="text-[10px] text-blue-400 bg-blue-950/30 border border-blue-800/30 px-2 py-0.5 rounded-lg">Monatlich zum Abo</span>
           </div>
 
-          {!wallet.has_active_subscription ? (
+          {!wallet.can_purchase_addons ? (
             <div className="flex items-start gap-3 bg-yellow-950/20 border border-yellow-800/30 rounded-xl px-3 py-2.5">
               <span className="text-yellow-400 shrink-0">🔒</span>
               <div>
-                <p className="text-xs font-medium text-yellow-300">Abo erforderlich</p>
-                <p className="text-xs text-gray-500 mt-0.5">Speicher Add-ons sind nur mit einem aktiven Abo buchbar.</p>
-                <a href="/user/billing" className="inline-block mt-1 text-xs text-yellow-400 hover:text-yellow-300 underline underline-offset-2">Abo abschliessen →</a>
+                <p className="text-xs font-medium text-yellow-300">Nicht verfügbar</p>
+                <p className="text-xs text-gray-500 mt-0.5">Speicher Add-ons sind erst nach Ablauf der Testphase mit einem aktiven Abo buchbar.</p>
               </div>
             </div>
           ) : (

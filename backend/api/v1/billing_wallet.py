@@ -80,6 +80,7 @@ def _wallet_out(customer: Customer) -> WalletStatusOut:
         auto_topup_amount_chf=float(customer.auto_topup_amount_chf or 20),
         has_saved_card=bool(customer.stripe_payment_method_id),
         has_active_subscription=customer.subscription_status in ("active", "trialing"),
+        can_purchase_addons=customer.subscription_status == "active",
         storage_used_bytes=customer.storage_used_bytes or 0,
         storage_limit_bytes=customer.storage_limit_bytes or 524_288_000,
         storage_extra_bytes=customer.storage_extra_bytes or 0,
@@ -185,8 +186,13 @@ async def purchase_storage_addon(
     zum bestehenden Abo hinzugefügt. Voraussetzung: aktives Abo.
     Das Wallet-Guthaben wird NICHT verwendet — nur für Token-Overage.
     """
-    # Abo-Pflicht
-    if customer.subscription_status not in ("active", "trialing"):
+    # Abo-Pflicht — kein Add-on während Trial
+    if customer.subscription_status == "trialing":
+        raise HTTPException(
+            status_code=400,
+            detail="Speicher Add-ons sind während der Testphase nicht verfügbar.",
+        )
+    if customer.subscription_status not in ("active",):
         raise HTTPException(
             status_code=400,
             detail="Speicher Add-ons sind nur mit einem aktiven Abo buchbar.",

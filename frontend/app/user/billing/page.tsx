@@ -49,6 +49,7 @@ interface WalletStatus {
   auto_topup_amount_chf: number;
   has_saved_card: boolean;
   has_active_subscription: boolean;
+  can_purchase_addons: boolean;
   storage_used_bytes: number;
   storage_limit_bytes: number;
   storage_extra_bytes: number;

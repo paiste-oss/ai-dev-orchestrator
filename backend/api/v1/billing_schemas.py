@@ -114,6 +114,7 @@ class WalletStatusOut(BaseModel):
     auto_topup_amount_chf: float
     has_saved_card: bool
     has_active_subscription: bool
+    can_purchase_addons: bool
     # Storage
     storage_used_bytes: int
     storage_limit_bytes: int
