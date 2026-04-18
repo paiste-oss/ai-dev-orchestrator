@@ -22,11 +22,9 @@ type Tab = "trusted" | "untrusted";
 
 function fmtDate(iso: string): string {
   const d = new Date(iso);
-  const today = new Date();
-  if (d.toDateString() === today.toDateString()) {
-    return d.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
-  }
-  return d.toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  const time = d.toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" });
+  const date = d.toLocaleDateString("de-DE", { day: "numeric", month: "long", year: "numeric" });
+  return `${date}, ${time}`;
 }
 
 function RefreshIcon({ spinning }: { spinning: boolean }) {
@@ -272,7 +270,7 @@ export default function EmailWindow() {
                       <p className="text-[10px] text-gray-600">
                         Von: <span className="text-gray-400">{msg.from_address}</span>
                         <span className="mx-1.5">·</span>
-                        {new Date(msg.received_at).toLocaleString("de-CH")}
+                        {fmtDate(msg.received_at)}
                         {msg.replied && (
                           <span className="ml-2 text-indigo-400/70">↩ Beantwortet</span>
                         )}
