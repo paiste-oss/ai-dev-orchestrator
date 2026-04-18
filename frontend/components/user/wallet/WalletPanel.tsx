@@ -47,7 +47,6 @@ function ProgressBar({ value, max, color }: { value: number; max: number; color:
 }
 
 export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Props) {
-  // ── Topup state ──────────────────────────────────────────────────────────────
   const [topupMode, setTopupMode] = useState<"stripe" | "bank" | null>(null);
   const [topupAmount, setTopupAmount] = useState("20");
   const [topupLoading, setTopupLoading] = useState(false);
@@ -55,7 +54,6 @@ export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Pr
   const [topupError, setTopupError] = useState("");
   const [copied, setCopied] = useState("");
 
-  // ── Settings state ────────────────────────────────────────────────────────────
   const [settings, setSettings] = useState({
     monthly_limit_chf: String(wallet.monthly_limit_chf),
     per_tx_limit_chf: String(wallet.per_tx_limit_chf),
@@ -129,19 +127,159 @@ export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Pr
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-2xl divide-y divide-gray-800">
 
-      {/* ── Balance + Verbrauch ─────────────────────────────────────────────── */}
-      <div className="p-5 space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wider">Aktuelles Guthaben</p>
-            <p className="text-xl font-bold text-white mt-0.5">{chf(wallet.balance_chf)}</p>
-          </div>
-          <p className="text-xs text-gray-600">Overage: CHF {(overageRateChfPer1k * 100).toFixed(2)}/100k Tokens</p>
+      {/* ── Zeile 1: Aktuelles Guthaben + Aufladen nebeneinander ──────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-800">
+
+        {/* Aktuelles Guthaben */}
+        <div className="p-5 space-y-1">
+          <p className="text-xs text-gray-500 uppercase tracking-wider">Aktuelles Guthaben</p>
+          <p className="text-xl font-bold text-white">{chf(wallet.balance_chf)}</p>
+          <p className="text-xs text-gray-600 pt-0.5">
+            Overage: CHF {(overageRateChfPer1k * 100).toFixed(2)}/100k Tokens
+          </p>
+          {wallet.auto_topup_enabled && (
+            <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-lg text-xs font-medium border bg-green-950/40 border-green-800/40 text-green-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+              Auto: {chf(wallet.auto_topup_amount_chf)} wenn &lt; {chf(wallet.auto_topup_threshold_chf)}
+            </div>
+          )}
         </div>
 
+        {/* Aufladen */}
+        <div className="p-5 space-y-3">
+          <p className="text-xs text-gray-500 uppercase tracking-wider">Guthaben aufladen</p>
+
+          {!wallet.has_active_subscription ? (
+            <div className="flex items-start gap-2 bg-yellow-950/20 border border-yellow-800/30 rounded-xl px-3 py-2.5">
+              <span className="text-yellow-400 shrink-0">🔒</span>
+              <div>
+                <p className="text-xs font-medium text-yellow-300">Abo erforderlich</p>
+                <p className="text-xs text-gray-400 mt-0.5">Nur mit aktivem Abo aufladbar.</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex gap-1.5 flex-wrap items-center">
+                {AMOUNTS.map(a => (
+                  <button
+                    key={a}
+                    onClick={() => setTopupAmount(String(a))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      topupAmount === String(a)
+                        ? "bg-blue-500/10 border-blue-500/50 text-blue-400"
+                        : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"
+                    }`}
+                  >
+                    {chf(a)}
+                  </button>
+                ))}
+                <input
+                  type="number" min="5" max="500"
+                  value={topupAmount}
+                  onChange={e => setTopupAmount(e.target.value)}
+                  className="w-20 bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-blue-500"
+                  placeholder="CHF"
+                />
+              </div>
+              <p className="text-xs text-gray-600">Für zusätzliche Tokens (Overage).</p>
+
+              {topupMode === null && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => { setTopupMode("stripe"); setBankTransfer(null); setTopupError(""); }}
+                    className="flex items-center gap-2 p-2.5 rounded-xl border border-indigo-800/50 bg-indigo-950/30 hover:bg-indigo-950/50 transition-colors"
+                  >
+                    <span>💳</span>
+                    <div className="text-left">
+                      <p className="text-xs font-medium text-indigo-300">Kreditkarte</p>
+                      <p className="text-[10px] text-gray-500">Sofort via Stripe</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => { setTopupMode("bank"); setBankTransfer(null); setTopupError(""); }}
+                    className="flex items-center gap-2 p-2.5 rounded-xl border border-cyan-800/50 bg-cyan-950/30 hover:bg-cyan-950/50 transition-colors"
+                  >
+                    <span>🏦</span>
+                    <div className="text-left">
+                      <p className="text-xs font-medium text-cyan-300">Banküberweisung</p>
+                      <p className="text-[10px] text-gray-500">1–2 Werktage</p>
+                    </div>
+                  </button>
+                </div>
+              )}
+
+              {topupMode === "stripe" && (
+                <div className="bg-indigo-950/20 border border-indigo-800/40 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-indigo-300">Kreditkarte — {chf(parseFloat(topupAmount) || 0)}</p>
+                    <button onClick={() => setTopupMode(null)} className="text-gray-500 hover:text-white text-xs">✕</button>
+                  </div>
+                  {topupError && <p className="text-red-400 text-xs">{topupError}</p>}
+                  <button
+                    onClick={doStripeTopup}
+                    disabled={topupLoading || parseFloat(topupAmount) < 5}
+                    className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors disabled:opacity-50"
+                  >
+                    {topupLoading ? "Weiterleitung…" : `${chf(parseFloat(topupAmount) || 0)} via Stripe →`}
+                  </button>
+                </div>
+              )}
+
+              {topupMode === "bank" && (
+                <div className="bg-cyan-950/20 border border-cyan-800/40 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-cyan-300">Banküberweisung — {chf(parseFloat(topupAmount) || 0)}</p>
+                    <button onClick={() => { setTopupMode(null); setBankTransfer(null); }} className="text-gray-500 hover:text-white text-xs">✕</button>
+                  </div>
+                  {topupError && <p className="text-red-400 text-xs">{topupError}</p>}
+                  {!bankTransfer ? (
+                    <>
+                      <p className="text-xs text-gray-400">Eindeutige Referenz, Gutschrift nach 1–2 Werktagen.</p>
+                      <button
+                        onClick={doBankTopup}
+                        disabled={topupLoading || parseFloat(topupAmount) < 10}
+                        className="w-full py-2 rounded-xl bg-cyan-700 hover:bg-cyan-600 text-white font-semibold text-xs transition-colors disabled:opacity-50"
+                      >
+                        {topupLoading ? "Generiere…" : "Zahlungsdetails →"}
+                      </button>
+                      <p className="text-[10px] text-gray-600">Min. CHF 10.00.</p>
+                    </>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {[
+                        { label: "Empfänger", value: bankTransfer.recipient },
+                        { label: "IBAN", value: bankTransfer.iban },
+                        { label: "Betrag", value: chf(bankTransfer.amount_chf) },
+                        { label: "Referenz", value: bankTransfer.reference },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
+                          <div>
+                            <p className="text-[10px] text-gray-500">{label}</p>
+                            <p className="text-xs font-mono text-white">{value}</p>
+                          </div>
+                          <button onClick={() => copy(value, label)} className="text-gray-500 hover:text-blue-400 text-xs px-1.5 py-0.5 rounded transition-colors">
+                            {copied === label ? "✓" : "⎘"}
+                          </button>
+                        </div>
+                      ))}
+                      <p className="text-[10px] text-yellow-500/70">{bankTransfer.note}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Monatsausgaben ─────────────────────────────────────────────────────── */}
+      <div className="p-5 space-y-4">
+        <p className="text-xs text-gray-500 uppercase tracking-wider">Monatsausgaben</p>
+
+        {/* Laufbalken */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs text-gray-500">
-            <span>Monatsausgaben</span>
+            <span>Verbraucht</span>
             <span>{chf(wallet.monthly_spent_chf)} / {chf(wallet.monthly_limit_chf)}</span>
           </div>
           <ProgressBar value={wallet.monthly_spent_chf} max={wallet.monthly_limit_chf} color={spendColor} />
@@ -149,150 +287,6 @@ export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Pr
             Noch {chf(wallet.monthly_remaining_chf)} verfügbar · Max. {chf(wallet.per_tx_limit_chf)} pro Transaktion
           </p>
         </div>
-
-        {wallet.auto_topup_enabled && (
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium border bg-green-950/40 border-green-800/40 text-green-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-            Auto-Nachzahlen: {chf(wallet.auto_topup_amount_chf)} wenn &lt; {chf(wallet.auto_topup_threshold_chf)}
-          </div>
-        )}
-      </div>
-
-      {/* ── Aufladen ────────────────────────────────────────────────────────── */}
-      <div className="p-5 space-y-4">
-        <p className="text-xs text-gray-500 uppercase tracking-wider">Guthaben aufladen</p>
-
-        {!wallet.has_active_subscription ? (
-          <div className="flex items-start gap-3 bg-yellow-950/20 border border-yellow-800/30 rounded-xl px-4 py-3">
-            <span className="text-yellow-400 shrink-0">🔒</span>
-            <div>
-              <p className="text-sm font-medium text-yellow-300">Abo erforderlich</p>
-              <p className="text-xs text-gray-400 mt-0.5">Guthaben kann nur mit einem aktiven Abo aufgeladen werden.</p>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Betrag */}
-            <div className="flex gap-2 flex-wrap items-center">
-              {AMOUNTS.map(a => (
-                <button
-                  key={a}
-                  onClick={() => setTopupAmount(String(a))}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                    topupAmount === String(a)
-                      ? "bg-blue-500/10 border-blue-500/50 text-blue-400"
-                      : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"
-                  }`}
-                >
-                  {chf(a)}
-                </button>
-              ))}
-              <input
-                type="number" min="5" max="500"
-                value={topupAmount}
-                onChange={e => setTopupAmount(e.target.value)}
-                className="w-24 bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-blue-500"
-                placeholder="CHF"
-              />
-            </div>
-            <p className="text-xs text-gray-600">Ausschliesslich für zusätzliche Tokens (Overage).</p>
-
-            {/* Methode */}
-            {topupMode === null && (
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => { setTopupMode("stripe"); setBankTransfer(null); setTopupError(""); }}
-                  className="flex items-center gap-3 p-3 rounded-xl border border-indigo-800/50 bg-indigo-950/30 hover:bg-indigo-950/50 transition-colors"
-                >
-                  <span className="text-xl">💳</span>
-                  <div className="text-left">
-                    <p className="text-sm font-medium text-indigo-300">Kreditkarte</p>
-                    <p className="text-xs text-gray-500">Sofort via Stripe</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => { setTopupMode("bank"); setBankTransfer(null); setTopupError(""); }}
-                  className="flex items-center gap-3 p-3 rounded-xl border border-cyan-800/50 bg-cyan-950/30 hover:bg-cyan-950/50 transition-colors"
-                >
-                  <span className="text-xl">🏦</span>
-                  <div className="text-left">
-                    <p className="text-sm font-medium text-cyan-300">Banküberweisung</p>
-                    <p className="text-xs text-gray-500">1–2 Werktage</p>
-                  </div>
-                </button>
-              </div>
-            )}
-
-            {/* Stripe confirm */}
-            {topupMode === "stripe" && (
-              <div className="bg-indigo-950/20 border border-indigo-800/40 rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-indigo-300">Kreditkarte — {chf(parseFloat(topupAmount) || 0)}</p>
-                  <button onClick={() => setTopupMode(null)} className="text-gray-500 hover:text-white text-xs">✕ Abbrechen</button>
-                </div>
-                {topupError && <p className="text-red-400 text-xs">{topupError}</p>}
-                <button
-                  onClick={doStripeTopup}
-                  disabled={topupLoading || !topupAmount || parseFloat(topupAmount) < 5}
-                  className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors disabled:opacity-50"
-                >
-                  {topupLoading ? "Weiterleitung…" : `${chf(parseFloat(topupAmount) || 0)} via Stripe bezahlen →`}
-                </button>
-              </div>
-            )}
-
-            {/* Bank confirm */}
-            {topupMode === "bank" && (
-              <div className="bg-cyan-950/20 border border-cyan-800/40 rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-cyan-300">Banküberweisung — {chf(parseFloat(topupAmount) || 0)}</p>
-                  <button onClick={() => { setTopupMode(null); setBankTransfer(null); }} className="text-gray-500 hover:text-white text-xs">✕ Abbrechen</button>
-                </div>
-                {topupError && <p className="text-red-400 text-xs">{topupError}</p>}
-                {!bankTransfer ? (
-                  <>
-                    <p className="text-xs text-gray-400">Du erhältst Zahlungsdetails mit einer eindeutigen Referenz. Gutschrift nach 1–2 Werktagen.</p>
-                    <button
-                      onClick={doBankTopup}
-                      disabled={topupLoading || !topupAmount || parseFloat(topupAmount) < 10}
-                      className="w-full py-2 rounded-xl bg-cyan-700 hover:bg-cyan-600 text-white font-semibold text-sm transition-colors disabled:opacity-50"
-                    >
-                      {topupLoading ? "Generiere…" : "Zahlungsdetails anzeigen →"}
-                    </button>
-                    <p className="text-xs text-gray-600">Mindestbetrag CHF 10.00.</p>
-                  </>
-                ) : (
-                  <div className="space-y-2">
-                    {[
-                      { label: "Empfänger", value: bankTransfer.recipient },
-                      { label: "IBAN", value: bankTransfer.iban },
-                      { label: "Betrag", value: chf(bankTransfer.amount_chf) },
-                      { label: "Referenz", value: bankTransfer.reference },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="flex items-center justify-between bg-gray-800 rounded-xl px-4 py-2.5">
-                        <div>
-                          <p className="text-xs text-gray-500">{label}</p>
-                          <p className="text-sm font-mono text-white">{value}</p>
-                        </div>
-                        <button onClick={() => copy(value, label)} className="text-gray-500 hover:text-blue-400 text-xs px-2 py-1 rounded-lg transition-colors">
-                          {copied === label ? "✓" : "⎘"}
-                        </button>
-                      </div>
-                    ))}
-                    <p className="text-xs text-yellow-500/70 bg-yellow-950/20 border border-yellow-900/30 rounded-xl px-3 py-2">
-                      {bankTransfer.note}
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* ── Einstellungen ───────────────────────────────────────────────────── */}
-      <div className="p-5 space-y-4">
-        <p className="text-xs text-gray-500 uppercase tracking-wider">Einstellungen</p>
 
         {/* Limits */}
         <div className="grid grid-cols-2 gap-3">
