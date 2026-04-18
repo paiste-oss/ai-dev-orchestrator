@@ -29,7 +29,7 @@ class EmailMessage(Base):
     body_html: Mapped[str | None] = mapped_column(Text, nullable=True)
     message_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     received_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), index=True
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), index=True
     )
     read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # SPF+DKIM-Prüfung bestanden → Baddi darf autonom auf diese Mail reagieren.
