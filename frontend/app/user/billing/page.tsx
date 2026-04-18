@@ -84,6 +84,62 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   return <h2 className="text-sm font-semibold text-white mb-4">{children}</h2>;
 }
 
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
+  return `${n}`;
+}
+
+function fmtBytes(n: number): string {
+  if (n >= 1_073_741_824) return `${(n / 1_073_741_824).toFixed(1)} GB`;
+  if (n >= 1_048_576) return `${(n / 1_048_576).toFixed(0)} MB`;
+  return `${(n / 1_024).toFixed(0)} KB`;
+}
+
+function Bar({ value, max, color }: { value: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
+  return (
+    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+function TokensCard({ status }: { status: BillingStatus }) {
+  const pct = Math.min(100, (status.tokens_used_this_period / Math.max(1, status.tokens_included)) * 100);
+  const color = pct > 90 ? "bg-red-500" : pct > 70 ? "bg-yellow-500" : "bg-blue-500";
+  return (
+    <div className="bg-white/3 border border-white/8 rounded-2xl p-4 space-y-2">
+      <p className="text-xs text-gray-500 uppercase tracking-wider">Tokens diesen Monat</p>
+      <div className="flex items-baseline gap-1">
+        <span className="text-base font-bold text-white">{fmtTokens(status.tokens_used_this_period)}</span>
+        <span className="text-xs text-gray-600">/ {fmtTokens(status.tokens_included)}</span>
+      </div>
+      <Bar value={status.tokens_used_this_period} max={status.tokens_included} color={color} />
+      <p className="text-xs text-gray-600">Overage: CHF {(status.overage_rate_chf_per_1k * 100).toFixed(2)}/100k Tokens</p>
+    </div>
+  );
+}
+
+function StorageCard({ wallet }: { wallet: WalletStatus }) {
+  const total = wallet.storage_limit_bytes + wallet.storage_extra_bytes;
+  const pct = total > 0 ? Math.min(100, (wallet.storage_used_bytes / total) * 100) : 0;
+  const color = pct > 90 ? "bg-red-500" : pct > 70 ? "bg-orange-500" : "bg-blue-500";
+  return (
+    <div className="bg-white/3 border border-white/8 rounded-2xl p-4 space-y-2">
+      <p className="text-xs text-gray-500 uppercase tracking-wider">Speicher</p>
+      <div className="flex items-baseline gap-1">
+        <span className="text-base font-bold text-white">{fmtBytes(wallet.storage_used_bytes)}</span>
+        <span className="text-xs text-gray-600">/ {fmtBytes(total)}</span>
+      </div>
+      <Bar value={wallet.storage_used_bytes} max={total} color={color} />
+      {wallet.storage_extra_bytes > 0 && (
+        <p className="text-xs text-blue-400/70">+{fmtBytes(wallet.storage_extra_bytes)} Add-on gebucht</p>
+      )}
+    </div>
+  );
+}
+
 function BillingPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -183,39 +239,39 @@ function BillingPageInner() {
           </div>
         )}
 
-        {/* Übersicht: Plan · Tokens · Speicher */}
-        {status && (
-          <section>
-            <SectionHeader>Übersicht</SectionHeader>
-            <CurrentPlanCard status={status} wallet={wallet} loading={loading} onOpenPortal={openPortal} />
-          </section>
-        )}
+        {/* Abonnement */}
+        <section>
+          <SectionHeader>Abonnement</SectionHeader>
 
-        {/* ToS */}
-        {status && !status.tos_accepted && (
-          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-5 space-y-3">
-            <p className="text-sm font-semibold text-yellow-300">Nutzungsbedingungen akzeptieren</p>
-            <p className="text-xs text-gray-400">
-              Bitte akzeptiere die{" "}
-              <a href="/tos" target="_blank" className="text-blue-400 underline">Nutzungsbedingungen</a>{" "}
-              und{" "}
-              <a href="/datenschutz" target="_blank" className="text-blue-400 underline">Datenschutzrichtlinie</a>{" "}
-              um ein Abo abzuschliessen.
-            </p>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={tosChecked} onChange={e => setTosChecked(e.target.checked)}
-                className="w-4 h-4 rounded accent-blue-500" />
-              <span className="text-xs text-gray-300">Ich akzeptiere die Nutzungsbedingungen</span>
-            </label>
-            <button onClick={acceptTos} disabled={!tosChecked}
-              className="bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white text-xs font-semibold px-5 py-2 rounded-xl transition-all">
-              Bestätigen
-            </button>
-          </div>
-        )}
+          {/* Aktueller Plan — direkt unter Titel */}
+          {status && (
+            <CurrentPlanCard status={status} loading={loading} onOpenPortal={openPortal} />
+          )}
 
-        {/* Abonnement wählen */}
-        <section className="border-t border-white/6 pt-8">
+          {/* ToS */}
+          {status && !status.tos_accepted && (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-5 space-y-3 mb-6">
+              <p className="text-sm font-semibold text-yellow-300">Nutzungsbedingungen akzeptieren</p>
+              <p className="text-xs text-gray-400">
+                Bitte akzeptiere die{" "}
+                <a href="/tos" target="_blank" className="text-blue-400 underline">Nutzungsbedingungen</a>{" "}
+                und{" "}
+                <a href="/datenschutz" target="_blank" className="text-blue-400 underline">Datenschutzrichtlinie</a>{" "}
+                um ein Abo abzuschliessen.
+              </p>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={tosChecked} onChange={e => setTosChecked(e.target.checked)}
+                  className="w-4 h-4 rounded accent-blue-500" />
+                <span className="text-xs text-gray-300">Ich akzeptiere die Nutzungsbedingungen</span>
+              </label>
+              <button onClick={acceptTos} disabled={!tosChecked}
+                className="bg-blue-500 hover:bg-blue-600 disabled:opacity-40 text-white text-xs font-semibold px-5 py-2 rounded-xl transition-all">
+                Bestätigen
+              </button>
+            </div>
+          )}
+
+          {/* Plan-Karten */}
           <PlanGrid
             plans={plans}
             currentPlanSlug={status?.plan_slug ?? null}
@@ -223,6 +279,14 @@ function BillingPageInner() {
             loading={loading}
             onSelectPlan={startCheckout}
           />
+
+          {/* Tokens + Speicher unterhalb der Plan-Karten */}
+          {status && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-6 border-t border-white/6">
+              <TokensCard status={status} />
+              {wallet && <StorageCard wallet={wallet} />}
+            </div>
+          )}
         </section>
 
         {/* Guthaben */}
