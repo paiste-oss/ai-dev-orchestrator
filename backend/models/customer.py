@@ -110,7 +110,10 @@ class Customer(Base):
 
     # CalDAV-Kalender (Radicale)
     caldav_username: Mapped[str | None] = mapped_column(String(100), nullable=True, unique=True)
-    caldav_password: Mapped[str | None] = mapped_column(String(100), nullable=True)  # Klartext für einmalige Anzeige
+    caldav_password: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # Vertrauenswürdige E-Mail-Absender (Baddi reagiert autonom auf diese)
+    trusted_senders: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)  # Klartext für einmalige Anzeige
 
     # Benachrichtigungskanal: 'sms' | 'email'  (erweiterbar: 'whatsapp', 'push')
     notification_channel: Mapped[str] = mapped_column(String(20), default="sms")

@@ -16,10 +16,13 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any
+
+from sqlalchemy import text
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
@@ -130,13 +133,18 @@ async def inbound_webhook(
             continue
 
         from_addr = _extract_from_address(item)
+        from_lower = from_addr.lower()
+        trusted_list = [s.lower() for s in (customer.trusted_senders or [])]
         sender_trusted = (
             # SPF+DKIM bestanden
             (item.Dkim or "").lower() == "pass"
             and (item.SpfResult or "").lower() == "pass"
         ) or (
-            # eigene Registrierungs-Email ist immer vertrauenswürdig
-            from_addr.lower() == customer.email.lower()
+            # eigene Registrierungs-Email immer vertrauenswürdig
+            from_lower == customer.email.lower()
+        ) or (
+            # User-definierte Whitelist
+            from_lower in trusted_list
         )
         msg = EmailMessage(
             id=uuid.uuid4(),
@@ -207,6 +215,60 @@ async def mark_read(
     msg.read = True
     await db.commit()
     return {"ok": True}
+
+
+# ── Trusted Senders ──────────────────────────────────────────────────────────
+
+class TrustedSenderRequest(BaseModel):
+    email: str
+
+
+@router.get("/trusted-senders")
+async def get_trusted_senders(user: Customer = Depends(get_current_user)):
+    """Gibt die Whitelist vertrauenswürdiger Absender zurück."""
+    return {"trusted_senders": user.trusted_senders or []}
+
+
+@router.post("/trusted-senders")
+async def add_trusted_sender(
+    req: TrustedSenderRequest,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fügt eine E-Mail-Adresse zur Trusted-Senders-Liste hinzu."""
+    email = req.email.strip().lower()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=422, detail="Ungültige E-Mail-Adresse")
+
+    current: list[str] = list(user.trusted_senders or [])
+    if email in [s.lower() for s in current]:
+        return {"trusted_senders": current, "added": False}
+
+    current.append(email)
+    await db.execute(
+        text("UPDATE customers SET trusted_senders = CAST(:v AS jsonb) WHERE id = :id"),
+        {"v": json.dumps(current), "id": str(user.id)},
+    )
+    await db.commit()
+    log.info("[Email] Trusted Sender hinzugefügt: %s → %s", user.id, email)
+    return {"trusted_senders": current, "added": True}
+
+
+@router.delete("/trusted-senders/{sender_email}")
+async def remove_trusted_sender(
+    sender_email: str,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Entfernt eine E-Mail-Adresse aus der Trusted-Senders-Liste."""
+    email = sender_email.strip().lower()
+    current: list[str] = [s for s in (user.trusted_senders or []) if s.lower() != email]
+    await db.execute(
+        text("UPDATE customers SET trusted_senders = CAST(:v AS jsonb) WHERE id = :id"),
+        {"v": json.dumps(current), "id": str(user.id)},
+    )
+    await db.commit()
+    return {"trusted_senders": current}
 
 
 # ── Admin-Endpunkte ───────────────────────────────────────────────────────────

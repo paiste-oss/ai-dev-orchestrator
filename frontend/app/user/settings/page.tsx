@@ -10,6 +10,7 @@ import { MemorySection } from "@/components/user/settings/MemorySection";
 import { TwoFASection } from "@/components/user/settings/TwoFASection";
 import { NotificationChannelSection } from "@/components/user/settings/NotificationChannelSection";
 import { ChatAppearanceSection } from "@/components/user/settings/ChatAppearanceSection";
+import { TrustedSendersSection } from "@/components/user/settings/TrustedSendersSection";
 
 interface Me {
   id: string; name: string; first_name: string | null; last_name: string | null;
@@ -64,6 +65,7 @@ export default function UserSettingsPage() {
           phone={me.phone}
           onStatusChange={(enabled, phone) => setMe(m => m ? { ...m, two_fa_enabled: enabled, phone } : m)}
         />
+        <TrustedSendersSection />
         <MemorySection
           memoryConsent={me.memory_consent}
           onConsentChange={val => setMe(m => m ? { ...m, memory_consent: val } : m)}
