@@ -3,11 +3,12 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSession, getToken } from "@/lib/auth";
+import { BACKEND_URL } from "@/lib/config";
 import CurrentPlanCard from "@/components/user/billing/CurrentPlanCard";
 import PlanGrid from "@/components/user/billing/PlanGrid";
 import BillingHistory from "@/components/user/billing/BillingHistory";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API = BACKEND_URL;
 
 interface Plan {
   id: string;
