@@ -287,7 +287,7 @@ export default function CalendarWindow() {
       </div>
 
       {/* ── Calendar grid ── */}
-      <div className="flex-1 overflow-hidden min-h-0">
+      <div className="flex-[3] overflow-hidden min-h-0">
         <div className="h-full flex flex-col divide-y divide-white/4">
           {grid.map((week, ri) => (
             <div
@@ -368,7 +368,7 @@ export default function CalendarWindow() {
       </div>
 
       {/* ── Bottom panel: day detail or create form ── */}
-      <div className="shrink-0 border-t border-white/8 bg-gray-950/70 max-h-52 overflow-auto">
+      <div className="flex-[2] min-h-0 border-t border-white/8 bg-gray-950/70 overflow-auto">
         {creating ? (
           /* Create form */
           <div className="p-3 space-y-2">
