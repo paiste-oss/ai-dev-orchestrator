@@ -8,6 +8,7 @@ Verantwortlich für:
 - invoice.payment_succeeded / failed
 """
 from __future__ import annotations
+import json
 import logging
 import uuid as uuid_mod
 from datetime import datetime, timezone
@@ -27,15 +28,17 @@ _log = logging.getLogger(__name__)
 async def handle_webhook(payload: bytes, sig_header: str, db: AsyncSession) -> None:
     """
     Verarbeitet Stripe-Webhook-Events.
-    Alle Events werden mit Signatur-Verifikation geprüft.
+    Signatur-Verifikation via Stripe SDK, danach Plain-Dict für Kompatibilität mit stripe-python v5+.
     """
     stripe.api_key = settings.stripe_secret_key
     try:
-        event = stripe.Webhook.construct_event(payload, sig_header, settings.stripe_webhook_secret)
+        stripe.Webhook.construct_event(payload, sig_header, settings.stripe_webhook_secret)
     except stripe.error.SignatureVerificationError:
         _log.warning("Stripe Webhook: ungültige Signatur")
         raise ValueError("Invalid webhook signature")
 
+    # Nach Signaturprüfung: Raw-JSON parsen — vermeidet stripe-python v5 StripeObject.get()-Inkompatibilität
+    event = json.loads(payload)
     etype = event["type"]
     _log.info("Stripe Webhook: %s", etype)
 
