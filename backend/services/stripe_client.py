@@ -176,6 +176,19 @@ async def create_subscription_checkout(
     s = _stripe()
     stripe_customer_id = await get_or_create_stripe_customer(customer, db)
 
+    # 14-Tage-Trial für basis-Plan, nur wenn der Kunde noch nie ein Abo hatte
+    never_subscribed = customer.subscription_status in (None, "inactive", "")
+    trial_days = 14 if (plan_slug == "basis" and never_subscribed) else None
+
+    subscription_data: dict = {
+        "metadata": {
+            "customer_id": str(customer.id),
+            "plan_slug": plan_slug,
+        }
+    }
+    if trial_days:
+        subscription_data["trial_period_days"] = trial_days
+
     session = s.checkout.Session.create(
         customer=stripe_customer_id,
         mode="subscription",
@@ -187,12 +200,7 @@ async def create_subscription_checkout(
             "plan_slug": plan_slug,
             "billing_cycle": billing_cycle,
         },
-        subscription_data={
-            "metadata": {
-                "customer_id": str(customer.id),
-                "plan_slug": plan_slug,
-            }
-        },
+        subscription_data=subscription_data,
         allow_promotion_codes=True,
     )
     return session.url

@@ -23,6 +23,8 @@ function formatTokens(n: number): string {
   return `${n}`;
 }
 
+const TRIAL_SLUG = "basis";
+
 function PlanCard({
   plan,
   isCurrentPlan,
@@ -38,6 +40,7 @@ function PlanCard({
 }) {
   const price = cycle === "yearly" ? plan.yearly_monthly_equivalent : plan.monthly_price;
   const highlights = plan.features?.highlights ?? [];
+  const hasTrial = plan.slug === TRIAL_SLUG && !isCurrentPlan;
 
   return (
     <div className={`
@@ -51,6 +54,11 @@ function PlanCard({
           Dein Plan
         </span>
       )}
+      {hasTrial && (
+        <span className="absolute -top-2.5 left-4 text-[10px] font-bold bg-green-500 text-white px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+          2 Wochen gratis
+        </span>
+      )}
 
       <div>
         <p className="text-base font-bold text-white">{plan.name}</p>
@@ -58,6 +66,11 @@ function PlanCard({
           <span className="text-2xl font-black text-white">CHF {price.toFixed(2)}</span>
           <span className="text-xs text-gray-500">/Monat</span>
         </div>
+        {hasTrial && (
+          <p className="text-xs text-green-400 mt-0.5">
+            Erste 2 Wochen kostenlos · danach CHF {price.toFixed(2)}/Monat
+          </p>
+        )}
         {cycle === "yearly" && plan.yearly_discount_percent > 0 && (
           <p className="text-xs text-green-400 mt-0.5">
             −{plan.yearly_discount_percent}% bei Jahresabo (CHF {plan.yearly_price.toFixed(2)}/Jahr)
