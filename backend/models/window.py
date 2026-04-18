@@ -16,7 +16,7 @@ class WindowBoard(Base):
     name: Mapped[str] = mapped_column(String(200), default="Neues Board")
     board_type: Mapped[str] = mapped_column(String(50), default="whiteboard")
     data: Mapped[dict] = mapped_column(JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
 
     customer: Mapped["Customer | None"] = relationship("Customer")  # type: ignore

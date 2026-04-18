@@ -35,6 +35,6 @@ class DevTask(Base):
     retry_after: Mapped[datetime | None] = mapped_column(DateTime, nullable=True) # wann nach Pause weitermachen
     token_usage: Mapped[int] = mapped_column(Integer, default=0)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow())
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

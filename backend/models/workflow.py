@@ -17,4 +17,4 @@ class N8nWorkflow(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=False)
     last_executed: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     config_snapshot: Mapped[dict] = mapped_column(JSONB, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow())

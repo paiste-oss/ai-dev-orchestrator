@@ -19,4 +19,4 @@ class StockAlert(Base):
     currency: Mapped[str] = mapped_column(String(10), default="CHF")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     triggered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # letzter Trigger
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow())

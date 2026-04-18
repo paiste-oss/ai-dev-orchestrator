@@ -30,7 +30,7 @@ class CustomerCredential(Base):
     customer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False)
     service: Mapped[str] = mapped_column(String, nullable=False)   # smtp | slack | twilio | google
     credentials_enc: Mapped[str] = mapped_column(String, nullable=False)  # Fernet-encrypted JSON
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow(), onupdate=lambda: datetime.utcnow())
 
     customer: Mapped["Customer"] = relationship(back_populates="credentials")

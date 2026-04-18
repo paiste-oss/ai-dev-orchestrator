@@ -13,4 +13,4 @@ class ContentGuardLog(Base):
     message:     Mapped[str]       = mapped_column(Text, nullable=False)
     matched_pattern: Mapped[str | None] = mapped_column(String(200))
     ip_address:  Mapped[str | None] = mapped_column(String(60))
-    created_at:  Mapped[datetime]  = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    created_at:  Mapped[datetime]  = mapped_column(DateTime, default=lambda: datetime.utcnow(), index=True)

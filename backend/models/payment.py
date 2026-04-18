@@ -38,7 +38,7 @@ class Payment(Base):
     # Status
     status: Mapped[str] = mapped_column(String(20), default="pending")     # pending | succeeded | failed | refunded
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow())
     paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 

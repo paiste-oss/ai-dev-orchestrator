@@ -19,4 +19,4 @@ class TrainingReminder(Base):
     timezone: Mapped[str] = mapped_column(String(50), nullable=False, default="Europe/Zurich")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     last_reminded_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow())
