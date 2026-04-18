@@ -94,7 +94,7 @@ export default function CurrentPlanCard({ status, loading, onOpenPortal }: Props
           Overage: CHF {(status.overage_rate_chf_per_1k * 100).toFixed(2)}/100k Tokens
         </p>
         <button
-          onClick={() => router.push("/user/wallet")}
+          onClick={() => router.push("/user/billing")}
           className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
         >
           Wallet verwalten →

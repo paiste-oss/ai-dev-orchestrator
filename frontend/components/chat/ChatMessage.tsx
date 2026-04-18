@@ -83,7 +83,7 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1">
                   <a
-                    href="/user/wallet"
+                    href="/user/billing"
                     className="inline-flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-gray-900 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
                   >
                     💳 Wallet aufladen

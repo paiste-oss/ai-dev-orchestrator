@@ -9,8 +9,7 @@ interface SetupModalProps {
 }
 
 const MENU_ITEMS = [
-  { icon: "💳", label: "Wallet & Guthaben",  desc: "Guthaben aufladen, Limits, Auto-Topup", href: "/user/wallet" },
-  { icon: "📋", label: "Abonnement",          desc: "Plan wechseln, Rechnungen ansehen",     href: "/user/billing" },
+  { icon: "💳", label: "Abonnement & Wallet", desc: "Plan, Guthaben aufladen, Rechnungen",  href: "/user/billing" },
   { icon: "⚙",  label: "Einstellungen",       desc: "Profil, Sprache, Benachrichtigungen",  href: "/user/settings" },
 ];
 
