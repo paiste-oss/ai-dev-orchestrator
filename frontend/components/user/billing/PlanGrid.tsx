@@ -51,7 +51,7 @@ function PlanCard({
     `}>
       {isCurrentPlan && (
         <span className="absolute -top-2.5 left-4 text-[10px] font-bold bg-blue-500 text-white px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-          Dein Plan
+          Aktiv
         </span>
       )}
       {hasTrial && (
@@ -148,7 +148,7 @@ export default function PlanGrid({ plans, currentPlanSlug, currentStatus, loadin
           <PlanCard
             key={plan.id}
             plan={plan}
-            isCurrentPlan={currentPlanSlug === plan.slug && currentStatus === "active"}
+            isCurrentPlan={currentPlanSlug === plan.slug && (currentStatus === "active" || currentStatus === "trialing")}
             cycle={cycle}
             onSelect={() => onSelectPlan(plan.slug, cycle)}
             loading={loading}
