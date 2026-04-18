@@ -8,7 +8,6 @@ from core.database import get_db
 from core.dependencies import require_admin, get_current_user
 from core.security import hash_password
 from models.customer import Customer, SubscriptionPlan
-from models.buddy import AiBuddy
 from models.credential import CustomerCredential
 from models.document import CustomerDocument
 from models.buddy_event import BuddyEvent
@@ -199,8 +198,6 @@ async def delete_customer(
     customer = await db.get(Customer, customer_id)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
-
-    await db.execute(AiBuddy.__table__.delete().where(AiBuddy.customer_id == customer_id))
 
     await db.execute(CustomerCredential.__table__.delete().where(CustomerCredential.customer_id == customer_id))
     await db.execute(CustomerDocument.__table__.delete().where(CustomerDocument.customer_id == customer_id))
