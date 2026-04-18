@@ -45,19 +45,46 @@ _BADDI_MAIL_DOMAIN = "mail.baddi.ch"
 # ── Pydantic-Schemas ──────────────────────────────────────────────────────────
 
 class InboundItem(BaseModel):
+    # Brevo Inbound Parsing Payload — Feldnamen exakt wie dokumentiert (PascalCase)
     MessageId: str | None = None
+    InReplyTo: str | None = None
     From: dict[str, str] | str | None = None
     To: list[dict[str, str]] | None = None
+    Cc: list[dict[str, str]] | None = None
     Subject: str = ""
-    TextBody: str | None = None
-    HtmlBody: str | None = None
-    Headers: dict[str, Any] | None = None
-    Dkim: str | None = None        # "pass" | "fail" | None
-    SpfResult: str | None = None   # "pass" | "fail" | "softfail" | None
+    RawTextBody: str | None = None
+    RawHtmlBody: str | None = None
+    # Brevo-bereinigte Version: Signatur und Zitat-Blöcke entfernt — ideal für Chat
+    ExtractedMarkdownMessage: str | None = None
+    ExtractedMarkdownSignature: str | None = None
+    SpamScore: float | None = None
+    Attachments: list[dict[str, Any]] | None = None
+    # Headers: Name → string oder Liste von Strings
+    Headers: dict[str, str | list[str]] | None = None
 
 
 class InboundPayload(BaseModel):
     items: list[InboundItem]
+
+
+def _auth_passed(headers: dict[str, str | list[str]] | None) -> bool:
+    """Prüft SPF + DKIM via ARC-Authentication-Results Header."""
+    if not headers:
+        return False
+    arc = headers.get("ARC-Authentication-Results", "")
+    if isinstance(arc, list):
+        arc = " ".join(arc)
+    arc_lower = arc.lower()
+    if "dkim=pass" in arc_lower and "spf=pass" in arc_lower:
+        return True
+    # Fallback: Received-SPF allein
+    spf = headers.get("Received-SPF", "")
+    if isinstance(spf, list):
+        spf = spf[0] if spf else ""
+    return spf.lower().startswith("pass")
+
+
+_SPAM_SCORE_THRESHOLD = 5.0
 
 
 
@@ -142,9 +169,20 @@ async def inbound_webhook(
         from_addr = _extract_from_address(item)
         from_lower = from_addr.lower()
 
+        # Spam-Filter (rspamd Score — > 5.0 = wahrscheinlich Spam)
+        if (item.SpamScore or 0.0) > _SPAM_SCORE_THRESHOLD:
+            log.info("[Email/Inbound] Spam ignoriert (Score %.1f): %s", item.SpamScore, from_lower)
+            continue
+
         # Eigene Registrierungs-Email → Chat-Pipeline (erscheint im Chat, nicht im EmailWindow)
         if from_lower == customer.email.lower():
-            body = (item.TextBody or item.HtmlBody or "").strip()
+            # ExtractedMarkdownMessage bevorzugen: Brevo-bereinigt (kein Zitat, keine Signatur)
+            body = (
+                item.ExtractedMarkdownMessage
+                or item.RawTextBody
+                or item.RawHtmlBody
+                or ""
+            ).strip()
             if body:
                 message_text = (
                     f"[Via E-Mail — Betreff: {item.Subject}]\n\n{body}"
@@ -168,15 +206,9 @@ async def inbound_webhook(
 
         trusted_list = [s.lower() for s in (customer.trusted_senders or [])]
         sender_trusted = (
-            # SPF+DKIM bestanden
-            (item.Dkim or "").lower() == "pass"
-            and (item.SpfResult or "").lower() == "pass"
+            _auth_passed(item.Headers)        # SPF + DKIM via ARC-Authentication-Results
         ) or (
-            # eigene Registrierungs-Email immer vertrauenswürdig
-            from_lower == customer.email.lower()
-        ) or (
-            # User-definierte Whitelist
-            from_lower in trusted_list
+            from_lower in trusted_list        # User-definierte Whitelist
         )
         msg = EmailMessage(
             id=uuid.uuid4(),
@@ -185,8 +217,8 @@ async def inbound_webhook(
             from_address=from_addr,
             to_address=to_address.lower(),
             subject=item.Subject or "",
-            body_text=item.TextBody,
-            body_html=item.HtmlBody,
+            body_text=item.ExtractedMarkdownMessage or item.RawTextBody,
+            body_html=item.RawHtmlBody,
             message_id=item.MessageId,
             received_at=datetime.now(timezone.utc),
             read=False,
