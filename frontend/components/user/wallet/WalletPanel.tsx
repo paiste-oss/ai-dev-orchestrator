@@ -146,18 +146,13 @@ export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Pr
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-gray-600">Für zusätzliche Tokens (Overage).</p>
-
               {topupMode === null && (
                 <button
                   onClick={() => { setTopupMode("stripe"); setTopupError(""); }}
-                  className="flex items-center gap-2 p-2.5 rounded-xl border border-indigo-800/50 bg-indigo-950/30 hover:bg-indigo-950/50 transition-colors w-full"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 border border-indigo-500/50 text-white font-semibold text-sm transition-colors"
                 >
                   <span>💳</span>
-                  <div className="text-left">
-                    <p className="text-xs font-medium text-indigo-300">Kreditkarte via Stripe</p>
-                    <p className="text-[10px] text-gray-500">Sofortige Gutschrift</p>
-                  </div>
+                  <span>Kreditkarte via Stripe</span>
                 </button>
               )}
 

@@ -109,7 +109,7 @@ function TokensCard({ status }: { status: BillingStatus }) {
   const pct = Math.min(100, (status.tokens_used_this_period / Math.max(1, status.tokens_included)) * 100);
   const color = pct > 90 ? "bg-red-500" : pct > 70 ? "bg-yellow-500" : "bg-blue-500";
   return (
-    <div className="bg-white/3 border border-white/8 rounded-2xl p-4 space-y-2">
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 space-y-2">
       <p className="text-xs text-gray-500 uppercase tracking-wider">Tokens diesen Monat</p>
       <div className="flex items-baseline gap-1">
         <span className="text-base font-bold text-white">{fmtTokens(status.tokens_used_this_period)}</span>
