@@ -176,9 +176,10 @@ async def create_subscription_checkout(
     s = _stripe()
     stripe_customer_id = await get_or_create_stripe_customer(customer, db)
 
-    # 14-Tage-Trial für basis-Plan, nur wenn der Kunde noch nie ein Abo hatte
+    # 14-Tage-Trial nur für basis-Plan bei echten Neukunden (nie ein Abo gehabt)
     never_subscribed = customer.subscription_status in (None, "inactive", "")
-    trial_days = 14 if (plan_slug == "basis" and never_subscribed) else None
+    had_subscription = customer.stripe_subscription_id is not None
+    trial_days = 14 if (plan_slug == "basis" and never_subscribed and not had_subscription) else None
 
     subscription_data: dict = {
         "metadata": {

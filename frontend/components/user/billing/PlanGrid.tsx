@@ -34,13 +34,14 @@ function PlanCard({
 }: {
   plan: Plan;
   isCurrentPlan: boolean;
+  showTrial: boolean;
   cycle: "monthly" | "yearly";
   onSelect: () => void;
   loading: boolean;
 }) {
   const price = cycle === "yearly" ? plan.yearly_monthly_equivalent : plan.monthly_price;
   const highlights = plan.features?.highlights ?? [];
-  const hasTrial = plan.slug === TRIAL_SLUG && !isCurrentPlan;
+  const hasTrial = showTrial && plan.slug === TRIAL_SLUG && !isCurrentPlan;
 
   return (
     <div className={`
@@ -117,10 +118,11 @@ interface Props {
   currentPlanSlug: string | null;
   currentStatus: string;
   loading: boolean;
+  showTrial?: boolean;
   onSelectPlan: (slug: string, cycle: "monthly" | "yearly") => void;
 }
 
-export default function PlanGrid({ plans, currentPlanSlug, currentStatus, loading, onSelectPlan }: Props) {
+export default function PlanGrid({ plans, currentPlanSlug, currentStatus, loading, showTrial = false, onSelectPlan }: Props) {
   const [cycle, setCycle] = useState<"monthly" | "yearly">("monthly");
 
   return (
@@ -148,6 +150,7 @@ export default function PlanGrid({ plans, currentPlanSlug, currentStatus, loadin
             key={plan.id}
             plan={plan}
             isCurrentPlan={currentPlanSlug === plan.slug && ["active", "trialing", "canceling"].includes(currentStatus)}
+            showTrial={showTrial}
             cycle={cycle}
             onSelect={() => onSelectPlan(plan.slug, cycle)}
             loading={loading}
