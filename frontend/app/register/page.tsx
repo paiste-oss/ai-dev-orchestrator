@@ -217,7 +217,7 @@ export default function RegisterPage() {
 
           {/* Passwort */}
           <div className="space-y-1">
-            <label className="text-sm text-gray-400">Passwort <span className="text-gray-600">(min. 8 Zeichen)</span></label>
+            <label className="text-sm text-gray-400">Passwort <span className="text-gray-600">(min. 8 Zeichen, 1 Grossbuchstabe, 1 Zahl)</span></label>
             <input
               required
               type="password"

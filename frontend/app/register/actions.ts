@@ -72,7 +72,11 @@ export async function registerAction(
     const data: Record<string, unknown> = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      return { status: "error", message: (data.detail as string) ?? "Registrierung fehlgeschlagen." };
+      const detail = data.detail;
+      const message = Array.isArray(detail)
+        ? (detail as Array<{ msg?: string }>).map(e => e.msg ?? "").filter(Boolean).join(" · ") || "Registrierung fehlgeschlagen."
+        : (typeof detail === "string" ? detail : "Registrierung fehlgeschlagen.");
+      return { status: "error", message };
     }
 
     // Sprache direkt im Backend speichern
