@@ -220,7 +220,7 @@ async def inbound_webhook(
             body_text=item.ExtractedMarkdownMessage or item.RawTextBody,
             body_html=item.RawHtmlBody,
             message_id=item.MessageId,
-            received_at=datetime.now(timezone.utc),
+            received_at=datetime.utcnow(),
             read=False,
             sender_trusted=sender_trusted,
             raw_headers=item.Headers,
