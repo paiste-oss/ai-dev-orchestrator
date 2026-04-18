@@ -26,7 +26,7 @@ def upgrade() -> None:
             "trusted_senders",
             postgresql.JSONB,
             nullable=True,
-            server_default="'[]'::jsonb",
+            server_default=sa.text("'[]'::jsonb"),
         ),
     )
 
