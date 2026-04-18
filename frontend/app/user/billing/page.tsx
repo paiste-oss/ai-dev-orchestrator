@@ -241,9 +241,7 @@ function BillingPageInner() {
 
         {/* Abonnement */}
         <section>
-          <SectionHeader>Abonnement</SectionHeader>
-
-          {/* Aktueller Plan — direkt unter Titel */}
+          {/* Aktueller Plan */}
           {status && (
             <CurrentPlanCard status={status} loading={loading} onOpenPortal={openPortal} />
           )}
@@ -292,7 +290,6 @@ function BillingPageInner() {
         {/* Guthaben */}
         {wallet && status && (
           <section className="border-t border-white/6 pt-8">
-            <SectionHeader>Guthaben</SectionHeader>
             <WalletPanel
               wallet={wallet}
               overageRateChfPer1k={status.overage_rate_chf_per_1k}

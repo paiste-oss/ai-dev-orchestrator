@@ -283,9 +283,6 @@ export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Pr
             <span>{chf(wallet.monthly_spent_chf)} / {chf(wallet.monthly_limit_chf)}</span>
           </div>
           <ProgressBar value={wallet.monthly_spent_chf} max={wallet.monthly_limit_chf} color={spendColor} />
-          <p className="text-xs text-gray-600">
-            Noch {chf(wallet.monthly_remaining_chf)} verfügbar · Max. {chf(wallet.per_tx_limit_chf)} pro Transaktion
-          </p>
         </div>
 
         {/* Limits */}
