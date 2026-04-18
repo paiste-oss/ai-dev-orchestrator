@@ -37,6 +37,7 @@ async def send_from_baddi_address(
     subject: str,
     body_text: str,
     body_html: str | None = None,
+    reply_to: str | None = None,
 ) -> bool:
     """
     Sendet eine E-Mail über die Brevo Transactional API mit der Baddi-User-Adresse
@@ -57,6 +58,8 @@ async def send_from_baddi_address(
     }
     if body_html:
         payload["htmlContent"] = body_html
+    if reply_to:
+        payload["replyTo"] = {"email": reply_to}
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:

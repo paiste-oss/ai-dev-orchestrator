@@ -6,6 +6,7 @@ from services.tools.defs import (
     SBB_TOOL_DEFS,
     FLIGHT_TOOL_DEFS,
     CALENDAR_TOOL_DEFS,
+    SEND_TO_MY_EMAIL_TOOL_DEFS,
     WEB_FETCH_TOOL_DEFS,
     WEB_SEARCH_TOOL_DEFS,
     DALLE_TOOL_DEFS,
@@ -35,6 +36,7 @@ from services.tools.handlers.documents import _handle_documents
 from services.tools.handlers.artifact import _handle_artifact
 from services.tools.handlers.flights import _handle_flights
 from services.tools.handlers.calendar import _handle_calendar
+from services.tools.handlers.email_tools import _handle_send_email
 
 
 # ---------------------------------------------------------------------------
@@ -225,6 +227,18 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_defs": CALENDAR_TOOL_DEFS,
         "tool_names": {"calendar_list_events", "calendar_create_event", "calendar_delete_event"},
         "handler": _handle_calendar,
+        "needs_customer_id": True,
+    },
+    "send_email": {
+        "key": "send_email",
+        "name": "E-Mail an mich senden",
+        "description": "Sendet Inhalte per E-Mail an die eigene registrierte Adresse des Users. Nur auf expliziten Wunsch.",
+        "prompt_hint": "Zusammenfassungen, Texte oder Informationen per E-Mail an den User senden (nur an seine eigene Adresse)",
+        "category": "productivity",
+        "tier": "free",
+        "tool_defs": SEND_TO_MY_EMAIL_TOOL_DEFS,
+        "tool_names": {"send_to_my_email"},
+        "handler": _handle_send_email,
         "needs_customer_id": True,
     },
     "artifact_manager": {

@@ -553,11 +553,16 @@ async def finalize(
         subject = reply_subject or "Antwort von Baddi"
         if not subject.startswith("Re:"):
             subject = f"Re: {subject}"
+        _loop_footer = (
+            "\n\n──────────────────────────────\n"
+            "Bitte nicht auf diese E-Mail antworten — schreibe direkt im Chat auf baddi.ch"
+        )
         asyncio.ensure_future(send_from_baddi_address(
             from_baddi_email=customer.baddi_email,
             to_address=reply_via_email,
             subject=subject,
-            body_text=response_text,
+            body_text=response_text + _loop_footer,
+            reply_to="no-reply@mail.baddi.ch",
         ))
 
     # Namensnetz: lastMentionedAt aktualisieren (Hintergrund — Fehler ignorieren)
