@@ -38,7 +38,7 @@ class Customer(Base):
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String, nullable=False, default="")
     role: Mapped[str] = mapped_column(String, default="customer")  # admin, customer
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.utcnow())
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     birth_year: Mapped[int | None] = mapped_column(Integer, nullable=True)
     birth_date: Mapped[date | None] = mapped_column(Date, nullable=True)
