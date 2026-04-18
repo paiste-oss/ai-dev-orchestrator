@@ -136,6 +136,16 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     canvasType: "flight_board",
   },
   {
+    id: "email",
+    label: "E-Mail",
+    icon: "✉️",
+    description: "Eingehende E-Mails lesen, beantworten, vertrauen oder sperren. Zeigt Baddi-Aktionen bei vertrauenswürdigen Absendern.",
+    defaultWidth: 600,
+    defaultHeight: 520,
+    status: "active",
+    canvasType: "email",
+  },
+  {
     id: "3d_renderer",
     label: "3D-Renderer",
     icon: "🧊",

@@ -35,6 +35,10 @@ class EmailMessage(Base):
     # SPF+DKIM-Prüfung bestanden → Baddi darf autonom auf diese Mail reagieren.
     # False = unbekannter Absender → nur speichern, nie automatisch handeln.
     sender_trusted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Was Baddi mit dieser Mail gemacht hat (z.B. "Kalendertermin am 22.04. angelegt")
+    baddi_action: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # True wenn User manuell geantwortet hat
+    replied: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     raw_headers: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     customer: Mapped["Customer"] = relationship("Customer")  # type: ignore

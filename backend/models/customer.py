@@ -113,7 +113,9 @@ class Customer(Base):
     caldav_password: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Vertrauenswürdige E-Mail-Absender (Baddi reagiert autonom auf diese)
-    trusted_senders: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)  # Klartext für einmalige Anzeige
+    trusted_senders: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
+    # Gesperrte E-Mail-Absender (werden beim Inbound-Webhook ignoriert)
+    blocked_senders: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
 
     # Benachrichtigungskanal: 'sms' | 'email'  (erweiterbar: 'whatsapp', 'push')
     notification_channel: Mapped[str] = mapped_column(String(20), default="sms")

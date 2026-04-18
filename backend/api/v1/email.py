@@ -71,6 +71,8 @@ class EmailMessageOut(BaseModel):
     received_at: datetime
     read: bool
     sender_trusted: bool
+    baddi_action: str | None = None
+    replied: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -134,6 +136,13 @@ async def inbound_webhook(
 
         from_addr = _extract_from_address(item)
         from_lower = from_addr.lower()
+
+        # Gesperrte Absender still ignorieren
+        blocked_list = [s.lower() for s in (customer.blocked_senders or [])]
+        if from_lower in blocked_list:
+            log.info("[Email/Inbound] Gesperrter Absender ignoriert: %s", from_lower)
+            continue
+
         trusted_list = [s.lower() for s in (customer.trusted_senders or [])]
         sender_trusted = (
             # SPF+DKIM bestanden
@@ -214,6 +223,139 @@ async def mark_read(
         raise HTTPException(status_code=404, detail="Nicht gefunden")
     msg.read = True
     await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/inbox/{message_id}")
+async def delete_inbox_message(
+    message_id: uuid.UUID,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Löscht eine E-Mail aus dem Posteingang."""
+    msg = await db.get(EmailMessage, message_id)
+    if not msg or msg.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Nicht gefunden")
+    await db.delete(msg)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/inbox/{message_id}/trust")
+async def trust_inbox_sender(
+    message_id: uuid.UUID,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fügt den Absender einer E-Mail zur Trusted-Senders-Liste hinzu."""
+    msg = await db.get(EmailMessage, message_id)
+    if not msg or msg.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Nicht gefunden")
+
+    email = msg.from_address.lower()
+    current: list[str] = list(user.trusted_senders or [])
+    if email not in [s.lower() for s in current]:
+        current.append(email)
+        await db.execute(
+            text("UPDATE customers SET trusted_senders = CAST(:v AS jsonb) WHERE id = :id"),
+            {"v": json.dumps(current), "id": str(user.id)},
+        )
+
+    # Alle bisherigen Mails dieses Absenders als trusted markieren
+    await db.execute(
+        text(
+            "UPDATE email_messages SET sender_trusted = true "
+            "WHERE customer_id = :cid AND lower(from_address) = :from_addr"
+        ),
+        {"cid": str(user.id), "from_addr": email},
+    )
+    await db.commit()
+    log.info("[Email] Absender als vertrauenswürdig markiert: %s → %s", user.id, email)
+    return {"ok": True, "trusted_senders": current}
+
+
+@router.post("/inbox/{message_id}/block")
+async def block_inbox_sender(
+    message_id: uuid.UUID,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Sperrt den Absender und löscht alle seine E-Mails aus dem Posteingang."""
+    msg = await db.get(EmailMessage, message_id)
+    if not msg or msg.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Nicht gefunden")
+
+    email = msg.from_address.lower()
+    current: list[str] = list(user.blocked_senders or [])
+    if email not in [s.lower() for s in current]:
+        current.append(email)
+        await db.execute(
+            text("UPDATE customers SET blocked_senders = CAST(:v AS jsonb) WHERE id = :id"),
+            {"v": json.dumps(current), "id": str(user.id)},
+        )
+
+    # Alle Mails dieses Absenders löschen
+    await db.execute(
+        text(
+            "DELETE FROM email_messages "
+            "WHERE customer_id = :cid AND lower(from_address) = :from_addr"
+        ),
+        {"cid": str(user.id), "from_addr": email},
+    )
+    await db.commit()
+    log.info("[Email] Absender gesperrt und E-Mails gelöscht: %s → %s", user.id, email)
+    return {"ok": True, "blocked_senders": current}
+
+
+class ReplyRequest(BaseModel):
+    reply_text: str
+
+
+@router.post("/inbox/{message_id}/reply")
+async def reply_to_inbox_message(
+    message_id: uuid.UUID,
+    req: ReplyRequest,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Sendet eine manuelle Antwort auf eine E-Mail über die Baddi-Adresse des Users."""
+    from services.email_service import send_from_baddi_address
+
+    msg = await db.get(EmailMessage, message_id)
+    if not msg or msg.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Nicht gefunden")
+    if not user.baddi_email:
+        raise HTTPException(status_code=400, detail="Keine Baddi-E-Mail-Adresse konfiguriert")
+    if not req.reply_text.strip():
+        raise HTTPException(status_code=422, detail="Antworttext darf nicht leer sein")
+
+    subject = msg.subject if msg.subject.startswith("Re:") else f"Re: {msg.subject}"
+    sent = await send_from_baddi_address(
+        from_baddi_email=user.baddi_email,
+        to_address=msg.from_address,
+        subject=subject,
+        body_text=req.reply_text.strip(),
+    )
+    if not sent:
+        raise HTTPException(status_code=502, detail="E-Mail konnte nicht gesendet werden")
+
+    # Outbound-Nachricht speichern + Original als beantwortet markieren
+    outbound = EmailMessage(
+        id=uuid.uuid4(),
+        customer_id=user.id,
+        direction="outbound",
+        from_address=user.baddi_email,
+        to_address=msg.from_address,
+        subject=subject,
+        body_text=req.reply_text.strip(),
+        received_at=datetime.now(timezone.utc),
+        read=True,
+        sender_trusted=True,
+    )
+    db.add(outbound)
+    msg.replied = True
+    await db.commit()
+    log.info("[Email] Antwort gesendet: %s → %s", user.baddi_email, msg.from_address)
     return {"ok": True}
 
 

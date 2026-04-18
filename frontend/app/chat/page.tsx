@@ -45,6 +45,7 @@ import ChartWindow from "@/components/windows/ChartWindow";
 import GeoMapWindow from "@/components/windows/GeoMapWindow";
 import AssistenzWindow from "@/components/windows/AssistenzWindow";
 import FlightBoardWindow from "@/components/windows/FlightBoardWindow";
+import EmailWindow from "@/components/windows/EmailWindow";
 import StockCard from "@/components/chat/StockCard";
 import StockHistoryCard from "@/components/chat/StockHistoryCard";
 import ImageGalleryCard from "@/components/chat/ImageGalleryCard";
@@ -668,6 +669,7 @@ export default function ChatPage() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         <div className="h-full overflow-auto p-4"><ActionButtonsCard data={d as any} /></div>
       );
+      case "email": return <EmailWindow />;
       default: return (
         <div className="p-4 text-sm text-gray-400 font-mono whitespace-pre-wrap">
           {JSON.stringify(d, null, 2)}
