@@ -20,7 +20,7 @@ _VAT_RATE = Decimal("0.081")
 async def next_invoice_number(db: AsyncSession) -> str:
     """
     Vergibt die nächste fortlaufende Rechnungsnummer.
-    Format: BAD-YYYY-NNNNNN  (z.B. BAD-2026-000001)
+    Format: B-YYYY-NNNNNN  (z.B. B-2026-000001)
     Gesetzlich vorgeschrieben gem. MWSTG Art. 26 Abs. 2 lit. b.
     """
     year = datetime.now(timezone.utc).replace(tzinfo=None).year
@@ -30,7 +30,7 @@ async def next_invoice_number(db: AsyncSession) -> str:
         db.add(row)
     row.last_number += 1
     await db.flush()
-    return f"BAD-{year}-{row.last_number:06d}"
+    return f"B-{year}-{row.last_number:06d}"
 
 
 def calc_vat(gross_chf: float) -> tuple[float, float]:
