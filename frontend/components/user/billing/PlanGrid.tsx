@@ -74,11 +74,7 @@ function PlanCard({
           <span className="text-gray-600">·</span>
           Overage: CHF {(plan.token_overage_chf_per_1k * 100).toFixed(2)}/100k Tokens
         </li>
-        <li className="flex items-center gap-2 text-xs text-gray-300">
-          <span className="text-blue-400">✓</span>
-          Bis zu {plan.max_buddies} {plan.max_buddies === 1 ? "Baddi" : "Baddis"}
-        </li>
-        {highlights.map((h) => (
+        {highlights.filter(h => !/tokens/i.test(h)).map((h) => (
           <li key={h} className="flex items-center gap-2 text-xs text-gray-300">
             <span className="text-blue-400">✓</span>
             {h}
