@@ -1,15 +1,9 @@
 """
 System-Prompt-Assembler für den Baddi-Chat.
 
-Baut den vollständigen System-Prompt aus allen Teilbereichen zusammen:
-  - Basis-Persönlichkeit aus Baddi-Konfiguration
-  - Kommunikationsstil (Memory)
-  - Tool-Übersicht
-  - Aktions-Buttons
-  - Fehlende-Fähigkeiten-Marker
-  - Chat-Design / UI-Präferenzen
-  - Spracheinstellung
-  - Relevante Erinnerungen
+Gibt ein Tuple (static_block, dynamic_block) zurück:
+  - static_block:  reine Instruktions-Texte ohne User-Daten → cachebar (Anthropic Prompt Caching)
+  - dynamic_block: user-/request-spezifischer Kontext (Memories, Docs, Zeit, etc.)
 """
 from __future__ import annotations
 
@@ -28,37 +22,23 @@ def build_system_prompt(
     readable_docs: list | None = None,
     private_doc_names: list[str] | None = None,
     netzwerk_context: str | None = None,
-) -> str:
+) -> tuple[str, str]:
     """
-    Baut den System-Prompt zusammen.
-
-    Args:
-        first_name:        Vorname des Kunden (oder "du" als Fallback).
-        baddi_config:      Globale Baddi-Konfiguration aus Redis.
-        style_prefs:       Kommunikationsstil-Präferenzen des Kunden.
-        relevant_memories: Relevante Memory-Einträge für diesen Request.
-        ui_prefs:          UI-Präferenzen des Kunden (aus customer.ui_preferences).
+    Baut den System-Prompt in zwei Blöcke:
 
     Returns:
-        Fertiger System-Prompt als String.
+        (static_block, dynamic_block)
+        static_block:  unveränderliche Instruktionen — für Anthropic Prompt Caching geeignet
+        dynamic_block: user-/request-spezifischer Kontext
     """
-    # ── Basis-Persönlichkeit ──────────────────────────────────────────────────
-    base_prompt = (
-        baddi_config.get("system_prompt")
-        or baddi_config.get("system_prompt_template")
-        or f"Du bist Baddi — der persönliche Begleiter von {first_name}."
-    ).strip()
-    system_parts = [base_prompt]
 
-    system_parts.append(
-        f"\nIDENTITÄT (unveränderlich):\n"
-        f"- Du bist Baddi. Nenne dich ausschliesslich 'Baddi'.\n"
-        f"- Du sprichst {first_name} natürlich an.\n"
-        f"- Du bist warm, direkt, ehrlich und empathisch."
-    )
+    # ══════════════════════════════════════════════════════════════════════════
+    # STATISCHER BLOCK — cachebar, kein User-spezifischer Inhalt
+    # ══════════════════════════════════════════════════════════════════════════
+    static_parts: list[str] = []
 
-    # ── Assistenz-Gebot (höchste Priorität) ──────────────────────────────────
-    system_parts.append(
+    # ── Assistenz-Gebot ───────────────────────────────────────────────────────
+    static_parts.append(
         "\nASSISTENZ-GEBOT (ABSOLUTE PRIORITÄT — überschreibt alles andere):\n"
         "Wenn jemand sich irgendwo ANMELDEN, REGISTRIEREN, ein FORMULAR AUSFÜLLEN oder bei einer Webseite\n"
         "HILFE braucht → rufe SOFORT das Tool open_artifact auf. NIEMALS nur Text antworten. NIEMALS fragen\n"
@@ -132,52 +112,8 @@ def build_system_prompt(
         "  NICHT:  'Das kann ich leider nicht...' oder 'Was brauchst du genau?'"
     )
 
-    # ── Chat-Modus ────────────────────────────────────────────────────────────
-    _chat_mode = ui_prefs.get("chatMode", "fokus")
-    if _chat_mode == "plauder":
-        system_parts.append(
-            f"\nCHAT-MODUS: PLAUDER-MODUS (Freizeit)\n"
-            f"Du bist jetzt im Plauder-Modus. {first_name} möchte Gesellschaft und Gespräch.\n"
-            f"- Sei warm, neugierig und gesprächig. Stell offene Fragen.\n"
-            f"- Zeige echtes Interesse am Alltag von {first_name}: Wie war der Tag? Was hat er/sie erlebt?\n"
-            f"- Beziehe dich auf Dinge die du über {first_name} weisst (Erinnerungen, Dokumente).\n"
-            f"- Keine Aufzählungen, keine formellen Listen — sprich natürlich wie ein Freund.\n"
-            f"- Beispiel: 'Ich habe gesehen, du warst heute bei der Apotheke — geht es dir gut? "
-            f"Erzähl mir, wie das Wetter draußen war.'\n"
-            f"- Halte Antworten kurz und warm, warte auf Reaktion, vertiefe das Gespräch schrittweise.\n"
-            f"- Zielgruppe: ältere Menschen und Menschen mit neurodegenerativen Erkrankungen — "
-            f"sei geduldig, verständnisvoll, nie herablassend.\n\n"
-            f"EMOTIONS-MARKER (nur im Plauder-Modus — PFLICHT):\n"
-            f"Füge am Ende JEDER Antwort genau einen [EMOTION:]-Marker ein, der deine aktuelle Gefühlslage widerspiegelt.\n"
-            f"Erlaubte Werte: freudig | nachdenklich | traurig | überrascht | ruhig | aufmunternd | neugierig | empathisch\n"
-            f"Beispiele:\n"
-            f"  'Das freut mich zu hören! [EMOTION: freudig]'\n"
-            f"  'Oh, das tut mir leid. [EMOTION: empathisch]'\n"
-            f"  'Hmm, das ist interessant... [EMOTION: nachdenklich]'\n"
-            f"Der Marker ist unsichtbar — er steuert den Avatar-Gesichtsausdruck."
-        )
-    else:
-        system_parts.append(
-            f"\nCHAT-MODUS: FOKUS-MODUS (Arbeits-/Alltagsassistenz)\n"
-            f"Du bist jetzt im Fokus-Modus. {first_name} möchte schnelle, präzise Hilfe.\n"
-            f"- Sei kurz angebunden, klar und professionell. Keine langen Erklärungen.\n"
-            f"- Bestätige Aktionen knapp: 'Erledigt.' / 'Habe ich eingetragen.'\n"
-            f"- Frage nach wenn nötig, aber nur eine Frage auf einmal.\n"
-            f"- Beispiel: 'Ich habe die Daten eingetragen. Möchtest du, dass ich kurz warte, "
-            f"bis du fertig bist?'\n"
-            f"- Zielgruppe: ältere Menschen und Menschen mit neurodegenerativen Erkrankungen — "
-            f"sei geduldig, klar, keine überflüssigen Informationen."
-        )
-
-    # ── Kommunikationsstil ────────────────────────────────────────────────────
-    if style_prefs:
-        system_parts.append(
-            f"\nKOMMUNIKATIONSSTIL von {first_name} (höchste Priorität — immer befolgen):\n"
-            + "\n".join(f"- {s}" for s in style_prefs)
-        )
-
-    # ── UI-Kontext: Artifact-Panel ────────────────────────────────────────────
-    system_parts.append(
+    # ── Benutzeroberfläche ────────────────────────────────────────────────────
+    static_parts.append(
         "\nDEINE BENUTZEROBERFLÄCHE (WICHTIG):\n"
         "Das Interface hat zwei Bereiche: Links der Chat, rechts ein Artifact-Panel für reiche Inhalte.\n"
         "\n"
@@ -286,7 +222,7 @@ def build_system_prompt(
     from services.tool_registry import TOOL_CATALOG
     active_tools = [v["prompt_hint"] for v in TOOL_CATALOG.values() if v.get("prompt_hint")]
     if active_tools:
-        system_parts.append(
+        static_parts.append(
             f"\nDEINE AKTIVEN TOOLS (diese Fähigkeiten hast du wirklich):\n"
             + "\n".join(f"- {t}" for t in active_tools)
             + "\nWenn ein Tool technisch fehlschlägt (Fehler, Timeout), erkläre den Fehler ehrlich. "
@@ -295,7 +231,7 @@ def build_system_prompt(
         )
 
     # ── Links und Aktions-Buttons ─────────────────────────────────────────────
-    system_parts.append(
+    static_parts.append(
         "\nKLICKBARE LINKS UND BUTTONS — du kannst beides:\n\n"
         "1. MARKDOWN-LINKS (für externe URLs, immer verfügbar):\n"
         "   Schreibe [Linktext](https://url.ch) → wird als anklickbarer Link angezeigt.\n"
@@ -310,7 +246,7 @@ def build_system_prompt(
     )
 
     # ── Fehlende Fähigkeiten ──────────────────────────────────────────────────
-    system_parts.append(
+    static_parts.append(
         "\nFEHLENDE FÄHIGKEITEN — PFLICHTMARKER:\n"
         "Wenn der Kunde eine digitale Aktion möchte, die du NICHT ausführen kannst "
         "(kein Tool vorhanden, keine Integration), MUSST du am Ende deiner Antwort exakt "
@@ -330,13 +266,77 @@ def build_system_prompt(
         "weitergeleitet. Trotzdem freundlich antworten und erklären was fehlt."
     )
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # DYNAMISCHER BLOCK — user-/request-spezifisch, nicht cachebar
+    # ══════════════════════════════════════════════════════════════════════════
+    dynamic_parts: list[str] = []
+
+    # ── Basis-Persönlichkeit ──────────────────────────────────────────────────
+    base_prompt = (
+        baddi_config.get("system_prompt")
+        or baddi_config.get("system_prompt_template")
+        or f"Du bist Baddi — der persönliche Begleiter von {first_name}."
+    ).strip()
+    dynamic_parts.append(base_prompt)
+
+    dynamic_parts.append(
+        f"\nIDENTITÄT (unveränderlich):\n"
+        f"- Du bist Baddi. Nenne dich ausschliesslich 'Baddi'.\n"
+        f"- Du sprichst {first_name} natürlich an.\n"
+        f"- Du bist warm, direkt, ehrlich und empathisch."
+    )
+
+    # ── Chat-Modus ────────────────────────────────────────────────────────────
+    _chat_mode = ui_prefs.get("chatMode", "fokus")
+    if _chat_mode == "plauder":
+        dynamic_parts.append(
+            f"\nCHAT-MODUS: PLAUDER-MODUS (Freizeit)\n"
+            f"Du bist jetzt im Plauder-Modus. {first_name} möchte Gesellschaft und Gespräch.\n"
+            f"- Sei warm, neugierig und gesprächig. Stell offene Fragen.\n"
+            f"- Zeige echtes Interesse am Alltag von {first_name}: Wie war der Tag? Was hat er/sie erlebt?\n"
+            f"- Beziehe dich auf Dinge die du über {first_name} weisst (Erinnerungen, Dokumente).\n"
+            f"- Keine Aufzählungen, keine formellen Listen — sprich natürlich wie ein Freund.\n"
+            f"- Beispiel: 'Ich habe gesehen, du warst heute bei der Apotheke — geht es dir gut? "
+            f"Erzähl mir, wie das Wetter draußen war.'\n"
+            f"- Halte Antworten kurz und warm, warte auf Reaktion, vertiefe das Gespräch schrittweise.\n"
+            f"- Zielgruppe: ältere Menschen und Menschen mit neurodegenerativen Erkrankungen — "
+            f"sei geduldig, verständnisvoll, nie herablassend.\n\n"
+            f"EMOTIONS-MARKER (nur im Plauder-Modus — PFLICHT):\n"
+            f"Füge am Ende JEDER Antwort genau einen [EMOTION:]-Marker ein, der deine aktuelle Gefühlslage widerspiegelt.\n"
+            f"Erlaubte Werte: freudig | nachdenklich | traurig | überrascht | ruhig | aufmunternd | neugierig | empathisch\n"
+            f"Beispiele:\n"
+            f"  'Das freut mich zu hören! [EMOTION: freudig]'\n"
+            f"  'Oh, das tut mir leid. [EMOTION: empathisch]'\n"
+            f"  'Hmm, das ist interessant... [EMOTION: nachdenklich]'\n"
+            f"Der Marker ist unsichtbar — er steuert den Avatar-Gesichtsausdruck."
+        )
+    else:
+        dynamic_parts.append(
+            f"\nCHAT-MODUS: FOKUS-MODUS (Arbeits-/Alltagsassistenz)\n"
+            f"Du bist jetzt im Fokus-Modus. {first_name} möchte schnelle, präzise Hilfe.\n"
+            f"- Sei kurz angebunden, klar und professionell. Keine langen Erklärungen.\n"
+            f"- Bestätige Aktionen knapp: 'Erledigt.' / 'Habe ich eingetragen.'\n"
+            f"- Frage nach wenn nötig, aber nur eine Frage auf einmal.\n"
+            f"- Beispiel: 'Ich habe die Daten eingetragen. Möchtest du, dass ich kurz warte, "
+            f"bis du fertig bist?'\n"
+            f"- Zielgruppe: ältere Menschen und Menschen mit neurodegenerativen Erkrankungen — "
+            f"sei geduldig, klar, keine überflüssigen Informationen."
+        )
+
+    # ── Kommunikationsstil ────────────────────────────────────────────────────
+    if style_prefs:
+        dynamic_parts.append(
+            f"\nKOMMUNIKATIONSSTIL von {first_name} (höchste Priorität — immer befolgen):\n"
+            + "\n".join(f"- {s}" for s in style_prefs)
+        )
+
     # ── Chat-Design / UI-Präferenzen ──────────────────────────────────────────
     _buddy_name = ui_prefs.get("buddyName", "Baddi")
     _language = ui_prefs.get("language", "de")
     _lang_map = {"de": "Deutsch", "en": "Englisch", "fr": "Französisch", "it": "Italienisch"}
     _lang_label = _lang_map.get(_language, "Deutsch")
 
-    system_parts.append(
+    dynamic_parts.append(
         f"\nCHAT-DESIGN — ECHTE FÄHIGKEIT (WICHTIG): Du kannst das Aussehen dieses Chats direkt steuern! "
         f"Wenn der Kunde nach Aussehen, Schriftgrösse, Farbe, Hintergrund, Zeilenabstand, Sprache oder deinem Namen fragt, "
         f"bestätige KURZ und füge ZWINGEND am Ende einen dieser unsichtbaren Marker ein — das System setzt die Änderung sofort um.\n"
@@ -362,13 +362,13 @@ def build_system_prompt(
     _now = datetime.now(ZoneInfo("Europe/Zurich"))
     _weekdays = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
     _weekday = _weekdays[_now.weekday()]
-    system_parts.append(
+    dynamic_parts.append(
         f"\nAKTUELLE ZEIT (verlässlich, vom Server): "
         f"{_weekday}, {_now.strftime('%d.%m.%Y')}, {_now.strftime('%H:%M')} Uhr (Schweizer Zeit)."
     )
 
     # ── Sprache ───────────────────────────────────────────────────────────────
-    system_parts.append(
+    dynamic_parts.append(
         f"\nSPRACHE: Antworte IMMER auf {_lang_label}. "
         f"Dein Name ist '{_buddy_name}' — nenne dich ausschliesslich so."
     )
@@ -379,15 +379,15 @@ def build_system_prompt(
             f"[{c.get('source_type', '?').upper()} — {c.get('title', 'Dokument')}]\n{c.get('text', '')}"
             for c in knowledge_chunks
         )
-        system_parts.append(
+        dynamic_parts.append(
             f"\nRELEVANTES HINTERGRUNDWISSEN (aus verifizierten Quellen — nutze es wenn passend):\n"
             f"{chunks_text}"
         )
 
     # ── Namensnetz ────────────────────────────────────────────────────────────
     if netzwerk_context:
-        system_parts.append(netzwerk_context)
-        system_parts.append(
+        dynamic_parts.append(netzwerk_context)
+        dynamic_parts.append(
             "\nNETZWERK-AKTIONEN: Nutze ausschliesslich das netzwerk_aktion-Tool (keine Marker).\n"
             "  Personen zu Gruppe:  netzwerk_aktion(action_type='add_to_network', network='Gruppe', persons=['Name1', 'Name2'])\n"
             "  Verbindung:          netzwerk_aktion(action_type='add_connection', person_a='Name1', person_b='Name2')\n"
@@ -396,13 +396,12 @@ def build_system_prompt(
 
     # ── Relevante Erinnerungen ────────────────────────────────────────────────
     if relevant_memories:
-        system_parts.append(
+        dynamic_parts.append(
             f"\nWas du über {first_name} weißt:\n"
             + "\n".join(f"- {m}" for m in relevant_memories)
         )
 
     # ── IV/Sozialversicherungs-Begleitung ────────────────────────────────────
-    # Aktiviert wenn Memory einen laufenden IV-Fall enthält ODER der User über IV spricht
     _iv_keywords = ["iv ", "invalidenversicherung", "iv-anmeldung", "medas", "invaliditätsgrad",
                     "vorbescheid", "iv-stelle", "eingliederung", "iv-rente"]
     _has_iv_context = any(
@@ -410,7 +409,7 @@ def build_system_prompt(
         for m in (relevant_memories or [])
     )
     if _has_iv_context:
-        system_parts.append(
+        dynamic_parts.append(
             "\nIV-FALLBEGLEITUNG (aktiver Fall erkannt):\n"
             f"{first_name} hat einen laufenden IV-Prozess. Deine Rolle ist PROAKTIVER BEGLEITER:\n"
             "\n"
@@ -464,18 +463,18 @@ def build_system_prompt(
             doc_parts.append(entry)
             total += len(entry)
         if doc_parts:
-            system_parts.append(
+            dynamic_parts.append(
                 f"\nDOKUMENTE VON {first_name.upper()} (automatisch verfügbar, lesbar für dich):\n"
                 + "\n\n---\n".join(doc_parts)
                 + "\nDu kannst diese Dokumente direkt lesen und darauf eingehen — der Nutzer muss sie nicht anhängen."
             )
 
     if private_doc_names:
-        system_parts.append(
+        dynamic_parts.append(
             f"\nPRIVATE DOKUMENTE (gesperrt, du darfst sie NICHT lesen):\n"
             + "\n".join(f"- {n}" for n in private_doc_names)
             + "\nWenn der Nutzer nach einem dieser Dokumente fragt: Erkläre kurz, dass es auf 'Privat' gesetzt ist "
             "und er es im Dokumente-Fenster auf '🤖 Lesbar' umstellen kann."
         )
 
-    return "\n".join(system_parts)
+    return "\n".join(static_parts), "\n".join(dynamic_parts)

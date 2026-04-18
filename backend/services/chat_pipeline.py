@@ -44,7 +44,7 @@ _log = logging.getLogger(__name__)
 class ChatContext(TypedDict):
     prior_messages: list[dict[str, Any]]
     baddi_config: dict[str, Any]
-    system_prompt: str
+    system_prompt: list[dict[str, Any]]  # [static_cached, dynamic] blocks für Prompt Caching
     system_prompt_name: str
     doc_cache: dict[str, Any]
 
@@ -63,6 +63,10 @@ class LLMResult(TypedDict):
 
 _HISTORY_WINDOW = 20
 _CONTEXT_WINDOW = 10
+
+# Knowledge-Retrieval: engere Parameter → weniger Token-Verschwendung
+_KNOWLEDGE_TOP_K    = 3     # war 6 — senkt Knowledge-Anteil im Prompt um ~50%
+_KNOWLEDGE_MIN_SCORE = 0.72  # war 0.60 — filtert irrelevante Chunks raus
 
 # Fallback-Boost-Regeln — überschreibbar via baddi_config["knowledge_boost"] in Redis.
 # Format: Liste von {terms, titles, max_per_title}
@@ -162,8 +166,8 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> Ch
         try:
             knowledge_chunks = search_global_knowledge(
                 query=message,
-                top_k=int(baddi_config.get("knowledge_max_results", 6)),
-                min_score=float(baddi_config.get("knowledge_min_score", 0.60)),
+                top_k=int(baddi_config.get("knowledge_max_results", _KNOWLEDGE_TOP_K)),
+                min_score=float(baddi_config.get("knowledge_min_score", _KNOWLEDGE_MIN_SCORE)),
                 domains=baddi_config.get("knowledge_domains") or None,
             )
             # Themen-Boost: konfigurierbar via baddi_config["knowledge_boost"]
@@ -183,8 +187,10 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> Ch
         except Exception as e:
             _log.warning("Knowledge-Suche fehlgeschlagen, Chat läuft ohne Wissensbasis: %s", e)
 
-    # System-Prompt
-    system_prompt = build_system_prompt(
+    # System-Prompt als zwei Blöcke für Prompt Caching:
+    #   Block 0 (static, cache_control=ephemeral): reine Instruktionen, user-unabhängig
+    #   Block 1 (dynamic): user-/request-spezifischer Kontext
+    static_block, dynamic_block = build_system_prompt(
         first_name=first_name,
         baddi_config=baddi_config,
         style_prefs=style_prefs,
@@ -195,11 +201,15 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> Ch
         private_doc_names=[d.original_filename for d in private_docs],
         netzwerk_context=netzwerk_context,
     )
+    system_prompt_blocks: list[dict[str, Any]] = [
+        {"type": "text", "text": static_block, "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": dynamic_block},
+    ]
 
     return {
         "prior_messages": prior_messages,
         "baddi_config": baddi_config,
-        "system_prompt": system_prompt,
+        "system_prompt": system_prompt_blocks,
         "system_prompt_name": baddi_config.get("name") or baddi_config.get("system_prompt_name") or "Standard",
         "doc_cache": doc_cache,
     }
@@ -230,7 +240,7 @@ async def execute_llm(
     images: list[Any] | None,
     document_ids: list[str] | None,
     prior_messages: list[dict[str, Any]],
-    system_prompt: str,
+    system_prompt: list[dict[str, Any]] | str,
     db: AsyncSession,
     doc_cache: dict[str, Any] | None = None,
     canvas_context: list[dict[str, Any]] | None = None,
@@ -255,8 +265,14 @@ async def execute_llm(
         user_message = f"{canvas_note}\n\n{user_message}"
 
     if images:
+        # Vision-Calls brauchen kein Caching — Prompt als String zusammenführen
+        vision_system = (
+            "\n\n".join(b["text"] for b in system_prompt if isinstance(b, dict))
+            if isinstance(system_prompt, list)
+            else system_prompt
+        )
         response_text, tokens_used, errors = await _run_vision(
-            images, user_message, prior_messages, system_prompt, model_name, errors
+            images, user_message, prior_messages, vision_system, model_name, errors
         )
         model_name = "claude-sonnet-4-6"
     else:

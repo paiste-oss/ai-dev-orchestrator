@@ -21,7 +21,7 @@ _log = logging.getLogger(__name__)
 async def run_buddy_chat(
     message: str,
     buddy_name: str,
-    system_prompt: str,
+    system_prompt: str | list[dict],
     tool_keys: list[str],
     model: str = "claude-sonnet-4-6",
     max_tool_rounds: int = 5,
@@ -47,7 +47,7 @@ async def run_buddy_chat(
 
 async def _run_bedrock(
     messages: list[dict],
-    system_prompt: str,
+    system_prompt: str | list[dict],
     tool_defs: list[dict],
     model: str,
     max_tool_rounds: int,
@@ -85,6 +85,10 @@ async def _run_bedrock(
 
             usage = data.get("usage", {})
             total_tokens += usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+            if usage.get("cache_read_input_tokens"):
+                _log.info("Bedrock Prompt Cache HIT — %d gecachte Tokens gelesen", usage["cache_read_input_tokens"])
+            if usage.get("cache_creation_input_tokens"):
+                _log.info("Bedrock Prompt Cache WRITE — %d Tokens gecacht", usage["cache_creation_input_tokens"])
 
             stop_reason = data.get("stop_reason")
             content = data.get("content", [])
@@ -122,7 +126,7 @@ async def _run_bedrock(
 
 async def _run_anthropic(
     messages: list[dict],
-    system_prompt: str,
+    system_prompt: str | list[dict],
     tool_defs: list[dict],
     model: str,
     max_tool_rounds: int,
@@ -146,6 +150,10 @@ async def _run_anthropic(
 
         response = client.messages.create(**kwargs)
         total_tokens += response.usage.input_tokens + response.usage.output_tokens
+        if getattr(response.usage, "cache_read_input_tokens", 0):
+            _log.info("Anthropic Prompt Cache HIT — %d gecachte Tokens gelesen", response.usage.cache_read_input_tokens)
+        if getattr(response.usage, "cache_creation_input_tokens", 0):
+            _log.info("Anthropic Prompt Cache WRITE — %d Tokens gecacht", response.usage.cache_creation_input_tokens)
 
         if response.stop_reason == "end_turn":
             text = _extract_text(response.content)
