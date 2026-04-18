@@ -133,8 +133,12 @@ async def inbound_webhook(
 
         from_addr = _extract_from_address(item)
         sender_trusted = (
+            # SPF+DKIM bestanden
             (item.Dkim or "").lower() == "pass"
             and (item.SpfResult or "").lower() == "pass"
+        ) or (
+            # eigene Registrierungs-Email ist immer vertrauenswürdig
+            from_addr.lower() == customer.email.lower()
         )
         msg = EmailMessage(
             id=uuid.uuid4(),

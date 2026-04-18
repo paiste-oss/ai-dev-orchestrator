@@ -22,6 +22,7 @@ interface Me {
   billing_city: string | null; billing_country: string | null;
   two_fa_enabled: boolean; phone_verified: boolean;
   notification_channel: "sms" | "email";
+  baddi_email: string | null;
 }
 
 export default function UserSettingsPage() {
@@ -50,7 +51,7 @@ export default function UserSettingsPage() {
           </div>
         </div>
 
-        <ProfileSection me={me} />
+        <ProfileSection me={me} baddieEmail={me.baddi_email} />
         <ChatAppearanceSection />
         <PasswordSection />
         <NotificationChannelSection

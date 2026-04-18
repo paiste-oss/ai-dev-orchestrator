@@ -31,6 +31,7 @@ interface Me {
 
 interface ProfileSectionProps {
   me: Me;
+  baddieEmail?: string | null;
 }
 
 const LANGUAGES = [
@@ -49,7 +50,7 @@ const LANGUAGES = [
 const inputCls =
   "w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors";
 
-export function ProfileSection({ me }: ProfileSectionProps) {
+export function ProfileSection({ me, baddieEmail }: ProfileSectionProps) {
   const [rufname, setRufname] = useState(me.name ?? "");
   const [firstName, setFirstName] = useState(me.first_name ?? "");
   const [lastName, setLastName] = useState(me.last_name ?? "");
@@ -129,6 +130,25 @@ export function ProfileSection({ me }: ProfileSectionProps) {
             <label className="text-xs text-gray-400 font-medium">E-Mail</label>
             <input value={me.email} disabled className={`${inputCls} opacity-50 cursor-not-allowed`} />
           </div>
+          {baddieEmail && (
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400 font-medium">
+                Baddi Email
+                <span className="ml-2 text-[10px] text-indigo-400 font-normal">Deine persönliche Baddi-Adresse</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <input value={baddieEmail} disabled className={`${inputCls} opacity-70 cursor-default font-mono text-indigo-300`} />
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(baddieEmail)}
+                  title="Kopieren"
+                  className="shrink-0 px-3 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-indigo-500 transition-colors text-xs"
+                >
+                  📋
+                </button>
+              </div>
+            </div>
+          )}
           <div className="space-y-1">
             <label className="text-xs text-gray-400 font-medium">Mobile</label>
             <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+41 79 000 00 00" className={inputCls} />

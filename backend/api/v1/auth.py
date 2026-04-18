@@ -228,6 +228,7 @@ async def me(user: Customer = Depends(get_current_user)):
         "two_fa_enabled": user.two_fa_enabled,
         "phone_verified": user.phone_verified,
         "notification_channel": user.notification_channel or "sms",
+        "baddi_email": user.baddi_email,
     }
 
 
