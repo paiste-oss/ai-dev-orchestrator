@@ -7,9 +7,7 @@ import { BACKEND_URL } from "@/lib/config";
 import CurrentPlanCard from "@/components/user/billing/CurrentPlanCard";
 import PlanGrid from "@/components/user/billing/PlanGrid";
 import BillingHistory from "@/components/user/billing/BillingHistory";
-import WalletBalanceCard from "@/components/user/wallet/WalletBalanceCard";
-import TopupModal from "@/components/user/wallet/TopupModal";
-import WalletSettingsModal from "@/components/user/wallet/WalletSettingsModal";
+import WalletPanel from "@/components/user/wallet/WalletPanel";
 import StorageAddons from "@/components/user/wallet/StorageAddons";
 
 interface Plan {
@@ -97,7 +95,6 @@ function BillingPageInner() {
   const [addons,         setAddons]         = useState<StorageAddon[]>([]);
   const [loading,        setLoading]        = useState(false);
   const [tosChecked,     setTosChecked]     = useState(false);
-  const [settingsOpen,   setSettingsOpen]   = useState(false);
   const [alert,          setAlert]          = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -125,6 +122,7 @@ function BillingPageInner() {
     if (s === "success")       setAlert({ type: "success", text: "Zahlung erfolgreich! Dein Abo ist jetzt aktiv." });
     if (s === "topup_success") setAlert({ type: "success", text: "Guthaben erfolgreich aufgeladen!" });
     if (s === "canceled")      setAlert({ type: "error",   text: "Zahlung abgebrochen." });
+    if (s) router.replace("/user/billing");
   }, [load, router, searchParams]);
 
   async function acceptTos() {
@@ -227,12 +225,15 @@ function BillingPageInner() {
           />
         </section>
 
-        {/* Guthaben aufladen */}
-        {wallet && (
-          <section className="border-t border-white/6 pt-8 space-y-4">
-            <SectionHeader>Guthaben aufladen</SectionHeader>
-            <WalletBalanceCard wallet={wallet} onOpenSettings={() => setSettingsOpen(true)} />
-            <TopupModal hasActiveSubscription={wallet.has_active_subscription} />
+        {/* Guthaben */}
+        {wallet && status && (
+          <section className="border-t border-white/6 pt-8">
+            <SectionHeader>Guthaben</SectionHeader>
+            <WalletPanel
+              wallet={wallet}
+              overageRateChfPer1k={status.overage_rate_chf_per_1k}
+              onSaved={updated => setWallet(prev => prev ? { ...prev, ...updated } : prev)}
+            />
           </section>
         )}
 
@@ -251,13 +252,7 @@ function BillingPageInner() {
 
       </div>
 
-      {settingsOpen && wallet && (
-        <WalletSettingsModal
-          wallet={wallet}
-          onClose={() => setSettingsOpen(false)}
-          onSaved={updated => setWallet(prev => prev ? { ...prev, ...updated } : prev)}
-        />
-      )}
+
     </div>
   );
 }
