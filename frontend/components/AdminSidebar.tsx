@@ -42,21 +42,16 @@ const NAV: NavEntry[] = [
     ],
   },
   {
-    label: "Konfigurieren", icon: "⊙",
-    children: [
-      { label: "Portal",        href: "/admin/settings",      icon: "◉" },
-      { label: "Integrationen", href: "/admin/integrations",  icon: "⇌" },
-    ],
-  },
-  {
     label: "System & Health", icon: "◉",
     children: [
-      { label: "Übersicht",    href: "/admin/system",            icon: "◉" },
-      { label: "Tagesreport",  href: "/admin/system/tagesreport", icon: "📋" },
+      { label: "Übersicht",      href: "/admin/system",             icon: "◉" },
+      { label: "Tagesreport",    href: "/admin/system/tagesreport", icon: "📋" },
+      { label: "Portal",         href: "/admin/settings",           icon: "⊙" },
+      { label: "Integrationen",  href: "/admin/integrations",       icon: "⇌" },
+      { label: "Testseiten",     href: "/admin/testpages",          icon: "⌘" },
     ],
   },
   { label: "Support",    href: "/admin/support",   icon: "📨" },
-  { label: "Testseiten", href: "/admin/testpages", icon: "⌘" },
 ];
 
 interface Props { open: boolean; onClose: () => void; }
@@ -133,7 +128,7 @@ export default function AdminSidebar({ open, onClose }: Props) {
           {NAV.map((entry) => {
             if (!isGroup(entry)) {
               const active     = isActive(entry.href);
-              const isDivider  = entry.href === "/admin/testpages" || entry.href === "/admin";
+              const isDivider  = entry.href === "/admin";
               return (
                 <div key={entry.href}>
                   {isDivider && <div className="my-2 h-px bg-white/5 mx-1" />}
