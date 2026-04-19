@@ -950,6 +950,8 @@ export default function ChatPage() {
           onAddArtifact={handleAddCard}
           bgStyle={bgStyle}
           userName={firstName}
+          uiPrefs={uiPrefs}
+          onPrefsChange={(patch) => setUiPrefs((p) => ({ ...p, ...patch }))}
         />
 
       {/* ── Hidden file input ── */}

@@ -20,7 +20,7 @@ from api.v1 import (
     router_admin, llm_admin, system_prompts_admin, tools_admin,
     integrations_admin, analytics_admin, user_preferences, windows,
     knowledge, stocks, transcribe, health_admin, dictations, assistenz,
-    support_admin, flights, email, calendar, invoices,
+    support_admin, flights, email, calendar, invoices, user_home,
 )
 from api.v1 import settings as portal_settings
 import models.chat              # noqa: F401
@@ -114,6 +114,7 @@ app.include_router(tools_admin.router, prefix="/v1")
 app.include_router(integrations_admin.router, prefix="/v1")
 app.include_router(analytics_admin.router, prefix="/v1")
 app.include_router(user_preferences.router, prefix="/v1")
+app.include_router(user_home.router, prefix="/v1")
 app.include_router(windows.router, prefix="/v1")
 app.include_router(knowledge.router, prefix="/v1")
 app.include_router(stocks.router, prefix="/v1")

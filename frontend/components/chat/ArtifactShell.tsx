@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { ArtifactEntry, ARTIFACT_META } from "@/lib/chat-types";
+import { ArtifactEntry, ARTIFACT_META, UiPrefs } from "@/lib/chat-types";
 import { WINDOW_MODULES } from "@/lib/window-registry";
 import HomeWindow from "@/components/windows/HomeWindow";
 
@@ -14,6 +14,8 @@ interface ArtifactShellProps {
   onAddArtifact?: (type: string) => void;
   bgStyle?: React.CSSProperties;
   userName?: string;
+  uiPrefs?: UiPrefs;
+  onPrefsChange?: (patch: Partial<UiPrefs>) => void;
 }
 
 const HOME_ID = "__home__";
@@ -28,6 +30,8 @@ export default function ArtifactShell({
   onAddArtifact,
   bgStyle,
   userName,
+  uiPrefs,
+  onPrefsChange,
 }: ArtifactShellProps) {
   // ── Home active state (local) ────────────────────────────────────────────────
   const [homeActive, setHomeActive] = useState(() => artifacts.length === 0);
@@ -217,6 +221,8 @@ export default function ArtifactShell({
           <HomeWindow
             artifacts={artifacts}
             bgStyle={bgStyle}
+            uiPrefs={uiPrefs}
+            onPrefsChange={onPrefsChange}
             onFocus={(id) => {
               setHomeActive(false);
               onSetActive(id);
