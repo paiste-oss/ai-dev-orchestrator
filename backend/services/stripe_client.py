@@ -111,27 +111,28 @@ def _stripe():
 
 
 async def seed_plans(db: AsyncSession) -> None:
-    """Legt die Standardpläne an oder aktualisiert bestehende (idempotent via slug)."""
+    """Legt fehlende Pläne an — bestehende werden nicht überschrieben (DB ist Quelle der Wahrheit)."""
+    created = 0
     for p in PLAN_DEFAULTS:
         r = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.slug == p["slug"]))
-        plan = r.scalar_one_or_none()
-        if plan is None:
+        if r.scalar_one_or_none() is None:
             plan = SubscriptionPlan(id=uuid_mod.uuid4(), slug=p["slug"])
+            plan.name = p["name"]
+            plan.max_buddies = p["max_buddies"]
+            plan.monthly_price = p["monthly_price"]
+            plan.yearly_price = p["yearly_price"]
+            plan.included_tokens = p["included_tokens"]
+            plan.daily_token_limit = p["daily_token_limit"]
+            plan.requests_per_hour = p["requests_per_hour"]
+            plan.token_overage_chf_per_1k = p["token_overage_chf_per_1k"]
+            plan.storage_limit_bytes = p["storage_limit_bytes"]
+            plan.sort_order = p["sort_order"]
+            plan.features = p["features"]
             db.add(plan)
-        # Immer aktualisieren (Name, Preise, Rate Limits, Features)
-        plan.name = p["name"]
-        plan.max_buddies = p["max_buddies"]
-        plan.monthly_price = p["monthly_price"]
-        plan.yearly_price = p["yearly_price"]
-        plan.included_tokens = p["included_tokens"]
-        plan.daily_token_limit = p["daily_token_limit"]
-        plan.requests_per_hour = p["requests_per_hour"]
-        plan.token_overage_chf_per_1k = p["token_overage_chf_per_1k"]
-        plan.storage_limit_bytes = p["storage_limit_bytes"]
-        plan.sort_order = p["sort_order"]
-        plan.features = p["features"]
-    await db.commit()
-    _log.info("Billing: Pläne synchronisiert (Personal / Intensiv / Premium)")
+            created += 1
+    if created:
+        await db.commit()
+        _log.info("Billing: %d neue Pläne angelegt", created)
 
 
 async def get_or_create_stripe_customer(customer: Customer, db: AsyncSession) -> str:
