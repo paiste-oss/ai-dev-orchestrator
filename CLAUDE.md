@@ -1,8 +1,8 @@
 # Baddi — Projektkontext für Claude Code
 
 ## Produkt
-**Baddi** (baddi.ch) ist ein KI-Assistent für Schweizer KMUs.
-Kunden chatten mit einem personalisierten "Buddy" (KI-Agent).
+**Baddi** (baddi.ch) ist ein KI-Assistent für Menschen. Der Baddi soll ein Framework für geführte Lebensprozesse bieten.
+Kunden chatten mit einem personalisierten "Baddi" (KI-Agent).
 Betreiber: Naor (Inhaber, Entwickler, alleiniger Nutzer dieses Dev-Orchestrators).
 
 ## Tech Stack
@@ -17,7 +17,7 @@ Betreiber: Naor (Inhaber, Entwickler, alleiniger Nutzer dieses Dev-Orchestrators
 - **Frontend Deploy**: `git push` → GitHub → Vercel baut automatisch
 - **Backend Deploy**: `git push` → auf VPS `git pull && docker restart ai_backend`
 - **VPS-Zugang**: `ssh ubuntu@83.228.242.214`
-- **VPS-Projektpfad**: `/home/ubuntu/ai-dev-orchestrator` (oder analog)
+- **VPS-Projektpfad**: `/mnt/data/app`
 
 ## Projektstruktur
 ```
@@ -130,6 +130,36 @@ docker-compose.yml           # Alle Services (VPS)
 - Webhook-URL: `https://api.baddi.ch/v1/billing/webhook`
 - Abo-Pläne: Basis (CHF 19/Mt), Komfort (CHF 49/Mt), Premium (CHF 99/Mt)
 - Wallet: Prepaid-Guthaben nur für Token-Overage; Speicher-Addons als Abo-Items
+
+---
+
+## Datenspeicherung — Drei-Schichten-Architektur
+
+### CustomerDocument (`customer_documents` Tabelle)
+- **Binärdaten (PDFs, Bilder)** → Infomaniak Object Storage S3 (`s3_key`, `stored_in_s3=true`)
+- **Extrahierter Text** → PostgreSQL (`extracted_text`) — bleibt für Baddi-Lesbarkeit und Volltext
+- **Vektoren** → Qdrant (`qdrant_point_ids`) — semantische Suche
+- **Altdaten**: `file_content` (LargeBinary) bleibt nullable als Fallback — Download-Endpoint prüft `stored_in_s3` zuerst, fällt sonst auf `file_content` zurück
+
+### S3 Pfadschema
+```
+customers/{customer_id}/{doc_id}/{filename}
+```
+Datentrennung garantiert durch: Auth → `customer_id` aus JWT → DB-Query → S3-Key → Download. Kein direkter S3-Zugriff.
+
+### S3 boto3 Konfiguration (OpenStack Swift Quirks)
+```python
+Config(
+    signature_version="s3v4",
+    s3={"addressing_style": "path"},
+    request_checksum_calculation="when_required",  # verhindert aws-chunked
+    response_checksum_validation="when_required",
+)
+# region_name="us-east-1" ist Pflicht-Platzhalter (Swift ignoriert ihn)
+```
+- **Endpoint**: `https://s3.pub2.infomaniak.cloud`
+- **Credentials**: EC2-Keypaar (OpenStack-Format, nicht Application Credentials)
+- **Env-Vars**: `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`
 
 ---
 
