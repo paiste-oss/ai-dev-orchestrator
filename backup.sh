@@ -65,7 +65,7 @@ echo "   ✓ .env"
 echo ""
 echo "🗄️  PostgreSQL Dump..."
 docker exec ai_postgres pg_dump \
-  -U postgres \
+  -U aibuddy \
   -d aibuddy \
   --no-password \
   --format=custom \
