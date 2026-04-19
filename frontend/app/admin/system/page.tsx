@@ -38,9 +38,16 @@ interface BackupEntry {
   total_bytes: number;
 }
 
+interface StorageInfo {
+  files_bytes: number;
+  backups_bytes: number;
+  total_bytes: number;
+}
+
 interface BackupData {
   ok: boolean;
   backups: BackupEntry[];
+  storage?: StorageInfo;
   error?: string;
 }
 
@@ -312,6 +319,23 @@ export default function SystemPage() {
             <span className={backupsLoading ? "animate-spin inline-block" : ""}>↻</span>
           </button>
         </div>
+
+        {/* Storage Totals */}
+        {backups?.ok && backups.storage && (
+          <div className="px-5 py-3 border-b border-white/5 grid grid-cols-3 gap-4">
+            {[
+              { label: "Dokumente", bytes: backups.storage.files_bytes, bucket: "baddi-files" },
+              { label: "Backups", bytes: backups.storage.backups_bytes, bucket: "baddi-backups" },
+              { label: "Gesamt", bytes: backups.storage.total_bytes, bucket: "S3 total" },
+            ].map(({ label, bytes, bucket }) => (
+              <div key={label} className="text-center">
+                <p className="text-xs text-gray-500">{label}</p>
+                <p className="text-base font-semibold text-white mt-0.5">{formatBytes(bytes)}</p>
+                <p className="text-xs text-gray-600">{bucket}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {backupsLoading && !backups ? (
           <div className="px-5 py-4 space-y-2">

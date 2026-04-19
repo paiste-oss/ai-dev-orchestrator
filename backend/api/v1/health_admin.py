@@ -68,16 +68,17 @@ async def list_backups(_: Customer = Depends(require_admin)):
     from core.config import settings
 
     BACKUP_BUCKET = "baddi-backups"
+    FILES_BUCKET = "baddi-files"
     try:
         s3 = _get_client()
         paginator = s3.get_paginator("list_objects_v2")
-        # Backups gruppieren: prefix = Datum (z.B. 2026-04-19_11-20/)
+
+        # ── Backup-Einträge gruppiert nach Datum-Prefix ───────────────────────
         prefixes: dict[str, dict] = {}
         for page in paginator.paginate(Bucket=BACKUP_BUCKET, Delimiter="/"):
             for cp in page.get("CommonPrefixes", []):
                 prefix = cp["Prefix"].rstrip("/")
                 prefixes[prefix] = {"date": prefix, "files": [], "total_bytes": 0}
-        # Dateien pro Prefix laden
         for prefix in prefixes:
             for page in paginator.paginate(Bucket=BACKUP_BUCKET, Prefix=prefix + "/"):
                 for obj in page.get("Contents", []):
@@ -88,8 +89,23 @@ async def list_backups(_: Customer = Depends(require_admin)):
                         "last_modified": obj["LastModified"].isoformat(),
                     })
                     prefixes[prefix]["total_bytes"] += obj["Size"]
-        result = sorted(prefixes.values(), key=lambda x: x["date"], reverse=True)
-        return {"ok": True, "backups": result}
+        backups = sorted(prefixes.values(), key=lambda x: x["date"], reverse=True)
+
+        # ── Storage-Totals pro Bucket ─────────────────────────────────────────
+        def _bucket_total(bucket: str) -> int:
+            total = 0
+            for page in paginator.paginate(Bucket=bucket):
+                for obj in page.get("Contents", []):
+                    total += obj["Size"]
+            return total
+
+        storage = {
+            "files_bytes": _bucket_total(FILES_BUCKET),
+            "backups_bytes": _bucket_total(BACKUP_BUCKET),
+        }
+        storage["total_bytes"] = storage["files_bytes"] + storage["backups_bytes"]
+
+        return {"ok": True, "backups": backups, "storage": storage}
     except Exception as e:
         _log.error("Backup-Liste konnte nicht geladen werden: %s", e)
         return {"ok": False, "backups": [], "error": str(e)[:120]}
