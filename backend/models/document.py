@@ -33,6 +33,12 @@ class CustomerDocument(Base):
     s3_key: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     stored_in_s3: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Ordner-Zuordnung
+    folder_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_folders.id", ondelete="SET NULL"), nullable=True
+    )
+    folder: Mapped["DocumentFolder | None"] = relationship(back_populates="documents")  # type: ignore
+
     # Extrahierter Text-Inhalt
     extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     page_count: Mapped[int] = mapped_column(Integer, default=1)

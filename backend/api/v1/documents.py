@@ -49,6 +49,7 @@ class DocumentOut(BaseAPIModel):
     stored_in_qdrant: bool
     stored_in_s3: bool
     qdrant_collection: str | None
+    folder_id: uuid.UUID | None
     baddi_readable: bool
     created_at: datetime
     doc_metadata: dict | None
