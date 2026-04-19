@@ -295,7 +295,7 @@ export default function SystemPage() {
       <div className="bg-gray-900 border border-white/5 rounded-2xl px-5 py-4 space-y-2">
         <h2 className="text-sm font-semibold text-white">Rate Limiting</h2>
         <p className="text-sm text-gray-400">
-          Chat-Endpoint: <span className="text-white font-medium">30 Anfragen / Minute</span> pro IP
+          Chat-Endpoint: <span className="text-white font-medium">10 Anfragen / Minute</span> pro IP
         </p>
         <p className="text-xs text-gray-600">
           Bei Überschreitung: HTTP 429 Too Many Requests. Admin-Requests sind nicht limitiert.

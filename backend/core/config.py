@@ -136,7 +136,7 @@ class Settings(BaseSettings):
     sentry_org: str = ""   # Organisations-Slug aus sentry.io/organizations/<slug>/
 
     # Rate Limiting — Chat-Endpoint
-    chat_rate_limit: str = "30/minute"   # Format: "N/second|minute|hour"
+    chat_rate_limit: str = "10/minute"   # Format: "N/second|minute|hour"
 
     # Health Monitoring — Alert-E-Mail
     health_alert_email: str = ""         # E-Mail für Ausfalls-Benachrichtigungen
