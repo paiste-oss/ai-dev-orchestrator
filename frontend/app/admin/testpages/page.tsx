@@ -23,7 +23,7 @@ const ALL_PAGES: PageEntry[] = [
     label: "Landing Page",
     icon: "🌐",
     role: "public",
-    description: "Öffentliche Startseite mit Login & Registrieren-Button",
+    description: "Öffentliche Startseite mit Hero, Features und Login/Registrieren-Button",
     group: "Public",
   },
   {
@@ -31,15 +31,15 @@ const ALL_PAGES: PageEntry[] = [
     label: "Login",
     icon: "🔐",
     role: "public",
-    description: "Anmeldeformular für alle Nutzer (E-Mail + Passwort)",
+    description: "Anmeldeformular (E-Mail + Passwort), JWT-Token in localStorage",
     group: "Public",
   },
   {
-    path: "/admin/testpages/register",
-    label: "Registriere mich",
+    path: "/register",
+    label: "Registrierung",
     icon: "📝",
     role: "public",
-    description: "Registrierungsformular mit Name, Geburtsdatum, E-Mail, Passwort, Sprache & Einwilligungen (Vorschau ohne Submit)",
+    description: "Registrierungsformular mit Name, Geburtsdatum, E-Mail, Passwort, Sprache & Einwilligungen",
     group: "Public",
   },
   {
@@ -47,17 +47,81 @@ const ALL_PAGES: PageEntry[] = [
     label: "Plan-Auswahl",
     icon: "💳",
     role: "public",
-    description: "Abo-Auswahl nach Registrierung: Free, Basis, Komfort, Premium — Free direkt zu /chat, sonst Stripe",
+    description: "Abo-Auswahl nach Registrierung: Free, Personal (CHF 19), Intensiv (CHF 49), Premium (CHF 99) — Free → /chat, sonst Stripe Checkout",
+    group: "Public",
+  },
+  {
+    path: "/register/security",
+    label: "2FA Setup",
+    icon: "🛡️",
+    role: "public",
+    description: "Optionaler 2FA-Setup nach Registrierung (TOTP / Backup-Codes)",
+    group: "Public",
+  },
+  {
+    path: "/agb",
+    label: "AGB",
+    icon: "📄",
+    role: "public",
+    description: "Allgemeine Geschäftsbedingungen (öffentlich, RSC)",
+    group: "Public",
+  },
+  {
+    path: "/datenschutz",
+    label: "Datenschutz",
+    icon: "🔒",
+    role: "public",
+    description: "Datenschutzerklärung (öffentlich, RSC)",
+    group: "Public",
+  },
+  {
+    path: "/enterprise",
+    label: "Enterprise",
+    icon: "🏢",
+    role: "public",
+    description: "Enterprise-Landingpage für grössere Unternehmen",
     group: "Public",
   },
 
   // ── Kunde ────────────────────────────────────────────────────────────────────
   {
     path: "/chat",
-    label: "Chat (Weiterleitung)",
+    label: "Chat",
     icon: "💬",
     role: "kunde",
-    description: "Leitet automatisch zum persönlichen Baddi des Kunden weiter",
+    description: "Haupt-Chat-Interface mit Baddi — floating Windows, Sprachdiktat, Dokumente",
+    group: "Kunde",
+  },
+  {
+    path: "/user/billing",
+    label: "Abo & Rechnungen",
+    icon: "💳",
+    role: "kunde",
+    description: "Aktuelles Abo, Upgrade/Downgrade, Rechnungshistorie, Kündigung",
+    group: "Kunde",
+  },
+  {
+    path: "/user/wallet",
+    label: "Wallet (Prepaid)",
+    icon: "👛",
+    role: "kunde",
+    description: "Prepaid-Guthaben aufladen für Token-Overage ausserhalb des Abos",
+    group: "Kunde",
+  },
+  {
+    path: "/user/documents",
+    label: "Dokumente",
+    icon: "📁",
+    role: "kunde",
+    description: "Dokumentenverwaltung (vollständige Seite, nicht das floating Window)",
+    group: "Kunde",
+  },
+  {
+    path: "/user/settings",
+    label: "Einstellungen",
+    icon: "⚙️",
+    role: "kunde",
+    description: "Profil, Passwort, 2FA, Sprache, Erscheinungsbild",
     group: "Kunde",
   },
 
@@ -83,7 +147,7 @@ const ROLE_LABEL: Record<PageEntry["role"], string> = {
   public: "Public", admin: "Admin", kunde: "Kunde", dev: "Dev",
 };
 
-const GROUP_ORDER = ["Public", "Kunde", "Admin", "Dev"];
+const GROUP_ORDER = ["Public", "Kunde"];
 
 // ─── Hauptkomponente ───────────────────────────────────────────────────────────
 export default function TestPagesPage() {
@@ -178,7 +242,7 @@ export default function TestPagesPage() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {(["all", "public", "kunde", "admin", "dev"] as const).map((r) => (
+                {(["all", "public", "kunde"] as const).map((r) => (
                   <button
                     key={r}
                     onClick={() => setFilter(r)}
