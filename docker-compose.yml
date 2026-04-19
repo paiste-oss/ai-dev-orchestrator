@@ -95,6 +95,12 @@ services:
       # Externe Daten-APIs
       - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
       - AVIATIONSTACK_API_KEY=${AVIATIONSTACK_API_KEY}
+      # Infomaniak S3 Object Storage
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_REGION=${S3_REGION}
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
     extra_hosts:
       - "host.docker.internal:host-gateway"   # Ollama auf dem Host erreichbar
     depends_on:
@@ -165,6 +171,11 @@ services:
       - DOLI_DB_PASSWORD=${DOLI_DB_PASSWORD}
       - SENTRY_DSN=${SENTRY_DSN}
       - HEALTH_ALERT_EMAIL=${HEALTH_ALERT_EMAIL}
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_REGION=${S3_REGION}
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
