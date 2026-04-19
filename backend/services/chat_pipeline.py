@@ -609,7 +609,8 @@ async def finalize(
     await _push_short_term_memory(customer_id, original_message, response_text)
     if len(original_message.strip()) >= 20:
         try:
-            process_memory.delay(customer_id)
+            buddy_name = (customer.ui_preferences or {}).get("buddyName", "Baddi")
+            process_memory.delay(customer_id, buddy_name)
         except Exception as e:
             _log.warning("Memory Manager konnte nicht gestartet werden: %s", e)
 

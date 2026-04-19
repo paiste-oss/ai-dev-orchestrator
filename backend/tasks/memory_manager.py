@@ -52,7 +52,7 @@ _STYLE_PROMPT = (
 )
 _DEFAULT_PROMPT = (
     "Du bist ein Memory-Extraktor für einen persönlichen KI-Assistenten.\n\n"
-    "Analysiere NUR die USER-Nachrichten und extrahiere dauerhafte, persönliche Fakten.\n\n"
+    "Analysiere NUR die USER-Nachrichten und extrahiere dauerhafte, persönliche Fakten über den NUTZER.\n\n"
     "Extrahiere NUR:\n"
     "- Name, Beruf, Wohnort, Familie, Beziehungen\n"
     "- Persönliche Vorlieben, Abneigungen, Gewohnheiten\n"
@@ -62,6 +62,7 @@ _DEFAULT_PROMPT = (
     "- Fakten aus Suchergebnissen, Nachrichten oder Web-Inhalten\n"
     "- Einmalige Fragen oder Anfragen ohne persönlichen Bezug\n"
     "- Fähigkeiten oder Eigenschaften des Assistenten\n"
+    "- Den Namen des Assistenten — der Nutzer spricht die KI oft mit ihrem Namen an, das ist KEIN Fakt über den Nutzer\n"
     "- Fakten die bereits im Abschnitt 'BEREITS BEKANNTE FAKTEN' stehen\n\n"
     "Schreibe jeden Eintrag als kurze Aussage OHNE 'Nutzer' davor — direkt und prägnant.\n"
     "Antworte NUR mit einer JSON-Liste auf Deutsch. Maximal 3 neue Fakten.\n"
@@ -103,10 +104,10 @@ def _get_session_factory():
     default_retry_delay=10,
     ignore_result=True,
 )
-def process_memory(self, customer_id: str) -> None:
+def process_memory(self, customer_id: str, buddy_name: str = "Baddi") -> None:
     """Hintergrund-Aufgabe: Gedächtnis aus letzten Nachrichten extrahieren."""
     try:
-        asyncio.run(_run_async(customer_id))
+        asyncio.run(_run_async(customer_id, buddy_name))
     except Exception as exc:
         _log.warning("Memory manager failed for %s: %s", customer_id[:8], exc)
         raise self.retry(exc=exc)
@@ -114,7 +115,7 @@ def process_memory(self, customer_id: str) -> None:
 
 # ── Hauptlogik (ein Event Loop, eine Engine) ──────────────────────────────────
 
-async def _run_async(customer_id: str) -> None:
+async def _run_async(customer_id: str, buddy_name: str = "Baddi") -> None:
     Session = _get_session_factory()
 
     # 0. Einwilligung prüfen (revDSG)
@@ -145,7 +146,7 @@ async def _run_async(customer_id: str) -> None:
     conversation = "\n".join(f"USER: {m['content']}" for m in user_messages)
 
     # 2. Konfiguration laden
-    model, system_prompt = _load_config()
+    model, system_prompt = _load_config(buddy_name)
 
     # 3. Bereits bekannte Fakten laden (Qdrant)
     try:
@@ -284,16 +285,25 @@ def _build_user_content(conversation: str, existing: list[str], label: str) -> s
 
 # ── Hilfsfunktionen ───────────────────────────────────────────────────────────
 
-def _load_config() -> tuple[str, str]:
+def _load_config(buddy_name: str = "Baddi") -> tuple[str, str]:
     """Lädt Prompt aus Redis (Admin-Konfiguration). Modell ist immer Claude Haiku."""
     try:
         raw = redis_sync().get(_CONFIG_KEY)
         if raw:
             cfg = safe_json_loads(raw)
-            return _CLAUDE_MODEL, cfg.get("system_prompt", _DEFAULT_PROMPT)
+            base_prompt = cfg.get("system_prompt", _DEFAULT_PROMPT)
+        else:
+            base_prompt = _DEFAULT_PROMPT
     except Exception:
-        pass
-    return _CLAUDE_MODEL, _DEFAULT_PROMPT
+        base_prompt = _DEFAULT_PROMPT
+
+    # Buddy-Namen explizit ausschliessen damit er nicht als User-Fakt landet
+    prompt = base_prompt + (
+        f"\n\nWICHTIG: Der Name des Assistenten lautet '{buddy_name}'. "
+        f"Wenn der Nutzer '{buddy_name}' schreibt, spricht er die KI an — "
+        f"das ist KEIN persönlicher Fakt über den Nutzer und darf NICHT extrahiert werden."
+    )
+    return _CLAUDE_MODEL, prompt
 
 
 def _word_overlap(a: str, b: str) -> float:
