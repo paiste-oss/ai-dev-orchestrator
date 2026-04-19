@@ -26,6 +26,24 @@ interface HealthData {
   sentry: SentryInfo;
 }
 
+interface BackupFile {
+  name: string;
+  size_bytes: number;
+  last_modified: string;
+}
+
+interface BackupEntry {
+  date: string;
+  files: BackupFile[];
+  total_bytes: number;
+}
+
+interface BackupData {
+  ok: boolean;
+  backups: BackupEntry[];
+  error?: string;
+}
+
 const SERVICE_LABELS: Record<string, string> = {
   db: "Datenbank (PostgreSQL)",
   redis: "Cache (Redis)",
@@ -51,10 +69,29 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 export default function SystemPage() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [backups, setBackups] = useState<BackupData | null>(null);
+  const [backupsLoading, setBackupsLoading] = useState(true);
+  const [expandedBackup, setExpandedBackup] = useState<string | null>(null);
+
+  const loadBackups = useCallback(async () => {
+    setBackupsLoading(true);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/system/backups`);
+      if (res.ok) setBackups(await res.json());
+    } finally {
+      setBackupsLoading(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,9 +108,10 @@ export default function SystemPage() {
 
   useEffect(() => {
     load();
+    loadBackups();
     const interval = setInterval(load, 60000);
     return () => clearInterval(interval);
-  }, [load]);
+  }, [load, loadBackups]);
 
   const allOk = health ? Object.values(health.services).every(s => s === "ok") : null;
 
@@ -255,6 +293,69 @@ export default function SystemPage() {
         <p className="text-xs text-gray-600">
           Bei Überschreitung: HTTP 429 Too Many Requests. Admin-Requests sind nicht limitiert.
         </p>
+      </div>
+
+      {/* Backups */}
+      <div className="bg-gray-900 border border-white/5 rounded-2xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-white">Backups — S3</h2>
+            <p className="text-xs text-gray-600 mt-0.5">
+              Infomaniak S3 · baddi-backups · täglich 03:00 · 30 Tage Retention
+            </p>
+          </div>
+          <button
+            onClick={loadBackups}
+            disabled={backupsLoading}
+            className="text-xs text-gray-500 hover:text-white bg-white/5 border border-white/8 px-3 py-1.5 rounded-xl transition-all disabled:opacity-40"
+          >
+            <span className={backupsLoading ? "animate-spin inline-block" : ""}>↻</span>
+          </button>
+        </div>
+
+        {backupsLoading && !backups ? (
+          <div className="px-5 py-4 space-y-2">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-10 rounded-lg bg-white/5 animate-pulse" />
+            ))}
+          </div>
+        ) : !backups?.ok ? (
+          <div className="px-5 py-4 text-sm text-red-400">
+            Fehler beim Laden: {backups?.error ?? "Unbekannt"}
+          </div>
+        ) : backups.backups.length === 0 ? (
+          <div className="px-5 py-4 text-sm text-gray-500">Noch keine Backups vorhanden.</div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {backups.backups.map((b) => (
+              <div key={b.date}>
+                <button
+                  onClick={() => setExpandedBackup(expandedBackup === b.date ? null : b.date)}
+                  className="w-full flex items-center justify-between px-5 py-3 hover:bg-white/3 transition-colors text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-emerald-400 text-xs">◉</span>
+                    <div>
+                      <p className="text-sm text-white font-mono">{b.date}</p>
+                      <p className="text-xs text-gray-500">{b.files.length} Dateien · {formatBytes(b.total_bytes)}</p>
+                    </div>
+                  </div>
+                  <span className="text-gray-600 text-xs">{expandedBackup === b.date ? "▲" : "▼"}</span>
+                </button>
+                {expandedBackup === b.date && (
+                  <div className="px-5 pb-3 space-y-1">
+                    {b.files.map(f => (
+                      <div key={f.name} className="flex items-center justify-between text-xs text-gray-400 py-1 border-t border-white/3">
+                        <span className="font-mono">{f.name}</span>
+                        <span className="text-gray-600">{formatBytes(f.size_bytes)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
     </div>

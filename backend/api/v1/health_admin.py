@@ -61,6 +61,40 @@ async def trigger_tagesreport(
     return {"status": "gestartet"}
 
 
+@router.get("/backups")
+async def list_backups(_: Customer = Depends(require_admin)):
+    """Listet alle Backup-Einträge aus dem S3-Bucket baddi-backups."""
+    from services.s3_storage import _get_client
+    from core.config import settings
+
+    BACKUP_BUCKET = "baddi-backups"
+    try:
+        s3 = _get_client()
+        paginator = s3.get_paginator("list_objects_v2")
+        # Backups gruppieren: prefix = Datum (z.B. 2026-04-19_11-20/)
+        prefixes: dict[str, dict] = {}
+        for page in paginator.paginate(Bucket=BACKUP_BUCKET, Delimiter="/"):
+            for cp in page.get("CommonPrefixes", []):
+                prefix = cp["Prefix"].rstrip("/")
+                prefixes[prefix] = {"date": prefix, "files": [], "total_bytes": 0}
+        # Dateien pro Prefix laden
+        for prefix in prefixes:
+            for page in paginator.paginate(Bucket=BACKUP_BUCKET, Prefix=prefix + "/"):
+                for obj in page.get("Contents", []):
+                    fname = obj["Key"].split("/")[-1]
+                    prefixes[prefix]["files"].append({
+                        "name": fname,
+                        "size_bytes": obj["Size"],
+                        "last_modified": obj["LastModified"].isoformat(),
+                    })
+                    prefixes[prefix]["total_bytes"] += obj["Size"]
+        result = sorted(prefixes.values(), key=lambda x: x["date"], reverse=True)
+        return {"ok": True, "backups": result}
+    except Exception as e:
+        _log.error("Backup-Liste konnte nicht geladen werden: %s", e)
+        return {"ok": False, "backups": [], "error": str(e)[:120]}
+
+
 def _get_sentry_info() -> dict:
     from core.config import settings
     if not settings.sentry_dsn:
