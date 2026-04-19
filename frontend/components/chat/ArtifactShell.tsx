@@ -83,7 +83,7 @@ export default function ArtifactShell({
     <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden" style={dotBg}>
 
       {/* ── Tab bar ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 px-3 pt-2 pb-1.5 border-b border-white/5 shrink-0">
+      <div className="flex items-center gap-1 px-3 border-b border-white/5 shrink-0" style={{ height: 64 }}>
 
         {/* Permanent Home tab */}
         <div
