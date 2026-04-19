@@ -103,6 +103,11 @@ async def get_integrations(_: Customer = Depends(require_admin)):
                 "category": "Infrastruktur",
                 "items": [
                     {
+                        "name": "Infomaniak S3",
+                        "keys": ["S3_ENDPOINT", "S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_BUCKET"],
+                        "manage_url": "https://manager.infomaniak.com/v3/ng/storage/object-storage",
+                    },
+                    {
                         "name": "GitHub",
                         "keys": ["GITHUB_TOKEN"],
                         "manage_url": "https://github.com/settings/tokens",
@@ -113,14 +118,49 @@ async def get_integrations(_: Customer = Depends(require_admin)):
                         "manage_url": "https://one.dash.cloudflare.com/",
                     },
                     {
+                        "name": "Sentry (Error Tracking)",
+                        "keys": ["SENTRY_DSN"],
+                        "manage_url": "https://sentry.io/settings/",
+                    },
+                    {
                         "name": "n8n",
                         "keys": ["N8N_API_KEY", "N8N_BASE_URL"],
-                        "manage_url": None,
+                        "manage_url": "https://n8n.baddi.ch",
                     },
                     {
                         "name": "Google OAuth2",
                         "keys": ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
                         "manage_url": "https://console.cloud.google.com/apis/credentials",
+                    },
+                    {
+                        "name": "Dolibarr ERP",
+                        "keys": ["DOLIBARR_API_KEY"],
+                        "manage_url": "https://erp.baddi.ch",
+                    },
+                    {
+                        "name": "Browserless (Web Automation)",
+                        "keys": ["BROWSERLESS_TOKEN", "BROWSERLESS_URL"],
+                        "manage_url": "https://www.browserless.io/",
+                    },
+                    {
+                        "name": "Ollama (lokales LLM)",
+                        "keys": ["OLLAMA_BASE_URL"],
+                        "manage_url": None,
+                    },
+                ],
+            },
+            {
+                "category": "Externe Daten",
+                "items": [
+                    {
+                        "name": "OpenWeather",
+                        "keys": ["OPENWEATHER_API_KEY"],
+                        "manage_url": "https://home.openweathermap.org/api_keys",
+                    },
+                    {
+                        "name": "AviationStack (Flüge)",
+                        "keys": ["AVIATIONSTACK_API_KEY"],
+                        "manage_url": "https://aviationstack.com/dashboard",
                     },
                 ],
             },
@@ -135,9 +175,12 @@ async def get_integrations(_: Customer = Depends(require_admin)):
                 "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET",
                 "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER",
                 "SYSTEM_SMTP_HOST", "SYSTEM_SMTP_USER", "SYSTEM_SMTP_PASSWORD",
-                "GITHUB_TOKEN", "CLOUDFLARE_TUNNEL_TOKEN",
+                "S3_ENDPOINT", "S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_BUCKET",
+                "GITHUB_TOKEN", "CLOUDFLARE_TUNNEL_TOKEN", "SENTRY_DSN",
                 "N8N_API_KEY", "N8N_BASE_URL",
                 "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
+                "DOLIBARR_API_KEY", "BROWSERLESS_TOKEN", "BROWSERLESS_URL",
+                "OLLAMA_BASE_URL", "OPENWEATHER_API_KEY", "AVIATIONSTACK_API_KEY",
             ]
         },
     }
