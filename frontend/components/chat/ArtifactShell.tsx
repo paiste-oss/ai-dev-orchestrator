@@ -18,9 +18,6 @@ interface ArtifactShellProps {
 
 const HOME_ID = "__home__";
 
-const ACTIVE_MODULES_FOR_PICKER = WINDOW_MODULES.filter(
-  (m) => m.status === "active" || m.status === "beta"
-);
 
 export default function ArtifactShell({
   artifacts,
@@ -130,49 +127,44 @@ export default function ArtifactShell({
           })}
         </div>
 
-        {/* "+" button with dropdown */}
+        {/* "+" button with dropdown — same style as TopBar */}
         {onAddArtifact && (
           <div className="relative shrink-0 ml-0.5" ref={pickerRef}>
             <button
               onClick={() => setPickerOpen((v) => !v)}
-              className={`w-7 h-7 flex items-center justify-center rounded-lg text-sm transition-colors ${
-                pickerOpen
-                  ? "bg-indigo-600/30 text-indigo-300 border border-indigo-500/40"
-                  : "text-gray-500 hover:text-gray-200 hover:bg-white/8 border border-transparent"
-              }`}
               title="Fenster hinzufügen"
+              className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
             >
-              +
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/>
+                <rect x="3" y="13" width="8" height="8" rx="1"/>
+                <line x1="16" y1="16" x2="21" y2="16"/><line x1="18.5" y1="13.5" x2="18.5" y2="18.5"/>
+              </svg>
             </button>
 
             {pickerOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-64 bg-gray-900 border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
-                <div className="px-3 py-2 border-b border-white/8">
-                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Fenster öffnen</p>
+              <>
+                <div className="fixed inset-0" style={{ zIndex: 99998 }} onClick={() => setPickerOpen(false)} />
+                <div
+                  className="absolute right-0 top-8 min-w-[160px] rounded-xl border border-white/10 shadow-2xl overflow-hidden"
+                  style={{ background: "rgba(8,12,22,0.97)", backdropFilter: "blur(16px)", zIndex: 99999 }}
+                >
+                  {WINDOW_MODULES.filter(m => m.status !== "coming_soon" && m.status !== "hidden").map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        onAddArtifact(m.canvasType);
+                        setPickerOpen(false);
+                        setHomeActive(false);
+                      }}
+                      className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/8 hover:text-white flex items-center gap-2 transition-colors"
+                    >
+                      <span>{m.icon}</span>
+                      <span>{m.label}</span>
+                    </button>
+                  ))}
                 </div>
-                <div className="max-h-72 overflow-y-auto py-1">
-                  {ACTIVE_MODULES_FOR_PICKER.map((m) => {
-                    const alreadyOpen = artifacts.some((a) => a.type === m.canvasType);
-                    return (
-                      <button
-                        key={m.id}
-                        onClick={() => {
-                          onAddArtifact(m.canvasType);
-                          setPickerOpen(false);
-                          setHomeActive(false);
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/5 transition-colors text-left"
-                      >
-                        <span className="text-base shrink-0">{m.icon}</span>
-                        <span className="text-sm text-gray-300 flex-1 truncate">{m.label}</span>
-                        {alreadyOpen && (
-                          <span className="text-[10px] text-indigo-400 shrink-0">offen</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+              </>
             )}
           </div>
         )}
