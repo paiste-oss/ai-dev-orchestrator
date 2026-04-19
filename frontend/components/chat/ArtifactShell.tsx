@@ -112,6 +112,48 @@ export default function ArtifactShell({
       {/* ── Tab bar ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-1 px-3 border-b border-white/5 shrink-0" style={{ height: 64 }}>
 
+        {/* "+" button with dropdown — same style as TopBar */}
+        {onAddArtifact && (
+          <div className="relative shrink-0 mr-0.5" ref={pickerRef}>
+            <button
+              onClick={() => setPickerOpen((v) => !v)}
+              title="Fenster hinzufügen"
+              className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/>
+                <rect x="3" y="13" width="8" height="8" rx="1"/>
+                <line x1="16" y1="16" x2="21" y2="16"/><line x1="18.5" y1="13.5" x2="18.5" y2="18.5"/>
+              </svg>
+            </button>
+
+            {pickerOpen && (
+              <>
+                <div className="fixed inset-0" style={{ zIndex: 99998 }} onClick={() => setPickerOpen(false)} />
+                <div
+                  className="absolute left-0 top-8 min-w-[160px] rounded-xl border border-white/10 shadow-2xl overflow-hidden"
+                  style={{ background: "rgba(8,12,22,0.97)", backdropFilter: "blur(16px)", zIndex: 99999 }}
+                >
+                  {WINDOW_MODULES.filter(m => m.status !== "coming_soon" && m.status !== "hidden").map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        onAddArtifact(m.canvasType);
+                        setPickerOpen(false);
+                        setHomeActive(false);
+                      }}
+                      className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/8 hover:text-white flex items-center gap-2 transition-colors"
+                    >
+                      <span>{m.icon}</span>
+                      <span>{m.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Permanent Home tab */}
         <div
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer shrink-0 transition-all select-none ${
@@ -166,47 +208,6 @@ export default function ArtifactShell({
           })}
         </div>
 
-        {/* "+" button with dropdown — same style as TopBar */}
-        {onAddArtifact && (
-          <div className="relative shrink-0 ml-0.5" ref={pickerRef}>
-            <button
-              onClick={() => setPickerOpen((v) => !v)}
-              title="Fenster hinzufügen"
-              className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/>
-                <rect x="3" y="13" width="8" height="8" rx="1"/>
-                <line x1="16" y1="16" x2="21" y2="16"/><line x1="18.5" y1="13.5" x2="18.5" y2="18.5"/>
-              </svg>
-            </button>
-
-            {pickerOpen && (
-              <>
-                <div className="fixed inset-0" style={{ zIndex: 99998 }} onClick={() => setPickerOpen(false)} />
-                <div
-                  className="absolute right-0 top-8 min-w-[160px] rounded-xl border border-white/10 shadow-2xl overflow-hidden"
-                  style={{ background: "rgba(8,12,22,0.97)", backdropFilter: "blur(16px)", zIndex: 99999 }}
-                >
-                  {WINDOW_MODULES.filter(m => m.status !== "coming_soon" && m.status !== "hidden").map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => {
-                        onAddArtifact(m.canvasType);
-                        setPickerOpen(false);
-                        setHomeActive(false);
-                      }}
-                      className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/8 hover:text-white flex items-center gap-2 transition-colors"
-                    >
-                      <span>{m.icon}</span>
-                      <span>{m.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
       </div>
 
 
