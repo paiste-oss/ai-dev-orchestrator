@@ -100,6 +100,13 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_from_number: str = ""   # E.164 Format z.B. +41XXXXXXXXX
 
+    # Infomaniak Object Storage (S3-kompatibel)
+    s3_endpoint: str = "https://s3.pub2.infomaniak.cloud"
+    s3_region: str = "dc4-a"
+    s3_bucket: str = "baddi-files"
+    s3_access_key: str = ""
+    s3_secret_key: str = ""
+
     # Dolibarr ERP
     dolibarr_url: str = "http://dolibarr/api/index.php"
     dolibarr_api_key: str = ""          # Einstellungen → Benutzer → API-Key

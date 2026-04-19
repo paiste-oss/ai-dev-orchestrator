@@ -26,6 +26,7 @@ from models.document import CustomerDocument
 from models.customer import Customer
 from services.file_parser import parse_file, is_supported, get_file_extension, SUPPORTED_EXTENSIONS
 from services.vector_store import store_document_vectors, search_customer_documents, delete_document_vectors
+from services.s3_storage import upload_file as s3_upload, download_file as s3_download, delete_file as s3_delete
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -46,6 +47,7 @@ class DocumentOut(BaseAPIModel):
     char_count: int
     stored_in_postgres: bool
     stored_in_qdrant: bool
+    stored_in_s3: bool
     qdrant_collection: str | None
     baddi_readable: bool
     created_at: datetime
@@ -119,7 +121,7 @@ async def upload_document(
     # Eindeutiger Dateiname für interne Referenz
     unique_filename = f"{customer_id}_{uuid.uuid4().hex[:8]}_{filename}"
 
-    # PostgreSQL: Dokument-Record erstellen
+    # PostgreSQL: Dokument-Record erstellen (ohne Binärdaten — gehen nach S3)
     doc = CustomerDocument(
         customer_id=customer_id,
         filename=unique_filename,
@@ -127,12 +129,13 @@ async def upload_document(
         file_type=ext or "unknown",
         file_size_bytes=len(content),
         mime_type=mime_type,
-        file_content=content,
+        file_content=None,
         extracted_text=parse_result.text if store_postgres else None,
         page_count=parse_result.page_count,
         char_count=len(parse_result.text),
         stored_in_postgres=store_postgres,
-        stored_in_qdrant=False,  # wird nach Qdrant-Speicherung aktualisiert
+        stored_in_qdrant=False,
+        stored_in_s3=False,
         doc_metadata=parse_result.metadata,
     )
     db.add(doc)
@@ -154,6 +157,22 @@ async def upload_document(
         await db.commit()
     except Exception as e:
         _log.warning("Storage-Zähler konnte nicht aktualisiert werden für Kunde %s: %s", customer_id, e)
+
+    # S3: Binärdatei hochladen
+    try:
+        s3_key = s3_upload(
+            customer_id=customer_id,
+            doc_id=doc.id,
+            filename=filename,
+            content=content,
+            content_type=mime_type,
+        )
+        doc.s3_key = s3_key
+        doc.stored_in_s3 = True
+        await db.commit()
+    except Exception as e:
+        _log.error("S3-Upload fehlgeschlagen für Dokument %s: %s", doc.id, e)
+        # Upload-Fehler blockiert nicht — Dokument existiert mit extrahiertem Text
 
     # Qdrant: Vektoren speichern
     if store_qdrant and parse_result.text.strip():
@@ -204,10 +223,20 @@ async def get_my_document_content(
     doc = await db.get(CustomerDocument, doc_id)
     if not doc or not doc.is_active or doc.customer_id != customer.id:
         raise not_found("Dokument")
-    if not doc.file_content:
+
+    if doc.stored_in_s3 and doc.s3_key:
+        try:
+            file_bytes = s3_download(doc.s3_key)
+        except Exception as e:
+            _log.error("S3-Download fehlgeschlagen für Dokument %s: %s", doc_id, e)
+            raise HTTPException(status_code=503, detail="Datei vorübergehend nicht verfügbar")
+    elif doc.file_content:
+        file_bytes = doc.file_content
+    else:
         raise HTTPException(status_code=404, detail="Datei-Inhalt nicht gespeichert")
+
     return Response(
-        content=doc.file_content,
+        content=file_bytes,
         media_type=doc.mime_type or "application/octet-stream",
         headers={"Content-Disposition": f'inline; filename="{doc.original_filename}"'},
     )
@@ -261,20 +290,23 @@ async def save_image_from_url(
     if total_limit > 0 and used + len(content) > total_limit:
         raise storage_limit_exceeded(max(0, total_limit - used) / 1024 / 1024)
 
-    unique_filename = f"{customer.id}_{uuid.uuid4().hex[:8]}_{filename}"
+    doc_id = uuid.uuid4()
+    unique_filename = f"{customer.id}_{doc_id.hex[:8]}_{filename}"
     doc = CustomerDocument(
+        id=doc_id,
         customer_id=customer.id,
         filename=unique_filename,
         original_filename=filename,
         file_type=ext,
         file_size_bytes=len(content),
         mime_type=content_type,
-        file_content=content,
+        file_content=None,
         extracted_text="",
         page_count=1,
         char_count=0,
         stored_in_postgres=True,
         stored_in_qdrant=False,
+        stored_in_s3=False,
         doc_metadata={"source": "DALL-E 3", "original_url": body.url},
     )
     db.add(doc)
@@ -285,6 +317,20 @@ async def save_image_from_url(
         _log.error("Bild-Dokument konnte nicht gespeichert werden: %s", e)
         await db.rollback()
         raise HTTPException(status_code=500, detail="Bild konnte nicht gespeichert werden")
+
+    try:
+        s3_key = s3_upload(
+            customer_id=customer.id,
+            doc_id=doc.id,
+            filename=filename,
+            content=content,
+            content_type=content_type,
+        )
+        doc.s3_key = s3_key
+        doc.stored_in_s3 = True
+        await db.commit()
+    except Exception as e:
+        _log.error("S3-Upload fehlgeschlagen für Bild %s: %s", doc.id, e)
 
     try:
         await db.execute(
@@ -312,6 +358,12 @@ async def delete_my_document(
 
     if doc.stored_in_qdrant and doc.qdrant_collection:
         delete_document_vectors(str(doc_id), doc.qdrant_collection)
+
+    if doc.stored_in_s3 and doc.s3_key:
+        try:
+            s3_delete(doc.s3_key)
+        except Exception as e:
+            _log.warning("S3-Löschen fehlgeschlagen für Dokument %s: %s", doc_id, e)
 
     doc.is_active = False
     await db.commit()
@@ -363,16 +415,20 @@ async def delete_document(
     doc_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """Soft-löscht ein Dokument und entfernt Qdrant-Vektoren."""
+    """Soft-löscht ein Dokument und entfernt Qdrant-Vektoren und S3-Datei."""
     doc = await db.get(CustomerDocument, doc_id)
     if not doc or not doc.is_active:
         raise not_found("Dokument")
 
-    # Qdrant-Vektoren löschen
     if doc.stored_in_qdrant and doc.qdrant_collection:
         delete_document_vectors(str(doc_id), doc.qdrant_collection)
 
-    # Soft-Delete
+    if doc.stored_in_s3 and doc.s3_key:
+        try:
+            s3_delete(doc.s3_key)
+        except Exception as e:
+            _log.warning("S3-Löschen fehlgeschlagen für Dokument %s: %s", doc_id, e)
+
     doc.is_active = False
     await db.commit()
 

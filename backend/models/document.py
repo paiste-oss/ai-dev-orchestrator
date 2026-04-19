@@ -5,7 +5,7 @@ Qdrant-Vektor-Referenz (point_ids) wird als JSONB gespeichert.
 """
 import uuid
 from datetime import datetime,timezone
-from sqlalchemy import String, DateTime, Text, Integer, ForeignKey, Boolean, LargeBinary
+from sqlalchemy import String, DateTime, Text, Integer, ForeignKey, Boolean, LargeBinary  # LargeBinary: legacy, neue Uploads → S3
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.database import Base
@@ -26,8 +26,12 @@ class CustomerDocument(Base):
     file_size_bytes: Mapped[int] = mapped_column(Integer, default=0)
     mime_type: Mapped[str] = mapped_column(String(128), nullable=False, default="application/octet-stream")
 
-    # Original-Binärdatei (für Viewer)
+    # Original-Binärdatei: legacy (PostgreSQL). Neue Uploads → S3 (s3_key)
     file_content: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+
+    # S3 Object Storage
+    s3_key: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    stored_in_s3: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Extrahierter Text-Inhalt
     extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
