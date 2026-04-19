@@ -868,7 +868,6 @@ export default function ChatPage() {
         onSettings={() => setSetupOpen(true)}
         onLogout={() => { clearSession(); router.push("/"); }}
         onAdminBack={() => router.push("/admin")}
-        onAddCard={handleAddCard}
       />
 
       {/* ── Split: Chat | Artifact ── */}

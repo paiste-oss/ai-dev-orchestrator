@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
 import dynamic from "next/dynamic";
-import { WINDOW_MODULES } from "@/lib/window-registry";
 
 const BaddiAvatar3D = dynamic(() => import("@/components/chat/BaddiAvatar3D"), { ssr: false });
 
@@ -18,7 +16,6 @@ interface TopBarProps {
   onSettings: () => void;
   onLogout: () => void;
   onAdminBack: () => void;
-  onAddCard?: (canvasType: string) => void;
   onArrangeCards?: () => void;
 }
 
@@ -32,9 +29,8 @@ function providerBadge(p: string) {
 export default function TopBar({
   buddyName, buddyInitial, speaking, lastProvider,
   firstName, isAdmin, avatar, emotion,
-  onSettings, onLogout, onAdminBack, onAddCard, onArrangeCards,
+  onSettings, onLogout, onAdminBack, onArrangeCards,
 }: TopBarProps) {
-  const [showAddMenu, setShowAddMenu] = useState(false);
 
   return (
     <header className="shrink-0 flex items-center gap-3 px-4 border-b border-white/5"
@@ -86,41 +82,6 @@ export default function TopBar({
 
       {/* Action buttons */}
       <div className="flex items-center gap-0.5 shrink-0">
-
-        {/* Add card */}
-        {onAddCard && (
-          <div className="relative">
-            <button
-              onClick={() => setShowAddMenu(v => !v)}
-              title="Fenster hinzufügen"
-              className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/>
-                <rect x="3" y="13" width="8" height="8" rx="1"/>
-                <line x1="16" y1="16" x2="21" y2="16"/><line x1="18.5" y1="13.5" x2="18.5" y2="18.5"/>
-              </svg>
-            </button>
-            {showAddMenu && (
-              <>
-                <div className="fixed inset-0" style={{ zIndex: 99998 }} onClick={() => setShowAddMenu(false)} />
-                <div className="absolute right-0 top-8 min-w-[160px] rounded-xl border border-white/10 shadow-2xl overflow-hidden"
-                  style={{ background: "rgba(8,12,22,0.97)", backdropFilter: "blur(16px)", zIndex: 99999 }}>
-                  {WINDOW_MODULES.filter(m => m.status !== "coming_soon" && m.status !== "hidden").map(mod => (
-                    <button
-                      key={mod.id}
-                      onClick={() => { onAddCard(mod.canvasType); setShowAddMenu(false); }}
-                      className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/8 hover:text-white flex items-center gap-2 transition-colors"
-                    >
-                      <span>{mod.icon}</span>
-                      <span>{mod.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
 
 
         {/* Auto-Layout */}
