@@ -27,6 +27,35 @@ interface ChatMessageProps {
 }
 
 export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichContent = false, onRemoveGeneratedImage }: ChatMessageProps) {
+  const [savedId, setSavedId]   = React.useState<string | null>(null);
+  const [sharedId, setSharedId] = React.useState<string | null>(null);
+
+  function handleSave(id: string, content: string) {
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `baddi-${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setSavedId(id);
+    setTimeout(() => setSavedId(null), 2500);
+  }
+
+  async function handleShare(id: string, content: string) {
+    try {
+      if (navigator.share) {
+        await navigator.share({ text: content });
+      } else {
+        await navigator.clipboard.writeText(content);
+      }
+      setSharedId(id);
+      setTimeout(() => setSharedId(null), 2500);
+    } catch {
+      // Nutzer hat Teilen abgebrochen
+    }
+  }
+
   const fontSize   = FONT_SIZES[uiPrefs.fontSize]     ?? "15px";
   const fontFamily = FONT_FAMILIES[uiPrefs.fontFamily] ?? FONT_FAMILIES.system;
   const lineHeight = LINE_SPACINGS[uiPrefs.lineSpacing] ?? "1.625";
@@ -249,9 +278,11 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
             </div>
           )}
 
-          {/* Copy button (appears on group-hover) */}
+          {/* Hover-Aktionen: Kopieren · Speichern · Teilen */}
           {msg.content !== "__QUOTA_EXCEEDED__" && (
-            <div className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-3">
+
+              {/* Kopieren */}
               <button
                 onClick={() => onCopy(msg.id, msg.content)}
                 className="text-xs text-gray-600 hover:text-gray-400 transition-colors flex items-center gap-1"
@@ -272,6 +303,55 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
                   </>
                 )}
               </button>
+
+              <span className="text-gray-800">·</span>
+
+              {/* Speichern */}
+              <button
+                onClick={() => handleSave(msg.id, msg.content)}
+                className="text-xs text-gray-600 hover:text-gray-400 transition-colors flex items-center gap-1"
+              >
+                {savedId === msg.id ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span className="text-emerald-500">Gespeichert</span>
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    Speichern
+                  </>
+                )}
+              </button>
+
+              <span className="text-gray-800">·</span>
+
+              {/* Teilen */}
+              <button
+                onClick={() => handleShare(msg.id, msg.content)}
+                className="text-xs text-gray-600 hover:text-gray-400 transition-colors flex items-center gap-1"
+              >
+                {sharedId === msg.id ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span className="text-emerald-500">Geteilt</span>
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                    </svg>
+                    Teilen
+                  </>
+                )}
+              </button>
+
             </div>
           )}
         </div>
