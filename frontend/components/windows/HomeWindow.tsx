@@ -464,6 +464,36 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                     ))}
                   </div>
                 </div>
+
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Sprachausgabe</p>
+                  <div className="flex gap-1.5">
+                    {[{ v: false, l: "🔇 Aus" }, { v: true, l: "🔊 An" }].map(({ v, l }) => (
+                      <button key={String(v)} onClick={() => updatePrefs({ ttsDefault: v })}
+                        className={`flex-1 py-1.5 rounded-lg text-xs border transition-all ${
+                          (uiPrefs.ttsDefault ?? false) === v
+                            ? "bg-white/10 border-white/25 text-white" : "border-white/8 text-gray-500 hover:text-gray-300 hover:border-white/15"
+                        }`}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Stimme</p>
+                  <div className="flex gap-1.5">
+                    {[{ v: "female", l: "👩 Weiblich" }, { v: "male", l: "👨 Männlich" }].map(({ v, l }) => (
+                      <button key={v} onClick={() => updatePrefs({ ttsVoice: v })}
+                        className={`flex-1 py-1.5 rounded-lg text-xs border transition-all ${
+                          (uiPrefs.ttsVoice ?? "female") === v
+                            ? "bg-white/10 border-white/25 text-white" : "border-white/8 text-gray-500 hover:text-gray-300 hover:border-white/15"
+                        }`}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
