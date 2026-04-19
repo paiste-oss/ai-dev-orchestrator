@@ -14,6 +14,7 @@ interface ArtifactShellProps {
   renderContent: (artifact: ArtifactEntry) => React.ReactNode;
   onAddArtifact?: (type: string) => void;
   bgStyle?: React.CSSProperties;
+  buddyName?: string;
 }
 
 const HOME_ID = "__home__";
@@ -28,6 +29,7 @@ export default function ArtifactShell({
   renderContent,
   onAddArtifact,
   bgStyle,
+  buddyName,
 }: ArtifactShellProps) {
   // ── Home active state (local) ────────────────────────────────────────────────
   const [homeActive, setHomeActive] = useState(() => artifacts.length === 0);
@@ -90,7 +92,7 @@ export default function ArtifactShell({
           }}
         >
           <span className="opacity-70">⌂</span>
-          <span className="font-medium">Home</span>
+          <span className="font-medium">{buddyName ?? "Home"}</span>
         </div>
 
         {/* Artifact tabs (scrollable) */}

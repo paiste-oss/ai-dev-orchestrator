@@ -9,12 +9,10 @@ interface TopBarProps {
   buddyInitial: string;
   speaking: boolean;
   lastProvider: string | null;
-  firstName: string;
   isAdmin: boolean;
   avatar?: string;
   emotion?: string | null;
   onSettings: () => void;
-  onLogout: () => void;
   onAdminBack: () => void;
   onArrangeCards?: () => void;
 }
@@ -28,8 +26,8 @@ function providerBadge(p: string) {
 
 export default function TopBar({
   buddyName, buddyInitial, speaking, lastProvider,
-  firstName, isAdmin, avatar, emotion,
-  onSettings, onLogout, onAdminBack, onArrangeCards,
+  isAdmin, avatar, emotion,
+  onSettings, onAdminBack, onArrangeCards,
 }: TopBarProps) {
 
   return (
@@ -107,29 +105,15 @@ export default function TopBar({
           </svg>
         </button>
 
-        <div className="h-5 w-px bg-white/8 mx-1 shrink-0" />
-
-        {/* Customer name */}
-        {firstName && (
-          <span className="text-xs text-gray-400 px-2 hidden sm:block">{firstName}</span>
-        )}
-
-        {/* Admin back */}
         {isAdmin && (
-          <button onClick={onAdminBack}
-            className="text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 px-2.5 py-1 rounded-lg transition-all shrink-0">
-            Admin
-          </button>
+          <>
+            <div className="h-5 w-px bg-white/8 mx-1 shrink-0" />
+            <button onClick={onAdminBack}
+              className="text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 px-2.5 py-1 rounded-lg transition-all shrink-0">
+              Admin
+            </button>
+          </>
         )}
-
-        {/* Logout */}
-        <button onClick={onLogout}
-          className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-400 bg-white/5 hover:bg-red-500/8 border border-white/5 hover:border-red-500/20 px-2.5 py-1.5 rounded-lg transition-all ml-1">
-          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
-          </svg>
-          <span className="hidden sm:block">Abmelden</span>
-        </button>
       </div>
     </header>
   );

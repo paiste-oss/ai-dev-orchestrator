@@ -767,12 +767,10 @@ export default function ChatPage() {
           buddyInitial={buddyInitial}
           speaking={speaking}
           lastProvider={lastProvider}
-          firstName={firstName}
           isAdmin={user?.role === "admin"}
           avatar={uiPrefs.avatarType ?? "robot"}
           emotion={emotion}
           onSettings={() => setSetupOpen(true)}
-          onLogout={() => { clearSession(); router.push("/"); }}
           onAdminBack={() => router.push("/admin")}
         />
 
@@ -868,12 +866,10 @@ export default function ChatPage() {
           buddyInitial={buddyInitial}
           speaking={speaking}
           lastProvider={lastProvider}
-          firstName={firstName}
           isAdmin={user?.role === "admin"}
           avatar={uiPrefs.avatarType ?? "robot"}
           emotion={emotion}
           onSettings={() => setSetupOpen(true)}
-          onLogout={() => { clearSession(); router.push("/"); }}
           onAdminBack={() => router.push("/admin")}
         />
           {isDragOver && (
@@ -953,6 +949,7 @@ export default function ChatPage() {
           renderContent={renderWindowContent}
           onAddArtifact={handleAddCard}
           bgStyle={bgStyle}
+          buddyName={uiPrefs.buddyName}
         />
 
       {/* ── Hidden file input ── */}
