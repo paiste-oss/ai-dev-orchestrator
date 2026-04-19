@@ -9,7 +9,6 @@ import { PasswordSection } from "@/components/user/settings/PasswordSection";
 import { MemorySection } from "@/components/user/settings/MemorySection";
 import { TwoFASection } from "@/components/user/settings/TwoFASection";
 import { NotificationChannelSection } from "@/components/user/settings/NotificationChannelSection";
-import { ChatAppearanceSection } from "@/components/user/settings/ChatAppearanceSection";
 import { TrustedSendersSection } from "@/components/user/settings/TrustedSendersSection";
 
 interface Me {
@@ -53,7 +52,6 @@ export default function UserSettingsPage() {
         </div>
 
         <ProfileSection me={me} baddieEmail={me.baddi_email} />
-        <ChatAppearanceSection />
         <PasswordSection />
         <NotificationChannelSection
           current={me.notification_channel ?? "sms"}
