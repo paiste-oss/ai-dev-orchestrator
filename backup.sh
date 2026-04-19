@@ -97,78 +97,28 @@ done
 # ── S3 Upload ─────────────────────────────────────────────────────────────────
 echo ""
 echo "☁️  Lade nach S3 hoch..."
-
-python3 - <<PYEOF
-import boto3, os, sys
-from botocore.config import Config
-from pathlib import Path
-
-s3 = boto3.client(
-    "s3",
-    endpoint_url="${S3_ENDPOINT}",
-    aws_access_key_id="${S3_ACCESS_KEY}",
-    aws_secret_access_key="${S3_SECRET_KEY}",
-    region_name="us-east-1",
-    config=Config(
-        signature_version="s3v4",
-        s3={"addressing_style": "path"},
-        request_checksum_calculation="when_required",
-        response_checksum_validation="when_required",
-    ),
-)
-
-backup_dir = Path("${TEMP_DIR}")
-prefix = "${DATE}"
-
-for f in backup_dir.iterdir():
-    key = f"{prefix}/{f.name}"
-    size_mb = f.stat().st_size / 1024 / 1024
-    print(f"   Lade {f.name} ({size_mb:.1f} MB)...", end=" ", flush=True)
-    s3.upload_file(str(f), "${S3_BACKUP_BUCKET}", key)
-    print("✓")
-
-print("   Alle Dateien hochgeladen.")
-PYEOF
+# Backup-Verzeichnis in den Container mounten und Script ausführen
+docker run --rm \
+  -v "${TEMP_DIR}:/backup:ro" \
+  -v "${PROJECT_DIR}/scripts:/scripts:ro" \
+  -e S3_ENDPOINT="${S3_ENDPOINT}" \
+  -e S3_ACCESS_KEY="${S3_ACCESS_KEY}" \
+  -e S3_SECRET_KEY="${S3_SECRET_KEY}" \
+  --entrypoint python3 \
+  $(docker inspect --format='{{.Config.Image}}' ai_backend) \
+  /scripts/backup_s3.py upload /backup "${DATE}"
 
 # ── Alte S3-Backups löschen (> 30 Tage) ──────────────────────────────────────
 echo ""
 echo "🧹 Entferne S3-Backups älter als ${RETENTION_DAYS} Tage..."
-
-python3 - <<PYEOF
-import boto3, sys
-from botocore.config import Config
-from datetime import datetime, timezone, timedelta
-
-s3 = boto3.client(
-    "s3",
-    endpoint_url="${S3_ENDPOINT}",
-    aws_access_key_id="${S3_ACCESS_KEY}",
-    aws_secret_access_key="${S3_SECRET_KEY}",
-    region_name="us-east-1",
-    config=Config(
-        signature_version="s3v4",
-        s3={"addressing_style": "path"},
-        request_checksum_calculation="when_required",
-        response_checksum_validation="when_required",
-    ),
-)
-
-cutoff = datetime.now(timezone.utc) - timedelta(days=${RETENTION_DAYS})
-paginator = s3.get_paginator("list_objects_v2")
-deleted = 0
-
-for page in paginator.paginate(Bucket="${S3_BACKUP_BUCKET}"):
-    for obj in page.get("Contents", []):
-        if obj["LastModified"] < cutoff:
-            s3.delete_object(Bucket="${S3_BACKUP_BUCKET}", Key=obj["Key"])
-            print(f"   Gelöscht: {obj['Key']}")
-            deleted += 1
-
-if deleted == 0:
-    print("   Keine alten Backups gefunden.")
-else:
-    print(f"   {deleted} Objekte gelöscht.")
-PYEOF
+docker run --rm \
+  -v "${PROJECT_DIR}/scripts:/scripts:ro" \
+  -e S3_ENDPOINT="${S3_ENDPOINT}" \
+  -e S3_ACCESS_KEY="${S3_ACCESS_KEY}" \
+  -e S3_SECRET_KEY="${S3_SECRET_KEY}" \
+  --entrypoint python3 \
+  $(docker inspect --format='{{.Config.Image}}' ai_backend) \
+  /scripts/backup_s3.py cleanup "${RETENTION_DAYS}"
 
 # ── Temp aufräumen ────────────────────────────────────────────────────────────
 rm -rf "${TEMP_DIR}"
