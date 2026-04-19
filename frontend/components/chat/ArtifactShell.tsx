@@ -48,6 +48,35 @@ export default function ArtifactShell({
     if (artifacts.length === 0) setHomeActive(true);
   }, [artifacts.length]);
 
+  // ── Drag-to-scroll on tab strip ─────────────────────────────────────────────
+  const tabStripRef = useRef<HTMLDivElement>(null);
+  const dragScrolling = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartScrollLeft = useRef(0);
+
+  function onTabStripMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    // Only drag on the strip itself, not on tab buttons
+    if ((e.target as HTMLElement).closest("button, [data-tab]")) return;
+    dragScrolling.current = true;
+    dragStartX.current = e.clientX;
+    dragStartScrollLeft.current = tabStripRef.current?.scrollLeft ?? 0;
+    e.preventDefault();
+  }
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!dragScrolling.current || !tabStripRef.current) return;
+      tabStripRef.current.scrollLeft = dragStartScrollLeft.current - (e.clientX - dragStartX.current);
+    }
+    function onMouseUp() { dragScrolling.current = false; }
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+
   // ── "+" picker dropdown ──────────────────────────────────────────────────────
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -96,18 +125,22 @@ export default function ArtifactShell({
             setHomeActive(true);
           }}
         >
-          <span className="opacity-70">⌂</span>
           <span className="font-medium">{userName ?? "Home"}</span>
         </div>
 
-        {/* Artifact tabs (scrollable) */}
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide flex-1 min-w-0">
+        {/* Artifact tabs (scrollable, drag-to-scroll) */}
+        <div
+          ref={tabStripRef}
+          className="flex items-center gap-1 overflow-x-auto scrollbar-hide flex-1 min-w-0 cursor-grab active:cursor-grabbing"
+          onMouseDown={onTabStripMouseDown}
+        >
           {artifacts.map((a) => {
             const m = ARTIFACT_META[a.type] ?? { icon: "🪟", label: a.title };
             const isActive = !homeActive && a.id === effectiveActiveId;
             return (
               <div
                 key={a.id}
+                data-tab
                 className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer shrink-0 transition-all select-none ${
                   isActive
                     ? "bg-white/10 text-white border border-white/15"
