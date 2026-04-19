@@ -67,10 +67,9 @@ export default function ArtifactShell({
     ? null
     : (artifacts.find((a) => a.id === effectiveActiveId) ?? null);
 
-  const dotBg = {
+  const dotBg: React.CSSProperties = {
     backgroundImage: "radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px)",
     backgroundSize: "28px 28px",
-    ...bgStyle,
   };
 
   return (
@@ -189,6 +188,7 @@ export default function ArtifactShell({
         {homeActive ? (
           <HomeWindow
             artifacts={artifacts}
+            bgStyle={bgStyle}
             onFocus={(id) => {
               setHomeActive(false);
               onSetActive(id);
