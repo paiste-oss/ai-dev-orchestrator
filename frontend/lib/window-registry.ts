@@ -105,17 +105,6 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     singleton: true,
   },
   {
-    id: "design",
-    label: "Design",
-    icon: "🎨",
-    description: "Chat-Erscheinungsbild anpassen: Farben, Schriften, Layout und mehr.",
-    defaultWidth: 340,
-    defaultHeight: 560,
-    status: "active",
-    canvasType: "design",
-    singleton: true,
-  },
-  {
     id: "geo_map",
     label: "Schweizer Karte",
     icon: "🗺",

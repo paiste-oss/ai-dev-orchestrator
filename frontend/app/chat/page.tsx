@@ -40,7 +40,6 @@ import DocumentsWindow from "@/components/windows/DocumentsWindow";
 import DictationWindow from "@/components/windows/DictationWindow";
 import FileViewerWindow from "@/components/windows/FileViewerWindow";
 import MemoryWindow from "@/components/windows/MemoryWindow";
-import DesignWindow from "@/components/windows/DesignWindow";
 import ChartWindow from "@/components/windows/ChartWindow";
 import GeoMapWindow from "@/components/windows/GeoMapWindow";
 import AssistenzWindow from "@/components/windows/AssistenzWindow";
@@ -620,12 +619,6 @@ export default function ChatPage() {
         <AssistenzWindow
           initialUrl={d?.url as string | undefined}
           initialGoal={d?.goal as string | undefined}
-        />
-      );
-      case "design": return (
-        <DesignWindow
-          prefs={uiPrefs}
-          onPrefsChange={(patch) => setUiPrefs((p) => ({ ...p, ...patch }))}
         />
       );
       case "documents": return (

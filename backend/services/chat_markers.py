@@ -129,7 +129,7 @@ def _extract_close_window_marker(text: str) -> tuple[str, dict | None]:
     Returns:
         (bereinigter Text, close_window-Dict oder None)
     """
-    VALID_TYPES = {"assistenz", "whiteboard", "image_viewer", "netzwerk", "design", "memory", "documents", "diktieren"}
+    VALID_TYPES = {"assistenz", "whiteboard", "image_viewer", "netzwerk", "memory", "documents", "diktieren"}
     close_window: dict | None = None
     match = re.search(r"\[FENSTER_SCHLIESSEN:\s*(\w+)\]", text, re.IGNORECASE)
     if match:
@@ -173,7 +173,7 @@ def _extract_window_marker(text: str) -> tuple[str, dict | None]:
     Returns:
         (bereinigter Text, open_window-Dict oder None)
     """
-    VALID_TYPES = {"assistenz", "whiteboard", "image_viewer", "netzwerk", "chart", "design", "memory", "documents", "geo_map", "diktieren"}
+    VALID_TYPES = {"assistenz", "whiteboard", "image_viewer", "netzwerk", "chart", "memory", "documents", "geo_map", "diktieren"}
     open_window: dict | None = None
     # Format: [FENSTER: canvasType] oder [FENSTER: canvasType | extra]
     match = re.search(r"\[FENSTER:\s*(\w+)(?:\s*\|\s*([^\]]+))?\]", text, re.IGNORECASE)

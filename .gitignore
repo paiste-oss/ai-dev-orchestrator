@@ -67,3 +67,4 @@ desktop.ini
 # ========================
 celerybeat-schedule
 celerybeat-schedule.db
+.claude/settings.local.json
