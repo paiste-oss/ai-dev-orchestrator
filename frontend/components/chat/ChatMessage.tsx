@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import { apiFetch } from "@/lib/auth";
+import { BACKEND_URL } from "@/lib/config";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import StockCard from "@/components/chat/StockCard";
@@ -27,19 +29,26 @@ interface ChatMessageProps {
 }
 
 export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichContent = false, onRemoveGeneratedImage }: ChatMessageProps) {
-  const [savedId, setSavedId]   = React.useState<string | null>(null);
-  const [sharedId, setSharedId] = React.useState<string | null>(null);
+  const [savedId, setSavedId]     = React.useState<string | null>(null);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+  const [sharedId, setSharedId]   = React.useState<string | null>(null);
 
-  function handleSave(id: string, content: string) {
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = `baddi-${new Date().toISOString().slice(0, 10)}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setSavedId(id);
-    setTimeout(() => setSavedId(null), 2500);
+  async function handleSave(id: string, content: string) {
+    setSaveError(null);
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = `Chat-Notiz ${date}.md`;
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/documents/save-from-chat`, {
+        method: "POST",
+        body: JSON.stringify({ content, filename }),
+      });
+      if (!res.ok) throw new Error();
+      setSavedId(id);
+      setTimeout(() => setSavedId(null), 3000);
+    } catch {
+      setSaveError(id);
+      setTimeout(() => setSaveError(null), 3000);
+    }
   }
 
   async function handleShare(id: string, content: string) {
@@ -316,7 +325,14 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    <span className="text-emerald-500">Gespeichert</span>
+                    <span className="text-emerald-500">In Dokumente gespeichert</span>
+                  </>
+                ) : saveError === msg.id ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <span className="text-red-400">Fehler</span>
                   </>
                 ) : (
                   <>
