@@ -180,11 +180,13 @@ async def admin_update_plan(
     db: AsyncSession = Depends(get_db),
 ):
     """Admin: Plan-Details und Stripe Price IDs aktualisieren."""
+    from sqlalchemy.orm.attributes import flag_modified
     plan = await db.get(SubscriptionPlan, _uuid.UUID(plan_id))
     if not plan:
         raise HTTPException(status_code=404, detail="Plan nicht gefunden")
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(plan, field, value)
+    flag_modified(plan, "features")  # JSON-Feld explizit als geändert markieren
     await db.commit()
     await db.refresh(plan)
     return PlanAdminOut(
