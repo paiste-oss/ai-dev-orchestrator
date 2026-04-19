@@ -154,24 +154,30 @@ function PreviewPanel({ doc, onClose }: { doc: Doc | null; onClose: () => void }
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto">
-        {loading && (
-          <div className="flex items-center justify-center h-full text-gray-600 text-xs">Lädt…</div>
+      <div className="flex-1 min-h-0 overflow-auto">
+        {loading && !text && !blobUrl && !error && (
+          <div className="flex items-center justify-center h-32 text-gray-600 text-xs">Lädt…</div>
         )}
         {error && (
-          <div className="flex items-center justify-center h-full text-gray-600 text-xs">{error}</div>
+          <div className="flex items-center justify-center h-32 text-gray-600 text-xs">{error}</div>
         )}
         {blobUrl && doc.file_type === "pdf" && (
           <iframe src={blobUrl} className="w-full h-full border-0" title={doc.original_filename} />
         )}
         {blobUrl && ["jpg","jpeg","png","gif","webp","svg"].includes(doc.file_type) && (
-          <div className="flex items-center justify-center h-full p-4">
+          <div className="flex items-center justify-center p-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={blobUrl} alt={doc.original_filename} className="max-w-full max-h-full object-contain rounded-lg" />
+            <img src={blobUrl} alt={doc.original_filename} className="max-w-full object-contain rounded-lg" />
           </div>
         )}
         {text !== null && (
-          <pre className="p-3 text-xs text-gray-300 whitespace-pre-wrap font-mono leading-relaxed">{text}</pre>
+          text.trim() === "" ? (
+            <div className="flex items-center justify-center h-32 text-gray-600 text-xs">Kein Inhalt</div>
+          ) : (
+            <div className="p-3 text-xs text-gray-300 leading-relaxed whitespace-pre-wrap break-words">
+              {text}
+            </div>
+          )
         )}
       </div>
     </div>
@@ -684,7 +690,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
               <div className="w-[2px] h-8 rounded-full bg-white/10 group-hover:bg-indigo-400/50 transition-colors" />
             </div>
             {/* Panel */}
-            <div className="shrink-0 border-l border-white/6 overflow-hidden" style={{ width: previewWidth }}>
+            <div className="shrink-0 border-l border-white/6 overflow-hidden h-full" style={{ width: previewWidth }}>
               <PreviewPanel doc={previewDoc} onClose={() => { setShowPreview(false); setPreviewDoc(null); }} />
             </div>
           </>
