@@ -853,34 +853,29 @@ export default function ChatPage() {
 
   // ── DESKTOP SPLIT-VIEW ────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-[100dvh] overflow-hidden" style={bgStyle}>
+    <div className="flex h-[100dvh] overflow-hidden" style={bgStyle}>
 
-      {/* ── TopBar (volle Breite) ── */}
-      <TopBar
-        buddyName={uiPrefs.buddyName ?? "Baddi"}
-        buddyInitial={buddyInitial}
-        speaking={speaking}
-        lastProvider={lastProvider}
-        firstName={firstName}
-        isAdmin={user?.role === "admin"}
-        avatar={uiPrefs.avatarType ?? "robot"}
-        emotion={emotion}
-        onSettings={() => setSetupOpen(true)}
-        onLogout={() => { clearSession(); router.push("/"); }}
-        onAdminBack={() => router.push("/admin")}
-      />
-
-      {/* ── Split: Chat | Artifact ── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-
-        {/* ── Chat-Spalte ── */}
-        <div
-          className="flex flex-col shrink-0 min-h-0"
-          style={{ width: chatWidth }}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
+      {/* ── Chat-Spalte (inkl. TopBar) ── */}
+      <div
+        className="flex flex-col shrink-0 min-h-0"
+        style={{ width: chatWidth }}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        <TopBar
+          buddyName={uiPrefs.buddyName ?? "Baddi"}
+          buddyInitial={buddyInitial}
+          speaking={speaking}
+          lastProvider={lastProvider}
+          firstName={firstName}
+          isAdmin={user?.role === "admin"}
+          avatar={uiPrefs.avatarType ?? "robot"}
+          emotion={emotion}
+          onSettings={() => setSetupOpen(true)}
+          onLogout={() => { clearSession(); router.push("/"); }}
+          onAdminBack={() => router.push("/admin")}
+        />
           {isDragOver && (
             <div className="absolute inset-0 z-50 flex items-center justify-center bg-indigo-950/80 border-2 border-dashed border-indigo-400 pointer-events-none">
               <div className="text-center">
@@ -959,7 +954,6 @@ export default function ChatPage() {
           onAddArtifact={handleAddCard}
           bgStyle={bgStyle}
         />
-      </div>
 
       {/* ── Hidden file input ── */}
       <input ref={fileInputRef} type="file" multiple className="hidden"
