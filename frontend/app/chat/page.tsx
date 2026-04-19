@@ -535,6 +535,12 @@ export default function ChatPage() {
               body: JSON.stringify({ backgroundImage: dataUrl }),
             }).catch(() => {});
           } catch { /* URL direkt verwenden */ }
+        } else if ("backgroundImage" in update) {
+          // Explizite Entfernung (leerer String) auch persistieren
+          apiFetch(`${BACKEND_URL}/v1/user/preferences`, {
+            method: "POST",
+            body: JSON.stringify({ backgroundImage: "" }),
+          }).catch(() => {});
         }
         setUiPrefs((p) => ({ ...p, ...update }));
       },
