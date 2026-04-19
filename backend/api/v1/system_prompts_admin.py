@@ -125,74 +125,177 @@ _IDENTITY_ANCHOR = (
 
 @router.get("/assembly")
 async def get_assembly(_admin: Customer = Depends(require_admin)):
-    """Gibt alle Schichten des System-Prompt-Assembly zurück."""
+    """Gibt alle Schichten des System-Prompt-Assembly zurück — inkl. Caching-Zuordnung."""
     from services.tool_registry import TOOL_CATALOG
 
     base_prompt = _get_prompt(_BADDI_AGENT)
     tool_hints = [v["prompt_hint"] for v in TOOL_CATALOG.values() if v.get("prompt_hint")]
 
     return {
+        # Zwei Blöcke: static (gecacht) und dynamic (per Request)
+        "cache_info": {
+            "static_tokens_approx": 2500,
+            "cache_ttl_seconds": 300,
+            "provider": "Anthropic Prompt Caching (ephemeral)",
+        },
         "layers": [
+            # ── STATISCHER BLOCK (gecacht) ──────────────────────────────────
             {
                 "step": 1,
-                "name": "Basis-Identität",
-                "source": "Identität-Seite (Redis: baddi:config)",
+                "name": "Assistenz-Gebot & URL-Tabelle",
+                "source": "Fest im Code (chat_system_prompt.py)",
                 "type": "static",
-                "content": base_prompt,
-                "editable": True,
-                "edit_path": "/admin/uhrwerk/system-prompts",
+                "cache_block": "static",
+                "tokens_approx": 800,
+                "content": [
+                    "TRIGGER-WÖRTER → sofort open_artifact aufrufen",
+                    "40+ Schweizer Behörden/Dienst-URLs (IV, AHV, SBB, Krankenkassen, Banken…)",
+                    "NIEMALS nur Text antworten bei Anmelde-/Formular-Anfragen",
+                ],
+                "editable": False,
             },
             {
                 "step": 2,
-                "name": "Identitäts-Anker",
-                "source": "Fest im Code (chat.py)",
+                "name": "Benutzeroberfläche & Fenster-Steuerung",
+                "source": "Fest im Code (chat_system_prompt.py)",
                 "type": "static",
-                "content": _IDENTITY_ANCHOR,
+                "cache_block": "static",
+                "tokens_approx": 1000,
+                "content": [
+                    "open_artifact / close_artifact Tool-Anweisungen",
+                    "Flugdaten, SBB, Aktien, Namensnetz — Tool-Regeln",
+                    "Dokumente automatisch lesen (baddi_readable)",
+                ],
                 "editable": False,
             },
             {
                 "step": 3,
-                "name": "Kommunikationsstil",
-                "source": "Memory Manager → Qdrant/PostgreSQL (category=style)",
-                "type": "dynamic",
-                "note": (
-                    "Wird pro Kunde automatisch aus Gesprächen gelernt. "
-                    "Der Memory Manager (gemma3:12b) erkennt Stil-Signale wie "
-                    "'antworte kürzer', 'erkläre technisch' oder 'duze mich'."
-                ),
-                "example": [
-                    "Nutzer bevorzugt kurze, direkte Antworten",
-                    "Nutzer möchte per Du angesprochen werden",
-                    "Nutzer wünscht technische Erklärungen",
-                ],
-                "editable": False,
-                "edit_path": "/admin/chat-flow/memory-manager",
-            },
-            {
-                "step": 4,
-                "name": "Tool-Hinweise",
+                "name": "Tool-Übersicht",
                 "source": "Tool Registry (services/tool_registry.py)",
                 "type": "static",
+                "cache_block": "static",
+                "tokens_approx": 400,
                 "content": tool_hints,
                 "editable": False,
                 "edit_path": "/admin/tools",
             },
             {
+                "step": 4,
+                "name": "Aktions-Buttons & Fehlende Fähigkeiten",
+                "source": "Fest im Code (chat_system_prompt.py)",
+                "type": "static",
+                "cache_block": "static",
+                "tokens_approx": 300,
+                "content": [
+                    "Markdown-Links und [AKTION:]-Button-Marker",
+                    "[FÄHIGKEIT_FEHLT:]-Pflichtmarker für fehlende Integrationen",
+                ],
+                "editable": False,
+            },
+            # ── DYNAMISCHER BLOCK (per Request) ────────────────────────────
+            {
                 "step": 5,
-                "name": "Fakten über den Kunden",
-                "source": "Memory System → Qdrant/PostgreSQL (semantische Suche, category=fact)",
+                "name": "Basis-Identität",
+                "source": "Redis: baddi:config (Identität-Seite bearbeitbar)",
+                "type": "static",
+                "cache_block": "dynamic",
+                "tokens_approx": 80,
+                "content": base_prompt,
+                "editable": True,
+                "edit_path": "/admin/uhrwerk/system-prompts",
+            },
+            {
+                "step": 6,
+                "name": "Chat-Modus & Kommunikationsstil",
+                "source": "ui_preferences (DB) + Memory Manager → Qdrant (category=style)",
                 "type": "dynamic",
+                "cache_block": "dynamic",
+                "tokens_approx": 200,
                 "note": (
-                    "Wird pro Kunde und pro Anfrage aus dem Langzeitgedächtnis geladen. "
-                    "Semantische Vektorsuche findet die relevantesten Fakten zur aktuellen Frage."
+                    "Chat-Modus (Fokus / Plauder) aus den UI-Einstellungen des Kunden. "
+                    "Kommunikationsstil wird automatisch aus Gesprächen gelernt "
+                    "(gemma3:12b erkennt: 'antworte kürzer', 'erkläre technisch', 'duze mich')."
                 ),
                 "example": [
+                    "CHAT-MODUS: FOKUS-MODUS — schnelle, präzise Hilfe",
+                    "Nutzer bevorzugt kurze, direkte Antworten",
+                    "Nutzer möchte per Du angesprochen werden",
+                ],
+                "editable": False,
+            },
+            {
+                "step": 7,
+                "name": "Chat-Design & aktuelle Zeit",
+                "source": "ui_preferences (DB) + Server-Uhrzeit",
+                "type": "dynamic",
+                "cache_block": "dynamic",
+                "tokens_approx": 150,
+                "note": (
+                    "Aktuelle UI-Einstellungen des Kunden (Sprache, Name, Schriftgrösse, Farbe) "
+                    "und die exakte Server-Uhrzeit (Schweizer Zeit). Ändert sich jede Minute."
+                ),
+                "example": [
+                    "Name=Baddi, Sprache=Deutsch, Schrift=normal, Hintergrund=dark",
+                    "Sonntag, 20.04.2025, 14:32 Uhr (Schweizer Zeit)",
+                ],
+                "editable": False,
+            },
+            {
+                "step": 8,
+                "name": "Globale Wissensbasis",
+                "source": "Qdrant (search_global_knowledge, top_k=3, min_score=0.72)",
+                "type": "dynamic",
+                "cache_block": "dynamic",
+                "tokens_approx": 800,
+                "note": (
+                    "Semantische Suche in der globalen Wissensbasis (Gesetze, Behörden, Prozesse). "
+                    "Findet die 3 relevantesten Chunks zur aktuellen Anfrage (Score ≥ 0.72). "
+                    "Nur wenn knowledge_enabled=true in der Baddi-Config."
+                ),
+                "example": [
+                    "[KNOWLEDGE — IV-Anmeldeprozess Schweiz] Phase 1: Anmeldung…",
+                    "[KNOWLEDGE — IVG Art. 28] Anspruch auf ordentliche Renten…",
+                ],
+                "editable": False,
+                "edit_path": "/admin/knowledge",
+            },
+            {
+                "step": 9,
+                "name": "Namensnetz & Erinnerungen",
+                "source": "PostgreSQL (window_boards) + Qdrant (category=fact, top_k=10)",
+                "type": "dynamic",
+                "cache_block": "dynamic",
+                "tokens_approx": 300,
+                "note": (
+                    "Namensnetz: Bekannte Personen und Gruppen des Kunden (aus WindowBoard). "
+                    "Erinnerungen: Die 10 semantisch relevantesten Fakten über den Kunden "
+                    "zur aktuellen Anfrage (Langzeitgedächtnis)."
+                ),
+                "example": [
+                    "NAMENSNETZ: Roman (Nachbar in Haslen), Familie: [Maria, Hans]",
                     "Nutzer heisst Christoph und lebt in Bern",
-                    "Hat einen Hund namens Bello",
-                    "Arbeitet als Softwareentwickler",
+                    "Hat einen laufenden IV-Prozess seit 2024",
                 ],
                 "editable": False,
                 "edit_path": "/admin/chat-flow/memory-manager",
+            },
+            {
+                "step": 10,
+                "name": "Kunden-Dokumente",
+                "source": "PostgreSQL (customer_documents, baddi_readable=true)",
+                "type": "dynamic",
+                "cache_block": "dynamic",
+                "tokens_approx": 1500,
+                "note": (
+                    "Alle Dokumente des Kunden die auf '🤖 Lesbar' stehen — max. 4000 Zeichen "
+                    "pro Dokument, max. 12'000 Zeichen gesamt. "
+                    "Nur Dokumente mit extrahiertem Text (PDF, Word) werden eingebettet."
+                ),
+                "example": [
+                    '[Datei: "IV_Anmeldung_2024.pdf"] Ich, Christoph Muster, melde mich…',
+                    '[Datei: "Arztbericht_Dr_Meier.pdf"] Diagnose: …',
+                ],
+                "editable": False,
             },
         ]
     }
