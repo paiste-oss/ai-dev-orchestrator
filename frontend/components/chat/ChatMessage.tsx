@@ -104,6 +104,7 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
           <div className="flex items-baseline gap-2 mb-1">
             <span className="text-xs font-semibold text-gray-400">{uiPrefs.buddyName}</span>
             <span className={`text-xs text-gray-600 ${tsClass}`}>
+              {new Date(msg.created_at).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit" })}{" "}
               {new Date(msg.created_at).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" })}
             </span>
           </div>

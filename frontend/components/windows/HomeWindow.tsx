@@ -64,9 +64,11 @@ interface ActiveReminders {
 
 interface CalEvent {
   uid: string;
-  summary: string;
+  title: string;
   start: string;
   end: string;
+  description?: string | null;
+  location?: string | null;
 }
 
 const DAY_NAMES: Record<string, string> = {
@@ -274,7 +276,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                     return (
                       <div key={ev.uid} className="flex items-center gap-2">
                         <span className="text-[10px] text-indigo-400 shrink-0 w-10">{time}</span>
-                        <span className="text-[11px] text-gray-300 truncate">{ev.summary}</span>
+                        <span className="text-[11px] text-gray-300 truncate">{ev.title}</span>
                       </div>
                     );
                   })}
