@@ -7,25 +7,9 @@ import { getToken } from "@/lib/auth";
 
 const PLANS = [
   {
-    slug: "free",
-    name: "Free",
-    badge: "1 Monat gratis",
-    price: "CHF 0",
-    period: "/ 1 Monat",
-    highlights: [
-      "50'000 Tokens inklusive",
-      "2'000 Tokens/Tag",
-      "5 Anfragen/Stunde",
-      "Keine Kreditkarte nötig",
-    ],
-    color: "border-gray-700 hover:border-gray-500",
-    badgeColor: "bg-gray-700 text-gray-200",
-    btnClass: "bg-gray-700 hover:bg-gray-600 text-white",
-  },
-  {
     slug: "basis",
     name: "Personal",
-    badge: null,
+    badge: "14 Tage gratis testen",
     price: "CHF 19",
     period: "/ Monat",
     highlights: [
@@ -35,7 +19,7 @@ const PLANS = [
       "E-Mail-Support",
     ],
     color: "border-indigo-500/50 hover:border-indigo-400",
-    badgeColor: null,
+    badgeColor: "bg-indigo-600 text-white",
     btnClass: "bg-indigo-600 hover:bg-indigo-500 text-white",
   },
   {
@@ -88,10 +72,6 @@ function PlanPageContent() {
     setError("");
     setLoading(slug);
     try {
-      if (slug === "free") {
-        router.push("/chat");
-        return;
-      }
       const res = await fetch(`${BACKEND_URL}/v1/billing/checkout`, {
         method: "POST",
         headers: {
@@ -167,8 +147,8 @@ function PlanPageContent() {
               >
                 {loading === plan.slug
                   ? "Wird geladen…"
-                  : plan.slug === "free"
-                  ? "Kostenlos starten →"
+                  : plan.slug === "basis"
+                  ? "Gratis testen →"
                   : "Auswählen →"}
               </button>
             </div>
@@ -176,7 +156,7 @@ function PlanPageContent() {
         </div>
 
         <p className="text-center text-xs text-gray-600">
-          Alle Preise in CHF inkl. MwSt. · Jederzeit kündbar · Keine versteckten Kosten
+          Alle Preise in CHF inkl. MwSt. · Jederzeit kündbar · 14 Tage gratis beim Personal-Plan · Keine versteckten Kosten
         </p>
       </div>
     </main>

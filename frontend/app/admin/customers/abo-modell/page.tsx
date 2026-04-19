@@ -336,26 +336,20 @@ export default function AboModellPage() {
             </div>
           )}
 
-          {/* Free — statisch */}
+          {/* Trial-Hinweis */}
           {!loading && (
-            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-5 flex flex-col sm:flex-row gap-5">
-              <div className="flex-1 space-y-3">
-                <div className="flex items-center gap-3">
-                  <span className="text-lg font-bold text-white">Free</span>
-                  <span className="px-2 py-0.5 rounded-full text-xs bg-gray-700 text-gray-300 border border-gray-600">1 Monat gratis</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                  <div><p className="text-gray-500">Preis</p><p className="text-white font-semibold">CHF 0</p></div>
-                  <div><p className="text-gray-500">Tokens/Mo</p><p className="text-white font-semibold">50k</p></div>
-                  <div><p className="text-gray-500">Tokens/Tag</p><p className="text-white font-semibold">2k</p></div>
-                  <div><p className="text-gray-500">Anf./Std.</p><p className="text-white font-semibold">5</p></div>
-                </div>
-                <p className="text-xs text-gray-500">Free-Plan läuft ausschliesslich über das Frontend — kein Stripe-Checkout, direkte Weiterleitung zu /chat.</p>
+            <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4 flex items-start gap-3">
+              <span className="text-indigo-400 text-lg shrink-0">ⓘ</span>
+              <div className="text-sm">
+                <p className="text-indigo-300 font-medium">14 Tage Gratis-Testzeit — Personal-Plan</p>
+                <p className="text-gray-400 text-xs mt-1">
+                  Neukunden erhalten beim Personal-Plan automatisch 14 Tage gratis (Stripe Trial). Die Kreditkarte wird erst nach Ablauf der Testphase belastet. Gilt nur einmalig pro Kunde und nur wenn noch kein Abo aktiv war.
+                </p>
               </div>
             </div>
           )}
 
-          {/* Bezahlte Pläne */}
+          {/* Pläne */}
           {!loading && plans.map(plan => {
             const borderCls = PLAN_COLORS[plan.slug] ?? "border-gray-700";
             const hasStripeMonthly = !!plan.stripe_price_id_monthly;
