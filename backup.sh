@@ -28,7 +28,7 @@ RETENTION_DAYS=30
 if [ -f "${PROJECT_DIR}/.env" ]; then
   set -a
   # shellcheck disable=SC1090
-  source <(grep -v '^#' "${PROJECT_DIR}/.env" | grep -v '^$')
+  source <(grep -E '^[A-Z_][A-Z0-9_]*=' "${PROJECT_DIR}/.env")
   set +a
 fi
 
