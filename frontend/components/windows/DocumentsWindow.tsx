@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { fmtBytes as formatBytes, formatDate } from "@/lib/format";
@@ -236,7 +236,40 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [previewWidth, setPreviewWidth] = useState(240);
+  const isResizing = useRef(false);
+  const resizeStartX = useRef(0);
+  const resizeStartWidth = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const onResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    isResizing.current = true;
+    resizeStartX.current = e.clientX;
+    resizeStartWidth.current = previewWidth;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [previewWidth]);
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!isResizing.current) return;
+      const delta = resizeStartX.current - e.clientX;
+      const next = Math.min(Math.max(resizeStartWidth.current + delta, 160), 520);
+      setPreviewWidth(next);
+    }
+    function onMouseUp() {
+      if (!isResizing.current) return;
+      isResizing.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -640,11 +673,21 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
           )}
         </div>
 
-        {/* Preview panel */}
+        {/* Resizable preview panel */}
         {showPreview && previewDoc && (
-          <div className="w-64 shrink-0 border-l border-white/6">
-            <PreviewPanel doc={previewDoc} onClose={() => { setShowPreview(false); setPreviewDoc(null); }} />
-          </div>
+          <>
+            {/* Splitter */}
+            <div
+              onMouseDown={onResizeMouseDown}
+              className="group relative flex items-center justify-center shrink-0 w-[5px] cursor-col-resize hover:bg-indigo-500/20 active:bg-indigo-500/30 transition-colors border-x border-white/5"
+            >
+              <div className="w-[2px] h-8 rounded-full bg-white/10 group-hover:bg-indigo-400/50 transition-colors" />
+            </div>
+            {/* Panel */}
+            <div className="shrink-0 border-l border-white/6 overflow-hidden" style={{ width: previewWidth }}>
+              <PreviewPanel doc={previewDoc} onClose={() => { setShowPreview(false); setPreviewDoc(null); }} />
+            </div>
+          </>
         )}
       </div>
     </div>
