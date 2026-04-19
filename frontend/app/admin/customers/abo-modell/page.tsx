@@ -84,7 +84,7 @@ function EditModal({ plan, onSave, onClose }: EditModalProps) {
     daily_token_limit:        String(plan.daily_token_limit ?? ""),
     requests_per_hour:        String(plan.requests_per_hour ?? ""),
     token_overage_chf_per_1k: String(plan.token_overage_chf_per_1k),
-    storage_limit_gb:         String(Math.round(plan.storage_limit_bytes / (1024 * 1024 * 1024)) || 0),
+    storage_limit_gb:         String(parseFloat((plan.storage_limit_bytes / (1024 * 1024 * 1024)).toFixed(3))),
     stripe_price_id_monthly:  plan.stripe_price_id_monthly ?? "",
     stripe_price_id_yearly:   plan.stripe_price_id_yearly ?? "",
     highlights:               (plan.features.highlights ?? []).join("\n"),
