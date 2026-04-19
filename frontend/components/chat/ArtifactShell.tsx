@@ -69,10 +69,15 @@ export default function ArtifactShell({
     ? null
     : (artifacts.find((a) => a.id === effectiveActiveId) ?? null);
 
-  const dotBg: React.CSSProperties = {
-    backgroundImage: "radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px)",
-    backgroundSize: "28px 28px",
-  };
+  // Bild: ArtifactShell bleibt neutral — HomeWindow rendert das Bild selbst mit Overlay
+  // Farbe: Farbe + Dot-Pattern auf den ganzen Container, damit alle Fenster die Farbe sehen
+  const dotBg: React.CSSProperties = bgStyle?.backgroundImage
+    ? {}
+    : {
+        backgroundImage: "radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px)",
+        backgroundSize: "28px 28px",
+        ...bgStyle,
+      };
 
   return (
     <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden" style={dotBg}>
