@@ -421,7 +421,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
     const res = await apiFetch(`${BACKEND_URL}/v1/document-folders`, {
       method: "POST", body: JSON.stringify({ name, color }),
     });
-    if (res.ok) setFolders(prev => [...prev, await res.json()]);
+    if (res.ok) { const folder = await res.json(); setFolders(prev => [...prev, folder]); }
     setShowNewFolder(false);
   }
 
