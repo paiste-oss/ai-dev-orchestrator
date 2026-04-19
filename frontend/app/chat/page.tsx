@@ -955,7 +955,7 @@ export default function ChatPage() {
           renderContent={renderWindowContent}
           onAddArtifact={handleAddCard}
           bgStyle={bgStyle}
-          buddyName={uiPrefs.buddyName}
+          userName={firstName}
         />
 
       {/* ── Hidden file input ── */}
