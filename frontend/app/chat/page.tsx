@@ -169,7 +169,6 @@ export default function ChatPage() {
     artifacts, activeId: activeArtifactId,
     openArtifact, updateArtifact, closeArtifact, closeArtifactByType, focusArtifact,
   } = useArtifacts();
-  const [windowHeaders, setWindowHeaders] = useState<Record<string, React.ReactNode>>({});
   const [refreshingArtifacts, setRefreshingArtifacts] = useState<Set<string>>(new Set());
 
   const handleFlightRefresh = useCallback(async (artifactId: string, data: FlightBoardData) => {
@@ -591,9 +590,6 @@ export default function ChatPage() {
           boardId={d?.boardId as string | undefined}
           reloadKey={d?.reloadKey as number | undefined}
           onBoardId={(id) => updateArtifact(artifact.id, { boardId: id })}
-          setHeaderExtra={(content) =>
-            setWindowHeaders((prev) => ({ ...prev, [artifact.id]: content }))
-          }
         />
       );
       case "memory": return (
@@ -796,7 +792,6 @@ export default function ChatPage() {
           <MobilePinnedPanel
             card={activeArtifact}
             onClose={() => setMobilePanelOpen(false)}
-            headerExtra={windowHeaders[activeArtifact.id]}
           >
             {renderWindowContent(activeArtifact)}
           </MobilePinnedPanel>
@@ -951,7 +946,6 @@ export default function ChatPage() {
           activeId={activeArtifactId}
           onSetActive={focusArtifact}
           onClose={closeArtifact}
-          windowHeaders={windowHeaders}
           renderContent={renderWindowContent}
           onAddArtifact={handleAddCard}
           bgStyle={bgStyle}

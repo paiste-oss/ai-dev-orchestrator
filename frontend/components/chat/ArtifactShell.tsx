@@ -10,7 +10,6 @@ interface ArtifactShellProps {
   activeId: string | null;
   onSetActive: (id: string) => void;
   onClose: (id: string) => void;
-  windowHeaders?: Record<string, React.ReactNode>;
   renderContent: (artifact: ArtifactEntry) => React.ReactNode;
   onAddArtifact?: (type: string) => void;
   bgStyle?: React.CSSProperties;
@@ -25,7 +24,6 @@ export default function ArtifactShell({
   activeId,
   onSetActive,
   onClose,
-  windowHeaders,
   renderContent,
   onAddArtifact,
   bgStyle,
@@ -116,16 +114,16 @@ export default function ArtifactShell({
 
         {/* Permanent Home tab */}
         <div
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer shrink-0 transition-all select-none ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer shrink-0 transition-all select-none ${
             homeActive
               ? "bg-white/10 text-white border border-white/15"
               : "text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent"
           }`}
-          onClick={() => {
-            setHomeActive(true);
-          }}
+          onClick={() => setHomeActive(true)}
         >
-          <span className="font-medium">{userName ?? "Home"}</span>
+          <span className={homeActive ? "text-sm font-semibold" : "text-xs font-medium"}>
+            {userName ?? "Home"}
+          </span>
         </div>
 
         {/* Artifact tabs (scrollable, drag-to-scroll) */}
@@ -141,7 +139,7 @@ export default function ArtifactShell({
               <div
                 key={a.id}
                 data-tab
-                className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs cursor-pointer shrink-0 transition-all select-none ${
+                className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer shrink-0 transition-all select-none ${
                   isActive
                     ? "bg-white/10 text-white border border-white/15"
                     : "text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent"
@@ -151,7 +149,9 @@ export default function ArtifactShell({
                   onSetActive(a.id);
                 }}
               >
-                <span className="max-w-[140px] truncate font-medium">{a.title}</span>
+                <span className={`max-w-[140px] truncate ${isActive ? "text-sm font-semibold" : "text-xs font-medium"}`}>
+                  {a.title}
+                </span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -209,19 +209,6 @@ export default function ArtifactShell({
         )}
       </div>
 
-      {/* ── Active artifact header (only for non-home artifacts) ──────────────── */}
-      {!homeActive && active && (
-        <div className="flex items-center gap-3 px-4 py-2 border-b border-white/5 shrink-0 min-w-0">
-          <span className="text-sm font-semibold text-gray-200 truncate shrink-0">
-            {active.title}
-          </span>
-          {windowHeaders?.[active.id] && (
-            <div className="flex-1 min-w-0 overflow-hidden">
-              {windowHeaders[active.id]}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* ── Content area ─────────────────────────────────────────────────────── */}
       <div className="flex-1 min-h-0 overflow-hidden">
