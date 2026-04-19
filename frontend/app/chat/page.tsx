@@ -56,6 +56,7 @@ import { WINDOW_MODULES } from "@/lib/window-registry";
 import MobilePinnedPanel from "@/components/mobile/MobilePinnedPanel";
 import MobileWindowTray from "@/components/mobile/MobileWindowTray";
 import MobileWindowPickerSheet from "@/components/mobile/MobileWindowPickerSheet";
+import InvoiceModal from "@/components/chat/InvoiceModal";
 
 const suggestions = ["Was kannst du?", "Erkläre mir etwas", "Öffne eine Webseite", "Aktuelle Nachrichten"];
 
@@ -91,6 +92,7 @@ export default function ChatPage() {
   const [memories, setMemories] = useState<MemoryItem[]>([]);
   const [lastProvider, setLastProvider] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
 
   // Split-Panel Resize
   const [chatWidth, setChatWidth] = useState<number>(() => {
@@ -844,6 +846,7 @@ export default function ChatPage() {
         {cameraOpen && (
           <CameraModal videoRef={videoRef} onClose={closeCamera} onCapture={() => capturePhoto((file) => { setAttachedFiles((prev) => [...prev, { file, id: `cam-${Date.now()}` }]); })} />
         )}
+        {invoiceOpen && <InvoiceModal onClose={() => setInvoiceOpen(false)} />}
       </div>
     );
   }
@@ -904,6 +907,17 @@ export default function ChatPage() {
 
           {/* Input */}
           <div className="shrink-0 px-3 pb-3 pt-2 border-t border-white/5">
+            {user?.role === "admin" && (
+              <div className="mb-1.5 flex items-center gap-2">
+                <button
+                  onClick={() => setInvoiceOpen(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/10 border border-amber-500/20 transition-colors"
+                >
+                  <span>🧾</span>
+                  <span>Rechnung buchen</span>
+                </button>
+              </div>
+            )}
             {artifacts.find(a => a.id === activeArtifactId)?.type === "whiteboard" && (
               <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-indigo-400/80">
                 <span>🎨</span>
@@ -969,6 +983,7 @@ export default function ChatPage() {
             setAttachedFiles((prev) => [...prev, { file, id: `cam-${Date.now()}` }]);
           })} />
       )}
+      {invoiceOpen && <InvoiceModal onClose={() => setInvoiceOpen(false)} />}
     </div>
   );
 }
