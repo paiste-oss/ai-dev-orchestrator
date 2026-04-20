@@ -32,6 +32,7 @@ interface Me {
 interface ProfileSectionProps {
   me: Me;
   baddieEmail?: string | null;
+  onLanguageChange?: (lang: string) => void;
 }
 
 const LANGUAGES = [
@@ -50,7 +51,7 @@ const LANGUAGES = [
 const inputCls =
   "w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors";
 
-export function ProfileSection({ me, baddieEmail }: ProfileSectionProps) {
+export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSectionProps) {
   const [rufname, setRufname] = useState(me.name ?? "");
   const [firstName, setFirstName] = useState(me.first_name ?? "");
   const [lastName, setLastName] = useState(me.last_name ?? "");
@@ -157,7 +158,7 @@ export function ProfileSection({ me, baddieEmail }: ProfileSectionProps) {
             <label className="text-xs text-gray-400 font-medium">Sprache</label>
             <div className="grid grid-cols-2 gap-2">
               {LANGUAGES.map((l) => (
-                <button key={l.value} type="button" onClick={() => setLanguage(l.value)}
+                <button key={l.value} type="button" onClick={() => { setLanguage(l.value); onLanguageChange?.(l.value); }}
                   className={`py-2 rounded-xl text-xs font-medium border transition-all ${
                     language === l.value
                       ? "bg-indigo-600 border-indigo-500 text-white"

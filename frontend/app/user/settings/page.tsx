@@ -10,6 +10,7 @@ import { MemorySection } from "@/components/user/settings/MemorySection";
 import { TwoFASection } from "@/components/user/settings/TwoFASection";
 import { NotificationChannelSection } from "@/components/user/settings/NotificationChannelSection";
 import { TrustedSendersSection } from "@/components/user/settings/TrustedSendersSection";
+import { TranslationProvider, getT } from "@/lib/i18n";
 
 interface Me {
   id: string; name: string; first_name: string | null; last_name: string | null;
@@ -28,30 +29,41 @@ interface Me {
 export default function UserSettingsPage() {
   const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
+  const [language, setLanguage] = useState("de");
 
   useEffect(() => {
-    apiFetch(`${BACKEND_URL}/v1/auth/me`).then(r => r.json()).then((d: Me) => setMe(d));
+    apiFetch(`${BACKEND_URL}/v1/auth/me`).then(r => r.json()).then((d: Me) => {
+      setMe(d);
+      setLanguage(d.language ?? "de");
+    });
   }, []);
+
+  const t = getT(language);
 
   if (!me) return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-      <p className="text-gray-500 text-sm">Lädt…</p>
+      <p className="text-gray-500 text-sm">{t("settings.loading")}</p>
     </div>
   );
 
   return (
+    <TranslationProvider lang={language}>
     <div className="min-h-screen bg-gray-950 text-white">
       <div className="max-w-lg mx-auto px-5 py-8 space-y-5">
 
         <div className="flex items-center gap-3 mb-2">
           <button onClick={() => router.replace("/chat")} className="text-gray-500 hover:text-white text-xl transition-colors">←</button>
           <div>
-            <h1 className="text-xl font-bold text-white">Einstellungen</h1>
+            <h1 className="text-xl font-bold text-white">{t("settings.title")}</h1>
             <p className="text-xs text-gray-500">{me.email}</p>
           </div>
         </div>
 
-        <ProfileSection me={me} baddieEmail={me.baddi_email} />
+        <ProfileSection
+          me={{ ...me, language }}
+          baddieEmail={me.baddi_email}
+          onLanguageChange={setLanguage}
+        />
         <PasswordSection />
         <NotificationChannelSection
           current={me.notification_channel ?? "sms"}
@@ -73,21 +85,22 @@ export default function UserSettingsPage() {
         <div className="bg-gray-900 border border-white/5 rounded-2xl p-5 space-y-3">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xl">📄</span>
-            <h2 className="font-semibold text-white">Rechtliches</h2>
+            <h2 className="font-semibold text-white">{t("settings.legal")}</h2>
           </div>
           <a href="/agb?from=/user/settings"
             className="flex items-center justify-between w-full text-sm text-gray-300 hover:text-white transition-colors py-1 border-b border-white/5">
-            <span>Allgemeine Geschäftsbedingungen (AGB)</span>
+            <span>{t("settings.agb")}</span>
             <span className="text-gray-600">→</span>
           </a>
           <a href="/datenschutz?from=/user/settings"
             className="flex items-center justify-between w-full text-sm text-gray-300 hover:text-white transition-colors py-1">
-            <span>Datenschutzerklärung</span>
+            <span>{t("settings.privacy")}</span>
             <span className="text-gray-600">→</span>
           </a>
         </div>
 
       </div>
     </div>
+    </TranslationProvider>
   );
 }
