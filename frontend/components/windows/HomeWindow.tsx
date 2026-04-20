@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { ArtifactEntry, ARTIFACT_META, UiPrefs } from "@/lib/chat-types";
+import { ArtifactEntry, UiPrefs } from "@/lib/chat-types";
 import { WINDOW_MODULES } from "@/lib/window-registry";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
@@ -12,7 +12,6 @@ interface Props {
   bgStyle?: React.CSSProperties;
   uiPrefs?: UiPrefs;
   onPrefsChange?: (patch: Partial<UiPrefs>) => void;
-  onFocus: (id: string) => void;
   onOpen: (type: string) => void;
 }
 
@@ -124,7 +123,7 @@ function DesignChips({ options, value, onChange }: {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange, onFocus, onOpen }: Props) {
+export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange, onOpen }: Props) {
   const hasBg = !!(bgStyle?.backgroundImage && bgStyle.backgroundImage !== "none");
 
   // ── System tile ────────────────────────────────────────────────────────────
@@ -155,6 +154,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
   }, []);
 
   // ── Design tile ────────────────────────────────────────────────────────────
+  const [designOpen, setDesignOpen] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saved, setSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -320,14 +320,23 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
 
         {/* ── Design tile ────────────────────────────────────────────────── */}
         {uiPrefs && (
-          <div className="rounded-2xl border border-white/10 bg-black/25 backdrop-blur-sm p-4 space-y-4">
-            <div className="flex items-center justify-between">
+          <div className="rounded-2xl border border-white/10 bg-black/25 backdrop-blur-sm overflow-hidden">
+            <button
+              onClick={() => setDesignOpen(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/3 transition-colors"
+            >
               <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Design</p>
-              <span className={`text-[10px] transition-opacity duration-300 ${saved ? "text-green-400 opacity-100" : "opacity-0"}`}>
-                Gespeichert ✓
-              </span>
-            </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] transition-opacity duration-300 ${saved ? "text-green-400 opacity-100" : "opacity-0"}`}>
+                  Gespeichert ✓
+                </span>
+                <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${designOpen ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </div>
+            </button>
 
+            {designOpen && <div className="px-4 pb-4 space-y-4 border-t border-white/5 pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
               {/* Left column */}
@@ -498,31 +507,8 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                 </div>
               </div>
             </div>
+            </div>}
           </div>
-        )}
-
-        {/* ── Open windows ─────────────────────────────────────────────────── */}
-        {artifacts.length > 0 && (
-          <section>
-            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2.5">
-              Offene Fenster
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {artifacts.map((a) => {
-                const meta = ARTIFACT_META[a.type] ?? { icon: "🪟", label: a.title };
-                return (
-                  <button
-                    key={a.id}
-                    onClick={() => onFocus(a.id)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 hover:border-white/25 transition-colors text-sm text-gray-200 hover:text-white backdrop-blur-sm"
-                  >
-                    <span>{meta.icon}</span>
-                    <span className="max-w-[140px] truncate">{a.title}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
         )}
 
         {/* ── All windows ──────────────────────────────────────────────────── */}

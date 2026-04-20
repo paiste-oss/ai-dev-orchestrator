@@ -223,10 +223,6 @@ export default function ArtifactShell({
             bgStyle={bgStyle}
             uiPrefs={uiPrefs}
             onPrefsChange={onPrefsChange}
-            onFocus={(id) => {
-              setHomeActive(false);
-              onSetActive(id);
-            }}
             onOpen={(type) => {
               onAddArtifact?.(type);
               setHomeActive(false);
