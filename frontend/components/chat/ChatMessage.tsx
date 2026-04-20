@@ -314,9 +314,8 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
                 )}
               </button>
 
-              <span className="text-gray-800">·</span>
-
-              {/* Speichern */}
+              {/* Speichern — ausgeblendet wenn Nachricht generierte Bilder enthält (bereits auto-gespeichert) */}
+              {!msg.generatedImages?.length && (<><span className="text-gray-800">·</span>
               <button
                 onClick={() => handleSave(msg.id, msg.content)}
                 className="text-xs text-gray-600 hover:text-gray-400 transition-colors flex items-center gap-1"
@@ -344,6 +343,7 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
                   </>
                 )}
               </button>
+              </>)}
 
               <span className="text-gray-800">·</span>
 
