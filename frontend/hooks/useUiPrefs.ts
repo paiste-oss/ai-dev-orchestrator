@@ -10,11 +10,8 @@ export const FONT_SIZES: Record<string, string> = {
 };
 
 export const FONT_FAMILIES: Record<string, string> = {
-  system:      '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif',
   nunito_sans: 'var(--font-nunito-sans), "Nunito Sans", sans-serif',
   mono:        '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
-  rounded:     '"Nunito", "Varela Round", "Quicksand", sans-serif',
-  serif:       'Georgia, "Times New Roman", serif',
 };
 
 export const LINE_SPACINGS: Record<string, string> = {
