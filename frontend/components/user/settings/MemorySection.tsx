@@ -4,6 +4,7 @@ import { useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { Section } from "@/components/user/settings/Section";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   memoryConsent: boolean;
@@ -11,12 +12,13 @@ interface Props {
 }
 
 export function MemorySection({ memoryConsent, onConsentChange }: Props) {
+  const t = useT();
   const [revokeOpen, setRevokeOpen] = useState(false);
   const [revokeInput, setRevokeInput] = useState("");
   const [revoking, setRevoking] = useState(false);
 
   const revokeMemory = async () => {
-    if (revokeInput !== "Lösche Langzeitdaten") return;
+    if (revokeInput !== t("s.mem_revoke_phrase")) return;
     setRevoking(true);
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/customers/me/memory-consent`, { method: "DELETE" });
@@ -33,25 +35,25 @@ export function MemorySection({ memoryConsent, onConsentChange }: Props) {
 
   return (
     <>
-      <Section title="Langzeitgedächtnis" icon="🧠">
+      <Section title={t("s.mem_title")} icon="🧠">
         <p className="text-sm text-gray-400 leading-relaxed">
-          Damit Baddi dein Begleiter fürs Leben wird, merkt er sich wichtige Dinge über dich — Vorlieben, Erlebnisse, Ziele. Diese Daten werden sicher gespeichert und niemals an Dritte weitergegeben.
+          {t("s.mem_desc", { buddy: "Baddi" })}
         </p>
         <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${memoryConsent ? "border-yellow-500/30 bg-yellow-950/20" : "border-gray-700 bg-gray-800/30"}`}>
           <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${memoryConsent ? "bg-yellow-400" : "bg-gray-600"}`} />
           <span className="text-sm font-medium text-gray-200 flex-1">
-            {memoryConsent ? "Aktiviert — Baddi baut sein Gedächtnis auf" : "Deaktiviert — Baddi merkt sich nichts"}
+            {memoryConsent ? t("s.mem_on", { buddy: "Baddi" }) : t("s.mem_off", { buddy: "Baddi" })}
           </span>
         </div>
         {memoryConsent ? (
           <button onClick={() => setRevokeOpen(true)}
             className="w-full px-4 py-2.5 rounded-xl border border-red-500/40 text-red-400 hover:bg-red-500/10 text-sm font-medium transition-colors">
-            Langzeitgedächtnis widerrufen & Daten löschen
+            {t("s.mem_revoke_btn")}
           </button>
         ) : (
           <button onClick={enableMemory}
             className="w-full px-4 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-gray-900 text-sm font-semibold transition-colors">
-            Langzeitgedächtnis aktivieren
+            {t("s.mem_enable_btn")}
           </button>
         )}
       </Section>
@@ -63,29 +65,32 @@ export function MemorySection({ memoryConsent, onConsentChange }: Props) {
             <div className="flex items-start gap-3">
               <span className="text-2xl shrink-0">⚠️</span>
               <div>
-                <h3 className="font-bold text-white text-lg">Langzeitgedächtnis widerrufen</h3>
+                <h3 className="font-bold text-white text-lg">{t("s.mem_revoke_title")}</h3>
                 <p className="text-sm text-gray-400 mt-1 leading-relaxed">
-                  Alle Daten im Langzeitgedächtnis werden
-                  <span className="text-red-400 font-semibold"> unwiderruflich gelöscht</span>.
+                  {t("s.mem_revoke_warn")}
                 </p>
               </div>
             </div>
             <div className="space-y-2">
               <p className="text-sm text-gray-300">
-                Schreibe <code className="text-red-400 font-mono bg-red-950/30 px-1 rounded">Lösche Langzeitdaten</code> und drücke Löschen.
+                {t("s.mem_revoke_hint", { phrase: t("s.mem_revoke_phrase") }).split(t("s.mem_revoke_phrase")).map((part, i, arr) => (
+                  i < arr.length - 1
+                    ? <span key={i}>{part}<code className="text-red-400 font-mono bg-red-950/30 px-1 rounded">{t("s.mem_revoke_phrase")}</code></span>
+                    : <span key={i}>{part}</span>
+                ))}
               </p>
               <input type="text" value={revokeInput} onChange={e => setRevokeInput(e.target.value)}
-                placeholder="Lösche Langzeitdaten" autoFocus
+                placeholder={t("s.mem_revoke_phrase")} autoFocus
                 className="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-red-500/60 font-mono" />
             </div>
             <div className="flex gap-3 justify-end">
               <button onClick={() => { setRevokeOpen(false); setRevokeInput(""); }}
                 className="px-4 py-2 rounded-xl text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
-                Abbrechen
+                {t("s.cancel")}
               </button>
-              <button onClick={revokeMemory} disabled={revokeInput !== "Lösche Langzeitdaten" || revoking}
+              <button onClick={revokeMemory} disabled={revokeInput !== t("s.mem_revoke_phrase") || revoking}
                 className="px-5 py-2 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-40">
-                {revoking ? "Wird gelöscht…" : "Löschen"}
+                {revoking ? t("s.deleting") : t("s.delete")}
               </button>
             </div>
           </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { Section } from "@/components/user/settings/Section";
+import { useT } from "@/lib/i18n";
 
 interface Me {
   id: string;
@@ -52,6 +53,7 @@ const inputCls =
   "w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors";
 
 export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSectionProps) {
+  const t = useT();
   const [rufname, setRufname] = useState(me.name ?? "");
   const [firstName, setFirstName] = useState(me.first_name ?? "");
   const [lastName, setLastName] = useState(me.last_name ?? "");
@@ -98,10 +100,10 @@ export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSec
         body: JSON.stringify({ language }),
       }).catch(() => {});
       if (res.ok) {
-        setMsg({ text: "Gespeichert ✓", ok: true });
+        setMsg({ text: t("s.saved_ok"), ok: true });
         setTimeout(() => setMsg(null), 3000);
       } else {
-        setMsg({ text: "Fehler beim Speichern", ok: false });
+        setMsg({ text: t("s.save_error"), ok: false });
       }
     } finally {
       setSaving(false);
@@ -111,38 +113,38 @@ export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSec
   return (
     <>
       {/* Persönliche Daten */}
-      <Section title="Profil" icon="👤">
+      <Section title={t("s.profile")} icon="👤">
         <div className="space-y-3">
           <div className="space-y-1">
-            <label className="text-xs text-gray-400 font-medium">Rufname <span className="text-gray-600">(wie Baddi dich anspricht)</span></label>
+            <label className="text-xs text-gray-400 font-medium">{t("s.nickname")} <span className="text-gray-600">({t("s.nickname_hint", { buddy: me.name || "Baddi" })})</span></label>
             <input value={rufname} onChange={(e) => setRufname(e.target.value)} placeholder="z. B. Naor" className={inputCls} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-gray-400 font-medium">Vorname <span className="text-gray-600">(rechtlich)</span></label>
+              <label className="text-xs text-gray-400 font-medium">{t("s.first_name")} <span className="text-gray-600">({t("s.legal_hint")})</span></label>
               <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Max" className={inputCls} />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-gray-400 font-medium">Nachname <span className="text-gray-600">(rechtlich)</span></label>
+              <label className="text-xs text-gray-400 font-medium">{t("s.last_name")} <span className="text-gray-600">({t("s.legal_hint")})</span></label>
               <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Muster" className={inputCls} />
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-gray-400 font-medium">E-Mail</label>
+            <label className="text-xs text-gray-400 font-medium">{t("s.email")}</label>
             <input value={me.email} disabled className={`${inputCls} opacity-50 cursor-not-allowed`} />
           </div>
           {baddieEmail && (
             <div className="space-y-1">
               <label className="text-xs text-gray-400 font-medium">
-                Baddi Email
-                <span className="ml-2 text-[10px] text-indigo-400 font-normal">Deine persönliche Baddi-Adresse</span>
+                {t("s.buddy_email")}
+                <span className="ml-2 text-[10px] text-indigo-400 font-normal">{t("s.buddy_email_hint")}</span>
               </label>
               <div className="flex items-center gap-2">
                 <input value={baddieEmail} disabled className={`${inputCls} opacity-70 cursor-default font-mono text-indigo-300`} />
                 <button
                   type="button"
                   onClick={() => navigator.clipboard.writeText(baddieEmail)}
-                  title="Kopieren"
+                  title={t("s.copy")}
                   className="shrink-0 px-3 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-indigo-500 transition-colors text-xs"
                 >
                   📋
@@ -151,11 +153,11 @@ export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSec
             </div>
           )}
           <div className="space-y-1">
-            <label className="text-xs text-gray-400 font-medium">Mobile</label>
+            <label className="text-xs text-gray-400 font-medium">{t("s.mobile")}</label>
             <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+41 79 000 00 00" className={inputCls} />
           </div>
           <div className="space-y-2">
-            <label className="text-xs text-gray-400 font-medium">Sprache</label>
+            <label className="text-xs text-gray-400 font-medium">{t("s.language")}</label>
             <div className="grid grid-cols-2 gap-2">
               {LANGUAGES.map((l) => (
                 <button key={l.value} type="button" onClick={() => { setLanguage(l.value); onLanguageChange?.(l.value); }}
@@ -168,37 +170,37 @@ export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSec
                 </button>
               ))}
             </div>
-            <p className="text-[11px] text-gray-600">Gilt auch als Chat-Sprache.</p>
+            <p className="text-[11px] text-gray-600">{t("s.language_hint")}</p>
           </div>
         </div>
       </Section>
 
       {/* Adresse */}
-      <Section title="Adresse" icon="🏠">
+      <Section title={t("s.address")} icon="🏠">
         <div className="space-y-3">
           <div className="space-y-1">
-            <label className="text-xs text-gray-400 font-medium">Strasse & Hausnummer</label>
+            <label className="text-xs text-gray-400 font-medium">{t("s.street")}</label>
             <input value={street} onChange={(e) => setStreet(e.target.value)} placeholder="Musterstrasse 1" className={inputCls} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-gray-400 font-medium">PLZ</label>
+              <label className="text-xs text-gray-400 font-medium">{t("s.zip")}</label>
               <input value={zip} onChange={(e) => setZip(e.target.value)} placeholder="8001" className={inputCls} />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-gray-400 font-medium">Ort</label>
+              <label className="text-xs text-gray-400 font-medium">{t("s.city")}</label>
               <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Zürich" className={inputCls} />
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-gray-400 font-medium">Land</label>
+            <label className="text-xs text-gray-400 font-medium">{t("s.country")}</label>
             <input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Schweiz" className={inputCls} />
           </div>
         </div>
       </Section>
 
       {/* Rechnungsadresse */}
-      <Section title="Rechnungsadresse" icon="🧾">
+      <Section title={t("s.billing_address")} icon="🧾">
         <div className="space-y-3">
           <label className="flex items-center gap-3 cursor-pointer">
             <div
@@ -207,27 +209,27 @@ export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSec
             >
               <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${billingSame ? "left-5" : "left-0.5"}`} />
             </div>
-            <span className="text-sm text-gray-300">Gleich wie Adresse</span>
+            <span className="text-sm text-gray-300">{t("s.billing_same")}</span>
           </label>
 
           {!billingSame && (
             <div className="space-y-3 pt-1">
               <div className="space-y-1">
-                <label className="text-xs text-gray-400 font-medium">Strasse & Hausnummer</label>
+                <label className="text-xs text-gray-400 font-medium">{t("s.street")}</label>
                 <input value={billingStreet} onChange={(e) => setBillingStreet(e.target.value)} placeholder="Musterstrasse 1" className={inputCls} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs text-gray-400 font-medium">PLZ</label>
+                  <label className="text-xs text-gray-400 font-medium">{t("s.zip")}</label>
                   <input value={billingZip} onChange={(e) => setBillingZip(e.target.value)} placeholder="8001" className={inputCls} />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-gray-400 font-medium">Ort</label>
+                  <label className="text-xs text-gray-400 font-medium">{t("s.city")}</label>
                   <input value={billingCity} onChange={(e) => setBillingCity(e.target.value)} placeholder="Zürich" className={inputCls} />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs text-gray-400 font-medium">Land</label>
+                <label className="text-xs text-gray-400 font-medium">{t("s.country")}</label>
                 <input value={billingCountry} onChange={(e) => setBillingCountry(e.target.value)} placeholder="Schweiz" className={inputCls} />
               </div>
             </div>
@@ -239,7 +241,7 @@ export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSec
       <div className="flex items-center gap-3">
         <button onClick={saveProfile} disabled={saving}
           className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors disabled:opacity-50">
-          {saving ? "Speichern…" : "Speichern"}
+          {saving ? t("s.saving") : t("s.save")}
         </button>
         {msg && <span className={`text-sm ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.text}</span>}
       </div>

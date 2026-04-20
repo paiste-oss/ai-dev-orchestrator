@@ -4,6 +4,7 @@ import { useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { Section } from "@/components/user/settings/Section";
+import { useT } from "@/lib/i18n";
 
 type Channel = "sms" | "email";
 
@@ -28,6 +29,7 @@ interface Props {
 }
 
 export function NotificationChannelSection({ current, onChange }: Props) {
+  const t = useT();
   const [selected, setSelected] = useState<Channel>(current);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -43,24 +45,29 @@ export function NotificationChannelSection({ current, onChange }: Props) {
       });
       if (res.ok) {
         onChange(channel);
-        setMsg({ text: "Gespeichert ✓", ok: true });
+        setMsg({ text: t("s.saved_ok"), ok: true });
         setTimeout(() => setMsg(null), 3000);
       } else {
         setSelected(current);
-        setMsg({ text: "Fehler beim Speichern", ok: false });
+        setMsg({ text: t("s.save_error"), ok: false });
       }
     } finally {
       setSaving(false); }
   };
 
+  const channels = [
+    { value: "sms" as Channel,   label: t("s.notif_sms_label"), description: t("s.notif_sms_desc"),   icon: "📱" },
+    { value: "email" as Channel, label: t("s.email"),           description: t("s.notif_email_desc"), icon: "✉️" },
+  ];
+
   return (
-    <Section title="Benachrichtigungen" icon="🔔">
+    <Section title={t("s.notif_title")} icon="🔔">
       <div className="space-y-3">
         <p className="text-xs text-gray-500">
-          Wie soll Baddi dich bei Alerts und Erinnerungen kontaktieren?
+          {t("s.notif_hint", { buddy: "Baddi" })}
         </p>
 
-        {CHANNELS.map(ch => (
+        {channels.map(ch => (
           <label
             key={ch.value}
             className={`flex items-center gap-4 cursor-pointer rounded-xl border p-4 transition-colors ${
@@ -83,7 +90,7 @@ export function NotificationChannelSection({ current, onChange }: Props) {
               <p className="text-xs text-gray-500">{ch.description}</p>
             </div>
             {selected === ch.value && (
-              <span className="text-xs text-indigo-400 font-semibold shrink-0">Aktiv</span>
+              <span className="text-xs text-indigo-400 font-semibold shrink-0">{t("s.notif_active")}</span>
             )}
           </label>
         ))}
@@ -92,8 +99,8 @@ export function NotificationChannelSection({ current, onChange }: Props) {
         <div className="flex items-center gap-4 rounded-xl border border-gray-800 border-dashed p-4 opacity-40">
           <span className="text-2xl">💬</span>
           <div>
-            <p className="text-sm font-medium text-gray-400">WhatsApp</p>
-            <p className="text-xs text-gray-600">Demnächst verfügbar</p>
+            <p className="text-sm font-medium text-gray-400">{t("s.notif_wa")}</p>
+            <p className="text-xs text-gray-600">{t("s.notif_wa_soon")}</p>
           </div>
         </div>
 

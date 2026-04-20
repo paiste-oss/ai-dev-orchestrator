@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { Section } from "@/components/user/settings/Section";
+import { useT } from "@/lib/i18n";
 
 export function TrustedSendersSection() {
+  const t = useT();
   const [senders, setSenders] = useState<string[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -22,7 +24,7 @@ export function TrustedSendersSection() {
   const add = async () => {
     const email = input.trim().toLowerCase();
     if (!email || !email.includes("@")) {
-      setError("Ungültige E-Mail-Adresse");
+      setError(t("s.trusted_invalid"));
       return;
     }
     setSaving(true);
@@ -37,7 +39,7 @@ export function TrustedSendersSection() {
         setSenders(data.trusted_senders);
         setInput("");
       } else {
-        setError(data.detail ?? "Fehler");
+        setError(data.detail ?? t("s.error"));
       }
     } finally {
       setSaving(false);
@@ -56,10 +58,9 @@ export function TrustedSendersSection() {
   };
 
   return (
-    <Section title="Vertrauenswürdige Absender" icon="✉️">
+    <Section title={t("s.trusted_title")} icon="✉️">
       <p className="text-xs text-gray-500">
-        Baddi reagiert autonom nur auf E-Mails von diesen Absendern.
-        Deine eigene Registrierungs-E-Mail ist automatisch vertrauenswürdig.
+        {t("s.trusted_desc", { buddy: "Baddi" })}
       </p>
 
       <div className="flex gap-2">
@@ -76,16 +77,16 @@ export function TrustedSendersSection() {
           disabled={saving || !input.trim()}
           className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors disabled:opacity-40"
         >
-          {saving ? "…" : "Hinzufügen"}
+          {saving ? "…" : t("s.trusted_add")}
         </button>
       </div>
 
       {error && <p className="text-xs text-red-400">{error}</p>}
 
       {loading ? (
-        <p className="text-xs text-gray-600">Lädt…</p>
+        <p className="text-xs text-gray-600">{t("settings.loading")}</p>
       ) : senders.length === 0 ? (
-        <p className="text-xs text-gray-600">Noch keine Einträge.</p>
+        <p className="text-xs text-gray-600">{t("s.trusted_empty")}</p>
       ) : (
         <ul className="space-y-1.5">
           {senders.map(s => (
@@ -94,7 +95,7 @@ export function TrustedSendersSection() {
               <button
                 onClick={() => remove(s)}
                 className="text-gray-600 hover:text-red-400 transition-colors text-xs ml-3"
-                title="Entfernen"
+                title={t("s.trusted_remove")}
               >
                 ✕
               </button>

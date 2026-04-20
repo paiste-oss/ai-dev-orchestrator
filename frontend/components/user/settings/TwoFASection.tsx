@@ -4,6 +4,7 @@ import { useState } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { Section } from "@/components/user/settings/Section";
+import { useT } from "@/lib/i18n";
 
 const inputCls = "w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors";
 
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChange }: Props) {
+  const t = useT();
   const [step, setStep] = useState<Step>("idle");
   const [phoneInput, setPhoneInput] = useState(phone ?? "");
   const [otp, setOtp] = useState("");
@@ -32,7 +34,7 @@ export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChang
   // ── Schritt 1: OTP an Nummer senden ──────────────────────────────────────
 
   const sendOtp = async () => {
-    if (!phoneInput.trim()) { showMsg("Bitte Telefonnummer eingeben", false); return; }
+    if (!phoneInput.trim()) { showMsg(t("s.twofa_enter_phone"), false); return; }
     setLoading(true); setMsg(null);
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/auth/2fa/send-otp`, {
@@ -41,10 +43,10 @@ export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChang
       });
       if (res.ok) {
         setStep("verify");
-        showMsg("Code gesendet — prüfe dein Handy", true);
+        showMsg(t("s.twofa_code_sent"), true);
       } else {
         const e = await res.json().catch(() => ({}));
-        showMsg(e.detail ?? "Fehler beim Senden", false);
+        showMsg(e.detail ?? t("s.error"), false);
       }
     } finally { setLoading(false); }
   };
@@ -52,7 +54,7 @@ export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChang
   // ── Schritt 2: OTP bestätigen + 2FA aktivieren ────────────────────────────
 
   const enableTwoFA = async () => {
-    if (otp.length !== 6) { showMsg("Bitte 6-stelligen Code eingeben", false); return; }
+    if (otp.length !== 6) { showMsg(t("s.twofa_enter_code"), false); return; }
     setLoading(true); setMsg(null);
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/auth/2fa/enable`, {
@@ -63,10 +65,10 @@ export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChang
         onStatusChange(true, phoneInput.trim());
         setStep("idle");
         setOtp("");
-        showMsg("2FA aktiviert ✓", true);
+        showMsg(t("s.twofa_activated"), true);
       } else {
         const e = await res.json().catch(() => ({}));
-        showMsg(e.detail ?? "Ungültiger Code", false);
+        showMsg(e.detail ?? t("s.twofa_invalid_code"), false);
       }
     } finally { setLoading(false); }
   };
@@ -74,7 +76,7 @@ export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChang
   // ── 2FA deaktivieren ──────────────────────────────────────────────────────
 
   const disableTwoFA = async () => {
-    if (!password) { showMsg("Bitte Passwort eingeben", false); return; }
+    if (!password) { showMsg(t("s.twofa_enter_pw"), false); return; }
     setLoading(true); setMsg(null);
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/auth/2fa/disable`, {
@@ -85,32 +87,30 @@ export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChang
         onStatusChange(false, phoneInput);
         setStep("idle");
         setPassword("");
-        showMsg("2FA deaktiviert", true);
+        showMsg(t("s.twofa_deactivated"), true);
       } else {
         const e = await res.json().catch(() => ({}));
-        showMsg(e.detail ?? "Fehler", false);
+        showMsg(e.detail ?? t("s.error"), false);
       }
     } finally { setLoading(false); }
   };
 
   return (
-    <Section title="Zwei-Faktor-Authentifizierung" icon="🔒">
+    <Section title={t("s.twofa_title")} icon="🔒">
       <div className="space-y-4">
 
         {/* Status-Badge */}
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-gray-300">
-              {twoFaEnabled
-                ? "Aktiviert — dein Account ist zusätzlich geschützt."
-                : "Deaktiviert — mit 2FA schützt du deinen Account mit einem SMS-Code."}
+              {twoFaEnabled ? t("s.twofa_on") : t("s.twofa_off")}
             </p>
             {twoFaEnabled && phone && (
-              <p className="text-xs text-gray-500 mt-0.5">Nummer: {phone}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{t("s.twofa_phone", { phone })}</p>
             )}
           </div>
           <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${twoFaEnabled ? "bg-green-500/20 text-green-400" : "bg-gray-700 text-gray-400"}`}>
-            {twoFaEnabled ? "AN" : "AUS"}
+            {twoFaEnabled ? t("s.twofa_status_on") : t("s.twofa_status_off")}
           </span>
         </div>
 
@@ -122,14 +122,14 @@ export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChang
                 onClick={() => setStep("send")}
                 className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
               >
-                2FA aktivieren
+                {t("s.twofa_enable_btn")}
               </button>
             )}
 
             {step === "send" && (
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-xs text-gray-400 font-medium">Mobilnummer (E.164)</label>
+                  <label className="text-xs text-gray-400 font-medium">{t("s.twofa_phone_label")}</label>
                   <input
                     type="tel"
                     value={phoneInput}
@@ -137,16 +137,16 @@ export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChang
                     placeholder="+41791234567"
                     className={inputCls}
                   />
-                  <p className="text-xs text-gray-600">Format: +41 gefolgt von der Nummer ohne Leerzeichen</p>
+                  <p className="text-xs text-gray-600">{t("s.twofa_phone_format")}</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => { setStep("idle"); setMsg(null); }}
                     className="flex-1 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-white text-sm transition-colors">
-                    Abbrechen
+                    {t("s.cancel")}
                   </button>
                   <button onClick={sendOtp} disabled={loading}
                     className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors disabled:opacity-40">
-                    {loading ? "Sendet…" : "Code senden"}
+                    {loading ? t("s.twofa_sending") : t("s.twofa_send_btn")}
                   </button>
                 </div>
               </div>
@@ -155,7 +155,7 @@ export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChang
             {step === "verify" && (
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-xs text-gray-400 font-medium">6-stelliger Code</label>
+                  <label className="text-xs text-gray-400 font-medium">{t("s.twofa_code_label")}</label>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -170,16 +170,16 @@ export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChang
                 <div className="flex gap-2">
                   <button onClick={() => { setStep("send"); setOtp(""); setMsg(null); }}
                     className="flex-1 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-white text-sm transition-colors">
-                    Zurück
+                    {t("s.twofa_back")}
                   </button>
                   <button onClick={enableTwoFA} disabled={loading || otp.length !== 6}
                     className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white text-sm font-medium transition-colors disabled:opacity-40">
-                    {loading ? "Prüft…" : "Bestätigen"}
+                    {loading ? t("s.twofa_confirming") : t("s.twofa_confirm")}
                   </button>
                 </div>
                 <button onClick={sendOtp} disabled={loading}
                   className="w-full text-xs text-gray-500 hover:text-gray-300 transition-colors py-1">
-                  Kein Code erhalten? Erneut senden
+                  {t("s.twofa_resend")}
                 </button>
               </div>
             )}
@@ -194,14 +194,14 @@ export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChang
                 onClick={() => setStep("send")}
                 className="w-full py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-white text-sm transition-colors"
               >
-                2FA deaktivieren
+                {t("s.twofa_disable_btn")}
               </button>
             )}
 
             {step === "send" && (
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-xs text-gray-400 font-medium">Passwort zur Bestätigung</label>
+                  <label className="text-xs text-gray-400 font-medium">{t("s.twofa_pw_label")}</label>
                   <input
                     type="password"
                     value={password}
@@ -214,11 +214,11 @@ export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChang
                 <div className="flex gap-2">
                   <button onClick={() => { setStep("idle"); setPassword(""); setMsg(null); }}
                     className="flex-1 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-white text-sm transition-colors">
-                    Abbrechen
+                    {t("s.cancel")}
                   </button>
                   <button onClick={disableTwoFA} disabled={loading || !password}
                     className="flex-1 py-2.5 rounded-xl bg-red-700 hover:bg-red-600 text-white text-sm font-medium transition-colors disabled:opacity-40">
-                    {loading ? "Deaktiviert…" : "Deaktivieren"}
+                    {loading ? t("s.twofa_deactivating") : t("s.twofa_deactivate")}
                   </button>
                 </div>
               </div>
