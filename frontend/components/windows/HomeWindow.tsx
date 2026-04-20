@@ -422,8 +422,9 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                 <div className="space-y-1.5">
                   <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.font_family")}</p>
                   <DesignChips value={uiPrefs.fontFamily} onChange={v => updatePrefs({ fontFamily: v })} options={[
-                    { v: "system", l: t("design.font_system") }, { v: "mono", l: t("design.font_mono") },
-                    { v: "rounded", l: t("design.font_rounded") }, { v: "serif", l: t("design.font_serif") },
+                    { v: "system", l: t("design.font_system") }, { v: "nunito_sans", l: "Nunito Sans" },
+                    { v: "mono", l: t("design.font_mono") }, { v: "rounded", l: t("design.font_rounded") },
+                    { v: "serif", l: t("design.font_serif") },
                   ]} />
                 </div>
 
