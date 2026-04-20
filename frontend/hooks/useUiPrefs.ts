@@ -69,7 +69,7 @@ export const BG_COLORS: Record<string, string> = {
 
 const DEFAULT_PREFS: UiPrefs = {
   fontSize: "normal",
-  fontFamily: "system",
+  fontFamily: "nunito_sans",
   accentColor: "indigo",
   background: "dark",
   lineSpacing: "normal",
