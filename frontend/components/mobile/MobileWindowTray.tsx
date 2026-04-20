@@ -11,16 +11,19 @@ interface MobileWindowTrayProps {
   cards: TrayCard[];
   activeWindowId: string | null;
   panelOpen: boolean;
+  homeOpen: boolean;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
   onAdd: () => void;
   onShowChat: () => void;
+  onShowHome: () => void;
+  userName?: string;
 }
 
 export default function MobileWindowTray({
-  cards, activeWindowId, panelOpen, onActivate, onClose, onAdd, onShowChat,
+  cards, activeWindowId, panelOpen, homeOpen, onActivate, onClose, onAdd, onShowChat, onShowHome, userName,
 }: MobileWindowTrayProps) {
-  const chatActive = !panelOpen;
+  const chatActive = !panelOpen && !homeOpen;
   return (
     <div
       className="flex items-center gap-2 px-3 py-1 border-t border-white/5 shrink-0"
@@ -38,6 +41,19 @@ export default function MobileWindowTray({
       >
         <span className="text-sm leading-none">💬</span>
         <span className="text-[11px]">Chat</span>
+      </button>
+
+      {/* Home-Tab */}
+      <button
+        onClick={onShowHome}
+        className={`shrink-0 flex items-center gap-1.5 px-2.5 h-8 rounded-lg border text-xs font-medium transition-all select-none ${
+          homeOpen
+            ? "bg-indigo-600/30 border-indigo-500/50 text-indigo-200"
+            : "bg-white/5 border-white/8 text-gray-400 active:bg-white/10"
+        }`}
+        title="Home"
+      >
+        <span className="text-[11px] truncate max-w-[64px]">{userName ?? "Home"}</span>
       </button>
 
       {/* Fenster-Tabs */}

@@ -53,6 +53,7 @@ import TransportBoardCard from "@/components/chat/TransportBoardCard";
 import ActionButtonsCard from "@/components/chat/ActionButtonsCard";
 import { WINDOW_MODULES } from "@/lib/window-registry";
 import MobilePinnedPanel from "@/components/mobile/MobilePinnedPanel";
+import HomeWindow from "@/components/windows/HomeWindow";
 import MobileWindowTray from "@/components/mobile/MobileWindowTray";
 import MobileWindowPickerSheet from "@/components/mobile/MobileWindowPickerSheet";
 import InvoiceModal from "@/components/chat/InvoiceModal";
@@ -144,6 +145,7 @@ export default function ChatPage() {
   // Mobile panel state
   const [activeMobileWindowId, setActiveMobileWindowId] = useState<string | null>(null);
   const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
+  const [mobileHomeOpen, setMobileHomeOpen] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [showMobileWindowPicker, setShowMobileWindowPicker] = useState(false);
 
@@ -746,7 +748,7 @@ export default function ChatPage() {
     const activeArtifact = activeMobileWindowId
       ? artifacts.find((a) => a.id === activeMobileWindowId)
       : null;
-    const showChat = !mobilePanelOpen;
+    const showChat = !mobilePanelOpen && !mobileHomeOpen;
 
     return (
       <div className="flex flex-col h-[100dvh] overflow-hidden" style={bgStyle}>
@@ -774,7 +776,22 @@ export default function ChatPage() {
           {chatColumnContent}
         </div>
 
-        {mobilePanelOpen && activeArtifact && (
+        {mobileHomeOpen && (
+          <MobilePinnedPanel
+            card={{ id: "__home__", title: firstName || "Home", type: "home" }}
+            onCollapse={() => setMobileHomeOpen(false)}
+          >
+            <HomeWindow
+              artifacts={artifacts}
+              bgStyle={bgStyle}
+              uiPrefs={uiPrefs}
+              onPrefsChange={(patch) => setUiPrefs((p) => ({ ...p, ...patch }))}
+              onOpen={(type) => { handleAddCard(type); setMobileHomeOpen(false); setMobilePanelOpen(true); }}
+            />
+          </MobilePinnedPanel>
+        )}
+
+        {mobilePanelOpen && activeArtifact && !mobileHomeOpen && (
           <MobilePinnedPanel
             card={activeArtifact}
             onCollapse={() => setMobilePanelOpen(false)}
@@ -791,13 +808,16 @@ export default function ChatPage() {
           cards={artifacts}
           activeWindowId={activeMobileWindowId}
           panelOpen={mobilePanelOpen}
-          onActivate={(id) => { setActiveMobileWindowId(id); setMobilePanelOpen(true); }}
+          homeOpen={mobileHomeOpen}
+          userName={firstName}
+          onActivate={(id) => { setMobileHomeOpen(false); setActiveMobileWindowId(id); setMobilePanelOpen(true); }}
           onClose={(id) => {
             closeArtifact(id);
             if (id === activeMobileWindowId) setMobilePanelOpen(false);
           }}
           onAdd={() => setShowMobileWindowPicker(true)}
-          onShowChat={() => setMobilePanelOpen(false)}
+          onShowChat={() => { setMobilePanelOpen(false); setMobileHomeOpen(false); }}
+          onShowHome={() => { setMobilePanelOpen(false); setMobileHomeOpen(true); }}
         />
 
         <ChatInput
