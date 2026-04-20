@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { useT } from "@/lib/i18n";
 
 interface TrayCard {
   id: string;
@@ -23,6 +24,7 @@ interface MobileWindowTrayProps {
 export default function MobileWindowTray({
   cards, activeWindowId, panelOpen, homeOpen, onActivate, onClose, onAdd, onShowChat, onShowHome, userName,
 }: MobileWindowTrayProps) {
+  const t = useT();
   const chatActive = !panelOpen && !homeOpen;
   return (
     <div
@@ -37,10 +39,10 @@ export default function MobileWindowTray({
             ? "bg-indigo-600/30 border-indigo-500/50 text-indigo-200"
             : "bg-white/5 border-white/8 text-gray-400 active:bg-white/10"
         }`}
-        title="Zum Chat"
+        title={t("mobile.back_to_chat")}
       >
         <span className="text-sm leading-none">💬</span>
-        <span className="text-[11px]">Chat</span>
+        <span className="text-[11px]">{t("mobile.chat_tab")}</span>
       </button>
 
       {/* Home-Tab */}
@@ -71,7 +73,7 @@ export default function MobileWindowTray({
       <button
         onClick={onAdd}
         className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 border border-white/8 transition-colors"
-        title="Fenster hinzufügen"
+        title={t("mobile.add_window")}
       >
         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>

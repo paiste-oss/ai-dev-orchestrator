@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/i18n";
+
 interface CardData {
   id: string;
   title: string;
@@ -15,6 +17,7 @@ interface MobilePinnedPanelProps {
 }
 
 export default function MobilePinnedPanel({ card, children, onCollapse, onCloseArtifact, headerExtra }: MobilePinnedPanelProps) {
+  const t = useT();
   return (
     <div className="flex-1 flex flex-col overflow-hidden min-h-0 border-t border-white/10">
       {/* Header */}
@@ -26,7 +29,7 @@ export default function MobilePinnedPanel({ card, children, onCollapse, onCloseA
         <button
           onClick={onCollapse}
           className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors shrink-0"
-          title="Zum Chat"
+          title={t("mobile.back_to_chat")}
         >
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6"/>
@@ -46,7 +49,7 @@ export default function MobilePinnedPanel({ card, children, onCollapse, onCloseA
           <button
             onClick={onCloseArtifact}
             className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
-            title="Fenster schliessen"
+            title={t("mobile.close_window")}
           >
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>

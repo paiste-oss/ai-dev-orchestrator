@@ -6,6 +6,7 @@ import { WINDOW_MODULES } from "@/lib/window-registry";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { ACCENT_COLORS as ACCENT_COLORS_MAP, BG_COLORS, WINDOW_BG_SOLID } from "@/hooks/useUiPrefs";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   artifacts: ArtifactEntry[];
@@ -29,11 +30,11 @@ interface BillingStatus {
   tokens_included: number;
 }
 
-function statusLabel(s: string) {
-  if (s === "active")   return { label: "Aktiv",       cls: "text-green-400" };
-  if (s === "trialing") return { label: "Testphase",   cls: "text-indigo-400" };
-  if (s === "past_due") return { label: "Ausstehend",  cls: "text-yellow-400" };
-  return                       { label: "Inaktiv",     cls: "text-gray-500" };
+function statusLabel(s: string, t: (key: string) => string) {
+  if (s === "active")   return { label: t("home.status_active"),   cls: "text-green-400" };
+  if (s === "trialing") return { label: t("home.status_trial"),    cls: "text-indigo-400" };
+  if (s === "past_due") return { label: t("home.status_past_due"), cls: "text-yellow-400" };
+  return                       { label: t("home.status_inactive"), cls: "text-gray-500" };
 }
 
 // ── Reminders ─────────────────────────────────────────────────────────────────
@@ -83,11 +84,7 @@ const FONT_COLOR_OPTIONS = [
   { v: "white", hex: "#ffffff" },
   { v: "black", hex: "#111111" },
 ];
-const BG_LABELS: Record<string, string> = {
-  dark: "Dunkel", darker: "Tiefschwarz", lighter: "Grau",
-  slate: "Slate", navy: "Navy", forest: "Forest", wine: "Wine", warm: "Warm", white: "Weiss",
-};
-const BG_OPTIONS = Object.entries(BG_COLORS).map(([v, hex]) => ({ v, hex, l: BG_LABELS[v] ?? v }));
+const BG_OPTIONS = Object.keys(BG_COLORS).map((v) => ({ v, hex: BG_COLORS[v] }));
 
 function ColorDot({ hex, active, onClick, title }: { hex: string; active: boolean; onClick: () => void; title?: string }) {
   return (
@@ -124,6 +121,7 @@ function DesignChips({ options, value, onChange }: {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange, onOpen }: Props) {
+  const t = useT();
   const hasBg = !!(bgStyle?.backgroundImage && bgStyle.backgroundImage !== "none");
 
   // ── System tile ────────────────────────────────────────────────────────────
@@ -199,7 +197,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  const { label: statusText, cls: statusCls } = statusLabel(billing?.subscription_status ?? "inactive");
+  const { label: statusText, cls: statusCls } = statusLabel(billing?.subscription_status ?? "inactive", t);
 
   const todayHasEvents = events !== null && events.length > 0;
   const hasReminders = reminders && (reminders.stock_alerts.length > 0 || reminders.training_reminders.length > 0);
@@ -218,18 +216,18 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
 
           {/* System tile */}
           <div className="rounded-2xl border border-white/10 bg-black/25 backdrop-blur-sm p-4 space-y-3">
-            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">System</p>
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t("home.system")}</p>
             {billing ? (
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400">Abo</span>
+                  <span className="text-xs text-gray-400">{t("home.plan")}</span>
                   <div className="flex items-center gap-1.5">
                     <span className={`text-[10px] font-medium ${statusCls}`}>{statusText}</span>
-                    <span className="text-xs text-white font-medium">{billing.plan_name ?? "Kein Plan"}</span>
+                    <span className="text-xs text-white font-medium">{billing.plan_name ?? t("home.no_plan")}</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400">Guthaben</span>
+                  <span className="text-xs text-gray-400">{t("home.balance")}</span>
                   <span className="text-xs text-white font-medium">
                     CHF {billing.token_balance_chf.toFixed(2)}
                   </span>
@@ -237,7 +235,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                 {billing.tokens_included > 0 && (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-gray-500">Tokens</span>
+                      <span className="text-[10px] text-gray-500">{t("home.tokens")}</span>
                       <span className="text-[10px] text-gray-400">
                         {billing.tokens_used_this_period.toLocaleString()} / {billing.tokens_included.toLocaleString()}
                       </span>
@@ -260,14 +258,14 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
 
           {/* Aktuelles tile */}
           <div className="rounded-2xl border border-white/10 bg-black/25 backdrop-blur-sm p-4 space-y-3">
-            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Aktuelles</p>
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t("home.current")}</p>
             <div className="space-y-2">
 
               {/* Calendar events */}
               {events === null ? (
                 <div className="flex items-center gap-1.5 text-[11px] text-gray-600">
                   <div className="w-3 h-3 border border-white/20 border-t-white/40 rounded-full animate-spin shrink-0" />
-                  Kalender lädt…
+                  {t("home.calendar_loading")}
                 </div>
               ) : todayHasEvents ? (
                 <div className="space-y-1">
@@ -281,11 +279,11 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                     );
                   })}
                   {events.length > 4 && (
-                    <p className="text-[10px] text-gray-600">+{events.length - 4} weitere</p>
+                    <p className="text-[10px] text-gray-600">{t("home.more_events", { n: events.length - 4 })}</p>
                   )}
                 </div>
               ) : (
-                <p className="text-[11px] text-gray-600">📅 Keine Termine heute</p>
+                <p className="text-[11px] text-gray-600">{t("home.no_events")}</p>
               )}
 
               {/* Reminders */}
@@ -312,7 +310,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
               )}
 
               {!hasReminders && events !== null && events.length === 0 && (
-                <p className="text-[11px] text-gray-600">Keine laufenden Erinnerungen</p>
+                <p className="text-[11px] text-gray-600">{t("home.no_reminders")}</p>
               )}
             </div>
           </div>
@@ -325,10 +323,10 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
               onClick={() => setDesignOpen(v => !v)}
               className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/3 transition-colors"
             >
-              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Design</p>
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t("home.design")}</p>
               <div className="flex items-center gap-2">
                 <span className={`text-[10px] transition-opacity duration-300 ${saved ? "text-green-400 opacity-100" : "opacity-0"}`}>
-                  Gespeichert ✓
+                  {t("home.design_saved")}
                 </span>
                 <svg className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${designOpen ? "rotate-180" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="6 9 12 15 18 9"/>
@@ -343,10 +341,10 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
               <div className="space-y-4">
 
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Hintergrund</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.background")}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {BG_OPTIONS.map(bg => (
-                      <ColorDot key={bg.v} hex={bg.hex} title={bg.l}
+                      <ColorDot key={bg.v} hex={bg.hex} title={t(`design.bg_${bg.v}`)}
                         active={uiPrefs.background === bg.v && !uiPrefs.backgroundImage}
                         onClick={() => updatePrefs({ background: bg.v, backgroundImage: "" as UiPrefs["backgroundImage"] })}
                       />
@@ -361,8 +359,8 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                       }`}
                     >
                       {uiPrefs.backgroundImage ? (
-                        <><img src={uiPrefs.backgroundImage} alt="" className="w-3.5 h-3.5 rounded object-cover" />Bild aktiv</>
-                      ) : "Bild hochladen"}
+                        <><img src={uiPrefs.backgroundImage} alt="" className="w-3.5 h-3.5 rounded object-cover" />{t("design.image_active")}</>
+                      ) : t("design.upload_image")}
                     </button>
                     {uiPrefs.backgroundImage && (
                       <button onClick={() => updatePrefs({ backgroundImage: "" as UiPrefs["backgroundImage"] })}
@@ -374,7 +372,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                 </div>
 
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Fenster-Hintergrund</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.window_bg")}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {WINDOW_BG_OPTIONS.map(bg => (
                       <ColorDot key={bg.v} hex={bg.hex} title={bg.v}
@@ -386,7 +384,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                 </div>
 
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Akzentfarbe</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.accent")}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {ACCENT_COLORS.map(c => (
                       <ColorDot key={c.v} hex={c.hex} title={c.v}
@@ -398,7 +396,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                 </div>
 
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Schriftfarbe</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.font_color")}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {FONT_COLOR_OPTIONS.map(c => (
                       <ColorDot key={c.v} hex={c.hex} title={c.v}
@@ -414,45 +412,45 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
               <div className="space-y-4">
 
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Schriftgrösse</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.font_size")}</p>
                   <DesignChips value={uiPrefs.fontSize} onChange={v => updatePrefs({ fontSize: v })} options={[
-                    { v: "small", l: "Klein" }, { v: "normal", l: "Normal" },
-                    { v: "large", l: "Gross" }, { v: "xlarge", l: "XL" },
+                    { v: "small", l: t("design.font_small") }, { v: "normal", l: t("design.font_normal") },
+                    { v: "large", l: t("design.font_large") }, { v: "xlarge", l: t("design.font_xlarge") },
                   ]} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Schriftart</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.font_family")}</p>
                   <DesignChips value={uiPrefs.fontFamily} onChange={v => updatePrefs({ fontFamily: v })} options={[
-                    { v: "system", l: "Standard" }, { v: "mono", l: "Mono" },
-                    { v: "rounded", l: "Rund" }, { v: "serif", l: "Serif" },
+                    { v: "system", l: t("design.font_system") }, { v: "mono", l: t("design.font_mono") },
+                    { v: "rounded", l: t("design.font_rounded") }, { v: "serif", l: t("design.font_serif") },
                   ]} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Nachrichtenbreite</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.chat_width")}</p>
                   <DesignChips value={uiPrefs.chatWidth} onChange={v => updatePrefs({ chatWidth: v })} options={[
-                    { v: "compact", l: "Kompakt" }, { v: "normal", l: "Normal" },
-                    { v: "wide", l: "Breit" }, { v: "full", l: "Voll" },
+                    { v: "compact", l: t("design.width_compact") }, { v: "normal", l: t("design.width_normal") },
+                    { v: "wide", l: t("design.width_wide") }, { v: "full", l: t("design.width_full") },
                   ]} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Zeilenabstand</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.line_spacing")}</p>
                   <DesignChips value={uiPrefs.lineSpacing} onChange={v => updatePrefs({ lineSpacing: v })} options={[
-                    { v: "compact", l: "Kompakt" }, { v: "normal", l: "Normal" }, { v: "wide", l: "Weit" },
+                    { v: "compact", l: t("design.spacing_compact") }, { v: "normal", l: t("design.spacing_normal") }, { v: "wide", l: t("design.spacing_wide") },
                   ]} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Zeitstempel</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.timestamps")}</p>
                   <DesignChips value={uiPrefs.showTimestamps} onChange={v => updatePrefs({ showTimestamps: v })} options={[
-                    { v: "always", l: "Immer" }, { v: "hover", l: "Hover" }, { v: "never", l: "Nie" },
+                    { v: "always", l: t("design.ts_always") }, { v: "hover", l: t("design.ts_hover") }, { v: "never", l: t("design.ts_never") },
                   ]} />
                 </div>
 
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Baddi-Name</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.buddy_name_label")}</p>
                   <input
                     value={uiPrefs.buddyName ?? "Baddi"}
                     onChange={e => updatePrefs({ buddyName: e.target.value.slice(0, 30) })}
@@ -462,7 +460,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                 </div>
 
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Avatar</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.avatar")}</p>
                   <div className="flex gap-1.5">
                     {[{ v: "robot", l: "🤖" }, { v: "teekanne", l: "🫖" }, { v: "lichtgestalt", l: "✨" }].map(a => (
                       <button key={a.v} onClick={() => updatePrefs({ avatarType: a.v })}
@@ -477,9 +475,9 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                 </div>
 
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Sprachausgabe</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.tts")}</p>
                   <div className="flex gap-1.5">
-                    {[{ v: false, l: "🔇 Aus" }, { v: true, l: "🔊 An" }].map(({ v, l }) => (
+                    {[{ v: false, l: t("design.tts_off") }, { v: true, l: t("design.tts_on") }].map(({ v, l }) => (
                       <button key={String(v)} onClick={() => updatePrefs({ ttsDefault: v })}
                         className={`flex-1 py-1.5 rounded-lg text-xs border transition-all ${
                           (uiPrefs.ttsDefault ?? false) === v
@@ -492,9 +490,9 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                 </div>
 
                 <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Stimme</p>
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.voice")}</p>
                   <div className="flex gap-1.5">
-                    {[{ v: "female", l: "👩 Weiblich" }, { v: "male", l: "👨 Männlich" }].map(({ v, l }) => (
+                    {[{ v: "female", l: t("design.voice_female") }, { v: "male", l: t("design.voice_male") }].map(({ v, l }) => (
                       <button key={v} onClick={() => updatePrefs({ ttsVoice: v })}
                         className={`flex-1 py-1.5 rounded-lg text-xs border transition-all ${
                           (uiPrefs.ttsVoice ?? "female") === v
@@ -514,7 +512,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
         {/* ── All windows ──────────────────────────────────────────────────── */}
         <section>
           <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2.5">
-            Alle Fenster
+            {t("home.all_windows")}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {ACTIVE_MODULES.map((m) => {
@@ -531,9 +529,9 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                 >
                   <span className="text-lg shrink-0 mt-0.5">{m.icon}</span>
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-gray-200 truncate">{m.label}</p>
+                    <p className="text-xs font-semibold text-gray-200 truncate">{t(`window.${m.canvasType}.label`) !== `window.${m.canvasType}.label` ? t(`window.${m.canvasType}.label`) : m.label}</p>
                     <p className="text-[10px] text-gray-400 leading-snug mt-0.5 line-clamp-2">
-                      {m.description}
+                      {t(`window.${m.canvasType}.desc`) !== `window.${m.canvasType}.desc` ? t(`window.${m.canvasType}.desc`, { buddy: uiPrefs?.buddyName ?? "Baddi" }) : m.description}
                     </p>
                   </div>
                 </button>

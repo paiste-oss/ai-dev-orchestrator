@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useT } from "@/lib/i18n";
 
 const BaddiAvatar3D = dynamic(() => import("@/components/chat/BaddiAvatar3D"), { ssr: false });
 
@@ -30,6 +31,8 @@ export default function TopBar({
   onSettings, onAdminBack, onArrangeCards,
 }: TopBarProps) {
 
+  const t = useT();
+
   return (
     <header className="shrink-0 flex items-center gap-3 px-4 border-b border-white/5"
       style={{ background: "rgba(5,10,20,0.97)", backdropFilter: "blur(12px)", position: "relative", zIndex: 99990, height: 64 }}>
@@ -57,7 +60,7 @@ export default function TopBar({
           <span className="font-semibold text-white text-sm truncate max-w-[100px]">{buddyName}</span>
           <div className="flex items-center gap-1 shrink-0">
             <span className={`w-1.5 h-1.5 rounded-full ${speaking ? "bg-green-400 animate-pulse" : "bg-green-500"}`} />
-            <span className="text-[11px] text-gray-500">{speaking ? "antwortet…" : "online"}</span>
+            <span className="text-[11px] text-gray-500">{speaking ? t("chat.speaking") : t("chat.online")}</span>
           </div>
         </div>
       </div>
@@ -86,7 +89,7 @@ export default function TopBar({
         {onArrangeCards && (
           <button
             onClick={onArrangeCards}
-            title="Fenster automatisch anordnen"
+            title={t("chat.arrange_windows")}
             className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -97,7 +100,7 @@ export default function TopBar({
         )}
 
         {/* Settings */}
-        <button onClick={onSettings} title="Einstellungen"
+        <button onClick={onSettings} title={t("chat.settings")}
           className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors">
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3"/>

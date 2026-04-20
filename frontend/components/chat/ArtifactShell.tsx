@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { ArtifactEntry, ARTIFACT_META, UiPrefs } from "@/lib/chat-types";
 import { WINDOW_MODULES } from "@/lib/window-registry";
 import HomeWindow from "@/components/windows/HomeWindow";
+import { useT } from "@/lib/i18n";
 
 interface ArtifactShellProps {
   artifacts: ArtifactEntry[];
@@ -33,6 +34,8 @@ export default function ArtifactShell({
   uiPrefs,
   onPrefsChange,
 }: ArtifactShellProps) {
+  const t = useT();
+
   // ── Home active state (persisted in sessionStorage) ─────────────────────────
   const [homeActive, setHomeActiveRaw] = useState(() => {
     try {
@@ -133,7 +136,7 @@ export default function ArtifactShell({
           <div className="relative shrink-0 mr-0.5" ref={pickerRef}>
             <button
               onClick={() => setPickerOpen((v) => !v)}
-              title="Fenster hinzufügen"
+              title={t("chat.add_window")}
               className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -161,7 +164,7 @@ export default function ArtifactShell({
                       className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-white/8 hover:text-white flex items-center gap-2 transition-colors"
                     >
                       <span>{m.icon}</span>
-                      <span>{m.label}</span>
+                      <span>{t(`window.${m.canvasType}.label`) !== `window.${m.canvasType}.label` ? t(`window.${m.canvasType}.label`) : m.label}</span>
                     </button>
                   ))}
                 </div>

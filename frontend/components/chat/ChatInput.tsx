@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import FileDropZone, { AttachedFile } from "@/components/FileDropZone";
 import { FONT_SIZES } from "@/hooks/useUiPrefs";
 import { getWhisperPrompt } from "@/lib/whisperPrompts";
+import { useT } from "@/lib/i18n";
 
 const VoiceButton = dynamic(() => import("@/components/VoiceButton"), { ssr: false });
 
@@ -35,6 +36,7 @@ export default function ChatInput({
   onVoiceResult, buddyName, fontSize, voiceLang, language, textareaRef, compact = false,
   ttsEnabled, onTtsToggle,
 }: ChatInputProps) {
+  const t = useT();
   const handleVoiceResult = useCallback(onVoiceResult, [onVoiceResult]);
   const whisperPrompt = getWhisperPrompt(language, "chat");
 
@@ -57,7 +59,7 @@ export default function ChatInput({
             value={input}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder={`Nachricht an ${buddyName}…`}
+            placeholder={t("chat.input_placeholder", { buddy: buddyName })}
             className="w-full bg-transparent resize-none outline-none text-sm text-white placeholder-gray-500 px-4 pt-3.5 pb-2 max-h-40 overflow-y-hidden"
             style={{ fontSize: FONT_SIZES[fontSize] ?? "15px" }}
           />
@@ -69,7 +71,7 @@ export default function ChatInput({
               <button
                 type="button"
                 onClick={onAttachClick}
-                title="Datei oder Bild anhängen"
+                title={t("chat.attach_file")}
                 className={`${compact ? "w-7 h-7" : "w-8 h-8"} flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/8 transition-all`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -79,7 +81,7 @@ export default function ChatInput({
               <button
                 type="button"
                 onClick={onCameraClick}
-                title="Foto aufnehmen"
+                title={t("chat.take_photo")}
                 className={`${compact ? "w-7 h-7" : "w-8 h-8"} flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/8 transition-all`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -95,7 +97,7 @@ export default function ChatInput({
                 <button
                   type="button"
                   onClick={onTtsToggle}
-                  title={ttsEnabled ? "Stimme aus" : "Stimme ein"}
+                  title={ttsEnabled ? t("chat.voice_off") : t("chat.voice_on")}
                   className={`${compact ? "w-7 h-7" : "w-8 h-8"} flex items-center justify-center rounded-lg transition-all text-base ${ttsEnabled ? "text-emerald-400 hover:bg-emerald-500/10" : "text-gray-500 hover:text-gray-300 hover:bg-white/8"}`}
                 >
                   {ttsEnabled ? "🔊" : "🔇"}
@@ -126,7 +128,7 @@ export default function ChatInput({
 
         {!compact && (
           <p className="text-xs text-gray-700 mt-2 text-center">
-            Enter senden · Shift+Enter Zeilenumbruch
+            {t("chat.send_hint")}
           </p>
         )}
       </div>

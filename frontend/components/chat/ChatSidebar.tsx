@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useT } from "@/lib/i18n";
 
 interface ChatSidebarProps {
   buddyName: string;
@@ -11,6 +12,7 @@ interface ChatSidebarProps {
 }
 
 export default function ChatSidebar({ buddyName, buddyInitial, firstName, onNewChat, onLogout }: ChatSidebarProps) {
+  const t = useT();
   return (
     <aside className="hidden lg:flex w-64 shrink-0 flex-col bg-gray-950 border-r border-white/5">
       {/* Logo area */}
@@ -32,18 +34,18 @@ export default function ChatSidebar({ buddyName, buddyInitial, firstName, onNewC
           <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          Neuer Chat
+          {t("chat.new_chat")}
         </button>
       </div>
 
       {/* Session list */}
       <div className="flex-1 px-3 py-2 overflow-y-auto">
-        <p className="text-[11px] text-gray-600 uppercase tracking-widest px-2 mb-2 font-semibold">Gespräche</p>
+        <p className="text-[11px] text-gray-600 uppercase tracking-widest px-2 mb-2 font-semibold">{t("chat.conversations")}</p>
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/8 text-sm text-gray-200 cursor-default">
           <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-indigo-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
-          <span className="truncate">Aktuelles Gespräch</span>
+          <span className="truncate">{t("chat.current_chat")}</span>
         </div>
       </div>
 
@@ -53,10 +55,10 @@ export default function ChatSidebar({ buddyName, buddyInitial, firstName, onNewC
           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center shrink-0">
             <span className="text-white text-xs font-bold">{firstName ? firstName.charAt(0).toUpperCase() : "U"}</span>
           </div>
-          <span className="flex-1 text-sm text-gray-300 truncate">{firstName || "Benutzer"}</span>
+          <span className="flex-1 text-sm text-gray-300 truncate">{firstName || t("chat.user_fallback")}</span>
           <button
             onClick={onLogout}
-            title="Abmelden"
+            title={t("chat.logout")}
             className="text-gray-600 hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-red-500/10"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
