@@ -22,7 +22,7 @@ import { useChatMessages, UploadedFileInfo } from "@/hooks/useChatMessages";
 import { useArtifacts } from "@/hooks/useArtifacts";
 import { useCamera } from "@/hooks/useCamera";
 import { useTTS } from "@/hooks/useTTS";
-import { useUiPrefs, BG_COLORS, FONT_COLORS, WINDOW_BG_COLORS } from "@/hooks/useUiPrefs";
+import { useUiPrefs, BG_COLORS, WINDOW_BG_COLORS } from "@/hooks/useUiPrefs";
 
 import TopBar from "@/components/chat/TopBar";
 import ArtifactShell from "@/components/chat/ArtifactShell";
@@ -679,22 +679,15 @@ export default function ChatPage() {
 
   // ── Styles ────────────────────────────────────────────────────────────────
   const bgColor = BG_COLORS[uiPrefs.background] ?? "#030712";
-  const fontColor = FONT_COLORS[uiPrefs.fontColor] ?? "#ffffff";
 
   useLayoutEffect(() => {
     const val = WINDOW_BG_COLORS[uiPrefs.windowBg ?? "glass"] ?? "rgba(8, 12, 22, 0.92)";
     document.documentElement.style.setProperty("--window-bg", val);
   }, [uiPrefs.windowBg]);
 
-  useLayoutEffect(() => {
-    const val = FONT_COLORS[uiPrefs.fontColor] ?? "#ffffff";
-    document.documentElement.style.setProperty("--window-font-color", val);
-    document.documentElement.setAttribute("data-window-theme", uiPrefs.fontColor === "black" ? "light" : "dark");
-  }, [uiPrefs.fontColor]);
-
   const bgStyle = uiPrefs.backgroundImage
-    ? { backgroundImage: `url(${uiPrefs.backgroundImage})`, backgroundSize: "cover", backgroundPosition: "center", color: fontColor }
-    : { background: bgColor, color: fontColor };
+    ? { backgroundImage: `url(${uiPrefs.backgroundImage})`, backgroundSize: "cover", backgroundPosition: "center" }
+    : { background: bgColor };
 
   // ── Chat column content (shared Desktop + Mobile) ─────────────────────────
   const chatColumnContent = (
