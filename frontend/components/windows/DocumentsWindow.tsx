@@ -443,6 +443,17 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
 
   function openPreview(doc: Doc) { setPreviewDoc(doc); setShowPreview(true); }
 
+  async function openInViewer(doc: Doc) {
+    if (!onOpenFile) return;
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/documents/mine/${doc.id}/content`);
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      onOpenFile({ url, filename: doc.original_filename, fileType: doc.file_type });
+    } catch { /* silent */ }
+  }
+
   function toggleSelect(id: string) {
     setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
   }
@@ -656,6 +667,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
                         onDragStart={e => handleDocDragStart(e, doc.id)}
                         onDragEnd={() => setDraggingDocId(null)}
                         onClick={() => openPreview(doc)}
+                        onDoubleClick={() => openInViewer(doc)}
                         className={`cursor-pointer transition-colors ${isSelected ? "bg-indigo-600/10" : "hover:bg-white/3"} ${draggingDocId === doc.id ? "opacity-40" : ""} ${isChecked ? "bg-indigo-950/30" : ""}`}>
                         <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
                           <Checkbox checked={isChecked} onChange={() => toggleSelect(doc.id)} />
@@ -713,6 +725,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
                       onDragStart={e => handleDocDragStart(e, doc.id)}
                       onDragEnd={() => setDraggingDocId(null)}
                       onClick={() => openPreview(doc)}
+                      onDoubleClick={() => openInViewer(doc)}
                       className={`relative flex flex-col rounded-xl border cursor-pointer transition-all overflow-hidden ${
                         isSelected ? "border-indigo-500/50 bg-indigo-600/10" : isChecked ? "border-indigo-500/30 bg-indigo-950/30" : "border-white/6 hover:border-white/14 hover:bg-white/3"
                       } ${draggingDocId === doc.id ? "opacity-40" : ""}`}>
