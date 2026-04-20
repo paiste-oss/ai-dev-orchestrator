@@ -33,11 +33,23 @@ export default function ArtifactShell({
   uiPrefs,
   onPrefsChange,
 }: ArtifactShellProps) {
-  // ── Home active state (local) ────────────────────────────────────────────────
-  const [homeActive, setHomeActive] = useState(() => artifacts.length === 0);
+  // ── Home active state (persisted in sessionStorage) ─────────────────────────
+  const [homeActive, setHomeActiveRaw] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem("baddi:homeActive");
+      if (stored !== null) return stored === "true";
+    } catch { /* ignored */ }
+    return artifacts.length === 0;
+  });
+
+  const setHomeActive = (value: boolean) => {
+    setHomeActiveRaw(value);
+    try { sessionStorage.setItem("baddi:homeActive", String(value)); } catch { /* ignored */ }
+  };
+
   const prevLengthRef = useRef(artifacts.length);
 
-  // When a new artifact is added externally (e.g. from chat), auto-focus it
+  // Only auto-focus when a NEW artifact is added (not on reload)
   useEffect(() => {
     if (artifacts.length > prevLengthRef.current) {
       setHomeActive(false);
