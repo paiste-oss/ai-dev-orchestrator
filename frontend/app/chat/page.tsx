@@ -777,7 +777,11 @@ export default function ChatPage() {
         {mobilePanelOpen && activeArtifact && (
           <MobilePinnedPanel
             card={activeArtifact}
-            onClose={() => setMobilePanelOpen(false)}
+            onCollapse={() => setMobilePanelOpen(false)}
+            onCloseArtifact={() => {
+              closeArtifact(activeArtifact.id);
+              setMobilePanelOpen(false);
+            }}
           >
             {renderWindowContent(activeArtifact)}
           </MobilePinnedPanel>
