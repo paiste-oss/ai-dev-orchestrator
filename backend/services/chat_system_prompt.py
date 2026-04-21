@@ -270,6 +270,26 @@ def build_system_prompt(
     # ══════════════════════════════════════════════════════════════════════════
     dynamic_parts: list[str] = []
 
+    # ── Sprache (ZUERST — absolute Priorität) ────────────────────────────────
+    _buddy_name = ui_prefs.get("buddyName", "Baddi")
+    _language = ui_prefs.get("language", "de")
+    _lang_map = {"de": "Deutsch", "en": "English", "fr": "Français", "it": "Italiano"}
+    _lang_label = _lang_map.get(_language, "Deutsch")
+
+    if _language != "de":
+        dynamic_parts.append(
+            f"ABSOLUTE PRIORITY — OUTPUT LANGUAGE:\n"
+            f"You MUST respond EXCLUSIVELY in {_lang_label}. "
+            f"NEVER respond in German unless the selected language IS German. "
+            f"This rule overrides ALL other instructions. "
+            f"Your name is '{_buddy_name}' — use ONLY this name."
+        )
+    else:
+        dynamic_parts.append(
+            f"AUSGABESPRACHE: Antworte AUSSCHLIESSLICH auf Deutsch. "
+            f"Dein Name ist '{_buddy_name}' — nenne dich ausschliesslich so."
+        )
+
     # ── Basis-Persönlichkeit ──────────────────────────────────────────────────
     base_prompt = (
         baddi_config.get("system_prompt")
@@ -330,11 +350,6 @@ def build_system_prompt(
         )
 
     # ── Chat-Design / UI-Präferenzen ──────────────────────────────────────────
-    _buddy_name = ui_prefs.get("buddyName", "Baddi")
-    _language = ui_prefs.get("language", "de")
-    _lang_map = {"de": "Deutsch", "en": "Englisch", "fr": "Französisch", "it": "Italienisch"}
-    _lang_label = _lang_map.get(_language, "Deutsch")
-
     dynamic_parts.append(
         f"\nCHAT-DESIGN — ECHTE FÄHIGKEIT (WICHTIG): Du kannst das Aussehen dieses Chats direkt steuern! "
         f"Wenn der Kunde nach Aussehen, Schriftgrösse, Farbe, Hintergrund, Zeilenabstand, Sprache oder deinem Namen fragt, "
@@ -364,12 +379,6 @@ def build_system_prompt(
     dynamic_parts.append(
         f"\nAKTUELLE ZEIT (verlässlich, vom Server): "
         f"{_weekday}, {_now.strftime('%d.%m.%Y')}, {_now.strftime('%H:%M')} Uhr (Schweizer Zeit)."
-    )
-
-    # ── Sprache ───────────────────────────────────────────────────────────────
-    dynamic_parts.append(
-        f"\nSPRACHE: Antworte IMMER auf {_lang_label}. "
-        f"Dein Name ist '{_buddy_name}' — nenne dich ausschliesslich so."
     )
 
     # ── Globale Wissensbasis ──────────────────────────────────────────────────
@@ -474,6 +483,12 @@ def build_system_prompt(
             + "\n".join(f"- {n}" for n in private_doc_names)
             + "\nWenn der Nutzer nach einem dieser Dokumente fragt: Erkläre kurz, dass es auf 'Privat' gesetzt ist "
             "und er es im Dokumente-Fenster auf '🤖 Lesbar' umstellen kann."
+        )
+
+    # ── Sprache-Reminder (Ende) ───────────────────────────────────────────────
+    if _language != "de":
+        dynamic_parts.append(
+            f"REMINDER: Respond in {_lang_label} ONLY. Never use German."
         )
 
     return "\n".join(static_parts), "\n".join(dynamic_parts)
