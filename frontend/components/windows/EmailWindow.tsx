@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
+import { useT } from "@/lib/i18n";
 
 interface EmailMsg {
   id: string;
@@ -49,24 +50,18 @@ function ChevronIcon({ down }: { down: boolean }) {
 }
 
 export default function EmailWindow() {
+  const t = useT();
   const [messages, setMessages] = useState<EmailMsg[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("trusted");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-
-  // Manual reply state
   const [replyOpen, setReplyOpen] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [replySending, setReplySending] = useState<string | null>(null);
-
-  // Baddi refine mini-chat state
   const [refineOpen, setRefineOpen] = useState<string | null>(null);
   const [refineText, setRefineText] = useState("");
-
-  // Per-message loading states
   const [baddiBusy, setBaddiBusy] = useState<Set<string>>(new Set());
   const [actionPending, setActionPending] = useState<string | null>(null);
-
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -109,7 +104,6 @@ export default function EmailWindow() {
       return s;
     });
     if (!isRead) markRead(id);
-    // Close sub-panels when collapsing
     if (expanded.has(id)) {
       if (replyOpen === id) setReplyOpen(null);
       if (refineOpen === id) setRefineOpen(null);
@@ -235,8 +229,8 @@ export default function EmailWindow() {
       {/* Tabs + Refresh */}
       <div className="flex items-center shrink-0 border-b border-white/6">
         {([
-          ["trusted",   "Vertrauenswürdig", trusted],
-          ["untrusted", "Unbekannt",         untrusted],
+          ["trusted",   t("email.trusted_tab"),   trusted],
+          ["untrusted", t("email.untrusted_tab"),  untrusted],
         ] as [Tab, string, EmailMsg[]][]).map(([key, label, list]) => {
           const unread = list.filter(m => !m.read).length;
           return (
@@ -264,7 +258,7 @@ export default function EmailWindow() {
         <button
           onClick={load} disabled={loading}
           className="p-1.5 mr-2 rounded-lg text-gray-600 hover:text-gray-400 transition-colors disabled:opacity-40"
-          title="Aktualisieren"
+          title={t("email.refresh")}
         >
           <RefreshIcon spinning={loading} />
         </button>
@@ -281,12 +275,12 @@ export default function EmailWindow() {
       {/* List */}
       <div className="flex-1 overflow-auto">
         {loading && messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-600 text-xs">Lädt…</div>
+          <div className="flex items-center justify-center h-full text-gray-600 text-xs">{t("email.loading")}</div>
         ) : shown.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-2">
             <span className="text-3xl opacity-20">✉️</span>
             <p className="text-gray-600 text-xs">
-              {tab === "trusted" ? "Noch keine Mails von vertrauenswürdigen Absendern." : "Keine unbekannten Absender."}
+              {tab === "trusted" ? t("email.no_trusted") : t("email.no_untrusted")}
             </p>
           </div>
         ) : (
@@ -317,7 +311,7 @@ export default function EmailWindow() {
                         <span className="text-[10px] text-gray-600 shrink-0">{fmtDate(msg.received_at)}</span>
                       </div>
                       <p className={`text-xs truncate mt-0.5 ${msg.read ? "text-gray-500" : "text-gray-300"}`}>
-                        {msg.subject || "(kein Betreff)"}
+                        {msg.subject || t("email.no_subject")}
                       </p>
                       {!isExpanded && (
                         <>
@@ -328,16 +322,16 @@ export default function EmailWindow() {
                           )}
                           {hasPendingProposal && (
                             <p className="text-[10px] text-amber-400/70 mt-0.5 truncate">
-                              ✏️ Entwurf bereit — warte auf Ausführung
+                              ✏️ {t("email.draft_pending")}
                             </p>
                           )}
                           {hasExecutedProposal && (
                             <p className="text-[10px] text-emerald-500/80 mt-0.5 truncate">
-                              ✓ Baddi hat geantwortet
+                              ✓ {t("email.replied_by_baddi")}
                             </p>
                           )}
                           {msg.replied && !msg.baddi_action && (
-                            <span className="inline-block text-[10px] text-indigo-400/70 mt-0.5">↩ Beantwortet</span>
+                            <span className="inline-block text-[10px] text-indigo-400/70 mt-0.5">{t("email.replied")}</span>
                           )}
                         </>
                       )}
@@ -357,7 +351,7 @@ export default function EmailWindow() {
                         <span className="mx-1.5">·</span>
                         {fmtDate(msg.received_at)}
                         {msg.replied && (
-                          <span className="ml-2 text-indigo-400/70">↩ Beantwortet</span>
+                          <span className="ml-2 text-indigo-400/70">{t("email.replied")}</span>
                         )}
                       </p>
 
@@ -368,12 +362,12 @@ export default function EmailWindow() {
                         </div>
                       )}
 
-                      {/* ── Baddi Proposal / Action Box ── */}
+                      {/* Baddi Proposal */}
                       {hasExecutedProposal ? (
                         <div className="flex items-start gap-2 bg-emerald-950/40 border border-emerald-800/30 rounded-xl px-3 py-2.5">
                           <span className="text-emerald-400 text-sm shrink-0 mt-0.5">🤖</span>
                           <div>
-                            <p className="text-[10px] text-emerald-500/70 font-medium mb-0.5">Baddi hat geantwortet:</p>
+                            <p className="text-[10px] text-emerald-500/70 font-medium mb-0.5">{t("email.replied_label")}</p>
                             <p className="text-xs text-emerald-300 leading-relaxed whitespace-pre-wrap">{msg.baddi_action}</p>
                           </div>
                         </div>
@@ -381,11 +375,10 @@ export default function EmailWindow() {
                         <div className="bg-amber-950/30 border border-amber-700/30 rounded-xl px-3 py-2.5 space-y-2">
                           <div className="flex items-center gap-1.5">
                             <span className="text-amber-400 text-sm">✏️</span>
-                            <p className="text-[10px] text-amber-400/80 font-medium">Baddi-Entwurf — noch nicht gesendet</p>
+                            <p className="text-[10px] text-amber-400/80 font-medium">{t("email.draft_label")}</p>
                           </div>
                           <p className="text-xs text-amber-100/80 leading-relaxed whitespace-pre-wrap">{msg.baddi_action}</p>
 
-                          {/* Execute / Adjust buttons */}
                           {!isRefineOpen && (
                             <div className="flex gap-2 pt-0.5">
                               <button
@@ -393,26 +386,25 @@ export default function EmailWindow() {
                                 disabled={isBaddiBusy}
                                 className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-white font-semibold transition-colors disabled:opacity-40"
                               >
-                                {isBaddiBusy ? "…" : "▶ Ausführen"}
+                                {isBaddiBusy ? "…" : t("email.execute")}
                               </button>
                               <button
                                 onClick={() => { setRefineOpen(msg.id); setRefineText(""); }}
                                 disabled={isBaddiBusy}
                                 className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-white/8 hover:bg-white/14 text-gray-300 transition-colors disabled:opacity-40"
                               >
-                                ✏️ Anpassen
+                                {t("email.adjust")}
                               </button>
                             </div>
                           )}
 
-                          {/* Refine mini-chat */}
                           {isRefineOpen && (
                             <div className="space-y-2 pt-1 border-t border-white/8">
-                              <p className="text-[10px] text-gray-500">Gib Baddi eine Anweisung zur Überarbeitung:</p>
+                              <p className="text-[10px] text-gray-500">{t("email.refine_hint")}</p>
                               <textarea
                                 value={refineText}
                                 onChange={e => setRefineText(e.target.value)}
-                                placeholder="z.B. «Mach es formeller» oder «Erwähne auch den Termin am Montag»"
+                                placeholder={t("email.refine_placeholder")}
                                 rows={3}
                                 className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 resize-none transition-colors"
                                 autoFocus
@@ -424,20 +416,19 @@ export default function EmailWindow() {
                                   disabled={!refineText.trim() || isBaddiBusy}
                                   className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition-colors disabled:opacity-40"
                                 >
-                                  {isBaddiBusy ? "Überarbeite…" : "Aktualisieren"}
+                                  {isBaddiBusy ? t("email.updating") : t("email.update")}
                                 </button>
                                 <button
                                   onClick={() => { setRefineOpen(null); setRefineText(""); }}
                                   className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-[11px] transition-colors"
                                 >
-                                  Abbrechen
+                                  {t("email.cancel")}
                                 </button>
                               </div>
                             </div>
                           )}
                         </div>
                       ) : (
-                        /* No proposal yet */
                         <button
                           onClick={() => askBaddi(msg.id)}
                           disabled={isBaddiBusy}
@@ -446,67 +437,57 @@ export default function EmailWindow() {
                           {isBaddiBusy ? (
                             <>
                               <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity=".3"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-                              Baddi denkt nach…
+                              {t("email.baddi_thinking")}
                             </>
                           ) : (
-                            <>🤖 Baddi antworten lassen</>
+                            <>{t("email.ask_baddi")}</>
                           )}
                         </button>
                       )}
 
-                      {/* ── Action buttons ── */}
+                      {/* Action buttons */}
                       <div className="flex items-center gap-2 flex-wrap">
-
-                        {/* Manual reply — untrusted only */}
                         {!msg.sender_trusted && (
                           <button
                             onClick={() => { setReplyOpen(isReplyCompose ? null : msg.id); setReplyText(""); }}
                             className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 transition-colors"
                           >
-                            ↩ Beantworten
+                            {t("email.reply_btn")}
                           </button>
                         )}
-
-                        {/* Trust — untrusted only */}
                         {!msg.sender_trusted && (
                           <button
                             onClick={() => trustSender(msg.id)}
                             disabled={isPending}
                             className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-colors disabled:opacity-40"
                           >
-                            ✓ Vertrauen
+                            {t("email.trust")}
                           </button>
                         )}
-
-                        {/* Block — untrusted only */}
                         {!msg.sender_trusted && (
                           <button
                             onClick={() => blockSender(msg.id)}
                             disabled={isPending}
                             className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-colors disabled:opacity-40"
                           >
-                            🚫 Sperren
+                            {t("email.block")}
                           </button>
                         )}
-
-                        {/* Delete — untrusted only */}
                         {!msg.sender_trusted && (
                           <button
                             onClick={() => deleteMsg(msg.id)}
                             disabled={isPending}
                             className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors disabled:opacity-40"
                           >
-                            🗑 Löschen
+                            {t("email.delete_msg")}
                           </button>
                         )}
-
-                        {/* Archive — all emails */}
                         <button
                           onClick={() => archiveMsg(msg.id)}
                           disabled={isPending}
                           className="flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-40"
                         >
-                          📦 Archivieren
+                          {t("email.archive")}
                         </button>
                       </div>
 
@@ -516,7 +497,7 @@ export default function EmailWindow() {
                           <textarea
                             value={replyText}
                             onChange={e => setReplyText(e.target.value)}
-                            placeholder="Antwort schreiben…"
+                            placeholder={t("email.reply_placeholder")}
                             rows={4}
                             className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 resize-none transition-colors"
                             autoFocus
@@ -527,13 +508,13 @@ export default function EmailWindow() {
                               disabled={!replyText.trim() || replySending === msg.id}
                               className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition-colors disabled:opacity-40"
                             >
-                              {replySending === msg.id ? "Sendet…" : "Senden"}
+                              {replySending === msg.id ? t("email.sending") : t("email.send")}
                             </button>
                             <button
                               onClick={() => { setReplyOpen(null); setReplyText(""); }}
                               className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-[11px] transition-colors"
                             >
-                              Abbrechen
+                              {t("email.cancel")}
                             </button>
                           </div>
                         </div>

@@ -71,6 +71,19 @@ export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSec
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
+  const saveLanguage = (lang: string) => {
+    setLanguage(lang);
+    onLanguageChange?.(lang);
+    apiFetch(`${BACKEND_URL}/v1/customers/me`, {
+      method: "PATCH",
+      body: JSON.stringify({ language: lang }),
+    }).catch(() => {});
+    apiFetch(`${BACKEND_URL}/v1/user/preferences`, {
+      method: "POST",
+      body: JSON.stringify({ language: lang }),
+    }).catch(() => {});
+  };
+
   const saveProfile = async () => {
     setSaving(true);
     setMsg(null);
@@ -160,7 +173,7 @@ export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSec
             <label className="text-xs text-gray-400 font-medium">{t("s.language")}</label>
             <div className="grid grid-cols-2 gap-2">
               {LANGUAGES.map((l) => (
-                <button key={l.value} type="button" onClick={() => { setLanguage(l.value); onLanguageChange?.(l.value); }}
+                <button key={l.value} type="button" onClick={() => saveLanguage(l.value)}
                   className={`py-2 rounded-xl text-xs font-medium border transition-all ${
                     language === l.value
                       ? "bg-indigo-600 border-indigo-500 text-white"

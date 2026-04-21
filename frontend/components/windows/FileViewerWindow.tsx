@@ -1,5 +1,7 @@
 "use client";
 
+import { useT } from "@/lib/i18n";
+
 interface Props {
   url: string;
   filename: string;
@@ -12,6 +14,7 @@ const AUDIO_TYPES = ["mp3", "m4a", "webm", "ogg", "wav", "aac", "opus"];
 const TEXT_TYPES  = ["txt", "md", "log", "csv", "json", "xml", "html"];
 
 export default function FileViewerWindow({ url, filename, fileType, mimeType }: Props) {
+  const t = useT();
   const ext = (fileType ?? filename.split(".").pop() ?? "").toLowerCase();
   const isImage = IMAGE_TYPES.includes(ext);
   const isPdf   = ext === "pdf";
@@ -37,7 +40,7 @@ export default function FileViewerWindow({ url, filename, fileType, mimeType }: 
         <span className="text-5xl">🎙</span>
         <p className="text-white text-sm font-medium text-center">{filename}</p>
         <audio controls src={url} className="w-full max-w-sm" style={{ accentColor: "#6366f1" }}>
-          Dein Browser unterstützt kein Audio.
+          {t("fileview.no_audio")}
         </audio>
       </div>
     );
@@ -59,12 +62,12 @@ export default function FileViewerWindow({ url, filename, fileType, mimeType }: 
       <span className="text-5xl opacity-30">📎</span>
       <p className="text-white text-sm font-medium">{filename}</p>
       <p className="text-gray-500 text-xs">
-        Vorschau für {ext.toUpperCase()} nicht verfügbar.<br />
-        Der Inhalt wurde an Baddi weitergegeben.
+        {t("fileview.no_preview", { ext: ext.toUpperCase() })}<br />
+        {t("fileview.given_to_baddi")}
       </p>
       <a href={url} download={filename}
         className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2">
-        Herunterladen
+        {t("fileview.download")}
       </a>
     </div>
   );

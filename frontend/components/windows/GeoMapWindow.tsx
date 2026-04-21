@@ -1,12 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-
-const LAYERS = [
-  { key: "ch.swisstopo.pixelkarte-farbe", label: "Landeskarte" },
-  { key: "ch.swisstopo.swissimage",       label: "Luftbild" },
-  { key: "ch.swisstopo.pixelkarte-grau",  label: "Graukarte" },
-];
+import { useT } from "@/lib/i18n";
 
 interface Props {
   east?: number;
@@ -17,11 +12,18 @@ interface Props {
 }
 
 export default function GeoMapWindow({ east = 2600000, north = 1200000, zoom = 8, bgLayer = "ch.swisstopo.pixelkarte-farbe", onStateChange }: Props) {
+  const t = useT();
   const [activeLayer, setActiveLayer] = useState(bgLayer);
   const [search, setSearch] = useState("");
   const [coords, setCoords] = useState({ east, north, zoom });
   const [loading, setLoading] = useState(false);
   const mounted = useRef(false);
+
+  const LAYERS = [
+    { key: "ch.swisstopo.pixelkarte-farbe", label: t("geo.layer_national") },
+    { key: "ch.swisstopo.swissimage",       label: t("geo.layer_aerial") },
+    { key: "ch.swisstopo.pixelkarte-grau",  label: t("geo.layer_gray") },
+  ];
 
   useEffect(() => {
     if (!mounted.current) { mounted.current = true; return; }
@@ -56,13 +58,12 @@ export default function GeoMapWindow({ east = 2600000, north = 1200000, zoom = 8
     <div className="flex flex-col h-full bg-gray-950">
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-2 bg-gray-900 border-b border-white/5 shrink-0">
-        {/* Suche */}
         <form onSubmit={handleSearch} className="flex items-center gap-1.5 flex-1">
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Ort oder Adresse suchen…"
+            placeholder={t("geo.search_placeholder")}
             className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-yellow-500/50 min-w-0"
           />
           <button
@@ -70,11 +71,10 @@ export default function GeoMapWindow({ east = 2600000, north = 1200000, zoom = 8
             disabled={loading || !search.trim()}
             className="px-3 py-1.5 text-xs bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 rounded-lg hover:bg-yellow-500/20 transition-colors disabled:opacity-40"
           >
-            {loading ? "…" : "Suchen"}
+            {loading ? "…" : t("geo.search_btn")}
           </button>
         </form>
 
-        {/* Layer-Auswahl */}
         <div className="flex items-center gap-1 shrink-0">
           {LAYERS.map(l => (
             <button
@@ -91,13 +91,12 @@ export default function GeoMapWindow({ east = 2600000, north = 1200000, zoom = 8
           ))}
         </div>
 
-        {/* Direktlink */}
         <a
           href={iframeSrc}
           target="_blank"
           rel="noopener noreferrer"
           className="text-gray-600 hover:text-gray-300 text-xs shrink-0 transition-colors"
-          title="In map.geo.admin.ch öffnen"
+          title={t("geo.open_title")}
         >
           ↗
         </a>
@@ -111,14 +110,14 @@ export default function GeoMapWindow({ east = 2600000, north = 1200000, zoom = 8
           className="w-full h-full border-0"
           loading="lazy"
           allowFullScreen
-          title="swisstopo Karte"
+          title={t("geo.iframe_title")}
         />
       </div>
 
       {/* Footer */}
       <div className="px-3 py-1.5 bg-gray-900 border-t border-white/5 flex items-center justify-between shrink-0">
         <span className="text-[10px] text-gray-700">
-          © swisstopo — Geodaten Bundesamt für Landestopografie
+          {t("geo.copyright")}
         </span>
         <span className="text-[10px] text-gray-700">
           E {coords.east} / N {coords.north}

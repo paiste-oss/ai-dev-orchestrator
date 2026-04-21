@@ -5,21 +5,26 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
+import { useT } from "@/lib/i18n";
 
-// Excalidraw braucht ssr:false (Browser-only APIs)
 const Excalidraw = dynamic(
   () => import("@excalidraw/excalidraw").then(m => ({ default: m.Excalidraw })),
-  { ssr: false, loading: () => <div className="flex-1 flex items-center justify-center text-gray-600 text-sm">Lade Whiteboard…</div> }
+  { ssr: false, loading: () => <WhiteboardLoading /> }
 );
+
+function WhiteboardLoading() {
+  const t = useT();
+  return <div className="flex-1 flex items-center justify-center text-gray-600 text-sm">{t("whiteboard.loading")}</div>;
+}
 
 interface Props {
   boardId?: string;
   onBoardId?: (id: string) => void;
-  /** Ref, auf den die Screenshot-Funktion gesetzt wird, sobald Excalidraw bereit ist. */
   screenshotRef?: React.MutableRefObject<(() => Promise<string | null>) | null>;
 }
 
 export default function WhiteboardWindow({ boardId: initialBoardId, onBoardId, screenshotRef }: Props) {
+  const t = useT();
   const [boardId, setBoardId] = useState<string | null>(initialBoardId ?? null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [initialData, setInitialData] = useState<any>(null);
@@ -30,7 +35,6 @@ export default function WhiteboardWindow({ boardId: initialBoardId, onBoardId, s
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const excalidrawAPIRef = useRef<any>(null);
 
-  // Board laden oder neu erstellen
   useEffect(() => {
     if (initialBoardId) {
       loadBoard(initialBoardId);
@@ -74,7 +78,6 @@ export default function WhiteboardWindow({ boardId: initialBoardId, onBoardId, s
     setReady(true);
   }
 
-  // Debounced save — feuert 2s nach letzter Änderung
   const scheduleSave = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (elements: any, appState: any, files: any) => {
@@ -84,7 +87,6 @@ export default function WhiteboardWindow({ boardId: initialBoardId, onBoardId, s
       saveTimer.current = setTimeout(async () => {
         setSaving(true);
         try {
-          // appState enthält viele UI-Felder — nur das Nötigste speichern
           const { zoom, scrollX, scrollY, theme } = appState;
           await apiFetch(`${BACKEND_URL}/v1/windows/boards/${id}`, {
             method: "PUT",
@@ -102,21 +104,19 @@ export default function WhiteboardWindow({ boardId: initialBoardId, onBoardId, s
   if (!ready) {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-600 text-sm">
-        Lade Whiteboard…
+        {t("whiteboard.loading")}
       </div>
     );
   }
 
   return (
     <div className="relative h-full w-full">
-      {/* Speicher-Indikator */}
       {saving && (
         <div className="absolute top-2 right-3 z-10 text-[10px] text-gray-400 animate-pulse pointer-events-none">
-          Speichert…
+          {t("whiteboard.saving")}
         </div>
       )}
 
-      {/* Excalidraw braucht absolut positionierten Container für korrekte Maus-Koordinaten */}
       <div style={{ position: "absolute", inset: 0 }}>
         <Excalidraw
           initialData={initialData}

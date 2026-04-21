@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useT } from "@/lib/i18n";
 
 interface SetupModalProps {
   onClose: () => void;
@@ -8,18 +9,20 @@ interface SetupModalProps {
   onLogout: () => void;
 }
 
-const MENU_ITEMS = [
-  { icon: "💳", label: "Abonnement & Wallet", desc: "Plan, Guthaben aufladen, Rechnungen",  href: "/user/billing" },
-  { icon: "⚙",  label: "Einstellungen",       desc: "Profil, Sprache, Benachrichtigungen",  href: "/user/settings" },
-];
-
 export default function SetupModal({ onClose, onNavigate, onLogout }: SetupModalProps) {
+  const t = useT();
+
+  const MENU_ITEMS = [
+    { icon: "💳", label: t("setup.billing"),  desc: t("setup.billing_desc"),  href: "/user/billing" },
+    { icon: "⚙",  label: t("setup.settings"), desc: t("setup.settings_desc"), href: "/user/settings" },
+  ];
+
   return (
     <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-gray-900 border border-white/10 rounded-2xl p-6 w-full max-w-sm space-y-2 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-white">Konto & Einstellungen</h2>
+          <h2 className="text-base font-bold text-white">{t("setup.title")}</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-lg leading-none">✕</button>
         </div>
 
@@ -45,8 +48,8 @@ export default function SetupModal({ onClose, onNavigate, onLogout }: SetupModal
           >
             <span className="text-2xl">🚪</span>
             <div>
-              <p className="text-sm font-semibold text-red-400">Abmelden</p>
-              <p className="text-xs text-gray-600">Von Baddi abmelden</p>
+              <p className="text-sm font-semibold text-red-400">{t("setup.logout")}</p>
+              <p className="text-xs text-gray-600">{t("setup.logout_desc")}</p>
             </div>
           </button>
         </div>

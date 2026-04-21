@@ -1,6 +1,7 @@
 "use client";
 
 import { FlightBoardData, FlightEntry } from "@/lib/chat-types";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   data: FlightBoardData | undefined;
@@ -20,7 +21,6 @@ const STATUS_COLORS: Record<string, string> = {
 function TimeCell({ scheduled, actual, delay }: { scheduled: string | null; actual: string | null; delay: number }) {
   const isDelayed = delay > 0;
 
-  // Actual time known and differs → strike through scheduled, show actual
   if (actual && actual !== scheduled) {
     return (
       <div className="flex flex-col items-end leading-none gap-0.5 whitespace-nowrap">
@@ -33,7 +33,6 @@ function TimeCell({ scheduled, actual, delay }: { scheduled: string | null; actu
     );
   }
 
-  // No actual yet but delay known → show scheduled + delay badge
   if (isDelayed) {
     return (
       <div className="flex flex-col items-end leading-none gap-0.5 whitespace-nowrap">
@@ -61,24 +60,17 @@ function FlightRow({ flight, boardType, showTerminal }: { flight: FlightEntry; b
   const terminal        = isDep ? flight.dep_terminal  : flight.arr_terminal;
   const gate            = isDep ? flight.dep_gate      : flight.arr_gate;
 
-  // Verspätung nur auf der relevanten Seite anzeigen.
-  // AviationStack liefert oft nur arr.delay → als Fallback auch auf Abflug-Zelle verwenden.
   const depDelay = isDep ? (flight.dep_delay || flight.arr_delay) : 0;
   const arrDelay = isDep ? 0 : (flight.arr_delay || flight.dep_delay);
 
   return (
     <tr className="border-b border-white/4 hover:bg-white/3 transition-colors">
-      {/* Flugnummer */}
       <td className="px-3 py-2 font-mono font-semibold text-xs text-white whitespace-nowrap">
         {flight.flight_number}
       </td>
-
-      {/* Airline */}
       <td className="px-3 py-2 text-xs text-gray-400 whitespace-nowrap">
         {flight.airline}
       </td>
-
-      {/* Ziel / Herkunft */}
       <td className="px-3 py-2 min-w-0">
         <span className="text-xs text-gray-200 font-medium">
           {counterpart}
@@ -87,31 +79,15 @@ function FlightRow({ flight, boardType, showTerminal }: { flight: FlightEntry; b
           )}
         </span>
       </td>
-
-      {/* Abflug */}
       <td className="px-3 py-2 text-right">
-        <TimeCell
-          scheduled={flight.dep_scheduled}
-          actual={flight.dep_actual}
-          delay={depDelay}
-        />
+        <TimeCell scheduled={flight.dep_scheduled} actual={flight.dep_actual} delay={depDelay} />
       </td>
-
-      {/* Ankunft */}
       <td className="px-3 py-2 text-right">
-        <TimeCell
-          scheduled={flight.arr_scheduled}
-          actual={flight.arr_actual}
-          delay={arrDelay}
-        />
+        <TimeCell scheduled={flight.arr_scheduled} actual={flight.arr_actual} delay={arrDelay} />
       </td>
-
-      {/* Dauer */}
       <td className="px-3 py-2 text-center">
         <span className="text-xs font-mono text-gray-500 whitespace-nowrap">{fmtDuration(flight.duration_min)}</span>
       </td>
-
-      {/* Terminal — nur wenn showTerminal */}
       {showTerminal && (
         <td className="px-3 py-2 text-center">
           {terminal
@@ -120,16 +96,12 @@ function FlightRow({ flight, boardType, showTerminal }: { flight: FlightEntry; b
           }
         </td>
       )}
-
-      {/* Gate */}
       <td className="px-3 py-2 text-center">
         {gate
           ? <span className="text-xs font-mono font-semibold text-[#C8D8E8]">{gate}</span>
           : <span className="text-xs text-gray-700">—</span>
         }
       </td>
-
-      {/* Status */}
       <td className="px-3 py-2 text-center whitespace-nowrap">
         <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${statusClass}`}>
           {flight.status}
@@ -140,12 +112,14 @@ function FlightRow({ flight, boardType, showTerminal }: { flight: FlightEntry; b
 }
 
 export default function FlightBoardWindow({ data, onRefresh, isRefreshing = false }: Props) {
+  const t = useT();
+
   if (!data) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-6 bg-[#0d0d14]">
         <span className="text-4xl opacity-20">✈</span>
-        <p className="text-gray-500 text-sm">Frag Baddi nach einem Flug oder Flughafen,</p>
-        <p className="text-gray-600 text-xs">z.B. „Zeig mir die Abflüge in Zürich"</p>
+        <p className="text-gray-500 text-sm">{t("flight.empty_hint")}</p>
+        <p className="text-gray-600 text-xs">{t("flight.empty_example")}</p>
       </div>
     );
   }
@@ -155,10 +129,10 @@ export default function FlightBoardWindow({ data, onRefresh, isRefreshing = fals
   const hasTerminal = flights.some((f) => isDep ? !!f.dep_terminal : !!f.arr_terminal);
 
   const header = data.airport_name
-    ? `${data.airport_name} (${data.airport_iata}) — ${isDep ? "Abflüge" : "Ankünfte"}`
+    ? `${data.airport_name} (${data.airport_iata}) — ${isDep ? t("flight.departures") : t("flight.arrivals")}`
     : data.query
-    ? `Flug ${data.query}`
-    : "Flugplan";
+    ? t("flight.flight_prefix", { query: data.query })
+    : t("flight.plan");
 
   return (
     <div className="flex flex-col h-full text-[#e2e2e8] bg-[#0d0d14]">
@@ -167,25 +141,17 @@ export default function FlightBoardWindow({ data, onRefresh, isRefreshing = fals
         <span className="text-lg">✈</span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-white truncate">{header}</p>
-          <p className="text-[10px] text-gray-600">{flights.length} Flüge</p>
+          <p className="text-[10px] text-gray-600">{t("flight.count", { n: String(flights.length) })}</p>
         </div>
         {onRefresh && (
           <button
             onClick={onRefresh}
             disabled={isRefreshing}
-            title="Aktualisieren"
+            title={t("flight.refresh")}
             className="shrink-0 flex items-center justify-center w-7 h-7 rounded-lg border border-white/10 bg-white/4 hover:bg-white/10 text-gray-400 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`}
-            >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`}>
               <path d="M21 2v6h-6" />
               <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
               <path d="M3 22v-6h6" />
@@ -200,21 +166,21 @@ export default function FlightBoardWindow({ data, onRefresh, isRefreshing = fals
         {flights.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center p-6">
             <span className="text-4xl opacity-20">✈</span>
-            <p className="text-gray-600 text-sm">Keine Flüge gefunden</p>
+            <p className="text-gray-600 text-sm">{t("flight.no_flights")}</p>
           </div>
         ) : (
           <table className="w-full border-collapse">
             <thead className="sticky top-0 bg-[#13131c] border-b border-white/5 z-10">
               <tr>
-                <th className="px-3 py-1.5 text-left   text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Flug</th>
-                <th className="px-3 py-1.5 text-left   text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Airline</th>
-                <th className="px-3 py-1.5 text-left   text-[9px] text-gray-600 uppercase tracking-wider font-semibold">{isDep ? "Ziel" : "Herkunft"}</th>
-                <th className="px-3 py-1.5 text-right  text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Abflug</th>
-                <th className="px-3 py-1.5 text-right  text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Ankunft</th>
-                <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Dauer</th>
-                {hasTerminal && <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Terminal</th>}
-                <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Gate</th>
-                <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">Status</th>
+                <th className="px-3 py-1.5 text-left   text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">{t("flight.col_flight")}</th>
+                <th className="px-3 py-1.5 text-left   text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">{t("flight.col_airline")}</th>
+                <th className="px-3 py-1.5 text-left   text-[9px] text-gray-600 uppercase tracking-wider font-semibold">{isDep ? t("flight.col_dest") : t("flight.col_origin")}</th>
+                <th className="px-3 py-1.5 text-right  text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">{t("flight.col_dep")}</th>
+                <th className="px-3 py-1.5 text-right  text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">{t("flight.col_arr")}</th>
+                <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">{t("flight.col_duration")}</th>
+                {hasTerminal && <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">{t("flight.col_terminal")}</th>}
+                <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">{t("flight.col_gate")}</th>
+                <th className="px-3 py-1.5 text-center text-[9px] text-gray-600 uppercase tracking-wider font-semibold whitespace-nowrap">{t("flight.col_status")}</th>
               </tr>
             </thead>
             <tbody>
