@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 const RobotAvatar        = dynamic(() => import("./avatars/RobotAvatar"),        { ssr: false });
 const TeekanneAvatar     = dynamic(() => import("./avatars/TeekanneAvatar"),     { ssr: false });
 const LichtgestaltAvatar = dynamic(() => import("./avatars/LichtgestaltAvatar"), { ssr: false });
+const WeltkugelAvatar    = dynamic(() => import("./avatars/WeltkugelAvatar"),    { ssr: false });
 
 interface Props {
   emotion?: string | null;
@@ -21,6 +22,7 @@ const AVATARS = [
   { id: "robot",        label: "🤖" },
   { id: "teekanne",     label: "🫖" },
   { id: "lichtgestalt", label: "✨" },
+  { id: "weltkugel",    label: "🌍" },
 ];
 
 class AvatarErrorBoundary extends React.Component<
@@ -57,6 +59,7 @@ export default function BaddiAvatar3D({
           {avatar === "robot"        && <RobotAvatar        emotion={emotion} />}
           {avatar === "teekanne"     && <TeekanneAvatar     emotion={emotion} speaking={speaking} />}
           {avatar === "lichtgestalt" && <LichtgestaltAvatar emotion={emotion} speaking={speaking} />}
+          {avatar === "weltkugel"    && <WeltkugelAvatar    emotion={emotion} speaking={speaking} />}
         </AvatarErrorBoundary>
 
         {/* Speaking-Indikator */}
