@@ -25,7 +25,7 @@ function BackButtonInner({ label }: { label: string }) {
   return (
     <button
       onClick={handleBack}
-      className="text-indigo-400 hover:text-indigo-300 text-sm mb-6 inline-block transition-colors"
+      className="text-[var(--accent-light)] hover:text-[var(--accent-hover)] text-sm mb-6 inline-block transition-colors"
     >
       {displayLabel}
     </button>

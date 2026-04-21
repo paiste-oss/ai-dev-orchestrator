@@ -171,7 +171,7 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
                   code: ({ children, className }) => {
                     const isBlock = className?.includes("language-");
                     if (isBlock) return <code className={className}>{children}</code>;
-                    return <code className="bg-white/10 rounded px-1.5 py-0.5 text-[0.85em] font-mono text-indigo-200">{children}</code>;
+                    return <code className="bg-white/10 rounded px-1.5 py-0.5 text-[0.85em] font-mono text-[var(--accent-light)]">{children}</code>;
                   },
                   pre: ({ children }) => {
                     const codeEl = (children as React.ReactElement<{ className?: string; children?: React.ReactNode }>)?.props;
@@ -195,7 +195,7 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
                     );
                   },
                   blockquote: ({ children }) => (
-                    <blockquote className="border-l-2 border-indigo-500/50 pl-4 my-2 text-gray-400 italic">{children}</blockquote>
+                    <blockquote className="border-l-2 border-[var(--accent-50)] pl-4 my-2 text-gray-400 italic">{children}</blockquote>
                   ),
                   a: ({ href, children }) => {
                     const url = href
@@ -206,7 +206,7 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
                         href={url ?? undefined}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 transition-colors cursor-pointer"
+                        className="text-[var(--accent-light)] hover:text-[var(--accent-hover)] underline underline-offset-2 transition-colors cursor-pointer"
                         onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();

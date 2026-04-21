@@ -32,7 +32,7 @@ interface BillingStatus {
 
 function statusLabel(s: string, t: (key: string) => string) {
   if (s === "active")   return { label: t("home.status_active"),   cls: "text-green-400" };
-  if (s === "trialing") return { label: t("home.status_trial"),    cls: "text-indigo-400" };
+  if (s === "trialing") return { label: t("home.status_trial"),    cls: "text-[var(--accent-light)]" };
   if (s === "past_due") return { label: t("home.status_past_due"), cls: "text-yellow-400" };
   return                       { label: t("home.status_inactive"), cls: "text-gray-500" };
 }
@@ -242,7 +242,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                     </div>
                     <div className="h-1 bg-white/5 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-indigo-500 rounded-full transition-all"
+                        className="h-full bg-[var(--accent)] rounded-full transition-all"
                         style={{ width: `${Math.min(100, (billing.tokens_used_this_period / billing.tokens_included) * 100)}%` }}
                       />
                     </div>
@@ -273,7 +273,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                     const time = ev.start ? new Date(ev.start).toLocaleTimeString("de-CH", { hour: "2-digit", minute: "2-digit" }) : "";
                     return (
                       <div key={ev.uid} className="flex items-center gap-2">
-                        <span className="text-[10px] text-indigo-400 shrink-0 w-10">{time}</span>
+                        <span className="text-[10px] text-[var(--accent-light)] shrink-0 w-10">{time}</span>
                         <span className="text-[11px] text-gray-300 truncate">{ev.title}</span>
                       </div>
                     );
@@ -515,7 +515,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                   onClick={() => onOpen(m.canvasType)}
                   className={`flex items-start gap-2.5 p-3 rounded-xl border text-left transition-colors backdrop-blur-sm ${
                     alreadyOpen
-                      ? "bg-indigo-950/50 border-indigo-500/40 hover:bg-indigo-950/70"
+                      ? "bg-[var(--accent-10)] border-[var(--accent-40)] hover:bg-[var(--accent-15)]"
                       : "bg-black/20 border-white/10 hover:bg-black/30 hover:border-white/20"
                   }`}
                 >

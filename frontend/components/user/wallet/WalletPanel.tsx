@@ -150,7 +150,7 @@ export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Pr
               {topupMode === null && (
                 <button
                   onClick={() => { setTopupMode("stripe"); setTopupError(""); }}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 border border-indigo-500/50 text-white font-semibold text-sm transition-colors"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] border border-[var(--accent-50)] text-[var(--accent-text)] font-semibold text-sm transition-colors"
                 >
                   <span>💳</span>
                   <span>Kreditkarte via Stripe</span>
@@ -158,16 +158,16 @@ export default function WalletPanel({ wallet, overageRateChfPer1k, onSaved }: Pr
               )}
 
               {topupMode === "stripe" && (
-                <div className="bg-indigo-950/20 border border-indigo-800/40 rounded-xl p-3 space-y-2">
+                <div className="bg-[var(--accent-10)] border border-[var(--accent-20)] rounded-xl p-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-indigo-300">{chf(topupAmount)} via Kreditkarte</p>
+                    <p className="text-xs font-medium text-[var(--accent-light)]">{chf(topupAmount)} via Kreditkarte</p>
                     <button onClick={() => setTopupMode(null)} className="text-gray-500 hover:text-white text-xs">✕</button>
                   </div>
                   {topupError && <p className="text-red-400 text-xs">{topupError}</p>}
                   <button
                     onClick={doStripeTopup}
                     disabled={topupLoading}
-                    className="w-full py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors disabled:opacity-50"
+                    className="w-full py-2 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-semibold text-xs transition-colors disabled:opacity-50"
                   >
                     {topupLoading ? "Weiterleitung…" : `${chf(topupAmount)} jetzt aufladen →`}
                   </button>

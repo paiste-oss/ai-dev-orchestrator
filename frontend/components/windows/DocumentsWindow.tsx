@@ -79,7 +79,7 @@ const FILE_ICONS: Record<string, string> = {
 };
 
 const FOLDER_COLOR_MAP: Record<string, string> = {
-  indigo: "text-indigo-400", blue: "text-blue-400", green: "text-green-400",
+  indigo: "text-[var(--accent-light)]", blue: "text-blue-400", green: "text-green-400",
   amber: "text-amber-400", red: "text-red-400", pink: "text-pink-400",
   purple: "text-purple-400", cyan: "text-cyan-400", gray: "text-gray-400",
 };
@@ -235,7 +235,7 @@ function NewFolderDialog({ onSave, onCancel }: { onSave: (n: string, c: string) 
     <div className="mx-2 my-2 bg-white/5 border border-white/10 rounded-xl p-3 space-y-2.5 shrink-0">
       <p className="text-xs font-medium text-white">{t("docs.new_folder")}</p>
       <input autoFocus value={name} onChange={e => setName(e.target.value)} placeholder={t("docs.folder_name_placeholder")}
-        className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:border-indigo-500/50"
+        className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50"
         onKeyDown={e => { if (e.key === "Enter" && name.trim()) onSave(name.trim(), color); if (e.key === "Escape") onCancel(); }} />
       <div className="flex items-center gap-1.5">
         {FOLDER_COLORS.map(c => (
@@ -245,7 +245,7 @@ function NewFolderDialog({ onSave, onCancel }: { onSave: (n: string, c: string) 
       </div>
       <div className="flex gap-2">
         <button onClick={() => name.trim() && onSave(name.trim(), color)} disabled={!name.trim()}
-          className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs py-1.5 rounded-lg transition-colors">{t("docs.create")}</button>
+          className="flex-1 bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-40 text-white text-xs py-1.5 rounded-lg transition-colors">{t("docs.create")}</button>
         <button onClick={onCancel} className="flex-1 bg-white/5 hover:bg-white/10 text-gray-400 text-xs py-1.5 rounded-lg transition-colors">{t("docs.cancel")}</button>
       </div>
     </div>
@@ -258,7 +258,7 @@ function Checkbox({ checked, onChange, onClick }: { checked: boolean; onChange: 
   return (
     <button
       onClick={e => { e.stopPropagation(); onClick?.(e); onChange(!checked); }}
-      className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-indigo-600 border-indigo-500" : "border-white/20 hover:border-white/40 bg-transparent"}`}>
+      className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${checked ? "bg-[var(--accent)] border-[var(--accent)]" : "border-white/20 hover:border-white/40 bg-transparent"}`}>
       {checked && <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
     </button>
   );
@@ -503,7 +503,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
 
   return (
     <div
-      className={`relative flex flex-col h-full text-white overflow-hidden transition-colors ${dragOver ? "bg-indigo-950/40 ring-2 ring-indigo-500/50 ring-inset" : ""}`}
+      className={`relative flex flex-col h-full text-white overflow-hidden transition-colors ${dragOver ? "bg-[var(--accent-10)] ring-2 ring-[var(--accent-50)] ring-inset" : ""}`}
       onDragOver={e => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
       onDrop={e => { e.preventDefault(); setDragOver(false); handleUpload(e.dataTransfer.files); }}
@@ -525,7 +525,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
           </svg>
         </button>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t("docs.search_placeholder")}
-          className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 outline-none focus:border-indigo-500/50 w-28" />
+          className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50 w-28" />
         <div className="flex rounded-lg overflow-hidden border border-white/10">
           {(["list", "grid"] as ViewMode[]).map(v => (
             <button key={v} onClick={() => setViewMode(v)}
@@ -537,7 +537,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
           ))}
         </div>
         <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
-          className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors shrink-0">
+          className="flex items-center gap-1 bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-40 text-white text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors shrink-0">
           {uploading ? <IconSpinner /> : <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>}
           {uploading ? t("docs.uploading") : t("docs.upload")}
         </button>
@@ -546,7 +546,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
 
       {dragOver && (
         <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-          <div className="bg-indigo-600/90 text-white text-sm font-medium px-5 py-3 rounded-xl shadow-lg flex items-center gap-2">
+          <div className="bg-[var(--accent)] text-[var(--accent-text)] text-sm font-medium px-5 py-3 rounded-xl shadow-lg flex items-center gap-2">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             {t("docs.drop_hint")}
           </div>
@@ -573,8 +573,8 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
                   onDragLeave={() => setDragOverFolderId(null)}
                   onDrop={e => handleFolderDrop(e, sf.id as string | null)}
                   className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors text-left ${
-                    selectedFolder === sf.id ? "bg-indigo-600/20 text-indigo-300" : "text-gray-400 hover:bg-white/5 hover:text-white"
-                  } ${dragOverFolderId === String(sf.id) ? "ring-1 ring-indigo-500/50" : ""}`}>
+                    selectedFolder === sf.id ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"
+                  } ${dragOverFolderId === String(sf.id) ? "ring-1 ring-[var(--accent-50)]" : ""}`}>
                   <span className="text-sm">{sf.icon}</span>
                   <span className="flex-1 truncate">{sf.name}</span>
                   <span className="text-[10px] text-gray-600">{sf.count}</span>
@@ -596,9 +596,9 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
                     onDragLeave={() => setDragOverFolderId(null)}
                     onDrop={e => handleFolderDrop(e, folder.id)}
                     className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors text-left ${
-                      selectedFolder === folder.id ? "bg-indigo-600/20 text-indigo-300" : "text-gray-400 hover:bg-white/5 hover:text-white"
-                    } ${dragOverFolderId === folder.id ? "ring-1 ring-indigo-500/50" : ""}`}>
-                    <svg className={`w-3.5 h-3.5 shrink-0 ${FOLDER_COLOR_MAP[folder.color] ?? "text-indigo-400"}`} viewBox="0 0 24 24" fill="currentColor">
+                      selectedFolder === folder.id ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"
+                    } ${dragOverFolderId === folder.id ? "ring-1 ring-[var(--accent-50)]" : ""}`}>
+                    <svg className={`w-3.5 h-3.5 shrink-0 ${FOLDER_COLOR_MAP[folder.color] ?? "text-[var(--accent-light)]"}`} viewBox="0 0 24 24" fill="currentColor">
                       <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                     </svg>
                     <span className="flex-1 truncate">{folder.name}</span>
@@ -614,8 +614,8 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
                       onDragLeave={() => setDragOverFolderId(null)}
                       onDrop={e => handleFolderDrop(e, sub.id)}
                       className={`w-full flex items-center gap-2 pl-6 pr-2 py-1.5 rounded-lg text-xs transition-colors text-left ${
-                        selectedFolder === sub.id ? "bg-indigo-600/20 text-indigo-300" : "text-gray-500 hover:bg-white/5 hover:text-white"
-                      } ${dragOverFolderId === sub.id ? "ring-1 ring-indigo-500/50" : ""}`}>
+                        selectedFolder === sub.id ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-500 hover:bg-white/5 hover:text-white"
+                      } ${dragOverFolderId === sub.id ? "ring-1 ring-[var(--accent-50)]" : ""}`}>
                       <svg className={`w-3 h-3 shrink-0 ${FOLDER_COLOR_MAP[sub.color] ?? "text-gray-400"}`} viewBox="0 0 24 24" fill="currentColor">
                         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
                       </svg>
@@ -638,7 +638,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
             <div className="flex flex-col items-center justify-center flex-1 gap-2 text-center">
               <span className="text-4xl opacity-20">📁</span>
               <p className="text-gray-600 text-xs">{search ? t("docs.empty_search") : t("docs.empty_files")}</p>
-              {!search && <button onClick={() => fileInputRef.current?.click()} className="text-indigo-400 hover:text-indigo-300 text-xs underline underline-offset-2">{t("docs.upload_first")}</button>}
+              {!search && <button onClick={() => fileInputRef.current?.click()} className="text-[var(--accent-light)] hover:text-[var(--accent-hover)] text-xs underline underline-offset-2">{t("docs.upload_first")}</button>}
             </div>
           ) : viewMode === "list" ? (
 
@@ -652,7 +652,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
                     </th>
                     {sortColumns.map(([key, label]) => (
                       <th key={key} onClick={() => cycleSort(key)}
-                        className={`text-left px-2 py-2 font-medium cursor-pointer select-none whitespace-nowrap transition-colors ${sortKey === key ? "text-indigo-400" : "text-gray-600 hover:text-gray-400"}`}>
+                        className={`text-left px-2 py-2 font-medium cursor-pointer select-none whitespace-nowrap transition-colors ${sortKey === key ? "text-[var(--accent-light)]" : "text-gray-600 hover:text-gray-400"}`}>
                         {label}{sortKey === key && <span className="ml-0.5">{sortAsc ? "↑" : "↓"}</span>}
                       </th>
                     ))}
@@ -675,7 +675,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
                         onDragEnd={() => setDraggingDocId(null)}
                         onClick={() => openPreview(doc)}
                         onDoubleClick={() => openInViewer(doc)}
-                        className={`cursor-pointer transition-colors ${isSelected ? "bg-indigo-600/10" : "hover:bg-white/3"} ${draggingDocId === doc.id ? "opacity-40" : ""} ${isChecked ? "bg-indigo-950/30" : ""}`}>
+                        className={`cursor-pointer transition-colors ${isSelected ? "bg-[var(--accent-10)]" : "hover:bg-white/3"} ${draggingDocId === doc.id ? "opacity-40" : ""} ${isChecked ? "bg-[var(--accent-10)]" : ""}`}>
                         <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
                           <Checkbox checked={isChecked} onChange={() => toggleSelect(doc.id)} />
                         </td>
@@ -700,7 +700,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
                         <td className="px-2 py-2" onClick={e => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
                             <button onClick={() => openPreview(doc)} title={t("docs.preview_select")}
-                              className="p-1 rounded text-gray-600 hover:text-indigo-400 hover:bg-indigo-500/10 transition-all">
+                              className="p-1 rounded text-gray-600 hover:text-[var(--accent-light)] hover:bg-[var(--accent-10)] transition-all">
                               <IconEye />
                             </button>
                             <button onClick={() => deleteDoc(doc.id)} disabled={deleting === doc.id} title={t("docs.delete")}
@@ -735,7 +735,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
                       onClick={() => openPreview(doc)}
                       onDoubleClick={() => openInViewer(doc)}
                       className={`relative flex flex-col rounded-xl border cursor-pointer transition-all overflow-hidden ${
-                        isSelected ? "border-indigo-500/50 bg-indigo-600/10" : isChecked ? "border-indigo-500/30 bg-indigo-950/30" : "border-white/6 hover:border-white/14 hover:bg-white/3"
+                        isSelected ? "border-[var(--accent-50)] bg-[var(--accent-10)]" : isChecked ? "border-[var(--accent-30)] bg-[var(--accent-10)]" : "border-white/6 hover:border-white/14 hover:bg-white/3"
                       } ${draggingDocId === doc.id ? "opacity-40" : ""}`}>
 
                       <div className="flex items-center gap-1.5 px-2 pt-2" onClick={e => e.stopPropagation()}>
@@ -763,7 +763,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
 
                       <div className="flex items-center border-t border-white/6 divide-x divide-white/6" onClick={e => e.stopPropagation()}>
                         <button onClick={() => openPreview(doc)} title={t("docs.preview_select")}
-                          className="flex-1 flex items-center justify-center py-1.5 text-gray-600 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors">
+                          className="flex-1 flex items-center justify-center py-1.5 text-gray-600 hover:text-[var(--accent-light)] hover:bg-[var(--accent-10)] transition-colors">
                           <IconEye />
                         </button>
                         <button onClick={() => deleteDoc(doc.id)} disabled={deleting === doc.id} title={t("docs.delete")}
@@ -804,8 +804,8 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
         {showPreview && previewDoc && (
           <>
             <div onMouseDown={onResizeMouseDown}
-              className="group relative flex items-center justify-center shrink-0 w-[5px] cursor-col-resize hover:bg-indigo-500/20 active:bg-indigo-500/30 transition-colors border-x border-white/5">
-              <div className="w-[2px] h-8 rounded-full bg-white/10 group-hover:bg-indigo-400/50 transition-colors" />
+              className="group relative flex items-center justify-center shrink-0 w-[5px] cursor-col-resize hover:bg-[var(--accent-20)] active:bg-[var(--accent-30)] transition-colors border-x border-white/5">
+              <div className="w-[2px] h-8 rounded-full bg-white/10 group-hover:bg-[var(--accent-50)] transition-colors" />
             </div>
             <div className="shrink-0 border-l border-white/6 overflow-hidden h-full" style={{ width: previewWidth }}>
               <PreviewPanel

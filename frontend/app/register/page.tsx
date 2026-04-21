@@ -99,7 +99,7 @@ export default function RegisterPage() {
             <input
               name="rufname"
               placeholder="z. B. Anna oder Müller"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--accent)]"
             />
             <p className="text-xs text-gray-600">Leer lassen = Baddi verwendet deinen Vornamen.</p>
           </div>
@@ -112,7 +112,7 @@ export default function RegisterPage() {
                 required
                 name="vorname"
                 placeholder="Anna"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
             <div className="space-y-1">
@@ -121,7 +121,7 @@ export default function RegisterPage() {
                 required
                 name="nachname"
                 placeholder="Müller"
-                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
           </div>
@@ -133,7 +133,7 @@ export default function RegisterPage() {
               <select
                 required
                 name="geburtstag"
-                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--accent)]"
               >
                 <option value="">Tag</option>
                 {DAYS.map((d) => <option key={d} value={String(d)}>{d}</option>)}
@@ -141,7 +141,7 @@ export default function RegisterPage() {
               <select
                 required
                 name="geburtsmonat"
-                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--accent)]"
               >
                 <option value="">Monat</option>
                 {MONTHS.map((m, i) => <option key={i} value={String(i + 1)}>{m}</option>)}
@@ -149,7 +149,7 @@ export default function RegisterPage() {
               <select
                 required
                 name="geburtsjahr"
-                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+                className="bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--accent)]"
               >
                 <option value="">Jahr</option>
                 {YEARS.map((y) => <option key={y} value={String(y)}>{y}</option>)}
@@ -165,7 +165,7 @@ export default function RegisterPage() {
               type="email"
               name="email"
               placeholder="anna@beispiel.ch"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--accent)]"
             />
           </div>
 
@@ -178,7 +178,7 @@ export default function RegisterPage() {
               type="tel"
               name="mobile"
               placeholder="+41791234567"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--accent)]"
             />
             <p className="text-xs text-gray-600">Optional — ermöglicht SMS-Sicherheitscode beim Login</p>
           </div>
@@ -205,7 +205,7 @@ export default function RegisterPage() {
                   onClick={() => setLanguage(v)}
                   className={`py-2 rounded-xl text-xs font-medium border transition-all ${
                     language === v
-                      ? "bg-indigo-600 border-indigo-500 text-white"
+                      ? "bg-[var(--accent)] border-[var(--accent)] text-[var(--accent-text)]"
                       : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
                   }`}
                 >
@@ -225,7 +225,7 @@ export default function RegisterPage() {
               minLength={8}
               placeholder="••••••••"
               autoComplete="new-password"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--accent)]"
             />
           </div>
 
@@ -238,7 +238,7 @@ export default function RegisterPage() {
               name="passwortBestaetigung"
               placeholder="••••••••"
               autoComplete="new-password"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--accent)]"
             />
           </div>
 
@@ -253,28 +253,28 @@ export default function RegisterPage() {
               value={captchaInput}
               onChange={(e) => setCaptchaInput(e.target.value)}
               placeholder="Antwort"
-              className="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500"
+              className="w-full bg-gray-800 border border-gray-600 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--accent)]"
             />
           </div>
 
           {/* Einwilligungen — native Checkboxes (senden "on" / nicht vorhanden) */}
           <div className="space-y-3">
-            <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-gray-700 bg-gray-800/30 p-4 transition-colors has-[:checked]:border-indigo-500/50 has-[:checked]:bg-indigo-950/20">
+            <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-gray-700 bg-gray-800/30 p-4 transition-colors has-[:checked]:border-[var(--accent-50)] has-[:checked]:bg-[var(--accent-10)]">
               <input
                 type="checkbox"
                 name="tos_accepted"
                 required
-                className="mt-0.5 w-4 h-4 accent-indigo-500 shrink-0"
+                className="mt-0.5 w-4 h-4 shrink-0 accent-[var(--accent)]"
               />
               <span className="text-sm text-gray-300 leading-relaxed">
                 Ich akzeptiere die{" "}
                 <button type="button" onClick={() => router.push("/agb?from=/register")}
-                  className="text-indigo-400 hover:text-indigo-300 underline">
+                  className="text-[var(--accent-light)] hover:text-[var(--accent-hover)] underline">
                   AGB
                 </button>
                 {" "}und die{" "}
                 <button type="button" onClick={() => router.push("/datenschutz?from=/register")}
-                  className="text-indigo-400 hover:text-indigo-300 underline">
+                  className="text-[var(--accent-light)] hover:text-[var(--accent-hover)] underline">
                   Datenschutzerklärung
                 </button>
                 .{" "}
@@ -308,7 +308,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={isPending}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-xl font-bold transition-colors disabled:opacity-50"
+            className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] py-3 rounded-xl font-bold transition-colors disabled:opacity-50"
           >
             {isPending ? "Wird registriert…" : "Konto erstellen →"}
           </button>
@@ -316,7 +316,7 @@ export default function RegisterPage() {
 
         <p className="text-center text-sm text-gray-600">
           Bereits registriert?{" "}
-          <button onClick={() => router.push("/login")} className="text-indigo-400 hover:text-indigo-300">Anmelden</button>
+          <button onClick={() => router.push("/login")} className="text-[var(--accent-light)] hover:text-[var(--accent-hover)]">Anmelden</button>
         </p>
       </div>
     </main>

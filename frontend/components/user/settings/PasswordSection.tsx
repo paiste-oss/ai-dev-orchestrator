@@ -6,7 +6,7 @@ import { BACKEND_URL } from "@/lib/config";
 import { Section } from "@/components/user/settings/Section";
 import { useT } from "@/lib/i18n";
 
-const inputCls = "w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors";
+const inputCls = "w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--accent)] transition-colors";
 
 export function PasswordSection() {
   const t = useT();

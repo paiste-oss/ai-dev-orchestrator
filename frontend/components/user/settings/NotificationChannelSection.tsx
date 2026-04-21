@@ -72,7 +72,7 @@ export function NotificationChannelSection({ current, onChange }: Props) {
             key={ch.value}
             className={`flex items-center gap-4 cursor-pointer rounded-xl border p-4 transition-colors ${
               selected === ch.value
-                ? "border-indigo-500/60 bg-indigo-950/20"
+                ? "border-[var(--accent)] bg-[var(--accent-10)]"
                 : "border-gray-700 bg-gray-800/30 hover:border-gray-600"
             } ${saving ? "opacity-60 pointer-events-none" : ""}`}
           >
@@ -82,7 +82,7 @@ export function NotificationChannelSection({ current, onChange }: Props) {
               value={ch.value}
               checked={selected === ch.value}
               onChange={() => save(ch.value)}
-              className="accent-indigo-500 w-4 h-4 shrink-0"
+              className="w-4 h-4 shrink-0 accent-[var(--accent)]"
             />
             <span className="text-2xl">{ch.icon}</span>
             <div className="flex-1 min-w-0">
@@ -90,7 +90,7 @@ export function NotificationChannelSection({ current, onChange }: Props) {
               <p className="text-xs text-gray-500">{ch.description}</p>
             </div>
             {selected === ch.value && (
-              <span className="text-xs text-indigo-400 font-semibold shrink-0">{t("s.notif_active")}</span>
+              <span className="text-xs text-[var(--accent-light)] font-semibold shrink-0">{t("s.notif_active")}</span>
             )}
           </label>
         ))}

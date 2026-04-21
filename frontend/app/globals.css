@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+/* ── Dynamisches Farbsystem (gesetzt via applyColorVars in useUiPrefs) ─────── */
+:root {
+  --accent:        #6366f1;
+  --accent-rgb:    99,102,241;
+  --accent-text:   #ffffff;
+  --accent-5:      rgba(99,102,241,0.05);
+  --accent-10:     rgba(99,102,241,0.10);
+  --accent-15:     rgba(99,102,241,0.15);
+  --accent-20:     rgba(99,102,241,0.20);
+  --accent-30:     rgba(99,102,241,0.30);
+  --accent-40:     rgba(99,102,241,0.40);
+  --accent-50:     rgba(99,102,241,0.50);
+  --accent-80:     rgba(99,102,241,0.80);
+  --accent-hover:  color-mix(in srgb, var(--accent) 80%, white);
+  --accent-light:  color-mix(in srgb, var(--accent) 65%, white);
+
+  --bg:            #030712;
+  --bg-rgb:        3,7,18;
+  --bg-text:       #ffffff;
+
+  --surface:       rgb(34,38,49);
+  --surface-2:     rgb(46,50,61);
+  --surface-text:  #ffffff;
+}
+
 /* ── Theme-System ─────────────────────────────────────────────────────────── */
 
 :root,

@@ -14,7 +14,7 @@ interface UiPrefs {
 }
 
 const inputCls =
-  "w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors";
+  "w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--accent)] transition-colors";
 
 export function ChatAppearanceSection() {
   const router = useRouter();
@@ -87,7 +87,7 @@ export function ChatAppearanceSection() {
                 onClick={() => setUiPrefs((p) => ({ ...p, avatarType: v }))}
                 className={`py-2.5 rounded-xl text-xs font-medium border transition-all flex flex-col items-center gap-1 ${
                   uiPrefs.avatarType === v
-                    ? "bg-indigo-600 border-indigo-500 text-white"
+                    ? "bg-[var(--accent)] border-[var(--accent)] text-[var(--accent-text)]"
                     : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
                 }`}
               >
@@ -111,7 +111,7 @@ export function ChatAppearanceSection() {
                 onClick={() => setUiPrefs((p) => ({ ...p, ttsDefault: v }))}
                 className={`py-2.5 rounded-xl text-xs font-medium border transition-all flex flex-col items-center gap-1 ${
                   uiPrefs.ttsDefault === v
-                    ? "bg-indigo-600 border-indigo-500 text-white"
+                    ? "bg-[var(--accent)] border-[var(--accent)] text-[var(--accent-text)]"
                     : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
                 }`}
               >
@@ -133,7 +133,7 @@ export function ChatAppearanceSection() {
                 onClick={() => setUiPrefs((p) => ({ ...p, ttsVoice: v }))}
                 className={`py-2.5 rounded-xl text-xs font-medium border transition-all flex flex-col items-center gap-1 ${
                   uiPrefs.ttsVoice === v
-                    ? "bg-indigo-600 border-indigo-500 text-white"
+                    ? "bg-[var(--accent)] border-[var(--accent)] text-[var(--accent-text)]"
                     : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
                 }`}
               >
@@ -150,7 +150,7 @@ export function ChatAppearanceSection() {
         <button
           onClick={save}
           disabled={saving}
-          className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-50 transition-colors"
+          className="w-full py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-sm font-medium disabled:opacity-50 transition-colors"
         >
           {saving ? "Wird gespeichert…" : "Einstellungen speichern"}
         </button>

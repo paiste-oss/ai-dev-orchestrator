@@ -37,7 +37,7 @@ export default function MobileWindowTray({
         onClick={onShowChat}
         className={`shrink-0 flex items-center gap-1.5 px-2.5 h-8 rounded-lg border text-xs font-medium transition-all select-none ${
           chatActive
-            ? "bg-indigo-600/30 border-indigo-500/50 text-indigo-200"
+            ? "bg-[var(--accent-30)] border-[var(--accent-50)] text-[var(--accent-light)]"
             : "bg-white/5 border-white/8 text-gray-400 active:bg-white/10"
         }`}
         title={t("mobile.back_to_chat")}
@@ -51,7 +51,7 @@ export default function MobileWindowTray({
         onClick={onShowHome}
         className={`shrink-0 flex items-center gap-1.5 px-2.5 h-8 rounded-lg border text-xs font-medium transition-all select-none ${
           homeOpen
-            ? "bg-indigo-600/30 border-indigo-500/50 text-indigo-200"
+            ? "bg-[var(--accent-30)] border-[var(--accent-50)] text-[var(--accent-light)]"
             : "bg-white/5 border-white/8 text-gray-400 active:bg-white/10"
         }`}
         title="Home"
@@ -125,7 +125,7 @@ function TrayItem({
     <button
       className={`shrink-0 flex items-center gap-1.5 px-2.5 h-8 rounded-lg border text-xs font-medium transition-all select-none ${
         isActive
-          ? "bg-indigo-600/30 border-indigo-500/50 text-indigo-200"
+          ? "bg-[var(--accent-30)] border-[var(--accent-50)] text-[var(--accent-light)]"
           : "bg-white/5 border-white/8 text-gray-400 active:bg-white/10"
       }`}
       onPointerDown={(e) => {

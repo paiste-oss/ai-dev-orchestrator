@@ -19,9 +19,9 @@ interface Plan {
 
 const PLAN_STYLE: Record<string, { color: string; badge: string; btn: string; trialBadge?: string }> = {
   basis:   {
-    color: "border-indigo-500/50 hover:border-indigo-400",
-    badge: "bg-indigo-600 text-white",
-    btn:   "bg-indigo-600 hover:bg-indigo-500 text-white",
+    color: "border-[var(--accent-50)] hover:border-[var(--accent)]",
+    badge: "bg-[var(--accent)] text-[var(--accent-text)]",
+    btn:   "bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)]",
     trialBadge: "14 Tage gratis testen",
   },
   komfort: {
@@ -84,7 +84,7 @@ function PlanPageContent() {
       <div className="w-full max-w-4xl space-y-8">
 
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-2xl mx-auto shadow-xl mb-4">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[var(--accent)] to-violet-600 flex items-center justify-center text-2xl mx-auto shadow-xl mb-4">
             🤖
           </div>
           <h1 className="text-3xl font-bold text-white">Willkommen, {firstName}!</h1>
@@ -132,7 +132,7 @@ function PlanPageContent() {
                       <span className="text-gray-500 text-sm pb-0.5">/ Monat</span>
                     </div>
                     {style.trialBadge && (
-                      <p className="text-xs text-indigo-300 mt-0.5">danach CHF {plan.monthly_price.toFixed(0)}/Monat</p>
+                      <p className="text-xs text-[var(--accent-light)] mt-0.5">danach CHF {plan.monthly_price.toFixed(0)}/Monat</p>
                     )}
                   </div>
 

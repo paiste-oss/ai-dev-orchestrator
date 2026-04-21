@@ -70,12 +70,12 @@ export function TrustedSendersSection() {
           onChange={e => { setInput(e.target.value); setError(null); }}
           onKeyDown={e => e.key === "Enter" && add()}
           placeholder="arzt@praxis.ch"
-          className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+          className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--accent)] transition-colors"
         />
         <button
           onClick={add}
           disabled={saving || !input.trim()}
-          className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors disabled:opacity-40"
+          className="px-4 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-semibold transition-colors disabled:opacity-40"
         >
           {saving ? "…" : t("s.trusted_add")}
         </button>

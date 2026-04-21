@@ -22,7 +22,7 @@ export default function UserError({
         </div>
         <button
           onClick={reset}
-          className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+          className="w-full py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-sm font-medium transition-colors"
         >
           Nochmals versuchen
         </button>

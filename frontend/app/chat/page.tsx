@@ -710,7 +710,13 @@ export default function ChatPage() {
       )}
       {historyLoaded && messages.length === 0 && (
         <div className="flex flex-col items-center justify-center min-h-[60%] gap-4 text-center py-8">
-          <div className={`w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-xl shadow-indigo-900/40 ${speaking ? "shadow-[0_0_0_10px_rgba(99,102,241,0.2)] scale-105" : ""} transition-all`}>
+          <div
+            className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl ${speaking ? "scale-105" : ""} transition-all`}
+            style={{
+              background: `linear-gradient(135deg, color-mix(in srgb, var(--accent) 60%, white), var(--accent))`,
+              boxShadow: speaking ? "0 0 0 10px var(--accent-20)" : undefined,
+            }}
+          >
             <span className="text-white font-bold text-xl">{buddyInitial}</span>
           </div>
           <div>
@@ -745,9 +751,9 @@ export default function ChatPage() {
         <div className="flex gap-3 items-center">
           <AvatarCircle speaking={true} initial={buddyInitial} />
           <div className="flex items-center gap-1.5 py-3">
-            <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
-            <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
-            <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]" />
+            <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce [animation-delay:0ms]" />
+            <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce [animation-delay:150ms]" />
+            <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce [animation-delay:300ms]" />
           </div>
         </div>
       )}
@@ -898,11 +904,11 @@ export default function ChatPage() {
           onAdminBack={() => router.push("/admin")}
         />
           {isDragOver && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center bg-indigo-950/80 border-2 border-dashed border-indigo-400 pointer-events-none">
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-[var(--accent-80)] border-2 border-dashed border-[var(--accent)] pointer-events-none">
               <div className="text-center">
                 <p className="text-4xl mb-3">📎</p>
-                <p className="text-indigo-200 font-semibold text-lg">Datei hier ablegen</p>
-                <p className="text-indigo-400 text-sm mt-1">Bilder, Videos, PDFs, Dokumente…</p>
+                <p className="text-[var(--accent-text)] font-semibold text-lg">Datei hier ablegen</p>
+                <p className="text-[var(--accent-light)] text-sm mt-1">Bilder, Videos, PDFs, Dokumente…</p>
               </div>
             </div>
           )}
@@ -934,7 +940,7 @@ export default function ChatPage() {
               </div>
             )}
             {artifacts.find(a => a.id === activeArtifactId)?.type === "whiteboard" && (
-              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-indigo-400/80">
+              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-[var(--accent-light)]" style={{ opacity: 0.8 }}>
                 <span>🎨</span>
                 <span>Whiteboard-Screenshot wird beim Senden mitgeschickt</span>
               </div>
@@ -958,10 +964,10 @@ export default function ChatPage() {
 
         {/* ── Resize Handle ── */}
         <div
-          className="group relative flex items-center justify-center shrink-0 w-[5px] cursor-col-resize hover:bg-indigo-500/20 active:bg-indigo-500/30 transition-colors border-x border-white/5"
+          className="group relative flex items-center justify-center shrink-0 w-[5px] cursor-col-resize hover:bg-[var(--accent-20)] active:bg-[var(--accent-30)] transition-colors border-x border-white/5"
           onMouseDown={onResizeMouseDown}
         >
-          <div className="w-[3px] h-8 rounded-full bg-white/10 group-hover:bg-indigo-400/60 transition-colors" />
+          <div className="w-[3px] h-8 rounded-full bg-white/10 group-hover:bg-[var(--accent-50)] transition-colors" />
         </div>
 
         {/* ── Artifact-Shell ── */}

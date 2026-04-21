@@ -29,7 +29,7 @@ interface CreateForm {
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const EVENT_COLORS = [
-  { bg: "bg-indigo-500/20",  text: "text-indigo-200",  dot: "bg-indigo-400",  card: "bg-indigo-500/15 border border-indigo-500/25" },
+  { bg: "bg-[var(--accent-20)]",  text: "text-[var(--accent-light)]",  dot: "bg-[var(--accent)]",  card: "bg-[var(--accent-15)] border border-[var(--accent-20)]" },
   { bg: "bg-violet-500/20",  text: "text-violet-200",  dot: "bg-violet-400",  card: "bg-violet-500/15 border border-violet-500/25" },
   { bg: "bg-emerald-500/20", text: "text-emerald-200", dot: "bg-emerald-400", card: "bg-emerald-500/15 border border-emerald-500/25" },
   { bg: "bg-rose-500/20",    text: "text-rose-200",    dot: "bg-rose-400",    card: "bg-rose-500/15 border border-rose-500/25" },
@@ -233,7 +233,7 @@ export default function CalendarWindow() {
 
         <button
           onClick={goToday}
-          className="flex-1 text-center text-sm font-semibold text-white hover:text-indigo-300 transition-colors"
+          className="flex-1 text-center text-sm font-semibold text-white hover:text-[var(--accent-light)] transition-colors"
         >
           {MONTHS[month]} {year}
         </button>
@@ -258,7 +258,7 @@ export default function CalendarWindow() {
 
         <button
           onClick={() => openCreate(selectedYmd)}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors"
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-semibold transition-colors"
         >
           {t("cal.add_event")}
         </button>
@@ -314,7 +314,7 @@ export default function CalendarWindow() {
                     onDoubleClick={() => openCreate(ymd)}
                     className={`relative flex flex-col border-r border-white/4 last:border-0 cursor-pointer transition-colors overflow-hidden ${
                       isSelected
-                        ? "bg-indigo-600/12 ring-1 ring-inset ring-indigo-500/30"
+                        ? "bg-[var(--accent-10)] ring-1 ring-inset ring-[var(--accent-30)]"
                         : "hover:bg-white/4"
                     }`}
                   >
@@ -322,9 +322,9 @@ export default function CalendarWindow() {
                     <div className="flex justify-end pr-1 pt-0.5 shrink-0">
                       <span className={`text-[11px] w-5 h-5 flex items-center justify-center rounded-full font-medium leading-none transition-colors ${
                         isToday
-                          ? "bg-indigo-500 text-white font-bold"
+                          ? "bg-[var(--accent)] text-[var(--accent-text)] font-bold"
                           : isSelected
-                          ? "text-indigo-300 font-semibold"
+                          ? "text-[var(--accent-light)] font-semibold"
                           : inMonth
                           ? isWeekend ? "text-gray-600" : "text-gray-300"
                           : "text-gray-700"
@@ -386,7 +386,7 @@ export default function CalendarWindow() {
               onKeyDown={e => e.key === "Enter" && saveEvent()}
               placeholder={t("cal.title_placeholder")}
               autoFocus
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[var(--accent)] transition-colors"
             />
 
             <div className="flex items-center gap-3">
@@ -396,7 +396,7 @@ export default function CalendarWindow() {
                   type="date"
                   value={form.date}
                   onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[var(--accent)] transition-colors"
                 />
               </div>
               <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
@@ -404,7 +404,7 @@ export default function CalendarWindow() {
                 <button
                   type="button"
                   onClick={() => setForm(f => ({ ...f, allDay: !f.allDay }))}
-                  className={`relative w-8 h-4 rounded-full transition-colors ${form.allDay ? "bg-indigo-500" : "bg-gray-700"}`}
+                  className={`relative w-8 h-4 rounded-full transition-colors ${form.allDay ? "bg-[var(--accent)]" : "bg-gray-700"}`}
                 >
                   <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${form.allDay ? "translate-x-4" : "translate-x-0"}`} />
                 </button>
@@ -419,7 +419,7 @@ export default function CalendarWindow() {
                     type="time"
                     value={form.startTime}
                     onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))}
-                    className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[var(--accent)] transition-colors"
                   />
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -428,7 +428,7 @@ export default function CalendarWindow() {
                     type="time"
                     value={form.endTime}
                     onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
-                    className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                    className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-[var(--accent)] transition-colors"
                   />
                 </div>
               </div>
@@ -438,14 +438,14 @@ export default function CalendarWindow() {
               value={form.location}
               onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
               placeholder={t("cal.location_placeholder")}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[var(--accent)] transition-colors"
             />
 
             <div className="flex gap-2">
               <button
                 onClick={saveEvent}
                 disabled={saving || !form.title.trim()}
-                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition-colors disabled:opacity-40"
+                className="px-3 py-1.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[11px] font-semibold transition-colors disabled:opacity-40"
               >
                 {saving ? t("cal.saving") : t("cal.save")}
               </button>
@@ -466,7 +466,7 @@ export default function CalendarWindow() {
                   {fmtDateLong(selectedYmd)}
                 </span>
                 {selectedYmd === toYMD(today) && (
-                  <span className="text-[10px] text-indigo-400 bg-indigo-500/15 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] text-[var(--accent-light)] bg-[var(--accent-15)] px-1.5 py-0.5 rounded-full">
                     {t("cal.today")}
                   </span>
                 )}

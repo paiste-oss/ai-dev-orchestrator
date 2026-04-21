@@ -72,10 +72,10 @@ export default function ImageViewerWindow({ initialUrl = "", onNaturalSize }: Pr
           onChange={e => setInputUrl(e.target.value)}
           onKeyDown={e => e.key === "Enter" && load()}
           placeholder={t("imgview.url_placeholder")}
-          className="flex-1 bg-white/5 border border-white/8 rounded-lg px-2 py-1 text-xs text-white outline-none placeholder-gray-600 focus:border-indigo-500/40"
+          className="flex-1 bg-white/5 border border-white/8 rounded-lg px-2 py-1 text-xs text-white outline-none placeholder-gray-600 focus:border-[var(--accent-40)]"
         />
         <button onClick={() => load()}
-          className="px-2 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs transition-colors shrink-0">
+          className="px-2 py-1 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs transition-colors shrink-0">
           →
         </button>
         <button onClick={() => fileRef.current?.click()} title={t("imgview.upload_title")}
@@ -138,7 +138,7 @@ export default function ImageViewerWindow({ initialUrl = "", onNaturalSize }: Pr
         )}
         {url && !loaded && !error && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
           </div>
         )}
         {loaded && !error && (

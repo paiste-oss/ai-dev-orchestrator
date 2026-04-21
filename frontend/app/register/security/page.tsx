@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 
-const inputCls = "w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-indigo-500 text-sm";
+const inputCls = "w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white focus:outline-none focus:border-[var(--accent)] text-sm";
 
 type Step = "ask" | "phone" | "verify" | "done";
 
@@ -89,11 +89,11 @@ function SecuritySetup() {
           {step === "ask" && (
             <div className="space-y-3">
               <p className="text-sm text-gray-300 leading-relaxed">
-                Mit der <span className="text-indigo-400 font-medium">Zwei-Faktor-Authentifizierung</span> erhältst du bei jedem Login einen Code per SMS — so bleibt dein Account sicher, auch wenn dein Passwort kompromittiert wird.
+                Mit der <span className="text-[var(--accent-light)] font-medium">Zwei-Faktor-Authentifizierung</span> erhältst du bei jedem Login einen Code per SMS — so bleibt dein Account sicher, auch wenn dein Passwort kompromittiert wird.
               </p>
               <button
                 onClick={() => setStep("phone")}
-                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors"
+                className="w-full py-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-semibold text-sm transition-colors"
               >
                 2FA jetzt aktivieren
               </button>
@@ -123,7 +123,7 @@ function SecuritySetup() {
               </div>
               {msg && <p className={`text-sm ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.text}</p>}
               <button onClick={sendOtp} disabled={loading}
-                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors disabled:opacity-40">
+                className="w-full py-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-semibold text-sm transition-colors disabled:opacity-40">
                 {loading ? "Sendet…" : "Code senden"}
               </button>
               <button onClick={() => setStep("ask")}
@@ -172,7 +172,7 @@ function SecuritySetup() {
                 Bei jedem Login wirst du einen SMS-Code an <span className="text-white">{phone}</span> erhalten.
               </p>
               <button onClick={toPlan}
-                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors">
+                className="w-full py-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-semibold text-sm transition-colors">
                 Weiter →
               </button>
             </div>

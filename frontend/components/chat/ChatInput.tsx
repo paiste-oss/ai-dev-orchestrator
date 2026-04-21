@@ -52,7 +52,7 @@ export default function ChatInput({
         />
 
         {/* Glass input card */}
-        <div className="bg-gray-900/80 backdrop-blur border border-white/8 rounded-2xl shadow-xl focus-within:border-indigo-500/40 transition-colors">
+        <div className="bg-gray-900/80 backdrop-blur border border-white/8 rounded-2xl shadow-xl focus-within:border-[var(--accent-40)] transition-colors">
           <textarea
             ref={textareaRef}
             rows={1}
@@ -116,7 +116,7 @@ export default function ChatInput({
               <button
                 onClick={onSend}
                 disabled={loading || (!input.trim() && attachedFiles.length === 0)}
-                className={`${compact ? "w-7 h-7" : "w-8 h-8"} flex items-center justify-center rounded-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95 text-white`}
+                className={`${compact ? "w-7 h-7" : "w-8 h-8"} flex items-center justify-center rounded-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-30 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95 text-[var(--accent-text)]`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>

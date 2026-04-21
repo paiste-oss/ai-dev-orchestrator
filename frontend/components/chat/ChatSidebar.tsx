@@ -18,7 +18,7 @@ export default function ChatSidebar({ buddyName, buddyInitial, firstName, onNewC
       {/* Logo area */}
       <div className="px-5 py-5 border-b border-white/5">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, color-mix(in srgb, var(--accent) 60%, white), var(--accent))` }}>
             <span className="text-white font-bold text-sm">{buddyInitial}</span>
           </div>
           <span className="font-bold text-white text-base tracking-tight">{buddyName}</span>
@@ -29,7 +29,7 @@ export default function ChatSidebar({ buddyName, buddyInitial, firstName, onNewC
       <div className="px-3 pt-4 pb-2">
         <button
           onClick={onNewChat}
-          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-sm font-medium transition-colors"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
@@ -42,7 +42,7 @@ export default function ChatSidebar({ buddyName, buddyInitial, firstName, onNewC
       <div className="flex-1 px-3 py-2 overflow-y-auto">
         <p className="text-[11px] text-gray-600 uppercase tracking-widest px-2 mb-2 font-semibold">{t("chat.conversations")}</p>
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/8 text-sm text-gray-200 cursor-default">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-indigo-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-[var(--accent-light)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
           <span className="truncate">{t("chat.current_chat")}</span>

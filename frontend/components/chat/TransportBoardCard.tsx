@@ -13,7 +13,7 @@ export default function TransportBoardCard({ data }: { data: TransportBoardData 
           const isDelayed = dep.delay && dep.delay > 0;
           return (
             <div key={i} className="flex items-center gap-3 px-4 py-2.5">
-              <span className="text-xs font-bold bg-indigo-600 text-white px-2 py-0.5 rounded min-w-[40px] text-center">
+              <span className="text-xs font-bold bg-[var(--accent)] text-[var(--accent-text)] px-2 py-0.5 rounded min-w-[40px] text-center">
                 {dep.line}
               </span>
               <span className="flex-1 text-sm text-gray-300 truncate">{dep.destination}</span>

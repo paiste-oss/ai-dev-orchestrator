@@ -115,10 +115,10 @@ export default function TopupModal({ hasActiveSubscription }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => { setTopupModal("stripe"); setBankTransfer(null); setTopupError(""); }}
-                className="flex flex-col items-center gap-2 p-4 rounded-xl border border-indigo-800/50 bg-indigo-950/30 hover:bg-indigo-950/50 transition-colors"
+                className="flex flex-col items-center gap-2 p-4 rounded-xl border border-[var(--accent-20)] bg-[var(--accent-10)] hover:bg-[var(--accent-15)] transition-colors"
               >
                 <span className="text-2xl">💳</span>
-                <span className="text-sm font-medium text-indigo-300">Kreditkarte</span>
+                <span className="text-sm font-medium text-[var(--accent-light)]">Kreditkarte</span>
                 <span className="text-xs text-gray-500">Sofort via Stripe</span>
               </button>
               <button
@@ -136,16 +136,16 @@ export default function TopupModal({ hasActiveSubscription }: Props) {
 
       {/* Stripe Confirm */}
       {topupModal === "stripe" && (
-        <div className="bg-gray-900 border border-indigo-800/40 rounded-2xl p-5 space-y-4">
+        <div className="bg-gray-900 border border-[var(--accent-20)] rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-medium text-indigo-300">Kreditkarte — {chf(parseFloat(topupAmount) || 0)}</h3>
+            <h3 className="font-medium text-[var(--accent-light)]">Kreditkarte — {chf(parseFloat(topupAmount) || 0)}</h3>
             <button onClick={() => setTopupModal(null)} className="text-gray-500 hover:text-white">✕</button>
           </div>
           {topupError && <p className="text-red-400 text-xs bg-red-950/30 border border-red-900/40 rounded-xl px-3 py-2">{topupError}</p>}
           <button
             onClick={doStripeTopup}
             disabled={topupLoading || !topupAmount || parseFloat(topupAmount) < 5}
-            className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors disabled:opacity-50"
+            className="w-full py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-semibold text-sm transition-colors disabled:opacity-50"
           >
             {topupLoading ? "Weiterleitung…" : `${chf(parseFloat(topupAmount) || 0)} via Stripe bezahlen →`}
           </button>

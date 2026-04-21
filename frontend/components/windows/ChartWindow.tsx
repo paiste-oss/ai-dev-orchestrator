@@ -322,7 +322,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
         ] as [Tab, string][]).map(([tabKey, label]) => (
           <button key={tabKey} onClick={() => setTab(tabKey as Tab)}
             className={`px-3 py-2.5 text-xs font-medium transition-colors border-b-2 ${
-              tab === tabKey ? "border-indigo-500 text-white" : "border-transparent text-gray-500 hover:text-gray-300"
+              tab === tabKey ? "border-[var(--accent)] text-white" : "border-transparent text-gray-500 hover:text-gray-300"
             }`}>
             {label}
           </button>
@@ -376,7 +376,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
             {PERIODS.map(p => (
               <button key={p.v} onClick={() => changePeriod(p.v)}
                 className={`px-2 py-0.5 rounded transition-colors ${
-                  period === p.v ? "bg-indigo-500/20 border border-indigo-500/40 text-indigo-300" : "text-gray-500 hover:text-gray-300"
+                  period === p.v ? "bg-[var(--accent-20)] border border-[var(--accent-40)] text-[var(--accent-light)]" : "text-gray-500 hover:text-gray-300"
                 }`}>{p.l}</button>
             ))}
             {isChartLoading && <span className="text-gray-600 ml-1 animate-pulse">{t("chart.loading")}</span>}
@@ -538,7 +538,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
                   {PERIODS.map(p => (
                     <button key={p.v} onClick={() => changePortfolioPeriod(p.v)}
                       className={`px-1.5 py-0.5 rounded transition-colors ${
-                        portfolioPeriod === p.v ? "bg-indigo-500/20 border border-indigo-500/40 text-indigo-300" : "text-gray-500 hover:text-gray-300"
+                        portfolioPeriod === p.v ? "bg-[var(--accent-20)] border border-[var(--accent-40)] text-[var(--accent-light)]" : "text-gray-500 hover:text-gray-300"
                       }`}>{p.l}</button>
                   ))}
                 </div>
@@ -546,7 +546,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
             )}
             <div className="ml-auto">
               <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", buy_currency: "CHF", isNew: true }); setModalSearch(""); setModalResults([]); }}
-                className="px-2.5 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 transition-colors text-xs">
+                className="px-2.5 py-1 rounded-lg bg-[var(--accent-15)] border border-[var(--accent-30)] text-[var(--accent-light)] hover:bg-[var(--accent-20)] transition-colors text-xs">
                 {t("chart.portfolio_add")}
               </button>
             </div>
@@ -561,7 +561,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
                 <span className="text-4xl opacity-20">💼</span>
                 <p className="text-gray-600 leading-relaxed">{t("chart.portfolio_empty_hint")}</p>
                 <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", buy_currency: "CHF", isNew: true }); setModalSearch(""); setModalResults([]); }}
-                  className="px-3 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 transition-colors mt-1">
+                  className="px-3 py-1.5 rounded-lg bg-[var(--accent-15)] border border-[var(--accent-30)] text-[var(--accent-light)] hover:bg-[var(--accent-20)] transition-colors mt-1">
                   {t("chart.portfolio_add_first")}
                 </button>
               </div>
@@ -593,7 +593,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
                           )}
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button onClick={() => setEditPos({ symbol: pos.symbol, quantity: String(pos.quantity), buy_price: String(pos.buy_price), buy_currency: pos.buy_currency ?? "CHF", isNew: false })}
-                              className="text-gray-600 hover:text-indigo-400 p-0.5 text-xs">✏</button>
+                              className="text-gray-600 hover:text-[var(--accent-light)] p-0.5 text-xs">✏</button>
                             <button onClick={() => deletePosition(pos.symbol)}
                               className="text-gray-600 hover:text-red-400 p-0.5 text-xs">×</button>
                           </div>
@@ -680,7 +680,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 font-mono">{a.symbol}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[var(--accent-15)] text-[var(--accent-light)] font-mono">{a.symbol}</span>
                       <span className="text-[9px] text-gray-600">{a.provider}</span>
                       <span className="text-[9px] text-gray-700">·</span>
                       <span className="text-[9px] text-gray-600">
@@ -712,7 +712,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
                     onChange={e => handleModalSearch(e.target.value)}
                     onKeyDown={e => { if (e.key === "Escape") { setModalResults([]); } }}
                     placeholder={t("chart.modal_search_placeholder")}
-                    className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500/50"
+                    className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--accent-50)]"
                   />
                   {(modalResults.length > 0 || modalSearching) && (
                     <div className="absolute left-0 top-full mt-1 w-full rounded-xl border border-white/10 shadow-2xl overflow-hidden z-50"
@@ -733,20 +733,20 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
                 <label className="text-[10px] text-gray-500 uppercase tracking-wider">{t("chart.modal_qty")}</label>
                 <input type="number" min="0" step="any" value={editPos.quantity}
                   onChange={e => setEditPos(p => p && ({ ...p, quantity: e.target.value }))}
-                  className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500/50" />
+                  className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--accent-50)]" />
               </div>
               <div className="flex gap-2">
                 <div className="flex-1">
                   <label className="text-[10px] text-gray-500 uppercase tracking-wider">{t("chart.modal_buy_price")}</label>
                   <input type="number" min="0" step="any" value={editPos.buy_price}
                     onChange={e => setEditPos(p => p && ({ ...p, buy_price: e.target.value }))}
-                    className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500/50" />
+                    className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-[var(--accent-50)]" />
                 </div>
                 <div className="w-24">
                   <label className="text-[10px] text-gray-500 uppercase tracking-wider">{t("chart.modal_currency")}</label>
                   <select value={editPos.buy_currency}
                     onChange={e => setEditPos(p => p && ({ ...p, buy_currency: e.target.value }))}
-                    className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500/50 appearance-none">
+                    className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-[var(--accent-50)] appearance-none">
                     {["CHF", "EUR", "USD", "GBP", "JPY", "CAD", "AUD"].map(c => (
                       <option key={c} value={c} className="bg-gray-900">{c}</option>
                     ))}
@@ -759,7 +759,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
                 className="flex-1 py-1.5 rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">{t("chart.modal_cancel")}</button>
               <button onClick={savePosition}
                 disabled={!editPos.symbol || !editPos.quantity || !editPos.buy_price}
-                className="flex-1 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed text-white font-medium transition-colors">
+                className="flex-1 py-1.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-30 disabled:cursor-not-allowed text-[var(--accent-text)] font-medium transition-colors">
                 {t("chart.modal_save")}
               </button>
             </div>

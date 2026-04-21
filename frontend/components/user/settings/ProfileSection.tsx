@@ -50,7 +50,7 @@ const LANGUAGES = [
 ];
 
 const inputCls =
-  "w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors";
+  "w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--accent)] transition-colors";
 
 export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSectionProps) {
   const t = useT();
@@ -150,15 +150,15 @@ export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSec
             <div className="space-y-1">
               <label className="text-xs text-gray-400 font-medium">
                 {t("s.buddy_email")}
-                <span className="ml-2 text-[10px] text-indigo-400 font-normal">{t("s.buddy_email_hint")}</span>
+                <span className="ml-2 text-[10px] text-[var(--accent-light)] font-normal">{t("s.buddy_email_hint")}</span>
               </label>
               <div className="flex items-center gap-2">
-                <input value={baddieEmail} disabled className={`${inputCls} opacity-70 cursor-default font-mono text-indigo-300`} />
+                <input value={baddieEmail} disabled className={`${inputCls} opacity-70 cursor-default font-mono text-[var(--accent-light)]`} />
                 <button
                   type="button"
                   onClick={() => navigator.clipboard.writeText(baddieEmail)}
                   title={t("s.copy")}
-                  className="shrink-0 px-3 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-indigo-500 transition-colors text-xs"
+                  className="shrink-0 px-3 py-2.5 rounded-xl bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-[var(--accent)] transition-colors text-xs"
                 >
                   📋
                 </button>
@@ -176,7 +176,7 @@ export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSec
                 <button key={l.value} type="button" onClick={() => saveLanguage(l.value)}
                   className={`py-2 rounded-xl text-xs font-medium border transition-all ${
                     language === l.value
-                      ? "bg-indigo-600 border-indigo-500 text-white"
+                      ? "bg-[var(--accent)] border-[var(--accent)] text-[var(--accent-text)]"
                       : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white"
                   }`}>
                   {l.label}
@@ -218,7 +218,7 @@ export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSec
           <label className="flex items-center gap-3 cursor-pointer">
             <div
               onClick={() => setBillingSame(v => !v)}
-              className={`w-10 h-5 rounded-full transition-colors relative ${billingSame ? "bg-indigo-600" : "bg-gray-700"}`}
+              className={`w-10 h-5 rounded-full transition-colors relative ${billingSame ? "bg-[var(--accent)]" : "bg-gray-700"}`}
             >
               <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-all ${billingSame ? "left-5" : "left-0.5"}`} />
             </div>
@@ -253,7 +253,7 @@ export function ProfileSection({ me, baddieEmail, onLanguageChange }: ProfileSec
       {/* Speichern */}
       <div className="flex items-center gap-3">
         <button onClick={saveProfile} disabled={saving}
-          className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-colors disabled:opacity-50">
+          className="px-5 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-semibold text-sm transition-colors disabled:opacity-50">
           {saving ? t("s.saving") : t("s.save")}
         </button>
         {msg && <span className={`text-sm ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.text}</span>}

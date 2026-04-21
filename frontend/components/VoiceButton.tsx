@@ -36,7 +36,7 @@ export default function VoiceButton({ onResult, lang = "de-CH", prompt, classNam
           error
             ? "bg-orange-600/80 text-white"
             : transcribing
-            ? "bg-indigo-600/80 text-white cursor-wait"
+            ? "bg-[var(--accent)] text-[var(--accent-text)] cursor-wait"
             : listening
             ? "bg-red-600 hover:bg-red-500 animate-pulse text-white"
             : "bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white"
@@ -64,7 +64,7 @@ export default function VoiceButton({ onResult, lang = "de-CH", prompt, classNam
       {/* Tooltip: Fehler oder Transkribieren */}
       {(error || transcribing) && (
         <div className={`absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap bg-gray-900 border text-[10px] px-2 py-1 rounded-lg shadow-lg pointer-events-none z-50 ${
-          error ? "border-orange-500/40 text-orange-300" : "border-indigo-500/40 text-indigo-300"
+          error ? "border-orange-500/40 text-orange-300" : "border-[var(--accent-40)] text-[var(--accent-light)]"
         }`}>
           {error ? (ERROR_LABELS[error] ?? error) : "Transkribiert…"}
         </div>

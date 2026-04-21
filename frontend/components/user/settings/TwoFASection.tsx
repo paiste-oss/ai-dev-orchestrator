@@ -6,7 +6,7 @@ import { BACKEND_URL } from "@/lib/config";
 import { Section } from "@/components/user/settings/Section";
 import { useT } from "@/lib/i18n";
 
-const inputCls = "w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors";
+const inputCls = "w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--accent)] transition-colors";
 
 type Step = "idle" | "send" | "verify";
 
@@ -120,7 +120,7 @@ export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChang
             {step === "idle" && (
               <button
                 onClick={() => setStep("send")}
-                className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+                className="w-full py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium transition-colors"
               >
                 {t("s.twofa_enable_btn")}
               </button>
@@ -145,7 +145,7 @@ export function TwoFASection({ twoFaEnabled, phoneVerified, phone, onStatusChang
                     {t("s.cancel")}
                   </button>
                   <button onClick={sendOtp} disabled={loading}
-                    className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors disabled:opacity-40">
+                    className="flex-1 py-2.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium transition-colors disabled:opacity-40">
                     {loading ? t("s.twofa_sending") : t("s.twofa_send_btn")}
                   </button>
                 </div>

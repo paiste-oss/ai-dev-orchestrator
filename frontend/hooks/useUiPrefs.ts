@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { UiPrefs } from "@/lib/chat-types";
+import { applyColorVars } from "@/lib/color-utils";
 
 export const FONT_SIZES: Record<string, string> = {
   small: "13px", normal: "15px", large: "18px", xlarge: "21px",
@@ -87,6 +88,12 @@ export function useUiPrefs() {
   useEffect(() => {
     localStorage.setItem("ui_fontSize", uiPrefs.fontSize);
   }, [uiPrefs.fontSize]);
+
+  useEffect(() => {
+    const accentHex = ACCENT_COLORS[uiPrefs.accentColor] ?? uiPrefs.accentColor;
+    const bgHex = BG_COLORS[uiPrefs.background] ?? uiPrefs.background;
+    applyColorVars(accentHex, bgHex);
+  }, [uiPrefs.accentColor, uiPrefs.background]);
 
   async function loadPreferences() {
     try {

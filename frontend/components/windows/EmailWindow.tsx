@@ -239,14 +239,14 @@ export default function EmailWindow() {
               onClick={() => setTab(key)}
               className={`flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors ${
                 tab === key
-                  ? "border-indigo-500 text-white"
+                  ? "border-[var(--accent)] text-white"
                   : "border-transparent text-gray-500 hover:text-gray-300"
               }`}
             >
               {label}
               {unread > 0 && (
                 <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                  tab === key ? "bg-indigo-500/30 text-indigo-300" : "bg-white/10 text-gray-400"
+                  tab === key ? "bg-[var(--accent-30)] text-[var(--accent-light)]" : "bg-white/10 text-gray-400"
                 }`}>
                   {unread}
                 </span>
@@ -331,7 +331,7 @@ export default function EmailWindow() {
                             </p>
                           )}
                           {msg.replied && !msg.baddi_action && (
-                            <span className="inline-block text-[10px] text-indigo-400/70 mt-0.5">{t("email.replied")}</span>
+                            <span className="inline-block text-[10px] text-[var(--accent-light)] mt-0.5">{t("email.replied")}</span>
                           )}
                         </>
                       )}
@@ -351,7 +351,7 @@ export default function EmailWindow() {
                         <span className="mx-1.5">·</span>
                         {fmtDate(msg.received_at)}
                         {msg.replied && (
-                          <span className="ml-2 text-indigo-400/70">{t("email.replied")}</span>
+                          <span className="ml-2 text-[var(--accent-light)]">{t("email.replied")}</span>
                         )}
                       </p>
 
@@ -406,7 +406,7 @@ export default function EmailWindow() {
                                 onChange={e => setRefineText(e.target.value)}
                                 placeholder={t("email.refine_placeholder")}
                                 rows={3}
-                                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 resize-none transition-colors"
+                                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[var(--accent)] resize-none transition-colors"
                                 autoFocus
                                 onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) refineBaddi(msg.id); }}
                               />
@@ -414,7 +414,7 @@ export default function EmailWindow() {
                                 <button
                                   onClick={() => refineBaddi(msg.id)}
                                   disabled={!refineText.trim() || isBaddiBusy}
-                                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition-colors disabled:opacity-40"
+                                  className="px-3 py-1.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[11px] font-semibold transition-colors disabled:opacity-40"
                                 >
                                   {isBaddiBusy ? t("email.updating") : t("email.update")}
                                 </button>
@@ -432,7 +432,7 @@ export default function EmailWindow() {
                         <button
                           onClick={() => askBaddi(msg.id)}
                           disabled={isBaddiBusy}
-                          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 transition-colors disabled:opacity-40 w-full justify-center"
+                          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg bg-[var(--accent-10)] hover:bg-[var(--accent-20)] text-[var(--accent-light)] transition-colors disabled:opacity-40 w-full justify-center"
                         >
                           {isBaddiBusy ? (
                             <>
@@ -499,14 +499,14 @@ export default function EmailWindow() {
                             onChange={e => setReplyText(e.target.value)}
                             placeholder={t("email.reply_placeholder")}
                             rows={4}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 resize-none transition-colors"
+                            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[var(--accent)] resize-none transition-colors"
                             autoFocus
                           />
                           <div className="flex gap-2">
                             <button
                               onClick={() => sendReply(msg.id)}
                               disabled={!replyText.trim() || replySending === msg.id}
-                              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition-colors disabled:opacity-40"
+                              className="px-3 py-1.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-[11px] font-semibold transition-colors disabled:opacity-40"
                             >
                               {replySending === msg.id ? t("email.sending") : t("email.send")}
                             </button>

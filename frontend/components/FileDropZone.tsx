@@ -167,12 +167,12 @@ export default function FileDropZone({
                     isError
                       ? "bg-red-500/15 border-red-500/40"
                       : isUploading
-                      ? "bg-indigo-500/15 border-indigo-500/30"
+                      ? "bg-[var(--accent-15)] border-[var(--accent-30)]"
                       : "bg-white/10 border-white/20"
                   }`}
                 >
                   {isUploading ? (
-                    <svg className="w-4 h-4 shrink-0 text-indigo-400 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <svg className="w-4 h-4 shrink-0 text-[var(--accent-light)] animate-spin" viewBox="0 0 24 24" fill="none">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
                     </svg>

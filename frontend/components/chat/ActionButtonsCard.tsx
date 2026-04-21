@@ -8,7 +8,7 @@ export default function ActionButtonsCard({ data }: { data: ActionButtonsData })
         <a
           key={i}
           href={btn.url}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors shadow-md shadow-indigo-900/30"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-sm font-medium transition-colors shadow-md shadow-black/30"
         >
           {btn.label} →
         </a>

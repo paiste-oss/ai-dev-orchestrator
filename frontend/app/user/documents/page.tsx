@@ -115,7 +115,7 @@ export default function DocumentsPage() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+            className="flex items-center gap-2 bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-40 text-[var(--accent-text)] text-sm font-medium px-4 py-2 rounded-xl transition-colors"
           >
             {uploading ? (
               <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -156,7 +156,7 @@ export default function DocumentsPage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Dateien suchen…"
-              className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-indigo-500/50"
+              className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-[var(--accent-50)]"
             />
           </div>
         )}
@@ -175,7 +175,7 @@ export default function DocumentsPage() {
             {!search && (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="text-indigo-400 hover:text-indigo-300 text-sm underline underline-offset-2 transition-colors"
+                className="text-[var(--accent-light)] hover:text-[var(--accent-hover)] text-sm underline underline-offset-2 transition-colors"
               >
                 Erste Datei hochladen
               </button>
@@ -197,7 +197,7 @@ export default function DocumentsPage() {
                     {" · "}{formatBytes(doc.file_size_bytes)}
                     {" · "}{formatDate(doc.created_at)}
                     {doc.stored_in_qdrant && (
-                      <span className="ml-1.5 text-indigo-400/70">● durchsuchbar</span>
+                      <span className="ml-1.5 text-[var(--accent-light)]">● durchsuchbar</span>
                     )}
                   </p>
                 </div>

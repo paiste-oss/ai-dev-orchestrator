@@ -72,7 +72,7 @@ function Field({
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-gray-800 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+        className="bg-gray-800 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[var(--accent)]"
       />
     </div>
   );
@@ -179,7 +179,7 @@ export default function InvoiceModal({ onClose }: Props) {
           {/* ── IDLE: Drop / Select ──────────────────────────────────────── */}
           {step === "idle" && (
             <div
-              className="border-2 border-dashed border-white/20 rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer hover:border-indigo-500/50 transition-colors"
+              className="border-2 border-dashed border-white/20 rounded-xl p-10 flex flex-col items-center gap-3 cursor-pointer hover:border-[var(--accent-50)] transition-colors"
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
@@ -203,7 +203,7 @@ export default function InvoiceModal({ onClose }: Props) {
           {/* ── LOADING states ───────────────────────────────────────────── */}
           {(step === "uploading" || step === "extracting" || step === "booking") && (
             <div className="flex flex-col items-center gap-3 py-10">
-              <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
               <p className="text-sm text-gray-400">
                 {step === "uploading" && t("invoice.uploading")}
                 {step === "extracting" && t("invoice.extracting")}
@@ -215,7 +215,7 @@ export default function InvoiceModal({ onClose }: Props) {
           {/* ── REVIEW ───────────────────────────────────────────────────── */}
           {step === "review" && invoice && (
             <div className="space-y-3">
-              <p className="text-xs text-indigo-300 bg-indigo-950/40 border border-indigo-800/40 rounded-lg px-3 py-2">
+              <p className="text-xs text-[var(--accent-light)] bg-[var(--accent-10)] border border-[var(--accent-20)] rounded-lg px-3 py-2">
                 {t("invoice.review_hint")}
               </p>
 
@@ -240,7 +240,7 @@ export default function InvoiceModal({ onClose }: Props) {
                     value={invoice.note}
                     onChange={(e) => updateInv("note", e.target.value)}
                     rows={2}
-                    className="w-full mt-0.5 bg-gray-800 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500 resize-none"
+                    className="w-full mt-0.5 bg-gray-800 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[var(--accent)] resize-none"
                   />
                 </div>
               </div>
@@ -282,7 +282,7 @@ export default function InvoiceModal({ onClose }: Props) {
                 href={bookResult.dolibarr_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full text-center py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                className="block w-full text-center py-2.5 rounded-xl text-sm font-semibold bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] transition-colors"
               >
                 {t("invoice.open_dolibarr")}
               </a>
@@ -317,7 +317,7 @@ export default function InvoiceModal({ onClose }: Props) {
             </button>
             <button
               onClick={handleBook}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] transition-colors"
             >
               {t("invoice.book")}
             </button>

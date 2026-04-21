@@ -215,7 +215,7 @@ export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUr
         />
         <button
           onClick={handleLoad}
-          className="px-3 py-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-sm hover:bg-indigo-500/30 transition-all shrink-0"
+          className="px-3 py-1.5 rounded-lg bg-[var(--accent-20)] border border-[var(--accent-30)] text-[var(--accent-light)] text-sm hover:bg-[var(--accent-30)] transition-all shrink-0"
         >
           {t("assistenz.open")}
         </button>
@@ -271,13 +271,13 @@ export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUr
                 {!frameError && currentStep && (
                   <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 20 }}>
                     {locating && (
-                      <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 text-[11px] text-indigo-300">
-                        <span className="w-2.5 h-2.5 border border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                      <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 text-[11px] text-[var(--accent-light)]">
+                        <span className="w-2.5 h-2.5 border border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
                         {t("assistenz.locating")}
                       </div>
                     )}
                     {locateFailed && !dynCoords && (
-                      <div className="absolute top-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full bg-indigo-600/80 text-[11px] text-white font-medium shadow-lg">
+                      <div className="absolute top-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-full bg-[var(--accent)] text-[11px] text-[var(--accent-text)] font-medium shadow-lg">
                         ↑ {currentStep.label}
                       </div>
                     )}
@@ -288,9 +288,9 @@ export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUr
                           <path d="M2 2 L2 38 L10 30 L17 46 L22 44 L15 28 L26 28 Z" fill="white" stroke="#6366f1" strokeWidth="2" strokeLinejoin="round" />
                           <path d="M4 5 L4 34 L11 27 L18 43 L21 42 L14 26 L24 26 Z" fill="#6366f1" opacity="0.9" />
                         </svg>
-                        <div className="absolute rounded-full border-2 border-indigo-400/70 animate-ping" style={{ width: 10, height: 10, left: -5, top: -5 }} />
+                        <div className="absolute rounded-full border-2 border-[var(--accent-40)] animate-ping" style={{ width: 10, height: 10, left: -5, top: -5 }} />
                         {currentStep?.label && (
-                          <span className="absolute whitespace-nowrap px-2 py-0.5 rounded-md bg-indigo-600 text-white text-[11px] font-semibold shadow-lg" style={{ left: 44, top: 28 }}>
+                          <span className="absolute whitespace-nowrap px-2 py-0.5 rounded-md bg-[var(--accent)] text-[var(--accent-text)] text-[11px] font-semibold shadow-lg" style={{ left: 44, top: 28 }}>
                             {currentStep.label}
                           </span>
                         )}
@@ -307,8 +307,8 @@ export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUr
                 {loading && (
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-20">
                     <div className="flex flex-col items-center gap-2">
-                      <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                      <p className="text-xs text-indigo-300">{autoRunning ? t("assistenz.clicking") : t("assistenz.loading")}</p>
+                      <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+                      <p className="text-xs text-[var(--accent-light)]">{autoRunning ? t("assistenz.clicking") : t("assistenz.loading")}</p>
                     </div>
                   </div>
                 )}
@@ -330,7 +330,7 @@ export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUr
                           <path d="M2 2 L2 38 L10 30 L17 46 L22 44 L15 28 L26 28 Z" fill="white" stroke="#6366f1" strokeWidth="2" strokeLinejoin="round" />
                           <path d="M4 5 L4 34 L11 27 L18 43 L21 42 L14 26 L24 26 Z" fill="#6366f1" opacity="0.9" />
                         </svg>
-                        <div className="absolute rounded-full border-2 border-indigo-400/80 animate-ping" style={{ width: 10, height: 10, left: -5, top: -5 }} />
+                        <div className="absolute rounded-full border-2 border-[var(--accent-40)] animate-ping" style={{ width: 10, height: 10, left: -5, top: -5 }} />
                       </div>
                     )}
                   </div>
@@ -354,8 +354,8 @@ export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUr
 
               {generatingGuide && !guide && (
                 <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center px-4">
-                  <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                  <p className="text-[11px] text-indigo-300">{t("assistenz.generating")}</p>
+                  <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+                  <p className="text-[11px] text-[var(--accent-light)]">{t("assistenz.generating")}</p>
                   <p className="text-[10px] text-gray-500">{t("assistenz.generating_detail")}</p>
                 </div>
               )}
@@ -374,7 +374,7 @@ export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUr
                   <button
                     onClick={activateBaddibetrieb}
                     className={`flex-1 py-1 rounded-lg text-[11px] font-medium border transition-all ${
-                      baddibetrieb ? "bg-indigo-600 border-indigo-500 text-white" : "bg-transparent border-white/8 text-gray-500 hover:text-indigo-400 hover:border-indigo-500/40"
+                      baddibetrieb ? "bg-[var(--accent)] border-[var(--accent)] text-[var(--accent-text)]" : "bg-transparent border-white/8 text-gray-500 hover:text-[var(--accent-light)] hover:border-[var(--accent-40)]"
                     }`}
                   >
                     {t("assistenz.baddi_does")}
@@ -389,13 +389,13 @@ export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUr
                 {guide.steps.map((step, i) => (
                   <button key={i} onClick={() => setActiveStep(i)}
                     className={`w-full text-left rounded-lg p-2 transition-all ${
-                      i === activeStep ? "bg-indigo-500/20 border border-indigo-500/25" :
+                      i === activeStep ? "bg-[var(--accent-20)] border border-[var(--accent-20)]" :
                       i < activeStep ? "opacity-40" : "hover:bg-white/5"
                     }`}>
                     <div className="flex items-start gap-2">
                       <span className={`shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold mt-0.5 ${
                         i < activeStep ? "bg-green-500/30 text-green-400" :
-                        i === activeStep ? "bg-indigo-500/50 text-indigo-300" :
+                        i === activeStep ? "bg-[var(--accent-50)] text-[var(--accent-light)]" :
                         "bg-white/8 text-gray-500"
                       }`}>
                         {i < activeStep ? "✓" : i + 1}
@@ -405,7 +405,7 @@ export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUr
                       </span>
                     </div>
                     {i === activeStep && step.detail && (
-                      <p className="text-[11px] text-indigo-300/80 mt-1.5 ml-6 leading-relaxed">{step.detail}</p>
+                      <p className="text-[11px] text-[var(--accent-light)]/80 mt-1.5 ml-6 leading-relaxed">{step.detail}</p>
                     )}
                   </button>
                 ))}
@@ -418,7 +418,7 @@ export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUr
                     <button
                       onClick={autoRunStep}
                       disabled={autoRunning || loading}
-                      className="w-full py-1.5 rounded-lg text-xs text-white bg-indigo-600/80 border border-indigo-500/50 hover:bg-indigo-600 disabled:opacity-40 transition-all flex items-center justify-center gap-1.5"
+                      className="w-full py-1.5 rounded-lg text-xs text-white bg-[var(--accent)] border border-[var(--accent-50)] hover:bg-[var(--accent-hover)] disabled:opacity-40 transition-all flex items-center justify-center gap-1.5"
                     >
                       {autoRunning ? (
                         <>
@@ -445,7 +445,7 @@ export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUr
                   <button
                     onClick={() => setActiveStep(s => Math.min((guide?.steps.length ?? 1) - 1, s + 1))}
                     disabled={activeStep === (guide?.steps.length ?? 1) - 1}
-                    className="flex-1 py-1.5 rounded-lg text-xs text-indigo-400 bg-indigo-500/15 border border-indigo-500/25 hover:bg-indigo-500/25 disabled:opacity-30 transition-all"
+                    className="flex-1 py-1.5 rounded-lg text-xs text-[var(--accent-light)] bg-[var(--accent-15)] border border-[var(--accent-20)] hover:bg-[var(--accent-20)] disabled:opacity-30 transition-all"
                   >
                     {t("assistenz.next")}
                   </button>

@@ -66,7 +66,7 @@ export default function FileViewerWindow({ url, filename, fileType, mimeType }: 
         {t("fileview.given_to_baddi")}
       </p>
       <a href={url} download={filename}
-        className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2">
+        className="text-xs text-[var(--accent-light)] hover:text-[var(--accent-hover)] underline underline-offset-2">
         {t("fileview.download")}
       </a>
     </div>

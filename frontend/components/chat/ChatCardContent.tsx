@@ -65,7 +65,7 @@ export default function ChatCardContent({ buddyName, buddyInitial, uiPrefs, onRi
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-[70%] gap-3 text-center">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: `linear-gradient(135deg, color-mix(in srgb, var(--accent) 60%, white), var(--accent))` }}>
               <span className="text-white font-bold text-sm">{buddyInitial}</span>
             </div>
             <p className="text-gray-500 text-xs">{t("chat.new_conversation")}</p>
@@ -84,9 +84,9 @@ export default function ChatCardContent({ buddyName, buddyInitial, uiPrefs, onRi
           <div className="flex gap-2 items-center">
             <AvatarCircle speaking={true} initial={buddyInitial} />
             <div className="flex gap-1 py-2">
-              <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0ms]" />
-              <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:150ms]" />
-              <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:300ms]" />
+              <span className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-bounce [animation-delay:0ms]" />
+              <span className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-bounce [animation-delay:150ms]" />
+              <span className="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-bounce [animation-delay:300ms]" />
             </div>
           </div>
         )}
@@ -99,14 +99,14 @@ export default function ChatCardContent({ buddyName, buddyInitial, uiPrefs, onRi
           value={localInput}
           onChange={e => setLocalInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-          className="flex-1 bg-white/5 border border-white/8 rounded-xl px-3 py-1.5 text-sm text-white outline-none focus:border-indigo-500/40 placeholder-gray-600"
+          className="flex-1 bg-white/5 border border-white/8 rounded-xl px-3 py-1.5 text-sm text-white outline-none focus:border-[var(--accent-40)] placeholder-gray-600"
           placeholder={t("chat.ask_placeholder", { name: buddyName })}
           disabled={loading}
         />
         <button
           onClick={handleSend}
           disabled={loading || !localInput.trim()}
-          className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium disabled:opacity-40 transition-colors shrink-0"
+          className="px-3 py-1.5 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-sm font-medium disabled:opacity-40 transition-colors shrink-0"
         >
           →
         </button>
