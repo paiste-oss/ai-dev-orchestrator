@@ -36,6 +36,17 @@ export function getToken(): string | null {
 }
 
 export function clearSession() {
+  // User-scoped Keys vor dem Löschen der Session ermitteln
+  const user = getSession();
+  if (user?.email) {
+    const scope = encodeURIComponent(user.email);
+    localStorage.removeItem(`baddi:artifacts:${scope}`);
+    localStorage.removeItem(`baddi:chatWidth:${scope}`);
+    try { sessionStorage.removeItem(`baddi:homeActive:${scope}`); } catch { /* ignored */ }
+  }
+  // Legacy-Keys die nie user-scoped waren — einmalig entfernen
+  localStorage.removeItem("baddi:artifacts");
+  localStorage.removeItem("baddi_canvas_cards");
   localStorage.removeItem("aibuddy_user");
   localStorage.removeItem("aibuddy_token");
 }

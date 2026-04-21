@@ -15,6 +15,7 @@ interface ArtifactShellProps {
   onAddArtifact?: (type: string) => void;
   bgStyle?: React.CSSProperties;
   userName?: string;
+  userId?: string;
   uiPrefs?: UiPrefs;
   onPrefsChange?: (patch: Partial<UiPrefs>) => void;
 }
@@ -31,15 +32,17 @@ export default function ArtifactShell({
   onAddArtifact,
   bgStyle,
   userName,
+  userId,
   uiPrefs,
   onPrefsChange,
 }: ArtifactShellProps) {
   const t = useT();
 
-  // ── Home active state (persisted in sessionStorage) ─────────────────────────
+  // ── Home active state (per-user, sessionStorage) ─────────────────────────────
+  const homeKey = userId ? `baddi:homeActive:${encodeURIComponent(userId)}` : null;
   const [homeActive, setHomeActiveRaw] = useState(() => {
     try {
-      const stored = sessionStorage.getItem("baddi:homeActive");
+      const stored = homeKey ? sessionStorage.getItem(homeKey) : null;
       if (stored !== null) return stored === "true";
     } catch { /* ignored */ }
     return artifacts.length === 0;
@@ -47,7 +50,9 @@ export default function ArtifactShell({
 
   const setHomeActive = (value: boolean) => {
     setHomeActiveRaw(value);
-    try { sessionStorage.setItem("baddi:homeActive", String(value)); } catch { /* ignored */ }
+    try {
+      if (homeKey) sessionStorage.setItem(homeKey, String(value));
+    } catch { /* ignored */ }
   };
 
   const prevLengthRef = useRef(artifacts.length);

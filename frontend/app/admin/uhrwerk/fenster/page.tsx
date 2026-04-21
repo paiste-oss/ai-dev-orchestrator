@@ -13,25 +13,9 @@ const STATUS_BADGE: Record<WindowModuleDefinition["status"], { label: string; cl
 export default function FensterPage() {
   const router = useRouter();
 
-  function openInChat(mod: WindowModuleDefinition) {
-    // Canvas-State direkt in localStorage vorbereiten, dann zum Chat navigieren
-    try {
-      const existing = JSON.parse(localStorage.getItem("baddi_canvas_cards") ?? "[]");
-      const offset = (existing.length - 1) * 20;
-      const newCard = {
-        id: `${mod.canvasType}-${Date.now()}`,
-        title: `${mod.icon} ${mod.label}`,
-        type: mod.canvasType,
-        x: 40 + offset,
-        y: 40 + offset,
-        width: mod.defaultWidth,
-        height: mod.defaultHeight,
-        minimized: false,
-        zIndex: 99,
-        data: {},
-      };
-      localStorage.setItem("baddi_canvas_cards", JSON.stringify([...existing, newCard]));
-    } catch { /* ignore */ }
+  function openInChat(_mod: WindowModuleDefinition) {
+    // Direkt zum Chat navigieren — Fenster werden ausschliesslich über
+    // useArtifacts (user-scoped localStorage) geöffnet, nie per Rohzugriff.
     router.push("/chat");
   }
 

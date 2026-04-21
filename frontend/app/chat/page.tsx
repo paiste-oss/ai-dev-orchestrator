@@ -96,9 +96,10 @@ export default function ChatPage() {
   const [invoiceOpen, setInvoiceOpen] = useState(false);
 
   // Split-Panel Resize
+  const chatWidthKey = user?.email ? `baddi:chatWidth:${encodeURIComponent(user.email)}` : null;
   const [chatWidth, setChatWidth] = useState<number>(() => {
     if (typeof window === "undefined") return 400;
-    const stored = localStorage.getItem("baddi:chatWidth");
+    const stored = chatWidthKey ? localStorage.getItem(chatWidthKey) : null;
     const parsed = stored ? parseInt(stored, 10) : NaN;
     return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 260), 800) : 400;
   });
@@ -127,7 +128,7 @@ export default function ChatPage() {
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
       setChatWidth((w) => {
-        localStorage.setItem("baddi:chatWidth", String(w));
+        if (chatWidthKey) localStorage.setItem(chatWidthKey, String(w));
         return w;
       });
     }
@@ -170,7 +171,7 @@ export default function ChatPage() {
   const {
     artifacts, activeId: activeArtifactId,
     openArtifact, updateArtifact, closeArtifact, closeArtifactByType, focusArtifact,
-  } = useArtifacts();
+  } = useArtifacts(user?.email);
   const [refreshingArtifacts, setRefreshingArtifacts] = useState<Set<string>>(new Set());
 
   const handleFlightRefresh = useCallback(async (artifactId: string, data: FlightBoardData) => {
@@ -973,6 +974,7 @@ export default function ChatPage() {
           onAddArtifact={handleAddCard}
           bgStyle={bgStyle}
           userName={firstName}
+          userId={user?.email}
           uiPrefs={uiPrefs}
           onPrefsChange={(patch) => setUiPrefs((p) => ({ ...p, ...patch }))}
         />
