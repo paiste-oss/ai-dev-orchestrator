@@ -273,7 +273,7 @@ def build_system_prompt(
     # ── Sprache (ZUERST — absolute Priorität) ────────────────────────────────
     _buddy_name = ui_prefs.get("buddyName", "Baddi")
     _language = ui_prefs.get("language", "de")
-    _lang_map = {"de": "Deutsch", "en": "English", "fr": "Français", "it": "Italiano"}
+    _lang_map = {"de": "Deutsch", "en": "English", "fr": "Français", "it": "Italiano", "gsw": "Schweizerdeutsch (Dialekt)"}
     _lang_label = _lang_map.get(_language, "Deutsch")
 
     if _language != "de":

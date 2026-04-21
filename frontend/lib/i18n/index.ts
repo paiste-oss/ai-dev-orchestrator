@@ -7,11 +7,12 @@ import de from "./de.json";
 import en from "./en.json";
 import fr from "./fr.json";
 import it from "./it.json";
+import gsw from "./gsw.json";
 
 type Locale = typeof de;
 type TranslateFn = (key: string, vars?: Record<string, string | number>) => string;
 
-const LOCALES: Record<string, Locale> = { de, en, fr, it, gsw: de };
+const LOCALES: Record<string, Locale> = { de, en, fr, it, gsw };
 
 function resolve(obj: Record<string, unknown>, key: string): string | undefined {
   const parts = key.split(".");
