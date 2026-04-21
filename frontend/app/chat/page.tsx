@@ -460,12 +460,21 @@ export default function ChatPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("lang", uiPrefs.language ?? "de");
       const res = await apiFetchForm(`${BACKEND_URL}/v1/chat/transcribe`, formData);
       if (!res.ok) throw new Error();
       const data = await res.json();
       if (data.text) setInput((prev) => prev ? `${prev} ${data.text}` : data.text);
     } catch {
-      setInput((prev) => `${prev}[Audio konnte nicht transkribiert werden]`);
+      // Fehler inline: t() nicht verfügbar ausserhalb TranslationProvider
+      const _audioErr: Record<string, string> = {
+        de: "[Audio konnte nicht transkribiert werden]",
+        en: "[Audio could not be transcribed]",
+        fr: "[L'audio n'a pas pu être transcrit]",
+        it: "[L'audio non ha potuto essere trascritto]",
+        gsw: "[Audio isch nid transkribiert worde]",
+      };
+      setInput((prev) => `${prev}${_audioErr[uiPrefs.language ?? "de"] ?? _audioErr.de}`);
     } finally {
       if (!/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) {
         textareaRef.current?.focus();

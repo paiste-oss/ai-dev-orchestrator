@@ -6,7 +6,7 @@ Die Pipeline-Logik liegt in services/chat_pipeline.py.
 import logging
 
 import httpx as _httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, File
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import select
@@ -182,10 +182,15 @@ async def text_to_speech(
 @router.post("/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(...),
+    lang: str = Form("de"),
     customer: Customer = Depends(get_current_user),
 ):
     if not settings.openai_api_key:
         raise HTTPException(status_code=503, detail="Whisper nicht verfügbar.")
+    # Kundensprache aus UI-Präferenzen hat Vorrang vor dem gesendeten lang-Parameter
+    _prefs_lang = (customer.ui_preferences or {}).get("language", lang)
+    # gsw (Schweizerdeutsch) → de (Whisper-Fallback)
+    _whisper_lang = "de" if _prefs_lang == "gsw" else _prefs_lang
     audio_bytes = await file.read()
     filename = file.filename or "audio.mp3"
     try:
@@ -194,7 +199,7 @@ async def transcribe_audio(
                 "https://api.openai.com/v1/audio/transcriptions",
                 headers={"Authorization": f"Bearer {settings.openai_api_key}"},
                 files={"file": (filename, audio_bytes, file.content_type or "audio/mpeg")},
-                data={"model": "whisper-1", "language": "de"},
+                data={"model": "whisper-1", "language": _whisper_lang},
             )
         if resp.status_code != 200:
             _log.error("Whisper API Fehler %s für Datei '%s'", resp.status_code, filename)

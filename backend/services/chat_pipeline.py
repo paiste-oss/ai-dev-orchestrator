@@ -492,7 +492,8 @@ async def finalize(
     structured_data = llm_result["structured_data"]
 
     # Marker verarbeiten
-    marker_result = process_markers(response_text)
+    _language = (customer.ui_preferences or {}).get("language", "de")
+    marker_result = process_markers(response_text, language=_language)
     response_text = marker_result.text
 
     if marker_result.action_buttons:

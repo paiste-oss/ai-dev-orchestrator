@@ -39,7 +39,7 @@ class MarkerResult:
     """Netzwerk-Aktion, z.B. {"type": "create_network", "name": "Haslen", "persons": ["Christa"]}."""
 
 
-def process_markers(text: str) -> MarkerResult:
+def process_markers(text: str, language: str = "de") -> MarkerResult:
     """
     Verarbeitet alle System-Marker in einem Antwort-Text.
 
@@ -50,6 +50,7 @@ def process_markers(text: str) -> MarkerResult:
 
     Args:
         text: Roher Antwort-Text vom LLM.
+        language: Sprache des Kunden (de/en/fr/it) für lokalisierte Systemmeldungen.
 
     Returns:
         MarkerResult mit bereinigtem Text und extrahierten Daten.
@@ -58,7 +59,7 @@ def process_markers(text: str) -> MarkerResult:
 
     result.text, result.action_buttons = _extract_action_buttons(result.text)
     result.text, result.ui_update = _extract_ui_marker(result.text)
-    result.text, result.capability_intent = _extract_capability_marker(result.text)
+    result.text, result.capability_intent = _extract_capability_marker(result.text, language)
     result.text, result.open_window = _extract_window_marker(result.text)
     result.text, result.close_window = _extract_close_window_marker(result.text)
     result.text, result.open_document = _extract_document_marker(result.text)
@@ -101,11 +102,20 @@ def _extract_ui_marker(text: str) -> tuple[str, dict | None]:
     return text, ui_update
 
 
-def _extract_capability_marker(text: str) -> tuple[str, str | None]:
+_CAPABILITY_MSG: dict[str, str] = {
+    "de": "Ich habe deine Anfrage notiert und an unser Entwicklungsteam weitergegeben. Wir schauen uns das an und melden uns, wenn diese Funktion verfügbar ist. 🛠️",
+    "en": "I've noted your request and passed it on to our development team. We'll look into it and get back to you when this feature is available. 🛠️",
+    "fr": "J'ai noté ta demande et je l'ai transmise à notre équipe de développement. Nous allons nous en occuper et te contacterons quand cette fonctionnalité sera disponible. 🛠️",
+    "it": "Ho annotato la tua richiesta e l'ho trasmessa al nostro team di sviluppo. Ce ne occuperemo e ti contatteremo quando la funzione sarà disponibile. 🛠️",
+    "gsw": "Ich habe dini Anfrag notiert und ans Entwicklungsteam wytergä. Mir schauemer das a und mälde eus, wenn die Funktion verfügbar isch. 🛠️",
+}
+
+
+def _extract_capability_marker(text: str, language: str = "de") -> tuple[str, str | None]:
     """
     Extrahiert den [FÄHIGKEIT_FEHLT: ...]-Marker aus dem Text.
 
-    Hängt einen freundlichen Hinweis an, wenn der Marker erkannt wurde.
+    Hängt einen freundlichen Hinweis in der Kundensprache an.
 
     Returns:
         (bereinigter Text mit optionalem Hinweis, erkannter Intent oder None)
@@ -115,10 +125,7 @@ def _extract_capability_marker(text: str) -> tuple[str, str | None]:
     if match:
         capability_intent = match.group(1).strip()
         text = re.sub(r"\s*\[FÄHIGKEIT_FEHLT:[^\]]+\]", "", text).strip()
-        text += (
-            "\n\nIch habe deine Anfrage notiert und an unser Entwicklungsteam weitergegeben. "
-            "Wir schauen uns das an und melden uns wenn diese Funktion verfügbar ist. 🛠️"
-        )
+        text += "\n\n" + _CAPABILITY_MSG.get(language, _CAPABILITY_MSG["de"])
     return text, capability_intent
 
 
