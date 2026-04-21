@@ -454,7 +454,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                 <div className="space-y-1.5">
                   <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.avatar")}</p>
                   <div className="flex gap-1.5">
-                    {[{ v: "robot", l: "🤖" }, { v: "teekanne", l: "🫖" }, { v: "lichtgestalt", l: "✨" }].map(a => (
+                    {[{ v: "robot", l: "🤖" }, { v: "teekanne", l: "🫖" }, { v: "lichtgestalt", l: "✨" }, { v: "weltkugel", l: "🌍" }].map(a => (
                       <button key={a.v} onClick={() => updatePrefs({ avatarType: a.v })}
                         className={`flex-1 py-1.5 rounded-lg text-sm border transition-all ${
                           (uiPrefs.avatarType ?? "robot") === a.v
