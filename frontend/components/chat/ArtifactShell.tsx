@@ -211,7 +211,13 @@ export default function ArtifactShell({
                 }}
               >
                 <span className={`max-w-[140px] truncate ${isActive ? "text-sm font-semibold" : "text-xs font-medium"}`}>
-                  {a.title}
+                  {(() => {
+                    const key = `window.${a.type}.label`;
+                    const translated = t(key);
+                    return translated !== key
+                      ? `${m.icon ?? ""} ${translated}`.trim()
+                      : a.title;
+                  })()}
                 </span>
                 <button
                   onClick={(e) => {

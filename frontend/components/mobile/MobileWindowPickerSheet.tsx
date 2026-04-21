@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { WINDOW_MODULES } from "@/lib/window-registry";
+import { useT } from "@/lib/i18n";
 
 interface MobileWindowPickerSheetProps {
   open: boolean;
@@ -10,6 +11,7 @@ interface MobileWindowPickerSheetProps {
 }
 
 export default function MobileWindowPickerSheet({ open, onClose, onSelect }: MobileWindowPickerSheetProps) {
+  const t = useT();
   useEffect(() => {
     if (!open) return;
     document.body.style.overflow = "hidden";
@@ -40,7 +42,7 @@ export default function MobileWindowPickerSheet({ open, onClose, onSelect }: Mob
         </div>
 
         <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider px-4 py-2">
-          Fenster öffnen
+          {t("chat.add_window")}
         </p>
 
         <div className="grid grid-cols-3 gap-2.5 px-4 pb-4">
@@ -51,7 +53,9 @@ export default function MobileWindowPickerSheet({ open, onClose, onSelect }: Mob
               className="flex flex-col items-center gap-2 p-3.5 rounded-xl bg-white/5 active:bg-white/10 border border-white/8 transition-colors"
             >
               <span className="text-2xl leading-none">{mod.icon}</span>
-              <span className="text-[11px] text-gray-300 text-center leading-tight">{mod.label}</span>
+              <span className="text-[11px] text-gray-300 text-center leading-tight">
+                {(() => { const k = `window.${mod.canvasType}.label`; const v = t(k); return v !== k ? v : mod.label; })()}
+              </span>
             </button>
           ))}
         </div>

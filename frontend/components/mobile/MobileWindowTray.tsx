@@ -6,6 +6,7 @@ import { useT } from "@/lib/i18n";
 interface TrayCard {
   id: string;
   title: string;
+  type?: string;
 }
 
 interface MobileWindowTrayProps {
@@ -91,13 +92,18 @@ function TrayItem({
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
 }) {
+  const t = useT();
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointerMoved = useRef(false);
   const startPos = useRef({ x: 0, y: 0 });
 
   // Erstes Unicode-Graphem als Icon extrahieren
   const icon = Array.from(card.title)[0] ?? "📦";
-  const label = card.title.replace(/^\S+\s*/, "").slice(0, 10) || Array.from(card.title).slice(1).join("").slice(0, 10);
+  const i18nKey = card.type ? `window.${card.type}.label` : "";
+  const i18nLabel = i18nKey ? t(i18nKey) : "";
+  const label = (i18nLabel && i18nLabel !== i18nKey)
+    ? i18nLabel.slice(0, 10)
+    : (card.title.replace(/^\S+\s*/, "").slice(0, 10) || Array.from(card.title).slice(1).join("").slice(0, 10));
 
   function startLongPress() {
     longPressTimer.current = setTimeout(() => {
