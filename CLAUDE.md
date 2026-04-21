@@ -101,6 +101,13 @@ frontend/
     config.ts                # NEXT_PUBLIC_BACKEND_URL
     config-server.ts         # BACKEND_INTERNAL_URL (nur server-seitig)
     format.ts                # Datum, Währung, etc.
+    window-registry.ts       # Alle Fenster-Module (canvasType, label, icon, etc.)
+    i18n/
+      index.ts               # getT(lang), useT() Hook, TranslationProvider
+      de.json                # Deutsch (Basis)
+      en.json                # Englisch
+      fr.json                # Französisch
+      it.json                # Italienisch
   hooks/
     useChatMessages.ts
     useDataFetch.ts
@@ -130,6 +137,33 @@ docker-compose.yml           # Alle Services (VPS)
 - Webhook-URL: `https://api.baddi.ch/v1/billing/webhook`
 - Abo-Pläne: Basis (CHF 19/Mt), Komfort (CHF 49/Mt), Premium (CHF 99/Mt)
 - Wallet: Prepaid-Guthaben nur für Token-Overage; Speicher-Addons als Abo-Items
+
+---
+
+## Mehrsprachigkeit (i18n)
+
+### Architektur
+- Alle UI-Texte im Frontend liegen als Key-Value-Paare in `frontend/lib/i18n/{lang}.json`
+- Aktuell unterstützte Sprachen: `de` (Basis), `en`, `fr`, `it`
+- `frontend/lib/i18n/index.ts` stellt bereit:
+  - `getT(lang)` — serverseitige Übersetzungsfunktion
+  - `useT()` — React Hook für Client Components (liest Sprache aus `TranslationProvider`)
+  - `TranslationProvider` — Context Provider, wrapping `app/chat/page.tsx` und User-Bereich
+- Keys sind Dot-Notation: `t("chat.copy")`, `t("window.memory.label")`, `t("cal.today")`
+- `{var}`-Interpolation: `t("dict.count_plural", { n: 3 })`
+- Fallback: fehlender Key → gibt den Key-String selbst zurück (kein Crash)
+
+### Neue Sprache hinzufügen — Checkliste
+1. `frontend/lib/i18n/{lang}.json` erstellen (alle Keys aus `de.json` übersetzen)
+2. In `frontend/lib/i18n/index.ts` die neue Sprache im Sprachen-Dict registrieren
+3. Im Sprachauswahl-Dropdown (`frontend/components/user/settings/ProfileSection.tsx`) die Option ergänzen
+4. In `backend/services/chat_system_prompt.py` den `_lang_map`-Dict erweitern (`"es": "Español"` etc.) — damit Baddi auch im Chat die richtige Sprache verwendet
+
+### Chat-Sprache (Backend)
+- Sprache wird in `customer.ui_preferences.language` (JSONB) gespeichert
+- `chat_system_prompt.py` liest die Sprache und setzt die Sprachanweisung **an erster Stelle** im dynamischen Block — absolute Priorität vor allen anderen Instruktionen
+- `chat_markers.py` → `process_markers(text, language)` gibt Fehlermeldungen in der Kundensprache zurück
+- Whisper-Transkription verwendet ebenfalls die gespeicherte Sprache (`gsw` → Fallback `de`)
 
 ---
 
