@@ -9,202 +9,192 @@ interface Props {
   speaking?: boolean;
 }
 
-// Emotion → Ozeanfarbe (H, S, L)
-const OCEAN_HSL: Record<string, [number, number, number]> = {
-  freudig:      [195, 0.85, 0.45],
-  nachdenklich: [220, 0.70, 0.38],
-  traurig:      [232, 0.45, 0.32],
-  überrascht:   [270, 0.80, 0.52],
-  ruhig:        [185, 0.65, 0.40],
-  aufmunternd:  [30,  0.90, 0.50],
-  neugierig:    [262, 0.60, 0.48],
-  empathisch:   [325, 0.68, 0.48],
+// Emotion → Ozean-Hex-Farbe (Atlas-Stil: gedämpfte Blautöne)
+const OCEAN_COLOR: Record<string, string> = {
+  freudig:      "#1a6db5",
+  nachdenklich: "#1a4a8c",
+  traurig:      "#0e2d5a",
+  überrascht:   "#2a4db5",
+  ruhig:        "#1a5a8c",
+  aufmunternd:  "#2a5a9c",
+  neugierig:    "#1a4a9c",
+  empathisch:   "#1e3a7a",
 };
 
-function oceanColor(emotion?: string | null): THREE.Color {
-  const [h, s, l] = OCEAN_HSL[emotion ?? "ruhig"] ?? OCEAN_HSL.ruhig;
-  return new THREE.Color().setHSL(h / 360, s, l);
-}
-
-// Einfache prozedurale "Kontinent"-Punkte auf Kugeloberfläche
-const CONTINENT_SEEDS: [number, number][] = [
-  // Europa / Afrika
-  [0.20, 0.30], [0.22, 0.45], [0.18, 0.55], [0.24, 0.60],
-  [0.20, 0.38], [0.23, 0.50], [0.16, 0.42],
-  // Amerika
-  [-0.30, 0.25], [-0.28, 0.40], [-0.32, 0.55], [-0.26, 0.45],
-  [-0.28, 0.30], [-0.34, 0.48],
-  // Asien
-  [0.40, 0.30], [0.50, 0.35], [0.45, 0.42], [0.55, 0.28],
-  [0.48, 0.38], [0.42, 0.25], [0.58, 0.40],
+// Vereinfachte Kontinentumrisse [lon, lat] — erkennbar wie auf einem Atlas
+const CONTINENTS: [number, number][][] = [
+  // Nordamerika
+  [
+    [-168,71],[-130,55],[-124,49],[-95,49],[-83,46],[-75,45],
+    [-67,47],[-53,47],[-50,24],[-62,10],[-75,8],[-83,8],
+    [-85,22],[-80,23],[-90,16],[-92,16],[-105,20],[-110,23],
+    [-117,32],[-118,34],[-124,38],[-124,49],[-140,60],[-168,71],
+  ],
+  // Grönland
+  [[-72,83],[-18,83],[-18,76],[-45,60],[-65,60],[-72,72]],
+  // Südamerika
+  [
+    [-82,12],[-75,12],[-62,12],[-50,2],[-35,-5],[-36,-18],
+    [-35,-53],[-52,-54],[-68,-56],[-76,-50],[-82,12],
+  ],
+  // Europa
+  [
+    [-10,35],[36,35],[40,42],[28,48],[32,60],[28,72],
+    [10,72],[5,58],[0,51],[-5,48],[-10,35],
+  ],
+  // Skandinavien
+  [[5,58],[28,72],[20,72],[8,58]],
+  // Grossbritannien (grob)
+  [[-6,50],[2,51],[2,59],[-6,59]],
+  // Afrika
+  [
+    [-18,37],[37,37],[52,12],[55,8],[52,-12],
+    [52,-35],[18,-35],[12,-18],[-18,-12],[-18,37],
+  ],
+  // Asien (Festland)
+  [
+    [26,72],[140,72],[145,50],[145,1],[105,1],
+    [80,8],[60,22],[50,8],[26,36],[26,72],
+  ],
+  // Arabische Halbinsel
+  [[36,30],[60,22],[58,12],[44,12],[36,30]],
+  // Indische Halbinsel
+  [[68,24],[80,8],[68,8],[68,24]],
+  // Japan (grob)
+  [[130,31],[132,34],[141,42],[141,45],[136,45],[130,38]],
   // Australien
-  [0.50, 0.62], [0.54, 0.65], [0.52, 0.58],
+  [
+    [114,-22],[122,-14],[136,-12],[138,-14],[144,-18],
+    [148,-20],[154,-28],[151,-34],[150,-38],[146,-42],
+    [128,-32],[122,-34],[114,-26],[114,-22],
+  ],
+  // Neuseeland (grob)
+  [[166,-46],[175,-38],[172,-34],[170,-46]],
+  // Antarktis
+  [[-180,-70],[180,-70],[180,-90],[-180,-90]],
 ];
 
-function buildLandGeometry(): THREE.BufferGeometry {
-  const N = 1400;
-  const positions = new Float32Array(N * 3);
-  const R = 1.005;
-  let idx = 0;
-  for (const [lonFrac, latFrac] of CONTINENT_SEEDS) {
-    const count = Math.floor(N / CONTINENT_SEEDS.length);
-    for (let i = 0; i < count && idx < N; i++) {
-      const lon = (lonFrac + (Math.random() - 0.5) * 0.18) * Math.PI * 2;
-      const lat = (latFrac - 0.5) * Math.PI;
-      positions[idx * 3]     = R * Math.cos(lat) * Math.cos(lon);
-      positions[idx * 3 + 1] = R * Math.sin(lat);
-      positions[idx * 3 + 2] = R * Math.cos(lat) * Math.sin(lon);
-      idx++;
-    }
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.BufferAttribute(positions.slice(0, idx * 3), 3));
-  return geo;
-}
+function buildTexture(oceanHex: string): THREE.CanvasTexture {
+  const W = 1024, H = 512;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d")!;
 
-function buildGridGeometry(): THREE.BufferGeometry {
-  const segments = 64;
-  const positions: number[] = [];
+  // Ozean-Gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0,   "#061428");
+  grad.addColorStop(0.5, oceanHex);
+  grad.addColorStop(1,   "#061428");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
 
-  // Breitenkreise
-  for (let lat = -75; lat <= 75; lat += 15) {
-    const y = Math.sin((lat * Math.PI) / 180);
-    const r = Math.cos((lat * Math.PI) / 180);
-    for (let i = 0; i <= segments; i++) {
-      const a = (i / segments) * Math.PI * 2;
-      positions.push(r * Math.cos(a), y, r * Math.sin(a));
-    }
-  }
+  const xy = (lon: number, lat: number): [number, number] => [
+    ((lon + 180) / 360) * W,
+    ((90 - lat) / 180) * H,
+  ];
 
-  // Längengrade
-  for (let lon = 0; lon < 360; lon += 15) {
-    const a = (lon * Math.PI) / 180;
-    for (let i = 0; i <= segments; i++) {
-      const lat = ((i / segments) * 2 - 1) * Math.PI * 0.5;
-      positions.push(
-        Math.cos(lat) * Math.cos(a),
-        Math.sin(lat),
-        Math.cos(lat) * Math.sin(a),
-      );
+  // Kontinente — Atlas-Grün (gedämpft, wie Schulatlas)
+  ctx.fillStyle   = "#4a7c52";
+  ctx.strokeStyle = "#3a6040";
+  ctx.lineWidth   = 1;
+
+  for (const poly of CONTINENTS) {
+    if (poly.length < 3) continue;
+    ctx.beginPath();
+    const [x0, y0] = xy(poly[0][0], poly[0][1]);
+    ctx.moveTo(x0, y0);
+    for (let i = 1; i < poly.length; i++) {
+      const [x, y] = xy(poly[i][0], poly[i][1]);
+      ctx.lineTo(x, y);
     }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
   }
 
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  return geo;
+  // Gitternetz (Äquator + Wendekreise + Polarkreise dicker/heller)
+  const drawLat = (lat: number, alpha: number, width: number) => {
+    const y = ((90 - lat) / 180) * H;
+    ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+    ctx.lineWidth   = width;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+  };
+  const drawLon = (lon: number, alpha: number, width: number) => {
+    const x = ((lon + 180) / 360) * W;
+    ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+    ctx.lineWidth   = width;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+  };
+
+  // Reguläre Gitterlinien
+  for (let lat = -75; lat <= 75; lat += 15) drawLat(lat, 0.12, 0.6);
+  for (let lon = -165; lon <= 165; lon += 15) drawLon(lon, 0.12, 0.6);
+
+  // Äquator
+  drawLat(0, 0.35, 1.2);
+  // Wendekreise
+  drawLat(23.5,  0.20, 0.8);
+  drawLat(-23.5, 0.20, 0.8);
+  // Polarkreise
+  drawLat(66.5,  0.18, 0.7);
+  drawLat(-66.5, 0.18, 0.7);
+  // Nullmeridian
+  drawLon(0, 0.30, 1.0);
+  // Datumsgrenze
+  drawLon(180, 0.18, 0.7);
+
+  return new THREE.CanvasTexture(canvas);
 }
 
 function Globe({ emotion, speaking }: Props) {
-  const groupRef   = useRef<THREE.Group>(null);
-  const oceanRef   = useRef<THREE.Mesh>(null);
-  const gridRef    = useRef<THREE.LineSegments>(null);
-  const landRef    = useRef<THREE.Points>(null);
-  const atmosRef   = useRef<THREE.Mesh>(null);
-  const glowRef    = useRef<THREE.Mesh>(null);
+  const globeRef = useRef<THREE.Mesh>(null);
+  const atmosRef = useRef<THREE.Mesh>(null);
+  const glowRef  = useRef<THREE.Mesh>(null);
 
-  const { landGeo, gridGeo } = useMemo(() => ({
-    landGeo: buildLandGeometry(),
-    gridGeo: buildGridGeometry(),
-  }), []);
+  const texture = useMemo(
+    () => buildTexture(OCEAN_COLOR[emotion ?? "ruhig"] ?? "#1a5a8c"),
+    [emotion],
+  );
 
   useFrame(({ clock }) => {
     const t   = clock.elapsedTime;
-    const spd = speaking ? 2.8 : 1;
-    const col = oceanColor(emotion);
+    const spd = speaking ? 2.2 : 1;
 
-    if (groupRef.current) {
-      groupRef.current.rotation.y += 0.004 * spd;
-      groupRef.current.rotation.x = Math.sin(t * 0.3) * 0.06;
+    if (globeRef.current) {
+      globeRef.current.rotation.y += 0.003 * spd;
+      globeRef.current.rotation.x = Math.sin(t * 0.25) * 0.04;
     }
-
-    // Ozean-Pulsieren beim Sprechen
-    if (oceanRef.current) {
-      const mat = oceanRef.current.material as THREE.MeshBasicMaterial;
-      const pulse = speaking ? 0.55 + Math.abs(Math.sin(t * 5)) * 0.12 : 0.55;
-      mat.opacity = pulse;
-      const c = col.clone();
-      c.lerp(new THREE.Color(0x001833), 0.45);
-      mat.color.set(c);
-    }
-
-    // Grid-Farbe
-    if (gridRef.current) {
-      const mat = gridRef.current.material as THREE.LineBasicMaterial;
-      const gridCol = col.clone().lerp(new THREE.Color(0xffffff), 0.35);
-      mat.color.set(gridCol);
-      mat.opacity = speaking ? 0.55 + Math.sin(t * 4) * 0.1 : 0.38;
-    }
-
-    // Land-Punkte
-    if (landRef.current) {
-      const mat = landRef.current.material as THREE.PointsMaterial;
-      const landCol = col.clone().lerp(new THREE.Color(0x88ffaa), 0.6);
-      mat.color.set(landCol);
-      mat.size = speaking
-        ? 0.022 + Math.abs(Math.sin(t * 7)) * 0.008
-        : 0.018;
-    }
-
-    // Atmosphären-Halo
     if (atmosRef.current) {
-      const mat = atmosRef.current.material as THREE.MeshBasicMaterial;
-      mat.color.set(col.clone().lerp(new THREE.Color(0x88ddff), 0.5));
-      mat.opacity = 0.10 + Math.sin(t * 1.5) * 0.03;
+      (atmosRef.current.material as THREE.MeshBasicMaterial).opacity =
+        0.10 + Math.sin(t * 1.3) * 0.025;
     }
-
-    // Äusserer Glow
     if (glowRef.current) {
-      const mat = glowRef.current.material as THREE.MeshBasicMaterial;
-      mat.color.set(col);
-      mat.opacity = speaking
-        ? 0.12 + Math.abs(Math.sin(t * 3)) * 0.06
-        : 0.07 + Math.sin(t * 1.2) * 0.02;
+      (glowRef.current.material as THREE.MeshBasicMaterial).opacity = speaking
+        ? 0.10 + Math.abs(Math.sin(t * 3)) * 0.05
+        : 0.05 + Math.sin(t * 1.0) * 0.02;
     }
   });
 
   return (
     <group>
-      {/* Rotierender Globus */}
-      <group ref={groupRef}>
-        {/* Ozean-Kugel */}
-        <mesh ref={oceanRef}>
-          <sphereGeometry args={[1, 48, 48]} />
-          <meshBasicMaterial
-            color={oceanColor(emotion).clone().lerp(new THREE.Color(0x001833), 0.45)}
-            transparent
-            opacity={0.55}
-            depthWrite={false}
-          />
-        </mesh>
+      {/* Globus mit Canvas-Textur */}
+      <mesh ref={globeRef}>
+        <sphereGeometry args={[1, 64, 64]} />
+        <meshBasicMaterial map={texture} />
+      </mesh>
 
-        {/* Gitternetz */}
-        <lineSegments ref={gridRef} geometry={gridGeo}>
-          <lineBasicMaterial
-            color={oceanColor(emotion).clone().lerp(new THREE.Color(0xffffff), 0.35)}
-            transparent
-            opacity={0.38}
-            depthWrite={false}
-          />
-        </lineSegments>
-
-        {/* Kontinent-Punkte */}
-        <points ref={landRef} geometry={landGeo}>
-          <pointsMaterial
-            color={oceanColor(emotion).clone().lerp(new THREE.Color(0x88ffaa), 0.6)}
-            size={0.018}
-            transparent
-            opacity={0.92}
-            sizeAttenuation
-            depthWrite={false}
-          />
-        </points>
-      </group>
-
-      {/* Atmosphäre (dreht nicht mit) */}
+      {/* Atmosphären-Halo */}
       <mesh ref={atmosRef}>
-        <sphereGeometry args={[1.08, 32, 32]} />
+        <sphereGeometry args={[1.06, 32, 32]} />
         <meshBasicMaterial
-          color={new THREE.Color(0x88ddff)}
+          color="#6ab4ff"
           transparent
           opacity={0.10}
           side={THREE.BackSide}
@@ -214,11 +204,11 @@ function Globe({ emotion, speaking }: Props) {
 
       {/* Äusserer Glow */}
       <mesh ref={glowRef}>
-        <sphereGeometry args={[1.22, 24, 24]} />
+        <sphereGeometry args={[1.18, 24, 24]} />
         <meshBasicMaterial
-          color={oceanColor(emotion)}
+          color="#3a8ad4"
           transparent
-          opacity={0.07}
+          opacity={0.05}
           side={THREE.BackSide}
           depthWrite={false}
         />
@@ -230,7 +220,7 @@ function Globe({ emotion, speaking }: Props) {
 export default function WeltkugelAvatar({ emotion, speaking }: Props) {
   return (
     <Canvas
-      camera={{ position: [0, 0, 2.6], fov: 48 }}
+      camera={{ position: [0, 0, 3.0], fov: 40 }}
       gl={{ alpha: true, antialias: true }}
       style={{ width: "100%", height: "100%", background: "transparent" }}
     >
