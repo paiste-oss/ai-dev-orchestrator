@@ -6,6 +6,7 @@
  */
 
 import { useRef, useState } from "react";
+import { useT } from "@/lib/i18n";
 import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 
@@ -80,6 +81,7 @@ function Field({
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function InvoiceModal({ onClose }: Props) {
+  const t = useT();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<Step>("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -91,7 +93,7 @@ export default function InvoiceModal({ onClose }: Props) {
 
   async function handleFile(file: File) {
     if (!file.name.toLowerCase().endsWith(".pdf")) {
-      setErrorMsg("Nur PDF-Dateien werden unterstützt.");
+      setErrorMsg(t("invoice.pdf_only"));
       return;
     }
     setStep("uploading");
@@ -168,7 +170,7 @@ export default function InvoiceModal({ onClose }: Props) {
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-          <h2 className="text-sm font-semibold text-white">Rechnung buchen</h2>
+          <h2 className="text-sm font-semibold text-white">{t("invoice.title")}</h2>
           <button onClick={onClose} className="text-gray-500 hover:text-white text-lg leading-none">✕</button>
         </div>
 
@@ -187,7 +189,7 @@ export default function InvoiceModal({ onClose }: Props) {
               }}
             >
               <span className="text-3xl">📄</span>
-              <p className="text-sm text-gray-400 text-center">PDF-Rechnung hier ablegen<br />oder klicken zum Auswählen</p>
+              <p className="text-sm text-gray-400 text-center">{t("invoice.drop_hint")}</p>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -203,9 +205,9 @@ export default function InvoiceModal({ onClose }: Props) {
             <div className="flex flex-col items-center gap-3 py-10">
               <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
               <p className="text-sm text-gray-400">
-                {step === "uploading" && "Wird hochgeladen…"}
-                {step === "extracting" && "KI analysiert die Rechnung…"}
-                {step === "booking" && "Wird in Dolibarr gebucht…"}
+                {step === "uploading" && t("invoice.uploading")}
+                {step === "extracting" && t("invoice.extracting")}
+                {step === "booking" && t("invoice.booking_state")}
               </p>
             </div>
           )}
@@ -214,26 +216,26 @@ export default function InvoiceModal({ onClose }: Props) {
           {step === "review" && invoice && (
             <div className="space-y-3">
               <p className="text-xs text-indigo-300 bg-indigo-950/40 border border-indigo-800/40 rounded-lg px-3 py-2">
-                Bitte extrahierte Daten prüfen und bei Bedarf korrigieren.
+                {t("invoice.review_hint")}
               </p>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <Field label="Lieferant" value={invoice.supplier_name} onChange={(v) => updateInv("supplier_name", v)} />
+                  <Field label={t("invoice.field_supplier")} value={invoice.supplier_name} onChange={(v) => updateInv("supplier_name", v)} />
                 </div>
-                <Field label="Adresse" value={invoice.supplier_address} onChange={(v) => updateInv("supplier_address", v)} />
-                <Field label="PLZ" value={invoice.supplier_zip} onChange={(v) => updateInv("supplier_zip", v)} />
-                <Field label="Ort" value={invoice.supplier_town} onChange={(v) => updateInv("supplier_town", v)} />
-                <Field label="Rechnungs-Nr." value={invoice.ref_supplier} onChange={(v) => updateInv("ref_supplier", v)} />
-                <Field label="Rechnungsdatum" value={invoice.invoice_date} onChange={(v) => updateInv("invoice_date", v)} />
-                <Field label="Fällig am" value={invoice.due_date ?? ""} onChange={(v) => updateInv("due_date", v || null)} />
-                <Field label="Betrag (CHF)" value={String(invoice.total_amount)} onChange={(v) => updateInv("total_amount", parseFloat(v) || 0)} />
-                <Field label="MwSt." value={String(invoice.vat_amount)} onChange={(v) => updateInv("vat_amount", parseFloat(v) || 0)} />
+                <Field label={t("invoice.field_address")} value={invoice.supplier_address} onChange={(v) => updateInv("supplier_address", v)} />
+                <Field label={t("invoice.field_zip")} value={invoice.supplier_zip} onChange={(v) => updateInv("supplier_zip", v)} />
+                <Field label={t("invoice.field_city")} value={invoice.supplier_town} onChange={(v) => updateInv("supplier_town", v)} />
+                <Field label={t("invoice.field_ref")} value={invoice.ref_supplier} onChange={(v) => updateInv("ref_supplier", v)} />
+                <Field label={t("invoice.field_date")} value={invoice.invoice_date} onChange={(v) => updateInv("invoice_date", v)} />
+                <Field label={t("invoice.field_due")} value={invoice.due_date ?? ""} onChange={(v) => updateInv("due_date", v || null)} />
+                <Field label={t("invoice.field_amount")} value={String(invoice.total_amount)} onChange={(v) => updateInv("total_amount", parseFloat(v) || 0)} />
+                <Field label={t("invoice.field_vat")} value={String(invoice.vat_amount)} onChange={(v) => updateInv("vat_amount", parseFloat(v) || 0)} />
                 <div className="col-span-2">
-                  <Field label="IBAN" value={invoice.iban} onChange={(v) => updateInv("iban", v)} />
+                  <Field label={t("invoice.field_iban")} value={invoice.iban} onChange={(v) => updateInv("iban", v)} />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-xs text-gray-500">Notiz</label>
+                  <label className="text-xs text-gray-500">{t("invoice.field_note")}</label>
                   <textarea
                     value={invoice.note}
                     onChange={(e) => updateInv("note", e.target.value)}
@@ -245,7 +247,7 @@ export default function InvoiceModal({ onClose }: Props) {
 
               {invoice.lines.length > 0 && (
                 <div>
-                  <p className="text-xs text-gray-500 mb-1">Positionen ({invoice.lines.length})</p>
+                  <p className="text-xs text-gray-500 mb-1">{t("invoice.positions", { n: String(invoice.lines.length) })}</p>
                   <div className="space-y-1 max-h-40 overflow-y-auto">
                     {invoice.lines.map((ln, i) => (
                       <div key={i} className="text-xs text-gray-400 bg-gray-800/50 rounded-lg px-3 py-1.5 flex justify-between gap-2">
@@ -264,15 +266,15 @@ export default function InvoiceModal({ onClose }: Props) {
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-green-400">
                 <span className="text-xl">✓</span>
-                <p className="text-sm font-semibold">Rechnung erfolgreich gebucht</p>
+                <p className="text-sm font-semibold">{t("invoice.success")}</p>
               </div>
               <div className="bg-gray-800/50 rounded-xl p-4 space-y-2 text-sm">
                 <div className="flex justify-between text-gray-300">
-                  <span className="text-gray-500">Dolibarr ID</span>
+                  <span className="text-gray-500">{t("invoice.dolibarr_id")}</span>
                   <span>#{bookResult.dolibarr_invoice_id}</span>
                 </div>
                 <div className="flex justify-between text-gray-300">
-                  <span className="text-gray-500">Lieferant (socid)</span>
+                  <span className="text-gray-500">{t("invoice.supplier_id")}</span>
                   <span>#{bookResult.supplier_socid}</span>
                 </div>
               </div>
@@ -282,9 +284,9 @@ export default function InvoiceModal({ onClose }: Props) {
                 rel="noopener noreferrer"
                 className="block w-full text-center py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
               >
-                In Dolibarr öffnen →
+                {t("invoice.open_dolibarr")}
               </a>
-              <p className="text-xs text-gray-500 text-center">Dokument wurde im Ordner «Rechnungen» abgelegt.</p>
+              <p className="text-xs text-gray-500 text-center">{t("invoice.filed_in")}</p>
             </div>
           )}
 
@@ -298,7 +300,7 @@ export default function InvoiceModal({ onClose }: Props) {
                 onClick={() => { setStep("idle"); setErrorMsg(""); setDocId(null); setInvoice(null); }}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold bg-gray-700 hover:bg-gray-600 text-white transition-colors"
               >
-                Nochmals versuchen
+                {t("invoice.retry")}
               </button>
             </div>
           )}
@@ -311,13 +313,13 @@ export default function InvoiceModal({ onClose }: Props) {
               onClick={() => { setStep("idle"); setDocId(null); setInvoice(null); }}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gray-700 hover:bg-gray-600 text-white transition-colors"
             >
-              Abbrechen
+              {t("invoice.cancel")}
             </button>
             <button
               onClick={handleBook}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
             >
-              In Dolibarr buchen →
+              {t("invoice.book")}
             </button>
           </div>
         )}
@@ -328,7 +330,7 @@ export default function InvoiceModal({ onClose }: Props) {
               onClick={onClose}
               className="w-full py-2.5 rounded-xl text-sm font-semibold bg-gray-700 hover:bg-gray-600 text-white transition-colors"
             >
-              Schließen
+              {t("invoice.close")}
             </button>
           </div>
         )}

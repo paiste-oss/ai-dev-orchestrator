@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n";
 import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { getWhisperPrompt } from "@/lib/whisperPrompts";
@@ -30,6 +31,7 @@ function formatDate(iso: string) {
 }
 
 export default function DictationWindow({ language }: { language?: string }) {
+  const t = useT();
   const [step, setStep] = useState<Step>("idle");
   const [dictations, setDictations] = useState<Dictation[]>([]);
   const [transcript, setTranscript] = useState("");
@@ -71,7 +73,7 @@ export default function DictationWindow({ language }: { language?: string }) {
         if (!chunksRef.current.length) { setStep("idle"); return; }
         const blob = new Blob(chunksRef.current, { type: mimeType });
         audioRef.current = blob;
-        setTitle(`Diktat ${new Date().toLocaleDateString("de-CH")}`);
+        setTitle(`${t("dict.default_title")} ${new Date().toLocaleDateString("de-CH")}`);
         setStep("review");
       };
       rec.start(200);
@@ -79,7 +81,7 @@ export default function DictationWindow({ language }: { language?: string }) {
       setElapsed(0);
       setStep("recording");
       timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
-    } catch { setError("Mikrofon-Zugriff verweigert."); }
+    } catch { setError(t("dict.mic_denied")); }
   }, []);
 
   function stopRecording() {
@@ -101,14 +103,14 @@ export default function DictationWindow({ language }: { language?: string }) {
       const fd = new FormData();
       fd.append("audio", blob, `aufnahme.${ext}`);
       fd.append("transcript", transcript);
-      fd.append("title", title || "Diktat");
+      fd.append("title", title || t("dict.default_title"));
       fd.append("duration_seconds", String(elapsed));
       const res = await apiFetchForm(`${BACKEND_URL}/v1/dictations/`, fd);
       if (!res.ok) throw new Error();
       audioRef.current = null;
       setStep("idle"); setTranscript(""); setTitle("");
       await load();
-    } catch { setError("Speichern fehlgeschlagen."); }
+    } catch { setError(t("dict.save_failed")); }
     finally { setSaving(false); }
   }
 
@@ -142,14 +144,14 @@ export default function DictationWindow({ language }: { language?: string }) {
       const transRes = await apiFetchForm(`${BACKEND_URL}/v1/transcribe`, fd);
       if (!transRes.ok) throw new Error(`Whisper Fehler ${transRes.status}`);
       const { text } = await transRes.json();
-      if (!text?.trim()) throw new Error("Kein Text erkannt");
+      if (!text?.trim()) throw new Error(t("dict.no_text"));
       // Transkript speichern
       const saveFd = new FormData();
       saveFd.append("transcript", text.trim());
       await apiFetchForm(`${BACKEND_URL}/v1/dictations/${id}/transcript`, saveFd);
       setDictations(prev => prev.map(d => d.id === id ? { ...d, transcript: text.trim() } : d));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Transkription fehlgeschlagen");
+      setError(e instanceof Error ? e.message : t("dict.transcription_failed"));
     } finally { setTranscribing(null); }
   }
 
@@ -183,9 +185,13 @@ export default function DictationWindow({ language }: { language?: string }) {
     <div className="h-full flex flex-col overflow-hidden text-white">
       {/* Header */}
       <div className="px-4 py-2.5 border-b border-white/5 shrink-0 flex items-center justify-between">
-        <p className="text-xs text-gray-500">Sprachaufnahmen aufnehmen &amp; transkribieren</p>
+        <p className="text-xs text-gray-500">{t("dict.header_subtitle")}</p>
         {step === "idle" && (
-          <span className="text-[10px] text-gray-600">{dictations.length} Diktat{dictations.length !== 1 ? "e" : ""}</span>
+          <span className="text-[10px] text-gray-600">
+            {dictations.length !== 1
+              ? t("dict.count_plural", { n: String(dictations.length) })
+              : t("dict.count_single", { n: String(dictations.length) })}
+          </span>
         )}
       </div>
 
@@ -196,7 +202,7 @@ export default function DictationWindow({ language }: { language?: string }) {
             onClick={startRecording}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all text-sm font-medium"
           >
-            <span className="text-lg">🎤</span> Aufnahme starten
+            <span className="text-lg">🎤</span> {t("dict.record_start")}
           </button>
         )}
 
@@ -204,12 +210,12 @@ export default function DictationWindow({ language }: { language?: string }) {
           <div className="flex items-center gap-3">
             <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
             <span className="text-red-400 font-mono text-sm tabular-nums">{formatDuration(elapsed)}</span>
-            <span className="text-gray-500 text-xs flex-1">Aufnahme läuft…</span>
+            <span className="text-gray-500 text-xs flex-1">{t("dict.recording_running")}</span>
             <button
               onClick={stopRecording}
               className="px-4 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-xs hover:bg-red-500/30 transition-all"
             >
-              Stopp
+              {t("dict.stop")}
             </button>
           </div>
         )}
@@ -218,19 +224,19 @@ export default function DictationWindow({ language }: { language?: string }) {
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
               <span>🎤</span>
-              <span>Aufnahme bereit · {formatDuration(elapsed)}</span>
+              <span>{t("dict.recording_ready")} · {formatDuration(elapsed)}</span>
             </div>
             <input
               value={title}
               onChange={e => setTitle(e.target.value)}
-              placeholder="Titel"
+              placeholder={t("dict.title_placeholder")}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-white/25"
             />
             <textarea
               value={transcript}
               onChange={e => setTranscript(e.target.value)}
               rows={3}
-              placeholder="Notiz (optional)"
+              placeholder={t("dict.note_placeholder")}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-white/25 resize-none"
             />
             <div className="flex gap-2">
@@ -238,13 +244,13 @@ export default function DictationWindow({ language }: { language?: string }) {
                 onClick={saveDictation} disabled={saving}
                 className="flex-1 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-xs hover:bg-emerald-500/25 transition-all disabled:opacity-40"
               >
-                {saving ? "Speichert…" : "Speichern"}
+                {saving ? t("dict.saving") : t("dict.save")}
               </button>
               <button
                 onClick={cancelReview}
                 className="px-4 py-1.5 rounded-lg border border-white/8 text-gray-400 text-xs hover:text-white hover:border-white/20 transition-all"
               >
-                Verwerfen
+                {t("dict.discard")}
               </button>
             </div>
           </div>
@@ -256,7 +262,7 @@ export default function DictationWindow({ language }: { language?: string }) {
       {/* Liste */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
         {dictations.length === 0 && step === "idle" && (
-          <p className="text-center text-gray-600 text-sm pt-8">Noch keine Diktate gespeichert.</p>
+          <p className="text-center text-gray-600 text-sm pt-8">{t("dict.empty")}</p>
         )}
         {dictations.map(d => (
           <div key={d.id} className="group rounded-xl border border-white/6 bg-white/3 p-3 space-y-1.5 hover:border-white/12 transition-all">

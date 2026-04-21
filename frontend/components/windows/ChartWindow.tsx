@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useT } from "@/lib/i18n";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend,
@@ -45,6 +46,7 @@ interface ChartWindowProps {
 }
 
 export default function ChartWindow({ initialSymbol, initialSymbols, onStateChange }: ChartWindowProps) {
+  const t = useT();
   const _initSyms = initialSymbols?.map(s => s.toUpperCase()) ?? (initialSymbol ? [initialSymbol.toUpperCase()] : []);
   const [tab, setTab] = useState<Tab>("chart");
   const [symbols, setSymbols] = useState<string[]>(_initSyms);
@@ -80,7 +82,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
       const json: StockData = await res.json();
       setChartData(d => ({ ...d, [sym]: json }));
     } catch {
-      setChartData(d => ({ ...d, [sym]: { ...({} as StockData), symbol: sym, error: "Netzwerkfehler" } }));
+      setChartData(d => ({ ...d, [sym]: { ...({} as StockData), symbol: sym, error: t("chart.error") } }));
     } finally {
       setLoadingSymbols(s => { const n = new Set(s); n.delete(sym); return n; });
     }
@@ -185,7 +187,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
       const json: StockData = await res.json();
       setPortfolioChartData(d => ({ ...d, [sym]: json }));
     } catch {
-      setPortfolioChartData(d => ({ ...d, [sym]: { ...({} as StockData), symbol: sym, error: "Fehler" } }));
+      setPortfolioChartData(d => ({ ...d, [sym]: { ...({} as StockData), symbol: sym, error: t("chart.error") } }));
     } finally {
       setPortfolioLoadingSyms(s => { const n = new Set(s); n.delete(sym); return n; });
     }
@@ -313,16 +315,16 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
       {/* Tab bar */}
       <div className="shrink-0 flex border-b border-white/6">
         {([
-          ["chart",     "📊 Chart"],
-          ["overlay",   "📈 Overlay"],
-          ["portfolio", "💼 Portfolio"],
-          ["news",      "📰 News"],
-        ] as [Tab, string][]).map(([t, l]) => (
-          <button key={t} onClick={() => setTab(t)}
+          ["chart",     t("chart.tab_chart")],
+          ["overlay",   t("chart.tab_overlay")],
+          ["portfolio", t("chart.tab_portfolio")],
+          ["news",      t("chart.tab_news")],
+        ] as [Tab, string][]).map(([tabKey, label]) => (
+          <button key={tabKey} onClick={() => setTab(tabKey as Tab)}
             className={`px-3 py-2.5 text-xs font-medium transition-colors border-b-2 ${
-              tab === t ? "border-indigo-500 text-white" : "border-transparent text-gray-500 hover:text-gray-300"
+              tab === tabKey ? "border-indigo-500 text-white" : "border-transparent text-gray-500 hover:text-gray-300"
             }`}>
-            {l}
+            {label}
           </button>
         ))}
       </div>
@@ -357,7 +359,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
               {(searchResults.length > 0 || searching) && (
                 <div className="absolute left-0 top-7 min-w-[200px] rounded-xl border border-white/10 shadow-2xl overflow-hidden z-50"
                   style={{ background: "rgba(8,12,22,0.97)" }}>
-                  {searching && <div className="px-3 py-2 text-gray-500">Suche…</div>}
+                  {searching && <div className="px-3 py-2 text-gray-500">{t("chart.searching")}</div>}
                   {searchResults.map(r => (
                     <button key={r.symbol} onClick={() => addSymbol(r.symbol)}
                       className="w-full text-left px-3 py-2 hover:bg-white/8 flex gap-2">
@@ -377,7 +379,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
                   period === p.v ? "bg-indigo-500/20 border border-indigo-500/40 text-indigo-300" : "text-gray-500 hover:text-gray-300"
                 }`}>{p.l}</button>
             ))}
-            {isChartLoading && <span className="text-gray-600 ml-1 animate-pulse">lädt…</span>}
+            {isChartLoading && <span className="text-gray-600 ml-1 animate-pulse">{t("chart.loading")}</span>}
           </div>
         </div>
       )}
@@ -388,7 +390,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
           {symbols.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center gap-2 text-center">
               <span className="text-4xl opacity-20">📊</span>
-              <p className="text-gray-600">Symbol oben eingeben und Enter drücken</p>
+              <p className="text-gray-600">{t("chart.empty_hint")}</p>
             </div>
           ) : (
             <div className="grid gap-3" style={{ gridTemplateColumns: symbols.length === 1 ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))" }}>
@@ -416,9 +418,9 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
                             </span>
                           </>
                         ) : sd?.error ? (
-                          <span className="text-red-400 text-[10px]">Fehler</span>
+                          <span className="text-red-400 text-[10px]">{t("chart.error")}</span>
                         ) : (
-                          <span className="text-gray-600 animate-pulse">lädt…</span>
+                          <span className="text-gray-600 animate-pulse">{t("chart.loading")}</span>
                         )}
                       </div>
                     </div>
@@ -445,8 +447,8 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
                       ) : (
                         <div className="h-full flex items-center justify-center">
                           {loadingSymbols.has(sym)
-                            ? <span className="text-gray-600 animate-pulse">lädt…</span>
-                            : <span className="text-gray-700">Keine Daten</span>}
+                            ? <span className="text-gray-600 animate-pulse">{t("chart.loading")}</span>
+                            : <span className="text-gray-700">{t("chart.no_data")}</span>}
                         </div>
                       )}
                     </div>
@@ -469,7 +471,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
               </div>
             ) : !hasChartData && !isChartLoading ? (
               <div className="h-full flex items-center justify-center">
-                <p className="text-red-400">Keine Daten verfügbar</p>
+                <p className="text-red-400">{t("chart.no_data_available")}</p>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -522,11 +524,11 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
             {portfolio.length > 0 && (
               <>
                 <div>
-                  <p className="text-[9px] text-gray-600 uppercase tracking-wider">Gesamtwert</p>
+                  <p className="text-[9px] text-gray-600 uppercase tracking-wider">{t("chart.portfolio_total")}</p>
                   <p className="text-sm font-semibold text-white tabular-nums">{totalValue.toLocaleString("de-CH", { minimumFractionDigits: 2 })}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-gray-600 uppercase tracking-wider">G/V</p>
+                  <p className="text-[9px] text-gray-600 uppercase tracking-wider">{t("chart.portfolio_pnl")}</p>
                   <p className={`text-sm font-semibold tabular-nums ${totalGain >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                     {totalGain >= 0 ? "+" : ""}{totalGain.toLocaleString("de-CH", { minimumFractionDigits: 2 })}
                     <span className="text-[10px] ml-1 opacity-70">({totalGainPct >= 0 ? "+" : ""}{totalGainPct.toFixed(2)}%)</span>
@@ -545,7 +547,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
             <div className="ml-auto">
               <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", buy_currency: "CHF", isNew: true }); setModalSearch(""); setModalResults([]); }}
                 className="px-2.5 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 transition-colors text-xs">
-                + Position
+                {t("chart.portfolio_add")}
               </button>
             </div>
           </div>
@@ -553,14 +555,14 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
           {/* Card grid */}
           <div className="flex-1 overflow-y-auto px-3 py-3">
             {portfolioLoading ? (
-              <p className="text-center text-gray-600 pt-8">Lädt…</p>
+              <p className="text-center text-gray-600 pt-8">{t("chart.loading")}</p>
             ) : portfolio.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
                 <span className="text-4xl opacity-20">💼</span>
-                <p className="text-gray-600 leading-relaxed">Noch keine Positionen.<br />Füge Aktien mit Kauf-Kurs und Menge hinzu.</p>
+                <p className="text-gray-600 leading-relaxed">{t("chart.portfolio_empty_hint")}</p>
                 <button onClick={() => { setEditPos({ symbol: "", quantity: "", buy_price: "", buy_currency: "CHF", isNew: true }); setModalSearch(""); setModalResults([]); }}
                   className="px-3 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 transition-colors mt-1">
-                  + Erste Position hinzufügen
+                  {t("chart.portfolio_add_first")}
                 </button>
               </div>
             ) : (
@@ -621,8 +623,8 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
                         ) : (
                           <div className="h-full flex items-center justify-center">
                             {loading
-                              ? <span className="text-gray-600 animate-pulse text-xs">lädt…</span>
-                              : <span className="text-gray-700 text-xs">Keine Daten</span>}
+                              ? <span className="text-gray-600 animate-pulse text-xs">{t("chart.loading")}</span>
+                              : <span className="text-gray-700 text-xs">{t("chart.no_data")}</span>}
                           </div>
                         )}
                       </div>
@@ -630,17 +632,17 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
                       {/* Info grid */}
                       <div className="grid grid-cols-3 border-t border-white/5 text-[10px]">
                         {[
-                          ["Stück",    pos.quantity % 1 === 0 ? String(pos.quantity) : pos.quantity.toFixed(4)],
-                          ["Kaufkurs", `${pos.buy_price.toFixed(2)} ${pos.buy_currency}`],
-                          ["Aktuell",  pos.current_price !== null ? `${pos.current_price.toFixed(2)} ${pos.currency}` : "–"],
-                          ["Einstand", `${pos.cost_basis.toLocaleString("de-CH", { minimumFractionDigits: 2 })} ${pos.buy_currency}`],
-                          ["G/V abs.", pos.gain !== null ? `${pos.gain >= 0 ? "+" : ""}${pos.gain.toLocaleString("de-CH", { minimumFractionDigits: 2 })} ${pos.currency}` : "–"],
-                          ["G/V %",   pos.gain_pct !== null ? `${pos.gain_pct >= 0 ? "+" : ""}${pos.gain_pct.toFixed(2)}%` : "–"],
-                        ].map(([label, value]) => (
+                          [t("chart.portfolio_pieces"),    pos.quantity % 1 === 0 ? String(pos.quantity) : pos.quantity.toFixed(4)],
+                          [t("chart.portfolio_buy_price"), `${pos.buy_price.toFixed(2)} ${pos.buy_currency}`],
+                          [t("chart.portfolio_current"),   pos.current_price !== null ? `${pos.current_price.toFixed(2)} ${pos.currency}` : "–"],
+                          [t("chart.portfolio_cost"),      `${pos.cost_basis.toLocaleString("de-CH", { minimumFractionDigits: 2 })} ${pos.buy_currency}`],
+                          [t("chart.portfolio_pnl_abs"),   pos.gain !== null ? `${pos.gain >= 0 ? "+" : ""}${pos.gain.toLocaleString("de-CH", { minimumFractionDigits: 2 })} ${pos.currency}` : "–"],
+                          [t("chart.portfolio_pnl_pct"),   pos.gain_pct !== null ? `${pos.gain_pct >= 0 ? "+" : ""}${pos.gain_pct.toFixed(2)}%` : "–"],
+                        ].map(([label, value], idx) => (
                           <div key={label} className="px-2.5 py-1.5 border-r border-b border-white/5 last:border-r-0">
                             <p className="text-gray-600 mb-0.5">{label}</p>
                             <p className={`tabular-nums font-medium ${
-                              label.startsWith("G/V") && pos.gain !== null
+                              idx >= 4 && pos.gain !== null
                                 ? pos.gain >= 0 ? "text-emerald-400" : "text-red-400"
                                 : "text-gray-300"
                             }`}>{value}</p>
@@ -661,11 +663,11 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
       {tab === "news" && (
         <div className="flex-1 overflow-y-auto">
           {newsLoading ? (
-            <p className="text-center text-gray-600 pt-8">Lädt Nachrichten…</p>
+            <p className="text-center text-gray-600 pt-8">{t("chart.news_loading")}</p>
           ) : news.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-4">
               <span className="text-4xl opacity-20">📰</span>
-              <p className="text-gray-600">Füge Symbole im Chart-Tab oder Portfolio-Positionen hinzu,<br />um News zu sehen.</p>
+              <p className="text-gray-600">{t("chart.news_empty")}</p>
             </div>
           ) : (
             <div className="divide-y divide-white/5">
@@ -699,23 +701,23 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
       {editPos && (
         <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-gray-900 border border-white/10 rounded-2xl p-5 w-72 shadow-2xl">
-            <p className="font-semibold text-sm mb-4">{editPos.symbol ? `${editPos.symbol} bearbeiten` : "Position hinzufügen"}</p>
+            <p className="font-semibold text-sm mb-4">{editPos.symbol ? t("chart.modal_edit", { symbol: editPos.symbol }) : t("chart.modal_add")}</p>
             <div className="space-y-3">
               {editPos.isNew && (
                 <div className="relative">
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">Symbol</label>
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">{t("chart.modal_symbol")}</label>
                   <input
                     autoFocus
                     value={modalSearch}
                     onChange={e => handleModalSearch(e.target.value)}
                     onKeyDown={e => { if (e.key === "Escape") { setModalResults([]); } }}
-                    placeholder="z.B. NESN.SW oder Nestlé"
+                    placeholder={t("chart.modal_search_placeholder")}
                     className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500/50"
                   />
                   {(modalResults.length > 0 || modalSearching) && (
                     <div className="absolute left-0 top-full mt-1 w-full rounded-xl border border-white/10 shadow-2xl overflow-hidden z-50"
                       style={{ background: "rgba(8,12,22,0.97)" }}>
-                      {modalSearching && <div className="px-3 py-2 text-gray-500 text-xs">Suche…</div>}
+                      {modalSearching && <div className="px-3 py-2 text-gray-500 text-xs">{t("chart.searching")}</div>}
                       {modalResults.map(r => (
                         <button key={r.symbol} type="button" onClick={() => selectModalSymbol(r.symbol)}
                           className="w-full text-left px-3 py-2 hover:bg-white/8 flex gap-2 text-xs">
@@ -728,20 +730,20 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
                 </div>
               )}
               <div>
-                <label className="text-[10px] text-gray-500 uppercase tracking-wider">Anzahl Stück</label>
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider">{t("chart.modal_qty")}</label>
                 <input type="number" min="0" step="any" value={editPos.quantity}
                   onChange={e => setEditPos(p => p && ({ ...p, quantity: e.target.value }))}
                   className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500/50" />
               </div>
               <div className="flex gap-2">
                 <div className="flex-1">
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">Kaufpreis (pro Stück)</label>
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">{t("chart.modal_buy_price")}</label>
                   <input type="number" min="0" step="any" value={editPos.buy_price}
                     onChange={e => setEditPos(p => p && ({ ...p, buy_price: e.target.value }))}
                     className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-indigo-500/50" />
                 </div>
                 <div className="w-24">
-                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">Währung</label>
+                  <label className="text-[10px] text-gray-500 uppercase tracking-wider">{t("chart.modal_currency")}</label>
                   <select value={editPos.buy_currency}
                     onChange={e => setEditPos(p => p && ({ ...p, buy_currency: e.target.value }))}
                     className="mt-1 w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500/50 appearance-none">
@@ -754,11 +756,11 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
             </div>
             <div className="flex gap-2 mt-5">
               <button onClick={closeModal}
-                className="flex-1 py-1.5 rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">Abbrechen</button>
+                className="flex-1 py-1.5 rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors">{t("chart.modal_cancel")}</button>
               <button onClick={savePosition}
                 disabled={!editPos.symbol || !editPos.quantity || !editPos.buy_price}
                 className="flex-1 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 disabled:opacity-30 disabled:cursor-not-allowed text-white font-medium transition-colors">
-                Speichern
+                {t("chart.modal_save")}
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useT } from "@/lib/i18n";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import ReactMarkdown from "react-markdown";
@@ -29,6 +30,7 @@ interface ChatMessageProps {
 }
 
 export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichContent = false, onRemoveGeneratedImage }: ChatMessageProps) {
+  const t = useT();
   const [savedId, setSavedId]     = React.useState<string | null>(null);
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [sharedId, setSharedId]   = React.useState<string | null>(null);
@@ -115,23 +117,23 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
               <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/8 px-4 py-4 flex flex-col gap-3">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl">⚠️</span>
-                  <span className="font-bold text-base text-yellow-400">Guthaben aufgebraucht</span>
+                  <span className="font-bold text-base text-yellow-400">{t("chat.quota_title")}</span>
                 </div>
                 <p className="text-sm text-gray-300 leading-relaxed">
-                  {(msg.structuredData as { message?: string })?.message ?? "Dein Kontingent und dein Wallet-Guthaben sind erschöpft."}
+                  {(msg.structuredData as { message?: string })?.message ?? t("chat.quota_desc")}
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1">
                   <a
                     href="/user/billing"
                     className="inline-flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-gray-900 text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
                   >
-                    💳 Wallet aufladen
+                    {t("chat.wallet_topup")}
                   </a>
                   <a
                     href="/user/billing"
                     className="inline-flex items-center gap-2 bg-white/8 hover:bg-white/15 border border-white/15 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
                   >
-                    📋 Abo wechseln
+                    {t("chat.plan_switch")}
                   </a>
                 </div>
               </div>
@@ -183,7 +185,7 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
                             onClick={() => { navigator.clipboard.writeText(String(codeText)); }}
                             className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
                           >
-                            Kopieren
+                            {t("chat.copy")}
                           </button>
                         </div>
                         <pre className="px-4 py-3 overflow-x-auto text-sm font-mono text-gray-300 leading-relaxed">
@@ -284,7 +286,7 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
                   ? (ARTIFACT_META[(msg.structuredData as OpenWindowData).canvasType]?.label ?? "Fenster")
                   : (ARTIFACT_META[msg.responseType]?.label ?? "Artifact")}
               </span>
-              <span className="text-gray-600">· im Artifact-Panel</span>
+              <span className="text-gray-600">{t("chat.artifact_panel")}</span>
             </div>
           )}
 
@@ -302,14 +304,14 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    <span className="text-emerald-500">Kopiert</span>
+                    <span className="text-emerald-500">{t("chat.copied")}</span>
                   </>
                 ) : (
                   <>
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                     </svg>
-                    Kopieren
+                    {t("chat.copy")}
                   </>
                 )}
               </button>
@@ -325,21 +327,21 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    <span className="text-emerald-500">In Dokumente gespeichert</span>
+                    <span className="text-emerald-500">{t("chat.saved_to_docs")}</span>
                   </>
                 ) : saveError === msg.id ? (
                   <>
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                     </svg>
-                    <span className="text-red-400">Fehler</span>
+                    <span className="text-red-400">{t("chat.save_error")}</span>
                   </>
                 ) : (
                   <>
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
                     </svg>
-                    Speichern
+                    {t("chat.save_note")}
                   </>
                 )}
               </button>
@@ -357,14 +359,14 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    <span className="text-emerald-500">Geteilt</span>
+                    <span className="text-emerald-500">{t("chat.shared")}</span>
                   </>
                 ) : (
                   <>
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
                     </svg>
-                    Teilen
+                    {t("chat.share")}
                   </>
                 )}
               </button>

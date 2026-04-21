@@ -5,6 +5,7 @@ import { useChatMessages } from "@/hooks/useChatMessages";
 import ChatMessage from "@/components/chat/ChatMessage";
 import AvatarCircle from "@/components/chat/AvatarCircle";
 import { UiPrefs } from "@/lib/chat-types";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   buddyName: string;
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default function ChatCardContent({ buddyName, buddyInitial, uiPrefs, onRichContent }: Props) {
+  const t = useT();
   const [localInput, setLocalInput] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -66,7 +68,7 @@ export default function ChatCardContent({ buddyName, buddyInitial, uiPrefs, onRi
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shrink-0">
               <span className="text-white font-bold text-sm">{buddyInitial}</span>
             </div>
-            <p className="text-gray-500 text-xs">Neues Gespräch — frag mich etwas!</p>
+            <p className="text-gray-500 text-xs">{t("chat.new_conversation")}</p>
           </div>
         )}
         {messages.map(msg => (
@@ -98,7 +100,7 @@ export default function ChatCardContent({ buddyName, buddyInitial, uiPrefs, onRi
           onChange={e => setLocalInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
           className="flex-1 bg-white/5 border border-white/8 rounded-xl px-3 py-1.5 text-sm text-white outline-none focus:border-indigo-500/40 placeholder-gray-600"
-          placeholder={`Frag ${buddyName}…`}
+          placeholder={t("chat.ask_placeholder", { name: buddyName })}
           disabled={loading}
         />
         <button

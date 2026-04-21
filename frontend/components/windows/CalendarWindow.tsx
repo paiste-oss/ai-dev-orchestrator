@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
+import { useT } from "@/lib/i18n";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -26,12 +27,6 @@ interface CreateForm {
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-
-const DAYS_SHORT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-const MONTHS_DE = [
-  "Januar", "Februar", "März", "April", "Mai", "Juni",
-  "Juli", "August", "September", "Oktober", "November", "Dezember",
-];
 
 const EVENT_COLORS = [
   { bg: "bg-indigo-500/20",  text: "text-indigo-200",  dot: "bg-indigo-400",  card: "bg-indigo-500/15 border border-indigo-500/25" },
@@ -108,6 +103,9 @@ function eventsOnDay(events: CalEvent[], ymd: string): CalEvent[] {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function CalendarWindow() {
+  const t = useT();
+  const DAYS_SHORT = Array.from({ length: 7 }, (_, i) => t(`cal.day_${i}`));
+  const MONTHS = Array.from({ length: 12 }, (_, i) => t(`cal.month_${i}`));
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -172,7 +170,7 @@ export default function CalendarWindow() {
   }
 
   async function saveEvent() {
-    if (!form.title.trim()) { setFormError("Titel ist erforderlich"); return; }
+    if (!form.title.trim()) { setFormError(t("cal.title_required")); return; }
     setSaving(true);
     setFormError(null);
     try {
@@ -191,7 +189,7 @@ export default function CalendarWindow() {
         setSelectedYmd(form.date);
       } else {
         const d = await res.json().catch(() => null);
-        setFormError(d?.detail ?? "Fehler beim Speichern");
+        setFormError(d?.detail ?? t("cal.save_error"));
       }
     } finally { setSaving(false); }
   }
@@ -217,10 +215,8 @@ export default function CalendarWindow() {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
         <span className="text-4xl opacity-20">📅</span>
-        <p className="text-sm text-gray-400 font-medium">Kein Kalender eingerichtet</p>
-        <p className="text-xs text-gray-600 max-w-xs">
-          Dein Kalender-Account wurde noch nicht provisioniert. Bitte wende dich an den Administrator.
-        </p>
+        <p className="text-sm text-gray-400 font-medium">{t("cal.no_account")}</p>
+        <p className="text-xs text-gray-600 max-w-xs">{t("cal.no_account_hint")}</p>
       </div>
     );
   }
@@ -239,7 +235,7 @@ export default function CalendarWindow() {
           onClick={goToday}
           className="flex-1 text-center text-sm font-semibold text-white hover:text-indigo-300 transition-colors"
         >
-          {MONTHS_DE[month]} {year}
+          {MONTHS[month]} {year}
         </button>
 
         <button
@@ -252,7 +248,7 @@ export default function CalendarWindow() {
         <button
           onClick={load} disabled={loading}
           className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-600 hover:text-gray-400 transition-colors disabled:opacity-40"
-          title="Aktualisieren"
+          title={t("cal.refresh")}
         >
           <svg className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
@@ -264,7 +260,7 @@ export default function CalendarWindow() {
           onClick={() => openCreate(selectedYmd)}
           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors"
         >
-          + Termin
+          {t("cal.add_event")}
         </button>
       </div>
 
@@ -273,7 +269,7 @@ export default function CalendarWindow() {
         className="grid shrink-0 border-b border-white/6"
         style={{ gridTemplateColumns: "28px repeat(7, 1fr)" }}
       >
-        <div className="text-[9px] text-gray-700 text-center py-1.5 font-semibold tracking-wide">KW</div>
+        <div className="text-[9px] text-gray-700 text-center py-1.5 font-semibold tracking-wide">{t("cal.week_abbr")}</div>
         {DAYS_SHORT.map((d, i) => (
           <div
             key={d}
@@ -341,14 +337,14 @@ export default function CalendarWindow() {
                     <div className="flex flex-col gap-0.5 px-0.5 pb-0.5 min-h-0">
                       {dayEvs.slice(0, 3).map(ev => {
                         const c = colorFor(ev.title);
-                        const t = fmtTime(ev.start);
+                        const evTime = fmtTime(ev.start);
                         return (
                           <div
                             key={ev.uid}
                             className={`text-[9px] px-1 py-px rounded truncate leading-tight ${c.bg} ${c.text}`}
                             title={ev.title}
                           >
-                            {t && <span className="opacity-60 mr-0.5">{t}</span>}
+                            {evTime && <span className="opacity-60 mr-0.5">{evTime}</span>}
                             {ev.title}
                           </div>
                         );
@@ -373,7 +369,7 @@ export default function CalendarWindow() {
           /* Create form */
           <div className="p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-white">Neuer Termin</span>
+              <span className="text-xs font-semibold text-white">{t("cal.new_event")}</span>
               <button
                 onClick={() => setCreating(false)}
                 className="text-gray-600 hover:text-gray-400 text-xl leading-none"
@@ -388,14 +384,14 @@ export default function CalendarWindow() {
               value={form.title}
               onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
               onKeyDown={e => e.key === "Enter" && saveEvent()}
-              placeholder="Titel *"
+              placeholder={t("cal.title_placeholder")}
               autoFocus
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors"
             />
 
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5 flex-1">
-                <span className="text-[10px] text-gray-600 shrink-0">Datum</span>
+                <span className="text-[10px] text-gray-600 shrink-0">{t("cal.date_label")}</span>
                 <input
                   type="date"
                   value={form.date}
@@ -404,7 +400,7 @@ export default function CalendarWindow() {
                 />
               </div>
               <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
-                <span className="text-[10px] text-gray-600">Ganztag</span>
+                <span className="text-[10px] text-gray-600">{t("cal.all_day")}</span>
                 <button
                   type="button"
                   onClick={() => setForm(f => ({ ...f, allDay: !f.allDay }))}
@@ -418,7 +414,7 @@ export default function CalendarWindow() {
             {!form.allDay && (
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-gray-600 shrink-0 w-5">Von</span>
+                  <span className="text-[10px] text-gray-600 shrink-0 w-5">{t("cal.from_time")}</span>
                   <input
                     type="time"
                     value={form.startTime}
@@ -427,7 +423,7 @@ export default function CalendarWindow() {
                   />
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-gray-600 shrink-0 w-5">Bis</span>
+                  <span className="text-[10px] text-gray-600 shrink-0 w-5">{t("cal.to_time")}</span>
                   <input
                     type="time"
                     value={form.endTime}
@@ -441,7 +437,7 @@ export default function CalendarWindow() {
             <input
               value={form.location}
               onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-              placeholder="Ort (optional)"
+              placeholder={t("cal.location_placeholder")}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-colors"
             />
 
@@ -451,13 +447,13 @@ export default function CalendarWindow() {
                 disabled={saving || !form.title.trim()}
                 className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition-colors disabled:opacity-40"
               >
-                {saving ? "Speichert…" : "Speichern"}
+                {saving ? t("cal.saving") : t("cal.save")}
               </button>
               <button
                 onClick={() => setCreating(false)}
                 className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-[11px] transition-colors"
               >
-                Abbrechen
+                {t("cal.cancel")}
               </button>
             </div>
           </div>
@@ -471,7 +467,7 @@ export default function CalendarWindow() {
                 </span>
                 {selectedYmd === toYMD(today) && (
                   <span className="text-[10px] text-indigo-400 bg-indigo-500/15 px-1.5 py-0.5 rounded-full">
-                    Heute
+                    {t("cal.today")}
                   </span>
                 )}
               </div>
@@ -479,14 +475,12 @@ export default function CalendarWindow() {
                 onClick={() => openCreate(selectedYmd)}
                 className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
               >
-                + Termin
+                {t("cal.add_event")}
               </button>
             </div>
 
             {selectedEvents.length === 0 ? (
-              <p className="text-[11px] text-gray-700">
-                Keine Termine — Doppelklick auf den Tag oder oben „+ Termin".
-              </p>
+              <p className="text-[11px] text-gray-700">{t("cal.no_events")}</p>
             ) : (
               <div className="space-y-1.5">
                 {selectedEvents.map(ev => {
@@ -504,7 +498,7 @@ export default function CalendarWindow() {
                             </span>
                           )}
                           {!tStart && (
-                            <span className="text-[10px] opacity-50 shrink-0">Ganztag</span>
+                            <span className="text-[10px] opacity-50 shrink-0">{t("cal.all_day_label")}</span>
                           )}
                           <span className={`text-xs font-semibold ${c.text}`}>{ev.title}</span>
                         </div>
@@ -519,7 +513,7 @@ export default function CalendarWindow() {
                         onClick={() => deleteEvent(ev.uid)}
                         disabled={deletingUid === ev.uid}
                         className="shrink-0 text-xs opacity-25 hover:opacity-70 hover:text-red-400 transition-all disabled:opacity-15 mt-0.5"
-                        title="Termin löschen"
+                        title={t("cal.delete_event")}
                       >
                         {deletingUid === ev.uid ? "…" : "✕"}
                       </button>
