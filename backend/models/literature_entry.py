@@ -19,7 +19,7 @@ class LiteratureEntry(Base):
         UUID(as_uuid=True), ForeignKey("customers.id", ondelete="CASCADE"), nullable=False
     )
 
-    # Typ: paper | book
+    # Typ: paper | book | patent
     entry_type: Mapped[str] = mapped_column(String(32), nullable=False, default="paper")
 
     # Pflichtfeld
@@ -41,7 +41,7 @@ class LiteratureEntry(Base):
 
     # Buch-spezifisch
     publisher: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    isbn: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    isbn: Mapped[str | None] = mapped_column(String(256), nullable=True)
     edition: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Gemeinsam

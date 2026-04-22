@@ -23,7 +23,7 @@ interface BulkPdfResult {
 
 interface LitEntry {
   id: string;
-  entry_type: "paper" | "book";
+  entry_type: "paper" | "book" | "patent";
   title: string;
   authors: string[] | null;
   year: number | null;
@@ -46,7 +46,7 @@ interface LitEntry {
   created_at: string;
 }
 
-type EntryTypeFilter = "all" | "paper" | "book";
+type EntryTypeFilter = "all" | "paper" | "book" | "patent";
 
 const EMPTY_FORM: Partial<LitEntry> = {
   entry_type: "paper",
@@ -126,7 +126,7 @@ function DetailPanel({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-start gap-2 px-3 py-2 border-b border-white/6 shrink-0">
-        <span className="text-sm shrink-0 mt-0.5">{entry.entry_type === "paper" ? "📄" : "📖"}</span>
+        <span className="text-sm shrink-0 mt-0.5">{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
         <div className="flex-1 min-w-0">
           <p className="text-xs text-white font-medium leading-tight">{entry.title}</p>
           {entry.authors && entry.authors.length > 0 && (
@@ -153,12 +153,23 @@ function DetailPanel({
       {/* Meta chips */}
       <div className="flex flex-wrap gap-1 px-3 py-1.5 border-b border-white/4 shrink-0">
         {entry.year && <span className="text-[10px] bg-white/6 text-gray-400 px-1.5 py-0.5 rounded">{entry.year}</span>}
-        {entry.journal && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded truncate max-w-[120px]">{entry.journal}</span>}
-        {entry.publisher && <span className="text-[10px] bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded truncate max-w-[120px]">{entry.publisher}</span>}
-        {entry.volume && <span className="text-[10px] text-gray-600">Vol.{entry.volume}</span>}
-        {entry.issue && <span className="text-[10px] text-gray-600">Nr.{entry.issue}</span>}
-        {entry.pages && <span className="text-[10px] text-gray-600">S.{entry.pages}</span>}
-        {entry.isbn && <span className="text-[10px] text-gray-600">ISBN {entry.isbn}</span>}
+        {entry.entry_type === "patent" ? (
+          <>
+            {entry.isbn && <span className="text-[10px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded font-mono">{entry.isbn}</span>}
+            {entry.journal && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded">{entry.journal}</span>}
+            {entry.publisher && <span className="text-[10px] text-gray-600 truncate max-w-[120px]">{entry.publisher}</span>}
+            {entry.volume && <span className="text-[10px] text-gray-600">IPC {entry.volume}</span>}
+          </>
+        ) : (
+          <>
+            {entry.journal && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded truncate max-w-[120px]">{entry.journal}</span>}
+            {entry.publisher && <span className="text-[10px] bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded truncate max-w-[120px]">{entry.publisher}</span>}
+            {entry.volume && <span className="text-[10px] text-gray-600">Vol.{entry.volume}</span>}
+            {entry.issue && <span className="text-[10px] text-gray-600">Nr.{entry.issue}</span>}
+            {entry.pages && <span className="text-[10px] text-gray-600">S.{entry.pages}</span>}
+            {entry.isbn && <span className="text-[10px] text-gray-600">ISBN {entry.isbn}</span>}
+          </>
+        )}
         {(entry.tags || []).map(tag => (
           <span key={tag} className="text-[10px] bg-white/5 text-gray-500 px-1.5 py-0.5 rounded">#{tag}</span>
         ))}
@@ -253,6 +264,7 @@ function EntryForm({
   }
 
   const isPaper = form.entry_type === "paper";
+  const isPatent = form.entry_type === "patent";
   const labelClass = "text-[10px] text-gray-600 uppercase tracking-wider";
   const inputClass = "w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50";
 
@@ -270,10 +282,10 @@ function EntryForm({
       <div className="flex-1 overflow-auto p-3 space-y-3">
         {/* Typ */}
         <div className="flex gap-2">
-          {(["paper", "book"] as const).map(t => (
-            <button key={t} onClick={() => set("entry_type", t)}
-              className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${form.entry_type === t ? "bg-[var(--accent)] border-[var(--accent)] text-white" : "bg-white/5 border-white/10 text-gray-400 hover:text-white"}`}>
-              {t === "paper" ? "📄 Paper" : "📖 Buch"}
+          {([["paper", "📄 Paper"], ["book", "📖 Buch"], ["patent", "🏛 Patent"]] as const).map(([val, label]) => (
+            <button key={val} onClick={() => set("entry_type", val)}
+              className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${form.entry_type === val ? "bg-[var(--accent)] border-[var(--accent)] text-white" : "bg-white/5 border-white/10 text-gray-400 hover:text-white"}`}>
+              {label}
             </button>
           ))}
         </div>
@@ -355,6 +367,34 @@ function EntryForm({
           </>
         )}
 
+        {/* Patent-Felder */}
+        {isPatent && (
+          <>
+            <div>
+              <label className={labelClass}>Patentnummer</label>
+              <input value={form.isbn || ""} onChange={e => set("isbn", e.target.value)}
+                placeholder="EP1234567A1, US9876543B2, ..." className={`${inputClass} mt-1`} />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className={labelClass}>Anmelder / Inhaber</label>
+                <input value={form.publisher || ""} onChange={e => set("publisher", e.target.value)}
+                  placeholder="Firma AG" className={`${inputClass} mt-1`} />
+              </div>
+              <div>
+                <label className={labelClass}>Amt / Land</label>
+                <input value={form.journal || ""} onChange={e => set("journal", e.target.value)}
+                  placeholder="EP, US, DE, CH, ..." className={`${inputClass} mt-1`} />
+              </div>
+            </div>
+            <div>
+              <label className={labelClass}>IPC-Klassifikation</label>
+              <input value={form.volume || ""} onChange={e => set("volume", e.target.value)}
+                placeholder="H01M 10/052, ..." className={`${inputClass} mt-1`} />
+            </div>
+          </>
+        )}
+
         {/* URL */}
         <div>
           <label className={labelClass}>URL</label>
@@ -412,6 +452,7 @@ export default function LiteraturePanel() {
   const [typeFilter, setTypeFilter] = useState<EntryTypeFilter>("all");
   const [paperOpen, setPaperOpen] = useState(true);
   const [bookOpen, setBookOpen] = useState(true);
+  const [patentOpen, setPatentOpen] = useState(true);
   const [selected, setSelected] = useState<LitEntry | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -440,6 +481,7 @@ export default function LiteraturePanel() {
 
   const papers = entries.filter(e => e.entry_type === "paper");
   const books = entries.filter(e => e.entry_type === "book");
+  const patents = entries.filter(e => e.entry_type === "patent");
   const entriesWithoutPdf = entries.filter(e => !e.pdf_s3_key).length;
 
   const filtered = entries.filter(e => {
@@ -670,6 +712,7 @@ export default function LiteraturePanel() {
 
           <SidebarGroup type="paper" label="Paper" icon="📄" count={papers.length} open={paperOpen} onToggle={() => setPaperOpen(v => !v)} />
           <SidebarGroup type="book" label="Bücher" icon="📖" count={books.length} open={bookOpen} onToggle={() => setBookOpen(v => !v)} />
+          <SidebarGroup type="patent" label="Patente" icon="🏛" count={patents.length} open={patentOpen} onToggle={() => setPatentOpen(v => !v)} />
         </div>
 
         {/* List */}
@@ -699,11 +742,14 @@ export default function LiteraturePanel() {
                 return (
                   <div key={entry.id} onClick={() => selectEntry(entry)}
                     className={`flex items-start gap-2 px-3 py-2.5 border-b border-white/4 cursor-pointer transition-colors ${isActive ? "bg-[var(--accent-10)]" : "hover:bg-white/3"}`}>
-                    <span className="text-base shrink-0 mt-0.5">{entry.entry_type === "paper" ? "📄" : "📖"}</span>
+                    <span className="text-base shrink-0 mt-0.5">{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-white font-medium truncate">{entry.title}</p>
                       <p className="text-[10px] text-gray-500 truncate mt-0.5">
-                        {fmtAuthors(entry.authors)}{entry.year ? ` · ${entry.year}` : ""}{entry.journal ? ` · ${entry.journal}` : ""}{entry.publisher ? ` · ${entry.publisher}` : ""}
+                        {fmtAuthors(entry.authors)}{entry.year ? ` · ${entry.year}` : ""}
+                        {entry.entry_type === "patent"
+                          ? (entry.isbn ? ` · ${entry.isbn}` : "") + (entry.journal ? ` · ${entry.journal}` : "")
+                          : (entry.journal ? ` · ${entry.journal}` : "") + (entry.publisher ? ` · ${entry.publisher}` : "")}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">

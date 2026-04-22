@@ -18,7 +18,26 @@ _RIS_TYPE_MAP: dict[str, str] = {
     "THES": "paper", "UNPB": "paper", "ELEC": "paper",
     "BOOK": "book",  "EDITED": "book", "CASE": "book",
     "MGZN": "paper", "NEWS": "paper", "PAMP": "paper",
+    "PAT":  "patent",
 }
+
+
+def _clean_isbn(raw: str | None) -> str | None:
+    """Mehrere ISSNs/ISBNs (getrennt durch \\r, \\n, ;) → erstes sauberes Exemplar."""
+    if not raw:
+        return None
+    # Aufteilen und erstes nicht-leeres nehmen (max. 256 Zeichen)
+    parts = [p.strip() for p in re.split(r'[\r\n;]+', raw) if p.strip()]
+    return (" / ".join(parts))[:256] if parts else None
+
+
+def _clean_url(raw: str | None) -> str | None:
+    """EndNote-interne PDF-Pfade (internal-pdf://) werden verworfen."""
+    if not raw:
+        return None
+    if raw.startswith("internal-pdf://"):
+        return None
+    return raw[:2048]
 
 
 def parse_ris(content: bytes) -> list[dict]:
@@ -105,9 +124,9 @@ def _ris_to_entry(fields: dict[str, list[str]]) -> dict | None:
         "issue": first("IS"),
         "pages": first("SP") and first("EP") and f"{first('SP')}–{first('EP')}" or first("SP") or first("EP"),
         "doi": doi,
-        "url": first("UR") or first("L2"),
+        "url": _clean_url(first("UR") or first("L2")),
         "publisher": first("PB"),
-        "isbn": first("SN") if entry_type == "book" else None,
+        "isbn": _clean_isbn(first("SN")),
         "edition": first("ET"),
         "tags": [k.strip() for k in (fields.get("KW") or []) if k.strip()] or None,
         "import_source": "ris",
@@ -167,7 +186,12 @@ def _endnote_rec_to_entry(rec: ET.Element) -> dict | None:
     # Typ
     ref_type_el = rec.find(".//ref-type")
     ref_type_name = (ref_type_el.get("name") or "").lower() if ref_type_el is not None else ""
-    entry_type = "book" if "book" in ref_type_name else "paper"
+    if "book" in ref_type_name:
+        entry_type = "book"
+    elif "patent" in ref_type_name:
+        entry_type = "patent"
+    else:
+        entry_type = "paper"
 
     # Autoren
     authors = texts(".//contributors/authors/author")
@@ -196,9 +220,9 @@ def _endnote_rec_to_entry(rec: ET.Element) -> dict | None:
         "issue": text(".//number"),
         "pages": text(".//pages"),
         "doi": doi,
-        "url": text(".//urls/related-urls/url") or text(".//url"),
+        "url": _clean_url(text(".//urls/related-urls/url") or text(".//url")),
         "publisher": text(".//publisher"),
-        "isbn": text(".//isbn"),
+        "isbn": _clean_isbn(text(".//isbn")),
         "edition": text(".//edition"),
         "tags": keywords or None,
         "import_source": "endnote_xml",
