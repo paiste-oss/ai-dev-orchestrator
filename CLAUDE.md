@@ -10,6 +10,7 @@ Betreiber: Naor (Inhaber, Entwickler, alleiniger Nutzer dieses Dev-Orchestrators
 - **Frontend**: Next.js (App Router, TypeScript, Tailwind) — deployed via **Vercel**
 - **KI**: AWS Bedrock (Claude, EU-Region), Anthropic API, Ollama (auf VPS)
 - **Billing**: Stripe (Live-Modus), Webhooks via `api.baddi.ch` → direkt Backend
+- **Push Notifications**: Firebase Admin SDK (FCM) — offline Fallback wenn kein SSE/WS-Stream aktiv
 - **Infra**: Docker Compose auf VPS (Infomaniak), Cloudflare Tunnel, WSL2
 
 ## Entwicklungs-Workflow
@@ -38,6 +39,8 @@ backend/
     llm_admin.py             # LLM-Verwaltung (Ollama, Modelle)
     support_admin.py         # Support Tickets (n8n → Backend)
     workflows.py             # n8n Workflows
+    events.py                # n8n Webhook + SSE (Legacy) + WebSocket (/agent/events/ws)
+    push.py                  # FCM Device-Token Registrierung (POST/DELETE /push/register)
     ... (weitere Router)
   models/                    # SQLAlchemy ORM Models
     customer.py
@@ -45,6 +48,7 @@ backend/
     support_ticket.py        # Support Tickets (BADDI-YYYYMMDD-XXXX)
     daily_summary.py         # Tagesreport (Ollama gemma3)
     payment.py
+    device_token.py          # FCM Push Tokens (pro Kunde, UNIQUE customer+token)
     ... (weitere Models)
   services/                  # Business Logic
     chat_pipeline.py         # Chat-Verarbeitung
@@ -52,6 +56,9 @@ backend/
     billing_service.py       # Stripe-Logik
     buddy_agent.py           # KI-Agent
     knowledge_store.py       # Qdrant Vektorsuche
+    fcm_service.py           # Firebase FCM: send_push(), send_push_multicast()
+    sse_publisher.py         # Redis Pub/Sub + Presence + publish_event() (online→WS, offline→FCM)
+    buddy_event_service.py   # n8n Event verarbeiten: Deduplizierung, LLM-Relevanz, SSE/FCM publish
     ... (weitere Services)
   core/
     config.py                # Settings (Pydantic BaseSettings, .env)
@@ -97,9 +104,10 @@ frontend/
     user/                    # User-spezifische Komponenten
     windows/                 # Floating Windows (Dokumente, Diktat, etc.)
   lib/
-    auth.ts                  # apiFetch(), getSession(), clearSession()
-    config.ts                # NEXT_PUBLIC_BACKEND_URL
+    auth.ts                  # apiFetch(), getSession(), getToken(), clearSession()
+    config.ts                # NEXT_PUBLIC_BACKEND_URL, getWsBaseUrl(), API_ROUTES
     config-server.ts         # BACKEND_INTERNAL_URL (nur server-seitig)
+    useBaddiEvents.ts        # WebSocket-Hook: Notifications, connected, dismiss — JWT via getToken()
     format.ts                # Datum, Währung, etc.
     window-registry.ts       # Alle Fenster-Module (canvasType, label, icon, etc.)
     i18n/
@@ -137,6 +145,22 @@ docker-compose.yml           # Alle Services (VPS)
 - Webhook-URL: `https://api.baddi.ch/v1/billing/webhook`
 - Abo-Pläne: Basis (CHF 19/Mt), Komfort (CHF 49/Mt), Premium (CHF 99/Mt)
 - Wallet: Prepaid-Guthaben nur für Token-Overage; Speicher-Addons als Abo-Items
+
+## Firebase / FCM (Push Notifications)
+- Service Account JSON liegt auf VPS: `/mnt/data/app/baddi-firebase-adminsdk.json`
+- Im Container unter `/project/baddi-firebase-adminsdk.json` (Volume `./:/project`)
+- `.env`: `FIREBASE_CREDENTIALS_PATH=/project/baddi-firebase-adminsdk.json`, `FIREBASE_PROJECT_ID=baddi-ccbf9`
+- FCM ist optional: fehlt `FIREBASE_CREDENTIALS_PATH`, startet Backend ohne Push (kein Fehler)
+- Routing: `publish_event()` in `sse_publisher.py` → online (Redis Presence TTL 90s) → WebSocket; offline → FCM Multicast
+- Presence wird gesetzt/verlängert vom WS-Endpoint (`set_presence_online/offline/refresh_presence`)
+
+## Echtzeit-Notifications — Architektur
+- **WebSocket** (bevorzugt): `WSS /v1/agent/events/ws?token=<jwt>` — bidirektional, auto-reconnect im Frontend
+- **SSE** (Legacy): `GET /v1/agent/events/stream?customer_id=<uuid>` — bleibt als Fallback erhalten
+- **FCM**: Fallback wenn kein aktiver WS/SSE-Stream (Presence-Key nicht in Redis)
+- Frontend-Hook: `useBaddiEvents(customerId)` — exponential backoff reconnect (1s→30s cap)
+- WS URL: `getWsBaseUrl()` in `config.ts` — leitet `https://` → `wss://` um; bei leerem BACKEND_URL aus `window.location`
+- **Wichtig**: Next.js rewrites proxyen keine WebSocket-Verbindungen → im Dev/Docker muss `NEXT_PUBLIC_BACKEND_URL` direkt auf das Backend zeigen
 
 ---
 
@@ -307,7 +331,7 @@ Das hat fundamentale Konsequenzen:
 - **Entwicklung läuft auf WSL2 (Ubuntu)** — nicht direkt auf dem VPS
 - **VPS-Zugang**: `ssh ubuntu@83.228.242.214`
 - **Frontend**: Vercel deployed automatisch bei `git push main`
-- **Backend-Deploy auf VPS**: `git pull && docker restart ai_backend`
+- **Backend-Deploy auf VPS**: `git pull && docker compose up -d --no-deps --force-recreate backend` (bei neuen Env-Vars oder requirements); sonst `docker restart ai_backend`
 - **Cloudflare Tunnel**: läuft als systemd Service auf dem VPS, nicht als Docker Container
 - Bei Docker-Netzwerkproblemen: `docker compose down && docker compose up -d`
 - Frontend-Rewrites funktionieren; Route-Handler haben DNS-Probleme im Turbopack-Kontext.
