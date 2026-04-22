@@ -499,8 +499,9 @@ export default function LiteraturePanel() {
       } else {
         setImportMsg({ type: "err", text: data.detail || "Import fehlgeschlagen" });
       }
-    } catch { setImportMsg({ type: "err", text: "Verbindungsfehler" }); }
-    finally { setImporting(false); }
+    } catch (err) {
+      setImportMsg({ type: "err", text: err instanceof Error ? err.message : "Verbindungsfehler" });
+    } finally { setImporting(false); }
   }
 
   async function handleZipImport(file: File) {

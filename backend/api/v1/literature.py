@@ -195,8 +195,8 @@ async def _create_entry_from_dict(
     )
     entry.extracted_text = _build_extracted_text(entry)
     db.add(entry)
-    await db.flush()  # ID vor Indexierung sichern
     if index:
+        await db.flush()  # ID für sofortige Qdrant-Indexierung nötig
         _index_entry(entry)
     return entry
 
