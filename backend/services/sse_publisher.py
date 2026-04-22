@@ -129,7 +129,8 @@ async def _push_fcm(
     try:
         result = await db.execute(
             select(DeviceToken.token).where(
-                DeviceToken.customer_id == uuid.UUID(customer_id)
+                DeviceToken.customer_id == uuid.UUID(customer_id),
+                DeviceToken.platform.in_(["ios", "android"]),
             )
         )
         tokens = [row[0] for row in result.fetchall()]
