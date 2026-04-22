@@ -164,7 +164,7 @@ async def process_event(payload: dict, db: AsyncSession) -> dict:
             "buddy_name": buddy_name,
             "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         }
-        await publish_event(str(customer_id), notification)
+        await publish_event(str(customer_id), notification, db=db)
         event.pushed_to_sse = True
         await db.commit()
         pushed = True
