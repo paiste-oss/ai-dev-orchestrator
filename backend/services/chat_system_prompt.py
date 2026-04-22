@@ -23,6 +23,7 @@ def build_system_prompt(
     readable_docs: list | None = None,
     private_doc_names: list[str] | None = None,
     netzwerk_context: str | None = None,
+    literature_entries: list | None = None,
 ) -> tuple[str, str]:
     from services.chat_prompt_static import build_static_block
     from services.tool_registry import TOOL_CATALOG
@@ -38,6 +39,7 @@ def build_system_prompt(
         readable_docs=readable_docs,
         private_doc_names=private_doc_names,
         netzwerk_context=netzwerk_context,
+        literature_entries=literature_entries,
     )
     return static_block, dynamic_block
 
@@ -52,6 +54,7 @@ def _build_dynamic_block(
     readable_docs: list | None = None,
     private_doc_names: list[str] | None = None,
     netzwerk_context: str | None = None,
+    literature_entries: list | None = None,
 ) -> str:
     parts: list[str] = []
 
@@ -237,6 +240,31 @@ def _build_dynamic_block(
                 + "\n\n---\n".join(doc_parts)
                 + "\nDu kannst diese Dokumente direkt lesen und darauf eingehen — der Nutzer muss sie nicht anhängen."
             )
+
+    if literature_entries:
+        lit_parts: list[str] = []
+        for e in literature_entries[:20]:
+            authors_str = ", ".join(e.authors[:3]) if e.authors else ""
+            year_str = f" ({e.year})" if e.year else ""
+            type_label = "Paper" if e.entry_type == "paper" else "Buch"
+            header = f"[{type_label}] {e.title}{year_str}"
+            if authors_str:
+                header += f" — {authors_str}"
+            if e.journal:
+                header += f" — {e.journal}"
+            if e.publisher:
+                header += f" — {e.publisher}"
+            abstract = (e.abstract or "")[:400]
+            if abstract:
+                header += f"\nAbstract: {abstract}"
+            if e.notes:
+                header += f"\nNotizen: {e.notes[:200]}"
+            lit_parts.append(header)
+        parts.append(
+            f"\nLITERATUR VON {first_name.upper()} (Bibliothek — für Recherche nutzbar):\n"
+            + "\n\n".join(lit_parts)
+            + "\nDu kannst auf diese Literatur eingehen und darauf verweisen."
+        )
 
     if private_doc_names:
         parts.append(

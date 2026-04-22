@@ -16,6 +16,7 @@ from core.utils import safe_json_loads
 from models.chat import ChatMessage, MemoryItem
 from models.customer import Customer
 from models.document import CustomerDocument
+from models.literature_entry import LiteratureEntry
 from models.window import WindowBoard
 from services.chat_system_prompt import build_system_prompt
 from services.knowledge_store import search_global_knowledge, fetch_topic_chunks
@@ -111,6 +112,22 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
     private_docs = [d for d in all_docs if not d.baddi_readable]
     doc_cache: dict[str, Any] = {str(d.id): d for d in all_docs}
 
+    literature_entries: list[LiteratureEntry] = []
+    try:
+        lit_result = await db.execute(
+            select(LiteratureEntry)
+            .where(
+                LiteratureEntry.customer_id == customer.id,
+                LiteratureEntry.is_active.is_(True),
+                LiteratureEntry.baddi_readable.is_(True),
+            )
+            .order_by(LiteratureEntry.created_at.desc())
+            .limit(30)
+        )
+        literature_entries = lit_result.scalars().all()
+    except Exception as e:
+        _log.warning("Literatur-Kontext konnte nicht geladen werden: %s", e)
+
     knowledge_chunks: list[dict] = []
     if baddi_config.get("knowledge_enabled", True):
         try:
@@ -144,6 +161,7 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
         readable_docs=readable_docs,
         private_doc_names=[d.original_filename for d in private_docs],
         netzwerk_context=netzwerk_context,
+        literature_entries=literature_entries or None,
     )
     system_prompt_blocks: list[dict[str, Any]] = [
         {"type": "text", "text": static_block, "cache_control": {"type": "ephemeral"}},

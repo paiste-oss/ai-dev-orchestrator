@@ -131,3 +131,4 @@ class Customer(Base):
     credentials: Mapped[list["CustomerCredential"]] = relationship(back_populates="customer", cascade="all, delete-orphan")  # type: ignore
     documents: Mapped[list["CustomerDocument"]] = relationship(back_populates="customer", cascade="all, delete-orphan")  # type: ignore
     device_tokens: Mapped[list["DeviceToken"]] = relationship(back_populates="customer", cascade="all, delete-orphan")  # type: ignore
+    literature_entries: Mapped[list["LiteratureEntry"]] = relationship(back_populates="customer", cascade="all, delete-orphan")  # type: ignore

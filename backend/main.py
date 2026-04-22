@@ -15,7 +15,7 @@ from core.config import settings
 from core.database import init_db
 from api.v1 import (
     agent, customers, workflows, credentials, oauth, dev_tasks, documents,
-    document_folders,
+    document_folders, literature,
     events, auth, chat, finance, transport, entwicklung, billing,
     router_admin, llm_admin, system_prompts_admin, tools_admin,
     integrations_admin, analytics_admin, user_preferences, windows,
@@ -36,6 +36,7 @@ import models.daily_summary     # noqa: F401
 import models.support_ticket    # noqa: F401
 import models.email_message    # noqa: F401
 import models.device_token      # noqa: F401
+import models.literature_entry  # noqa: F401
 
 os.environ["OPENAI_API_KEY"] = settings.openai_api_key or "NA"
 
@@ -103,6 +104,7 @@ app.include_router(oauth.router, prefix="/v1")
 app.include_router(dev_tasks.router, prefix="/v1")
 app.include_router(documents.router, prefix="/v1")
 app.include_router(document_folders.router, prefix="/v1")
+app.include_router(literature.router, prefix="/v1")
 app.include_router(events.router, prefix="/v1")
 app.include_router(auth.router, prefix="/v1")
 app.include_router(portal_settings.router, prefix="/v1")
