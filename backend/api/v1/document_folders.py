@@ -256,7 +256,7 @@ async def save_from_chat(
 
     # S3 Upload
     try:
-        s3_key = s3_upload(
+        s3_key = await s3_upload(
             customer_id=customer.id,
             doc_id=doc.id,
             filename=filename,

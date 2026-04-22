@@ -161,7 +161,7 @@ async def upload_document(
 
     # S3: Binärdatei hochladen
     try:
-        s3_key = s3_upload(
+        s3_key = await s3_upload(
             customer_id=customer_id,
             doc_id=doc.id,
             filename=filename,
@@ -227,7 +227,7 @@ async def get_my_document_content(
 
     if doc.stored_in_s3 and doc.s3_key:
         try:
-            file_bytes = s3_download(doc.s3_key)
+            file_bytes = await s3_download(doc.s3_key)
         except Exception as e:
             _log.error("S3-Download fehlgeschlagen für Dokument %s: %s", doc_id, e)
             raise HTTPException(status_code=503, detail="Datei vorübergehend nicht verfügbar")
@@ -320,7 +320,7 @@ async def save_image_from_url(
         raise HTTPException(status_code=500, detail="Bild konnte nicht gespeichert werden")
 
     try:
-        s3_key = s3_upload(
+        s3_key = await s3_upload(
             customer_id=customer.id,
             doc_id=doc.id,
             filename=filename,
@@ -362,7 +362,7 @@ async def delete_my_document(
 
     if doc.stored_in_s3 and doc.s3_key:
         try:
-            s3_delete(doc.s3_key)
+            await s3_delete(doc.s3_key)
         except Exception as e:
             _log.warning("S3-Löschen fehlgeschlagen für Dokument %s: %s", doc_id, e)
 
@@ -426,7 +426,7 @@ async def delete_document(
 
     if doc.stored_in_s3 and doc.s3_key:
         try:
-            s3_delete(doc.s3_key)
+            await s3_delete(doc.s3_key)
         except Exception as e:
             _log.warning("S3-Löschen fehlgeschlagen für Dokument %s: %s", doc_id, e)
 
