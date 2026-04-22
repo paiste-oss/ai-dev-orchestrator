@@ -6,6 +6,21 @@ import { BACKEND_URL } from "@/lib/config";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface PdfMatchDetail {
+  filename: string;
+  status: "matched" | "already_has_pdf" | "unmatched";
+  match_method: "doi" | "filename" | "title_text" | null;
+  matched_title: string | null;
+  entry_id: string | null;
+}
+
+interface BulkPdfResult {
+  matched: number;
+  already_had_pdf: number;
+  unmatched: number;
+  details: PdfMatchDetail[];
+}
+
 interface LitEntry {
   id: string;
   entry_type: "paper" | "book";
@@ -420,8 +435,12 @@ export default function LiteraturePanel() {
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState<string | null>(null);
+  const [importingZip, setImportingZip] = useState(false);
+  const [zipResult, setZipResult] = useState<BulkPdfResult | null>(null);
+  const [showZipDetails, setShowZipDetails] = useState(false);
 
   const importInputRef = useRef<HTMLInputElement>(null);
+  const zipInputRef = useRef<HTMLInputElement>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -507,6 +526,24 @@ export default function LiteraturePanel() {
     finally { setImporting(false); }
   }
 
+  async function handleZipImport(file: File) {
+    setImportingZip(true); setZipResult(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await apiFetchForm(`${BACKEND_URL}/v1/literature/import-pdfs`, fd);
+      const data = await res.json();
+      if (res.ok) {
+        setZipResult(data as BulkPdfResult);
+        setShowZipDetails(true);
+        await loadAll();
+      } else {
+        setImportMsg({ type: "err", text: data.detail || "ZIP-Import fehlgeschlagen" });
+      }
+    } catch { setImportMsg({ type: "err", text: "Verbindungsfehler" }); }
+    finally { setImportingZip(false); }
+  }
+
   async function handlePdfUpload(entry: LitEntry, file: File) {
     setUploadingPdf(entry.id);
     try {
@@ -564,12 +601,19 @@ export default function LiteraturePanel() {
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/6 shrink-0">
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche in Literatur…"
           className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50" />
-        <button onClick={() => { if (importInputRef.current) importInputRef.current.click(); }}
+        <button onClick={() => importInputRef.current?.click()}
           disabled={importing}
           title="RIS / EndNote XML importieren"
           className="flex items-center gap-1 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-40 text-gray-300 text-xs px-2.5 py-1.5 rounded-lg transition-colors shrink-0">
           {importing ? <IconSpinner /> : <IconUpload />}
-          Import
+          XML/RIS
+        </button>
+        <button onClick={() => zipInputRef.current?.click()}
+          disabled={importingZip}
+          title="ZIP mit PDFs importieren — automatische Zuordnung"
+          className="flex items-center gap-1 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-40 text-gray-300 text-xs px-2.5 py-1.5 rounded-lg transition-colors shrink-0">
+          {importingZip ? <IconSpinner /> : <span className="text-[11px]">🗜</span>}
+          PDFs (ZIP)
         </button>
         <button onClick={openNew}
           className="flex items-center gap-1 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors shrink-0">
@@ -578,6 +622,8 @@ export default function LiteraturePanel() {
         </button>
         <input ref={importInputRef} type="file" accept=".ris,.xml" className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = ""; }} />
+        <input ref={zipInputRef} type="file" accept=".zip" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleZipImport(f); e.target.value = ""; }} />
       </div>
 
       {/* Import status */}
@@ -585,6 +631,45 @@ export default function LiteraturePanel() {
         <div className={`mx-3 mt-2 shrink-0 rounded-lg px-3 py-2 text-xs flex items-center gap-2 ${importMsg.type === "ok" ? "bg-emerald-950/50 border border-emerald-800/50 text-emerald-300" : "bg-red-950/50 border border-red-800/50 text-red-300"}`}>
           {importMsg.type === "ok" ? "✓" : "⚠️"} {importMsg.text}
           <button onClick={() => setImportMsg(null)} className="ml-auto opacity-60 hover:opacity-100">×</button>
+        </div>
+      )}
+
+      {/* ZIP Import Ergebnis */}
+      {zipResult && (
+        <div className="mx-3 mt-2 shrink-0 bg-white/4 border border-white/10 rounded-lg overflow-hidden">
+          <div className="flex items-center gap-3 px-3 py-2">
+            <span className="text-xs text-white font-medium">PDF-Import abgeschlossen</span>
+            <span className="text-[10px] text-emerald-400">✓ {zipResult.matched} zugeordnet</span>
+            {zipResult.already_had_pdf > 0 && <span className="text-[10px] text-gray-500">{zipResult.already_had_pdf} hatten schon PDF</span>}
+            {zipResult.unmatched > 0 && <span className="text-[10px] text-amber-400">⚠ {zipResult.unmatched} nicht gefunden</span>}
+            <button onClick={() => setShowZipDetails(v => !v)}
+              className="ml-auto text-[10px] text-gray-500 hover:text-gray-300 transition-colors">
+              {showZipDetails ? "Ausblenden" : "Details"}
+            </button>
+            <button onClick={() => setZipResult(null)} className="text-gray-600 hover:text-gray-400">×</button>
+          </div>
+          {showZipDetails && (
+            <div className="border-t border-white/8 max-h-40 overflow-auto">
+              {zipResult.details.map((d, i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-1.5 border-b border-white/4 last:border-0">
+                  <span className="text-[10px] shrink-0">
+                    {d.status === "matched" ? "✓" : d.status === "already_has_pdf" ? "○" : "✗"}
+                  </span>
+                  <span className={`text-[10px] font-mono truncate flex-1 ${d.status === "unmatched" ? "text-amber-500" : "text-gray-400"}`}>
+                    {d.filename}
+                  </span>
+                  {d.matched_title && (
+                    <span className="text-[10px] text-gray-600 truncate max-w-[180px]" title={d.matched_title}>
+                      → {d.matched_title}
+                    </span>
+                  )}
+                  {d.match_method && (
+                    <span className="text-[9px] text-gray-700 shrink-0">{d.match_method}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

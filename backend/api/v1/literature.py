@@ -6,13 +6,18 @@ Literatur-Endpunkte — persönliche Literaturdatenbank pro Kunde.
   PUT    /v1/literature/{id}              — bearbeiten
   DELETE /v1/literature/{id}             — löschen
   POST   /v1/literature/import            — .ris / .xml Datei importieren
+  POST   /v1/literature/import-pdfs       — ZIP mit PDFs → automatische Zuordnung
   POST   /v1/literature/{id}/pdf          — PDF anhängen
   GET    /v1/literature/{id}/pdf          — PDF herunterladen
 """
 from __future__ import annotations
 
+import io
 import logging
+import os
+import re
 import uuid
+import zipfile
 from datetime import datetime
 from typing import Any
 
@@ -376,6 +381,227 @@ async def attach_pdf(
     await db.refresh(entry)
     _log.info("[Literatur] PDF angehängt: %s → %s", entry_id, s3_key)
     return entry
+
+
+# ── Bulk PDF Import (ZIP) ─────────────────────────────────────────────────────
+
+class PdfMatchDetail(BaseModel):
+    filename: str
+    status: str          # "matched" | "already_has_pdf" | "unmatched"
+    match_method: str | None = None   # "doi" | "filename" | "title_text"
+    matched_title: str | None = None
+    entry_id: str | None = None
+
+
+class BulkPdfResponse(BaseModel):
+    matched: int
+    already_had_pdf: int
+    unmatched: int
+    details: list[PdfMatchDetail]
+
+
+def _normalize_for_match(text: str) -> set[str]:
+    """Wörter ≥4 Zeichen aus Text als Set — für Overlap-Berechnung."""
+    return set(re.findall(r'[a-z]{4,}', text.lower()))
+
+
+def _word_overlap(a: set[str], b: set[str]) -> float:
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def _extract_doi_from_text(text: str) -> str | None:
+    """DOI aus PDF-Text extrahieren (erste 3000 Zeichen reichen)."""
+    m = re.search(r'10\.\d{4,9}/\S+', text[:3000])
+    if not m:
+        return None
+    doi = m.group().rstrip('.,;)/>')
+    return doi.lower()
+
+
+def _match_entry(
+    pdf_text: str,
+    pdf_stem: str,
+    doi_index: dict[str, LiteratureEntry],
+    entries: list[LiteratureEntry],
+) -> tuple[LiteratureEntry | None, str]:
+    """
+    Gibt (entry, method) zurück.
+    method: "doi" | "filename" | "title_text" | ""
+    """
+    # 1. DOI aus PDF
+    doi = _extract_doi_from_text(pdf_text)
+    if doi:
+        entry = doi_index.get(doi)
+        if entry:
+            return entry, "doi"
+        # Auch partieller DOI-Match (Suffix-Toleranz)
+        for key, e in doi_index.items():
+            if doi.startswith(key[:20]) or key.startswith(doi[:20]):
+                return e, "doi"
+
+    # 2. Dateiname gegen Titel (Wort-Overlap)
+    stem_words = _normalize_for_match(re.sub(r'[_\-\.]', ' ', pdf_stem))
+    best_score = 0.0
+    best_entry: LiteratureEntry | None = None
+    for e in entries:
+        title_words = _normalize_for_match(e.title)
+        score = _word_overlap(stem_words, title_words)
+        if score > best_score:
+            best_score = score
+            best_entry = e
+    if best_score >= 0.45 and best_entry:
+        return best_entry, "filename"
+
+    # 3. Titelwörter im PDF-Anfang (erste 600 Zeichen = Titelbereich)
+    text_head_words = _normalize_for_match(pdf_text[:600])
+    best_score = 0.0
+    best_entry = None
+    for e in entries:
+        title_words = _normalize_for_match(e.title)
+        if len(title_words) < 3:
+            continue
+        # Mindestens 60% der Titelwörter im PDF-Anfang
+        overlap = len(title_words & text_head_words) / len(title_words)
+        if overlap > best_score:
+            best_score = overlap
+            best_entry = e
+    if best_score >= 0.60 and best_entry:
+        return best_entry, "title_text"
+
+    return None, ""
+
+
+@router.post("/import-pdfs", response_model=BulkPdfResponse, status_code=200)
+async def import_pdfs_bulk(
+    file: UploadFile = File(...),
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Nimmt eine ZIP-Datei mit PDFs entgegen.
+    Ordnet jedes PDF einem Literatureintrag zu (DOI → Dateiname → Titelwörter).
+    Uploads gehen nach S3 und werden per Qdrant indiziert.
+    """
+    filename = (file.filename or "").lower()
+    if not filename.endswith(".zip"):
+        raise HTTPException(status_code=415, detail="Nur .zip Dateien werden unterstützt")
+
+    content = await file.read()
+    if len(content) > 500 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="ZIP zu gross (max. 500 MB)")
+
+    if not zipfile.is_zipfile(io.BytesIO(content)):
+        raise HTTPException(status_code=422, detail="Ungültige ZIP-Datei")
+
+    # Alle aktiven Einträge des Users laden
+    result = await db.execute(
+        select(LiteratureEntry).where(
+            LiteratureEntry.customer_id == user.id,
+            LiteratureEntry.is_active.is_(True),
+        )
+    )
+    entries: list[LiteratureEntry] = result.scalars().all()
+
+    doi_index: dict[str, LiteratureEntry] = {
+        e.doi.strip().lower(): e
+        for e in entries
+        if e.doi and e.doi.strip()
+    }
+
+    details: list[PdfMatchDetail] = []
+    matched_count = 0
+    already_count = 0
+
+    with zipfile.ZipFile(io.BytesIO(content)) as zf:
+        pdf_names = [
+            n for n in zf.namelist()
+            if n.lower().endswith(".pdf") and not os.path.basename(n).startswith(".")
+        ]
+
+        for pdf_name in pdf_names:
+            basename = os.path.basename(pdf_name)
+            stem = os.path.splitext(basename)[0]
+
+            try:
+                pdf_bytes = zf.read(pdf_name)
+            except Exception as e:
+                _log.warning("[Literatur/ZIP] Fehler beim Lesen von %s: %s", pdf_name, e)
+                details.append(PdfMatchDetail(filename=basename, status="unmatched"))
+                continue
+
+            # Text extrahieren (nur für Matching — Fehler sind unkritisch)
+            pdf_text = ""
+            try:
+                from services.file_parser import parse_file
+                parsed = parse_file(pdf_bytes, basename, "application/pdf")
+                pdf_text = parsed.text[:4000]
+            except Exception:
+                pass
+
+            matched_entry, method = _match_entry(pdf_text, stem, doi_index, entries)
+
+            if not matched_entry:
+                details.append(PdfMatchDetail(filename=basename, status="unmatched"))
+                continue
+
+            if matched_entry.pdf_s3_key:
+                already_count += 1
+                details.append(PdfMatchDetail(
+                    filename=basename,
+                    status="already_has_pdf",
+                    match_method=method,
+                    matched_title=matched_entry.title,
+                    entry_id=str(matched_entry.id),
+                ))
+                continue
+
+            # S3-Upload
+            try:
+                s3_key = await s3_upload(
+                    customer_id=user.id,
+                    doc_id=matched_entry.id,
+                    filename=basename,
+                    content=pdf_bytes,
+                    content_type="application/pdf",
+                )
+                matched_entry.pdf_s3_key = s3_key
+                matched_entry.pdf_size_bytes = len(pdf_bytes)
+
+                if pdf_text.strip():
+                    matched_entry.extracted_text = (
+                        _build_extracted_text(matched_entry) + "\n\n" + pdf_text[:8000]
+                    )
+                _deindex_entry(matched_entry)
+                _index_entry(matched_entry)
+
+                matched_count += 1
+                details.append(PdfMatchDetail(
+                    filename=basename,
+                    status="matched",
+                    match_method=method,
+                    matched_title=matched_entry.title,
+                    entry_id=str(matched_entry.id),
+                ))
+            except Exception as e:
+                _log.error("[Literatur/ZIP] S3-Upload fehlgeschlagen für %s: %s", basename, e)
+                details.append(PdfMatchDetail(filename=basename, status="unmatched"))
+
+    if matched_count:
+        await db.commit()
+
+    unmatched = sum(1 for d in details if d.status == "unmatched")
+    _log.info(
+        "[Literatur/ZIP] %d zugeordnet, %d hatte schon PDF, %d unbekannt — Kunde %s",
+        matched_count, already_count, unmatched, user.id,
+    )
+    return BulkPdfResponse(
+        matched=matched_count,
+        already_had_pdf=already_count,
+        unmatched=unmatched,
+        details=details,
+    )
 
 
 @router.get("/{entry_id}/pdf")
