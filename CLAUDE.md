@@ -41,6 +41,7 @@ backend/
     workflows.py             # n8n Workflows
     events.py                # n8n Webhook + SSE (Legacy) + WebSocket (/agent/events/ws)
     push.py                  # FCM Device-Token Registrierung (POST/DELETE /push/register)
+    literature.py            # Literaturbibliothek CRUD + RIS/XML Import + Bulk-PDF-ZIP
     ... (weitere Router)
   models/                    # SQLAlchemy ORM Models
     customer.py
@@ -49,6 +50,7 @@ backend/
     daily_summary.py         # Tagesreport (Ollama gemma3)
     payment.py
     device_token.py          # FCM Push Tokens (pro Kunde, UNIQUE customer+token)
+    literature_entry.py      # Literaturbibliothek (Paper, Bücher, RIS/EndNote XML Import, S3 PDF)
     ... (weitere Models)
   services/                  # Business Logic
     chat_pipeline.py         # Chat-Verarbeitung
@@ -59,6 +61,7 @@ backend/
     fcm_service.py           # Firebase FCM: send_push(), send_push_multicast()
     sse_publisher.py         # Redis Pub/Sub + Presence + publish_event() (online→WS, offline→FCM)
     buddy_event_service.py   # n8n Event verarbeiten: Deduplizierung, LLM-Relevanz, SSE/FCM publish
+    literature_parser.py     # RIS + EndNote XML Parser → normalisierte Dicts
     ... (weitere Services)
   core/
     config.py                # Settings (Pydantic BaseSettings, .env)
@@ -123,6 +126,7 @@ frontend/
 n8n-workflows/               # Exportierte n8n Workflow-JSONs
 scripts/
   claude-runner.py           # Dev-Orchestrator Runner
+  vercel_status.py           # Vercel API: status / redeploy (VERCEL_TOKEN + VERCEL_PROJECTID aus .env)
 docker-compose.yml           # Alle Services (VPS)
 ```
 
@@ -327,14 +331,23 @@ Das hat fundamentale Konsequenzen:
 
 ---
 
+## Vercel API
+- **Token & Project ID**: in `.env` als `VERCEL_TOKEN` und `VERCEL_PROJECTID`
+- **Deployment-Status prüfen**: `python3 scripts/vercel_status.py status`
+- **Redeploy triggern**: `python3 scripts/vercel_status.py redeploy`
+- Vercel triggert bei `git push main` automatisch — bei ausbleibendem Build leeren Commit pushen:
+  `git commit --allow-empty -m "ci: trigger Vercel redeploy" && git push origin main`
+
+---
+
 ## Wichtige Hinweise (Ops)
 - **Entwicklung läuft auf WSL2 (Ubuntu)** — nicht direkt auf dem VPS
 - **VPS-Zugang**: `ssh ubuntu@83.228.242.214`
-- **Frontend**: Vercel deployed automatisch bei `git push main`
-- **Backend-Deploy auf VPS**: `git pull && docker compose up -d --no-deps --force-recreate backend` (bei neuen Env-Vars oder requirements); sonst `docker restart ai_backend`
+- **Frontend**: Vercel deployed automatisch bei `git push main`; Status: `python3 scripts/vercel_status.py status`
+- **Backend-Deploy auf VPS**: `ssh ubuntu@83.228.242.214 "cd /mnt/data/app && git pull && docker restart ai_backend"`
+- **Backend-Deploy (neue Env-Vars / requirements)**: `docker compose up -d --no-deps --force-recreate backend`
 - **Cloudflare Tunnel**: läuft als systemd Service auf dem VPS, nicht als Docker Container
 - Bei Docker-Netzwerkproblemen: `docker compose down && docker compose up -d`
 - Frontend-Rewrites funktionieren; Route-Handler haben DNS-Probleme im Turbopack-Kontext.
-- Nach Code-Änderungen (Backend): `docker restart ai_backend`
 - Lock-File-Fehler Next.js: `docker exec ai_frontend rm -f /app/.next/dev/lock && docker restart ai_frontend`
 - n8n API: PUT Payload muss auf `{name, nodes, connections, settings, staticData}` reduziert werden — keine read-only Felder
