@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiFetch } from "@/lib/auth";
+import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -495,7 +495,7 @@ export default function LiteraturePanel() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await apiFetch(`${BACKEND_URL}/v1/literature/import`, { method: "POST", body: fd });
+      const res = await apiFetchForm(`${BACKEND_URL}/v1/literature/import`, fd);
       const data = await res.json();
       if (res.ok) {
         setImportMsg({ type: "ok", text: `${data.imported} Einträge importiert${data.skipped ? `, ${data.skipped} übersprungen` : ""}.` });
@@ -512,7 +512,7 @@ export default function LiteraturePanel() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await apiFetch(`${BACKEND_URL}/v1/literature/${entry.id}/pdf`, { method: "POST", body: fd });
+      const res = await apiFetchForm(`${BACKEND_URL}/v1/literature/${entry.id}/pdf`, fd);
       if (res.ok) {
         const updated: LitEntry = await res.json();
         setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
