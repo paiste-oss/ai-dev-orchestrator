@@ -21,7 +21,7 @@ import zipfile
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -168,6 +168,8 @@ async def _create_entry_from_dict(
     data: dict[str, Any],
     customer_id: uuid.UUID,
     db: AsyncSession,
+    *,
+    index: bool = True,
 ) -> LiteratureEntry:
     entry = LiteratureEntry(
         id=uuid.uuid4(),
@@ -193,9 +195,24 @@ async def _create_entry_from_dict(
     )
     entry.extracted_text = _build_extracted_text(entry)
     db.add(entry)
-    await db.flush()  # get ID before indexing
-    _index_entry(entry)
+    await db.flush()  # ID vor Indexierung sichern
+    if index:
+        _index_entry(entry)
     return entry
+
+
+async def _index_entries_background(entry_ids: list[str]) -> None:
+    """Qdrant-Indexierung nach dem Response — eigene DB-Session."""
+    from core.database import AsyncSessionLocal
+    async with AsyncSessionLocal() as db:
+        for eid in entry_ids:
+            try:
+                entry = await db.get(LiteratureEntry, uuid.UUID(eid))
+                if entry and entry.baddi_readable:
+                    _index_entry(entry)
+                    await db.commit()
+            except Exception as e:
+                _log.warning("[Literatur] Hintergrund-Indexierung fehlgeschlagen für %s: %s", eid, e)
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -279,6 +296,7 @@ async def delete_literature_entry(
 
 @router.post("/import", response_model=ImportResponse, status_code=201)
 async def import_literature(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     user: Customer = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -315,7 +333,8 @@ async def import_literature(
         if data["title"].lower() in existing_titles:
             skipped += 1
             continue
-        entry = await _create_entry_from_dict(data, user.id, db)
+        # index=False — Qdrant läuft nach dem Response im Hintergrund
+        entry = await _create_entry_from_dict(data, user.id, db, index=False)
         existing_titles.add(data["title"].lower())
         created.append(entry)
 
@@ -323,6 +342,8 @@ async def import_literature(
         await db.commit()
         for e in created:
             await db.refresh(e)
+        # Qdrant-Indexierung entkoppelt vom Request
+        background_tasks.add_task(_index_entries_background, [str(e.id) for e in created])
 
     _log.info("[Literatur] Import: %d neu, %d übersprungen für Kunde %s", len(created), skipped, user.id)
     return ImportResponse(imported=len(created), skipped=skipped, entries=created)

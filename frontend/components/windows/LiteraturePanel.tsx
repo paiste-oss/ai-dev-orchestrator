@@ -454,6 +454,7 @@ export default function LiteraturePanel() {
 
   const papers = entries.filter(e => e.entry_type === "paper");
   const books = entries.filter(e => e.entry_type === "book");
+  const entriesWithoutPdf = entries.filter(e => !e.pdf_s3_key).length;
 
   const filtered = entries.filter(e => {
     if (typeFilter !== "all" && e.entry_type !== typeFilter) return false;
@@ -609,11 +610,14 @@ export default function LiteraturePanel() {
           XML/RIS
         </button>
         <button onClick={() => zipInputRef.current?.click()}
-          disabled={importingZip}
-          title="ZIP mit PDFs importieren — automatische Zuordnung"
-          className="flex items-center gap-1 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-40 text-gray-300 text-xs px-2.5 py-1.5 rounded-lg transition-colors shrink-0">
+          disabled={importingZip || entries.length === 0}
+          title={entries.length === 0 ? "Zuerst XML/RIS importieren — dann PDFs zuordnen" : `ZIP mit PDFs importieren — ${entriesWithoutPdf} Einträge ohne PDF`}
+          className="flex items-center gap-1 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300 text-xs px-2.5 py-1.5 rounded-lg transition-colors shrink-0">
           {importingZip ? <IconSpinner /> : <span className="text-[11px]">🗜</span>}
           PDFs (ZIP)
+          {entries.length > 0 && entriesWithoutPdf > 0 && (
+            <span className="text-[9px] text-amber-500 font-medium">{entriesWithoutPdf}</span>
+          )}
         </button>
         <button onClick={openNew}
           className="flex items-center gap-1 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors shrink-0">
@@ -701,11 +705,12 @@ export default function LiteraturePanel() {
               <p className="text-gray-600 text-xs">{search ? "Keine Treffer" : "Noch keine Literatur"}</p>
               {!search && (
                 <div className="flex flex-col gap-1.5 items-center">
-                  <button onClick={openNew} className="text-[var(--accent-light)] hover:underline text-xs">
-                    Manuell hinzufügen
-                  </button>
                   <button onClick={() => importInputRef.current?.click()} className="text-[var(--accent-light)] hover:underline text-xs">
-                    RIS / XML importieren
+                    1. RIS / XML importieren
+                  </button>
+                  <p className="text-[10px] text-gray-700">dann PDFs (ZIP) hochladen</p>
+                  <button onClick={openNew} className="text-gray-600 hover:text-gray-400 hover:underline text-xs mt-1">
+                    oder manuell hinzufügen
                   </button>
                 </div>
               )}
