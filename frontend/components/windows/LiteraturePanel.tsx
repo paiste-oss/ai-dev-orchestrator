@@ -99,7 +99,6 @@ function DetailPanel({
   onClose,
   onDelete,
   onEdit,
-  onToggleBaddi,
   onPdfUpload,
   deleting,
 }: {
@@ -107,7 +106,6 @@ function DetailPanel({
   onClose: () => void;
   onDelete: (id: string) => void;
   onEdit: (entry: LitEntry) => void;
-  onToggleBaddi: (entry: LitEntry) => void;
   onPdfUpload: (entry: LitEntry, file: File) => void;
   deleting: string | null;
 }) {
@@ -136,10 +134,6 @@ function DetailPanel({
           )}
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
-          <button onClick={() => onToggleBaddi(entry)} title={entry.baddi_readable ? "Für Baddi lesbar" : "Privat"}
-            className={`p-1 rounded transition-colors text-[11px] ${entry.baddi_readable ? "text-emerald-400 hover:text-emerald-300" : "text-gray-600 hover:text-gray-400"}`}>
-            {entry.baddi_readable ? "🤖" : "🔒"}
-          </button>
           <button onClick={() => onEdit(entry)} title="Bearbeiten"
             className="p-1 rounded text-gray-600 hover:text-[var(--accent-light)] transition-colors">
             <IconEdit />
@@ -391,14 +385,6 @@ function EntryForm({
             className={`${inputClass} mt-1 resize-none`} />
         </div>
 
-        {/* Baddi-Lesbarkeit */}
-        <div className="flex items-center gap-2">
-          <button onClick={() => set("baddi_readable", !form.baddi_readable)}
-            className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${form.baddi_readable ? "bg-[var(--accent)] border-[var(--accent)]" : "border-white/20 bg-transparent"}`}>
-            {form.baddi_readable && <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
-          </button>
-          <span className="text-xs text-gray-400">Für Baddi lesbar 🤖</span>
-        </div>
       </div>
 
       {/* Footer */}
@@ -498,16 +484,6 @@ export default function LiteraturePanel() {
         if (selected?.id === id) { setSelected(null); setShowDetail(false); }
       }
     } finally { setDeleting(null); }
-  }
-
-  async function handleToggleBaddi(entry: LitEntry) {
-    const val = !entry.baddi_readable;
-    setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, baddi_readable: val } : e));
-    if (selected?.id === entry.id) setSelected(s => s ? { ...s, baddi_readable: val } : s);
-    await apiFetch(`${BACKEND_URL}/v1/literature/${entry.id}`, {
-      method: "PUT",
-      body: JSON.stringify({ baddi_readable: val }),
-    });
   }
 
   async function handleImport(file: File) {
@@ -731,9 +707,6 @@ export default function LiteraturePanel() {
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {entry.pdf_s3_key && <span className="text-[9px] text-gray-600" title="PDF angehängt">PDF</span>}
-                      <span className={`text-[10px] ${entry.baddi_readable ? "text-emerald-500" : "text-gray-700"}`} title={entry.baddi_readable ? "Baddi kann lesen" : "Privat"}>
-                        {entry.baddi_readable ? "🤖" : "🔒"}
-                      </span>
                       {uploadingPdf === entry.id && <IconSpinner />}
                     </div>
                   </div>
@@ -761,7 +734,6 @@ export default function LiteraturePanel() {
                   onClose={() => { setShowDetail(false); setSelected(null); }}
                   onDelete={handleDelete}
                   onEdit={openEdit}
-                  onToggleBaddi={handleToggleBaddi}
                   onPdfUpload={handlePdfUpload}
                   deleting={deleting}
                 />

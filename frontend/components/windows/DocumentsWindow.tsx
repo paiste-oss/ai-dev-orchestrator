@@ -166,16 +166,18 @@ function PreviewPanel({ doc, onClose, onDelete, onToggleVisibility, deleting }: 
         <span className="flex-1 text-xs text-white font-medium truncate min-w-0" title={doc.original_filename}>
           {doc.original_filename}
         </span>
-        <button
-          onClick={() => onToggleVisibility(doc)}
-          title={doc.baddi_readable ? t("docs.baddi_readable_title") : t("docs.baddi_private_title")}
-          className={`shrink-0 p-1 rounded transition-colors ${doc.baddi_readable ? "text-emerald-400 hover:text-emerald-300" : "text-gray-600 hover:text-gray-400"}`}>
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            {doc.baddi_readable
-              ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
-              : <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>}
-          </svg>
-        </button>
+        {doc.doc_metadata?.source !== "chat" && (
+          <button
+            onClick={() => onToggleVisibility(doc)}
+            title={doc.baddi_readable ? t("docs.baddi_readable_title") : t("docs.baddi_private_title")}
+            className={`shrink-0 p-1 rounded transition-colors ${doc.baddi_readable ? "text-emerald-400 hover:text-emerald-300" : "text-gray-600 hover:text-gray-400"}`}>
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {doc.baddi_readable
+                ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>
+                : <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>}
+            </svg>
+          </button>
+        )}
         <button
           onClick={() => onDelete(doc.id)}
           disabled={deleting === doc.id}
@@ -692,10 +694,12 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
                         <td className="px-2 py-2 text-gray-500 whitespace-nowrap">{formatDate(doc.created_at)}</td>
                         <td className="px-2 py-2 text-gray-500 whitespace-nowrap">{doc.page_count > 0 ? doc.page_count : "—"}</td>
                         <td className="px-2 py-2" onClick={e => e.stopPropagation()}>
-                          <button onClick={() => toggleVisibility(doc)} title={doc.baddi_readable ? t("docs.readable") : t("docs.private")}
-                            className={`text-[10px] px-1.5 py-0.5 rounded font-medium transition-all ${doc.baddi_readable ? "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20" : "text-gray-500 bg-gray-500/10 hover:bg-gray-500/20"}`}>
-                            {doc.baddi_readable ? "🤖" : "🔒"}
-                          </button>
+                          {doc.doc_metadata?.source !== "chat" && (
+                            <button onClick={() => toggleVisibility(doc)} title={doc.baddi_readable ? t("docs.readable") : t("docs.private")}
+                              className={`text-[10px] px-1.5 py-0.5 rounded font-medium transition-all ${doc.baddi_readable ? "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20" : "text-gray-500 bg-gray-500/10 hover:bg-gray-500/20"}`}>
+                              {doc.baddi_readable ? "🤖" : "🔒"}
+                            </button>
+                          )}
                         </td>
                         <td className="px-2 py-2" onClick={e => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
@@ -741,10 +745,12 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
                       <div className="flex items-center gap-1.5 px-2 pt-2" onClick={e => e.stopPropagation()}>
                         <Checkbox checked={isChecked} onChange={() => toggleSelect(doc.id)} />
                         <span className={`flex-1 text-[9px] font-medium px-1 py-0.5 rounded truncate ${catColor}`}>{catLabel}</span>
-                        <button onClick={() => toggleVisibility(doc)} title={doc.baddi_readable ? t("docs.readable") : t("docs.private")}
-                          className={`text-[11px] transition-colors ${doc.baddi_readable ? "opacity-80 hover:opacity-100" : "opacity-40 hover:opacity-70"}`}>
-                          {doc.baddi_readable ? "🤖" : "🔒"}
-                        </button>
+                        {doc.doc_metadata?.source !== "chat" && (
+                          <button onClick={() => toggleVisibility(doc)} title={doc.baddi_readable ? t("docs.readable") : t("docs.private")}
+                            className={`text-[11px] transition-colors ${doc.baddi_readable ? "opacity-80 hover:opacity-100" : "opacity-40 hover:opacity-70"}`}>
+                            {doc.baddi_readable ? "🤖" : "🔒"}
+                          </button>
+                        )}
                       </div>
 
                       <div className="flex items-center justify-center py-3 text-3xl">
