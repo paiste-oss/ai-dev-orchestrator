@@ -125,6 +125,12 @@ class Settings(BaseSettings):
     # Brevo Inbound Webhook Secret (optional — in Brevo Inbound-Settings eintragen)
     brevo_webhook_secret: str = ""
 
+    # Firebase FCM Push Notifications
+    # Pfad zur Service-Account-JSON aus Firebase Console →
+    # Projekteinstellungen → Dienstkonten → Neuen privaten Schlüssel generieren
+    firebase_credentials_path: str = ""   # z.B. /secrets/firebase-service-account.json
+    firebase_project_id: str = ""         # Projekt-ID aus Firebase Console
+
     # Dev Orchestrator — Projekt-Root im Container
     project_root: str = "/project"
 

@@ -130,3 +130,4 @@ class Customer(Base):
     buddies: Mapped[list["AiBuddy"]] = relationship(back_populates="customer")  # type: ignore
     credentials: Mapped[list["CustomerCredential"]] = relationship(back_populates="customer", cascade="all, delete-orphan")  # type: ignore
     documents: Mapped[list["CustomerDocument"]] = relationship(back_populates="customer", cascade="all, delete-orphan")  # type: ignore
+    device_tokens: Mapped[list["DeviceToken"]] = relationship(back_populates="customer", cascade="all, delete-orphan")  # type: ignore

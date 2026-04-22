@@ -23,6 +23,7 @@ from api.v1 import (
     support_admin, flights, email, calendar, invoices, user_home,
 )
 from api.v1 import settings as portal_settings
+from api.v1 import push
 import models.chat              # noqa: F401
 import models.document_folder   # noqa: F401
 import models.finance           # noqa: F401
@@ -34,6 +35,7 @@ import models.stock_portfolio   # noqa: F401
 import models.daily_summary     # noqa: F401
 import models.support_ticket    # noqa: F401
 import models.email_message    # noqa: F401
+import models.device_token      # noqa: F401
 
 os.environ["OPENAI_API_KEY"] = settings.openai_api_key or "NA"
 
@@ -61,6 +63,8 @@ limiter = Limiter(key_func=_get_real_ip)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    from services.fcm_service import init_firebase
+    init_firebase()
     yield
 
 
@@ -127,6 +131,7 @@ app.include_router(flights.router, prefix="/v1")
 app.include_router(email.router, prefix="/v1")
 app.include_router(calendar.router, prefix="/v1")
 app.include_router(invoices.router, prefix="/v1")
+app.include_router(push.router, prefix="/v1")
 
 
 @app.middleware("http")

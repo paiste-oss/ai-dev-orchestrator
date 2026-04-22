@@ -18,7 +18,7 @@ from core.config import settings
 from core.database import get_db
 from models.buddy_event import BuddyEvent
 from services.buddy_event_service import process_event
-from services.sse_publisher import subscribe_customer
+from services.sse_publisher import subscribe_customer, set_presence_online, set_presence_offline, refresh_presence
 
 router = APIRouter()
 
@@ -60,8 +60,11 @@ async def stream_events(customer_id: UUID, request: Request):
     Server-Sent Events für den Browser.
     Frontend: new EventSource('/v1/agent/events/stream?customer_id=...')
     """
+    _cid = str(customer_id)
+
     async def generator_with_keepalive():
-        sub = subscribe_customer(str(customer_id))
+        await set_presence_online(_cid)
+        sub = subscribe_customer(_cid)
         pending_ping = asyncio.create_task(asyncio.sleep(25))
 
         async def get_next():
@@ -81,6 +84,7 @@ async def stream_events(customer_id: UUID, request: Request):
 
                 if pending_ping in done:
                     yield 'data: {"type":"ping"}\n\n'
+                    await refresh_presence(_cid)
                     pending_ping = asyncio.create_task(asyncio.sleep(25))
 
                 if pending_msg in done:
@@ -95,6 +99,7 @@ async def stream_events(customer_id: UUID, request: Request):
         finally:
             pending_ping.cancel()
             pending_msg.cancel()
+            await set_presence_offline(_cid)
 
     return StreamingResponse(
         generator_with_keepalive(),

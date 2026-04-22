@@ -221,6 +221,19 @@ async def init_db():
             "ALTER TABLE customers ADD COLUMN IF NOT EXISTS notification_channel VARCHAR(20) DEFAULT 'sms'",
             # Dokument-Sichtbarkeit
             "ALTER TABLE customer_documents ADD COLUMN IF NOT EXISTS baddi_readable BOOLEAN DEFAULT true",
+            # FCM Push Tokens (Mobile App)
+            """
+            CREATE TABLE IF NOT EXISTS device_tokens (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+                token VARCHAR(512) NOT NULL,
+                platform VARCHAR(20) NOT NULL DEFAULT 'unknown',
+                created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                CONSTRAINT uq_device_token_customer_token UNIQUE (customer_id, token)
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_device_tokens_customer ON device_tokens(customer_id)",
         ]
         for sql in migrations:
             await conn.execute(text(sql))
