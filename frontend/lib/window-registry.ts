@@ -160,6 +160,17 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     singleton: true,
   },
   {
+    id: "literature",
+    label: "Literatur",
+    icon: "📚",
+    description: "Persönliche Literaturbibliothek — Paper und Bücher verwalten, RIS/EndNote XML importieren, Baddi durchsucht die Einträge.",
+    defaultWidth: 700,
+    defaultHeight: 520,
+    status: "active",
+    canvasType: "literature",
+    singleton: true,
+  },
+  {
     id: "3d_renderer",
     label: "3D-Renderer",
     icon: "🧊",

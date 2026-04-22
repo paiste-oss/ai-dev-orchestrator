@@ -37,6 +37,7 @@ import WhiteboardWindow from "@/components/windows/WhiteboardWindow";
 import ImageViewerWindow from "@/components/windows/ImageViewerWindow";
 import NetzwerkWindow from "@/components/windows/NetzwerkWindow";
 import DocumentsWindow from "@/components/windows/DocumentsWindow";
+import LiteraturePanel from "@/components/windows/LiteraturePanel";
 import DictationWindow from "@/components/windows/DictationWindow";
 import FileViewerWindow from "@/components/windows/FileViewerWindow";
 import MemoryWindow from "@/components/windows/MemoryWindow";
@@ -636,6 +637,9 @@ export default function ChatPage() {
       );
       case "documents": return (
         <DocumentsWindow onOpenFile={handleOpenFile} />
+      );
+      case "literature": return (
+        <LiteraturePanel />
       );
       case "diktieren": return (
         <DictationWindow language={uiPrefs.language} />

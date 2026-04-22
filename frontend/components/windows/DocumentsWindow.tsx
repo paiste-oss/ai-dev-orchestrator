@@ -5,7 +5,6 @@ import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { fmtBytes as formatBytes, formatDate } from "@/lib/format";
 import { useT } from "@/lib/i18n";
-import LiteraturePanel from "./LiteraturePanel";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -267,11 +266,8 @@ function Checkbox({ checked, onChange, onClick }: { checked: boolean; onChange: 
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-type MainTab = "files" | "literature";
-
 export default function DocumentsWindow({ onOpenFile }: Props) {
   const t = useT();
-  const [activeTab, setActiveTab]     = useState<MainTab>("files");
   const [docs, setDocs]               = useState<Doc[]>([]);
   const [folders, setFolders]         = useState<Folder[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -506,27 +502,12 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
   ];
 
   return (
-    <div className="relative flex flex-col h-full text-white overflow-hidden">
-      {/* ── Main Tabs ── */}
-      <div className="flex items-center gap-0 px-3 pt-2 border-b border-white/6 shrink-0">
-        {([["files", "📁 Dateien"], ["literature", "📚 Literatur"]] as [MainTab, string][]).map(([tab, label]) => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors mr-1 ${activeTab === tab ? "border-[var(--accent)] text-[var(--accent-light)]" : "border-transparent text-gray-500 hover:text-gray-300"}`}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Literature Tab ── */}
-      {activeTab === "literature" && <LiteraturePanel />}
-
-      {/* ── Files Tab ── */}
-      {activeTab === "files" && <div
-        className={`relative flex flex-col flex-1 overflow-hidden transition-colors ${dragOver ? "bg-[var(--accent-10)] ring-2 ring-[var(--accent-50)] ring-inset" : ""}`}
-        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
-        onDrop={e => { e.preventDefault(); setDragOver(false); handleUpload(e.dataTransfer.files); }}
-      >
+    <div
+      className={`relative flex flex-col h-full text-white overflow-hidden transition-colors ${dragOver ? "bg-[var(--accent-10)] ring-2 ring-[var(--accent-50)] ring-inset" : ""}`}
+      onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
+      onDrop={e => { e.preventDefault(); setDragOver(false); handleUpload(e.dataTransfer.files); }}
+    >
       {/* ── Toolbar ── */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/6 shrink-0">
         <button onClick={() => setSidebarOpen(v => !v)} title="Sidebar"
@@ -838,7 +819,6 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
           </>
         )}
       </div>
-      </div>}
     </div>
   );
 }
