@@ -531,6 +531,16 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
             })}
           </div>
         </section>
+
+        {/* ── Footer links ─────────────────────────────────────────────────── */}
+        <div className="flex justify-center pb-1">
+          <a href="/faq" target="_blank" rel="noopener noreferrer"
+            className="text-[11px] text-gray-600 hover:text-gray-400 transition-colors flex items-center gap-1">
+            <span>❓</span>
+            <span>FAQ &amp; Hilfe</span>
+          </a>
+        </div>
+
       </div>
     </div>
   );

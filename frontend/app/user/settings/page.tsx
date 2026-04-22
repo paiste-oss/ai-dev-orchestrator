@@ -93,8 +93,13 @@ export default function UserSettingsPage() {
             <span className="text-gray-600">→</span>
           </a>
           <a href="/datenschutz?from=/user/settings"
-            className="flex items-center justify-between w-full text-sm text-gray-300 hover:text-white transition-colors py-1">
+            className="flex items-center justify-between w-full text-sm text-gray-300 hover:text-white transition-colors py-1 border-b border-white/5">
             <span>{t("settings.privacy")}</span>
+            <span className="text-gray-600">→</span>
+          </a>
+          <a href="/faq?from=/user/settings"
+            className="flex items-center justify-between w-full text-sm text-gray-300 hover:text-white transition-colors py-1">
+            <span>FAQ &amp; Hilfe</span>
             <span className="text-gray-600">→</span>
           </a>
         </div>
