@@ -1,21 +1,25 @@
 """
-Event-Eingang von n8n und SSE-Stream zum Frontend.
+Event-Eingang von n8n, SSE-Stream und WebSocket zum Frontend.
 
-POST /v1/agent/event        ← n8n webhook (mit X-N8N-Secret Header)
-GET  /v1/agent/events/stream ← Frontend EventSource (SSE)
-GET  /v1/agent/events        ← Event-History für einen Kunden
+POST /v1/agent/event          ← n8n webhook (mit X-N8N-Secret Header)
+GET  /v1/agent/events/stream  ← Frontend EventSource (SSE, Legacy)
+WS   /v1/agent/events/ws      ← WebSocket (bevorzugt, JWT via ?token=)
+GET  /v1/agent/events         ← Event-History für einen Kunden
 """
 import asyncio
+import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
+from jose import JWTError
 from pydantic import BaseModel
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from core.database import get_db
+from core.security import decode_access_token
 from models.buddy_event import BuddyEvent
 from services.buddy_event_service import process_event
 from services.sse_publisher import subscribe_customer, set_presence_online, set_presence_offline, refresh_presence
@@ -110,6 +114,83 @@ async def stream_events(customer_id: UUID, request: Request):
             "Connection": "keep-alive",
         },
     )
+
+
+@router.websocket("/agent/events/ws")
+async def ws_events(websocket: WebSocket, token: str | None = None, customer_id: UUID | None = None):
+    """
+    WebSocket-Endpoint für Echtzeit-Notifications.
+    Auth: JWT via ?token=<access_token>
+    Alternativ: ?customer_id=<uuid> (ohne Auth, nur für interne/lokale Nutzung wenn kein secret konfiguriert)
+
+    Protokoll:
+      Server → Client: JSON-Objekte (Notifications oder {"type":"ping"})
+      Client → Server: wird ignoriert (unidirektional)
+    """
+    # JWT-Auth
+    if token:
+        try:
+            payload = decode_access_token(token)
+            customer_id_str = payload.get("sub")
+            if not customer_id_str:
+                await websocket.close(code=4001)
+                return
+        except JWTError:
+            await websocket.close(code=4001)
+            return
+    elif customer_id:
+        customer_id_str = str(customer_id)
+    else:
+        await websocket.close(code=4001)
+        return
+
+    await websocket.accept()
+    await set_presence_online(customer_id_str)
+
+    sub = subscribe_customer(customer_id_str)
+    ping_task: asyncio.Task | None = None
+    msg_task: asyncio.Task | None = None
+
+    async def get_next_msg():
+        return await sub.__anext__()
+
+    try:
+        ping_task = asyncio.create_task(asyncio.sleep(30))
+        msg_task = asyncio.create_task(get_next_msg())
+
+        while True:
+            done, _ = await asyncio.wait(
+                [msg_task, ping_task],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            if ping_task in done:
+                await websocket.send_text(json.dumps({"type": "ping"}))
+                await refresh_presence(customer_id_str)
+                ping_task = asyncio.create_task(asyncio.sleep(30))
+
+            if msg_task in done:
+                try:
+                    data = msg_task.result()
+                    await websocket.send_text(data)
+                    msg_task = asyncio.create_task(get_next_msg())
+                except StopAsyncIteration:
+                    break
+
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        if ping_task and not ping_task.done():
+            ping_task.cancel()
+        if msg_task and not msg_task.done():
+            msg_task.cancel()
+        await set_presence_offline(customer_id_str)
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 
 @router.get("/agent/events")
