@@ -572,6 +572,13 @@ async def _process_bulk_zip(
     if not zipfile.is_zipfile(io.BytesIO(content)):
         raise HTTPException(status_code=422, detail="Ungültige ZIP-Datei")
 
+    # ZIP-Bomb-Schutz: unkomprimierte Gesamtgrösse prüfen (max. 2 GB)
+    _MAX_UNCOMPRESSED = 2 * 1024 * 1024 * 1024
+    with zipfile.ZipFile(io.BytesIO(content)) as _zf_check:
+        total_uncompressed = sum(i.file_size for i in _zf_check.infolist())
+        if total_uncompressed > _MAX_UNCOMPRESSED:
+            raise HTTPException(status_code=413, detail="ZIP-Inhalt zu gross (max. 2 GB unkomprimiert)")
+
     # Alle aktiven Einträge des Users laden
     result = await db.execute(
         select(LiteratureEntry).where(
