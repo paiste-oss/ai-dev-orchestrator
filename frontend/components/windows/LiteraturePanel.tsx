@@ -119,7 +119,7 @@ function IconGroup() {
   return <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>;
 }
 function IconPlus() {
-  return <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+  return <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
 }
 function IconPencilTiny() {
   return <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>;
@@ -993,9 +993,12 @@ export default function LiteraturePanel() {
             <span className="text-[10px] text-gray-600">{count}</span>
           </button>
           <button
-            onClick={() => setAddingGroupFor(isAddingHere ? null : { type: entryType, parentId: null })}
+            onClick={() => {
+              if (!open) onToggle();
+              setAddingGroupFor(isAddingHere ? null : { type: entryType, parentId: null });
+            }}
             title="Neue Gruppe"
-            className="opacity-0 group-hover/type:opacity-100 p-1 rounded text-gray-500 hover:text-white transition-all shrink-0">
+            className="opacity-0 group-hover/type:opacity-100 w-5 h-5 flex items-center justify-center rounded-full border border-white/20 text-gray-400 hover:text-white hover:border-white/50 hover:bg-white/10 transition-all shrink-0">
             <IconPlus />
           </button>
         </div>
