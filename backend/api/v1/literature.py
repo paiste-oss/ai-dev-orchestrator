@@ -1,29 +1,33 @@
 """
 Literatur-Endpunkte — persönliche Literaturdatenbank pro Kunde.
 
-  GET    /v1/literature/mine              — eigene Einträge
-  POST   /v1/literature/                  — manuell anlegen
-  PUT    /v1/literature/{id}              — bearbeiten
-  DELETE /v1/literature/{id}             — löschen
-  POST   /v1/literature/import            — .ris / .xml Datei importieren
-  GET    /v1/literature/bulk-upload-url    — Presigned S3-URL für direkten ZIP-Upload
-  POST   /v1/literature/import-pdfs-from-s3 — ZIP aus S3 verarbeiten (nach S3-Upload)
-  POST   /v1/literature/import-pdfs       — ZIP direkt hochladen (≤ 90 MB)
-  POST   /v1/literature/{id}/pdf          — PDF anhängen
-  GET    /v1/literature/{id}/pdf          — PDF herunterladen
+  GET    /v1/literature/mine                        — eigene Einträge
+  POST   /v1/literature/                            — manuell anlegen
+  PUT    /v1/literature/{id}                        — bearbeiten
+  DELETE /v1/literature/{id}                        — löschen
+  POST   /v1/literature/import                      — .ris / .xml Datei importieren
+  POST   /v1/literature/import-pdfs                 — ZIP direkt hochladen (≤ 90 MB)
+  POST   /v1/literature/import-pdfs/upload-chunk    — Chunk-Upload für grosse ZIPs (Cloudflare-Bypass)
+  GET    /v1/literature/import-pdfs/status/{id}     — Verarbeitungs-Status (Redis-Poll)
+  POST   /v1/literature/{id}/pdf                    — PDF anhängen
+  GET    /v1/literature/{id}/pdf                    — PDF herunterladen
 """
 from __future__ import annotations
 
 import io
+import json as _json
 import logging
 import os
+import pathlib
 import re
+import shutil
+import tempfile
 import uuid
 import zipfile
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -48,6 +52,7 @@ router = APIRouter(prefix="/literature", tags=["literature"])
 
 _QDRANT_COLLECTION = "literature"
 _MAX_PDF_SIZE = 50 * 1024 * 1024
+_CHUNK_TMP_BASE = pathlib.Path(tempfile.gettempdir()) / "lit_bulk"
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -438,6 +443,20 @@ class BulkPdfFromS3Request(BaseModel):
     s3_key: str
 
 
+class ChunkUploadResponse(BaseModel):
+    upload_id: str
+    chunks_received: int
+    total_chunks: int
+    status: str  # "uploading" | "processing"
+
+
+class UploadStatusResponse(BaseModel):
+    status: str  # "uploading" | "processing" | "done" | "error"
+    upload_id: str
+    result: BulkPdfResponse | None = None
+    error: str | None = None
+
+
 def _normalize_for_match(text: str) -> set[str]:
     """Wörter ≥4 Zeichen aus Text als Set — für Overlap-Berechnung."""
     return set(re.findall(r'[a-z]{4,}', text.lower()))
@@ -563,30 +582,19 @@ async def import_pdfs_bulk(
     return await _process_bulk_zip(content, user, db)
 
 
-async def _process_bulk_zip(
-    content: bytes,
+async def _run_zip_entries(
+    zf: zipfile.ZipFile,
     user: Customer,
     db: AsyncSession,
 ) -> BulkPdfResponse:
-    """Kern-Logik für den ZIP-PDF-Import — shared zwischen direktem Upload und S3-Flow."""
-    if not zipfile.is_zipfile(io.BytesIO(content)):
-        raise HTTPException(status_code=422, detail="Ungültige ZIP-Datei")
-
-    # ZIP-Bomb-Schutz: unkomprimierte Gesamtgrösse prüfen (max. 2 GB)
-    _MAX_UNCOMPRESSED = 2 * 1024 * 1024 * 1024
-    with zipfile.ZipFile(io.BytesIO(content)) as _zf_check:
-        total_uncompressed = sum(i.file_size for i in _zf_check.infolist())
-        if total_uncompressed > _MAX_UNCOMPRESSED:
-            raise HTTPException(status_code=413, detail="ZIP-Inhalt zu gross (max. 2 GB unkomprimiert)")
-
-    # Alle aktiven Einträge des Users laden
-    result = await db.execute(
+    """Innere ZIP-Verarbeitung: matching, S3-Upload, DB-Update — shared zwischen allen ZIP-Import-Pfaden."""
+    result_q = await db.execute(
         select(LiteratureEntry).where(
             LiteratureEntry.customer_id == user.id,
             LiteratureEntry.is_active.is_(True),
         )
     )
-    entries: list[LiteratureEntry] = result.scalars().all()
+    entries: list[LiteratureEntry] = result_q.scalars().all()
 
     doi_index: dict[str, LiteratureEntry] = {
         e.doi.strip().lower(): e
@@ -598,79 +606,76 @@ async def _process_bulk_zip(
     matched_count = 0
     already_count = 0
 
-    with zipfile.ZipFile(io.BytesIO(content)) as zf:
-        pdf_names = [
-            n for n in zf.namelist()
-            if n.lower().endswith(".pdf") and not os.path.basename(n).startswith(".")
-        ]
+    pdf_names = [
+        n for n in zf.namelist()
+        if n.lower().endswith(".pdf") and not os.path.basename(n).startswith(".")
+    ]
 
-        for pdf_name in pdf_names:
-            basename = os.path.basename(pdf_name)
-            stem = os.path.splitext(basename)[0]
+    for pdf_name in pdf_names:
+        basename = os.path.basename(pdf_name)
+        stem = os.path.splitext(basename)[0]
 
-            try:
-                pdf_bytes = zf.read(pdf_name)
-            except Exception as e:
-                _log.warning("[Literatur/ZIP] Fehler beim Lesen von %s: %s", pdf_name, e)
-                details.append(PdfMatchDetail(filename=basename, status="unmatched"))
-                continue
+        try:
+            pdf_bytes = zf.read(pdf_name)
+        except Exception as e:
+            _log.warning("[Literatur/ZIP] Fehler beim Lesen von %s: %s", pdf_name, e)
+            details.append(PdfMatchDetail(filename=basename, status="unmatched"))
+            continue
 
-            # Text extrahieren (nur für Matching — Fehler sind unkritisch)
-            pdf_text = ""
-            try:
-                from services.file_parser import parse_file
-                parsed = parse_file(pdf_bytes, basename, "application/pdf")
-                pdf_text = parsed.text[:4000]
-            except Exception:
-                pass
+        pdf_text = ""
+        try:
+            from services.file_parser import parse_file
+            parsed = parse_file(pdf_bytes, basename, "application/pdf")
+            pdf_text = parsed.text[:4000]
+        except Exception:
+            pass
 
-            matched_entry, method = _match_entry(pdf_text, stem, doi_index, entries)
+        matched_entry, method = _match_entry(pdf_text, stem, doi_index, entries)
 
-            if not matched_entry:
-                details.append(PdfMatchDetail(filename=basename, status="unmatched"))
-                continue
+        if not matched_entry:
+            details.append(PdfMatchDetail(filename=basename, status="unmatched"))
+            continue
 
-            if matched_entry.pdf_s3_key:
-                already_count += 1
-                details.append(PdfMatchDetail(
-                    filename=basename,
-                    status="already_has_pdf",
-                    match_method=method,
-                    matched_title=matched_entry.title,
-                    entry_id=str(matched_entry.id),
-                ))
-                continue
+        if matched_entry.pdf_s3_key:
+            already_count += 1
+            details.append(PdfMatchDetail(
+                filename=basename,
+                status="already_has_pdf",
+                match_method=method,
+                matched_title=matched_entry.title,
+                entry_id=str(matched_entry.id),
+            ))
+            continue
 
-            # S3-Upload
-            try:
-                s3_key = await s3_upload(
-                    customer_id=user.id,
-                    doc_id=matched_entry.id,
-                    filename=basename,
-                    content=pdf_bytes,
-                    content_type="application/pdf",
+        try:
+            s3_key = await s3_upload(
+                customer_id=user.id,
+                doc_id=matched_entry.id,
+                filename=basename,
+                content=pdf_bytes,
+                content_type="application/pdf",
+            )
+            matched_entry.pdf_s3_key = s3_key
+            matched_entry.pdf_size_bytes = len(pdf_bytes)
+
+            if pdf_text.strip():
+                matched_entry.extracted_text = (
+                    _build_extracted_text(matched_entry) + "\n\n" + pdf_text[:8000]
                 )
-                matched_entry.pdf_s3_key = s3_key
-                matched_entry.pdf_size_bytes = len(pdf_bytes)
+            _deindex_entry(matched_entry)
+            _index_entry(matched_entry)
 
-                if pdf_text.strip():
-                    matched_entry.extracted_text = (
-                        _build_extracted_text(matched_entry) + "\n\n" + pdf_text[:8000]
-                    )
-                _deindex_entry(matched_entry)
-                _index_entry(matched_entry)
-
-                matched_count += 1
-                details.append(PdfMatchDetail(
-                    filename=basename,
-                    status="matched",
-                    match_method=method,
-                    matched_title=matched_entry.title,
-                    entry_id=str(matched_entry.id),
-                ))
-            except Exception as e:
-                _log.error("[Literatur/ZIP] S3-Upload fehlgeschlagen für %s: %s", basename, e)
-                details.append(PdfMatchDetail(filename=basename, status="unmatched"))
+            matched_count += 1
+            details.append(PdfMatchDetail(
+                filename=basename,
+                status="matched",
+                match_method=method,
+                matched_title=matched_entry.title,
+                entry_id=str(matched_entry.id),
+            ))
+        except Exception as e:
+            _log.error("[Literatur/ZIP] S3-Upload fehlgeschlagen für %s: %s", basename, e)
+            details.append(PdfMatchDetail(filename=basename, status="unmatched"))
 
     if matched_count:
         await db.commit()
@@ -685,6 +690,142 @@ async def _process_bulk_zip(
         already_had_pdf=already_count,
         unmatched=unmatched,
         details=details,
+    )
+
+
+async def _process_bulk_zip(content: bytes, user: Customer, db: AsyncSession) -> BulkPdfResponse:
+    """ZIP-Import von Bytes (kleines ZIP ≤ 90 MB)."""
+    if not zipfile.is_zipfile(io.BytesIO(content)):
+        raise HTTPException(status_code=422, detail="Ungültige ZIP-Datei")
+    with zipfile.ZipFile(io.BytesIO(content)) as _zf_check:
+        if sum(i.file_size for i in _zf_check.infolist()) > 2 * 1024 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="ZIP-Inhalt zu gross (max. 2 GB unkomprimiert)")
+    with zipfile.ZipFile(io.BytesIO(content)) as zf:
+        return await _run_zip_entries(zf, user, db)
+
+
+async def _process_bulk_zip_from_path(zip_path: pathlib.Path, user: Customer, db: AsyncSession) -> BulkPdfResponse:
+    """ZIP-Import von Datei-Pfad (grosses ZIP — kein RAM für Gesamtinhalt nötig)."""
+    if not zipfile.is_zipfile(zip_path):
+        raise HTTPException(status_code=422, detail="Ungültige ZIP-Datei")
+    with zipfile.ZipFile(zip_path) as _zf_check:
+        if sum(i.file_size for i in _zf_check.infolist()) > 2 * 1024 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="ZIP-Inhalt zu gross (max. 2 GB unkomprimiert)")
+    with zipfile.ZipFile(zip_path) as zf:
+        return await _run_zip_entries(zf, user, db)
+
+
+async def _bulk_zip_background_task(zip_path_str: str, customer_id_str: str, upload_id: str) -> None:
+    """Background: ZIP verarbeiten, Redis-Status schreiben, Temp-Verzeichnis aufräumen."""
+    import redis.asyncio as aioredis
+    from core.config import settings
+    from core.database import AsyncSessionLocal
+    from models.customer import Customer as CustomerModel
+
+    zip_path = pathlib.Path(zip_path_str)
+    customer_id = uuid.UUID(customer_id_str)
+    redis_key = f"lit_bulk:{customer_id}:{upload_id}"
+    r = aioredis.from_url(settings.redis_url)
+
+    try:
+        async with AsyncSessionLocal() as db:
+            user = await db.get(CustomerModel, customer_id)
+            if not user:
+                await r.set(redis_key, _json.dumps({"status": "error", "upload_id": upload_id, "error": "Kunde nicht gefunden"}), ex=3600)
+                return
+            result = await _process_bulk_zip_from_path(zip_path, user, db)
+        await r.set(redis_key, _json.dumps({"status": "done", "upload_id": upload_id, "result": result.model_dump(mode="json")}), ex=3600)
+        _log.info("[Literatur/ZIP] Hintergrund-Verarbeitung abgeschlossen: %s", upload_id)
+    except HTTPException as exc:
+        await r.set(redis_key, _json.dumps({"status": "error", "upload_id": upload_id, "error": exc.detail}), ex=3600)
+    except Exception as exc:
+        _log.error("[Literatur/ZIP] Hintergrund-Verarbeitung fehlgeschlagen für %s: %s", upload_id, exc)
+        await r.set(redis_key, _json.dumps({"status": "error", "upload_id": upload_id, "error": str(exc)[:200]}), ex=3600)
+    finally:
+        shutil.rmtree(zip_path.parent, ignore_errors=True)
+        await r.aclose()
+
+
+@router.post("/import-pdfs/upload-chunk", response_model=ChunkUploadResponse)
+@limiter.limit("300/hour")
+async def upload_pdf_chunk(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    upload_id: str = Form(...),
+    chunk_index: int = Form(...),
+    total_chunks: int = Form(...),
+    chunk: UploadFile = File(...),
+    user: Customer = Depends(get_current_user),
+):
+    """Chunk eines ZIP-Uploads empfangen. Letzter Chunk startet Hintergrundverarbeitung."""
+    if not re.match(r'^[a-f0-9]{32}$', upload_id):
+        raise HTTPException(status_code=422, detail="Ungültige Upload-ID")
+    if not (0 <= chunk_index < total_chunks):
+        raise HTTPException(status_code=422, detail="Ungültiger Chunk-Index")
+    if not (1 <= total_chunks <= 50):
+        raise HTTPException(status_code=422, detail="total_chunks muss zwischen 1 und 50 liegen")
+
+    chunk_dir = _CHUNK_TMP_BASE / f"{user.id}_{upload_id}"
+    chunk_dir.mkdir(parents=True, exist_ok=True)
+
+    chunk_data = await chunk.read()
+    if len(chunk_data) > 100 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Chunk zu gross (max. 100 MB)")
+
+    (chunk_dir / f"chunk_{chunk_index:04d}").write_bytes(chunk_data)
+    received = len(list(chunk_dir.glob("chunk_????")))
+
+    if received < total_chunks:
+        return ChunkUploadResponse(upload_id=upload_id, chunks_received=received, total_chunks=total_chunks, status="uploading")
+
+    # Alle Chunks da — zusammensetzen
+    assembled_path = chunk_dir / "assembled.zip"
+    with assembled_path.open("wb") as f_out:
+        for i in range(total_chunks):
+            part = chunk_dir / f"chunk_{i:04d}"
+            if not part.exists():
+                raise HTTPException(status_code=422, detail=f"Chunk {i} fehlt — Upload erneut starten")
+            f_out.write(part.read_bytes())
+            part.unlink()
+
+    # Redis-Status setzen BEVOR BackgroundTask startet
+    import redis.asyncio as aioredis
+    from core.config import settings as _settings
+    r = aioredis.from_url(_settings.redis_url)
+    await r.set(f"lit_bulk:{user.id}:{upload_id}", _json.dumps({"status": "processing", "upload_id": upload_id}), ex=14400)
+    await r.aclose()
+
+    background_tasks.add_task(_bulk_zip_background_task, str(assembled_path), str(user.id), upload_id)
+    _log.info("[Literatur/ZIP] Alle %d Chunks erhalten, starte Verarbeitung: %s", total_chunks, upload_id)
+    return ChunkUploadResponse(upload_id=upload_id, chunks_received=received, total_chunks=total_chunks, status="processing")
+
+
+@router.get("/import-pdfs/status/{upload_id}", response_model=UploadStatusResponse)
+async def get_upload_status(
+    upload_id: str,
+    user: Customer = Depends(get_current_user),
+):
+    """ZIP-Import-Status aus Redis lesen."""
+    if not re.match(r'^[a-f0-9]{32}$', upload_id):
+        raise HTTPException(status_code=422, detail="Ungültige Upload-ID")
+
+    import redis.asyncio as aioredis
+    from core.config import settings as _settings
+    r = aioredis.from_url(_settings.redis_url)
+    try:
+        raw = await r.get(f"lit_bulk:{user.id}:{upload_id}")
+    finally:
+        await r.aclose()
+
+    if not raw:
+        raise HTTPException(status_code=404, detail="Upload nicht gefunden oder abgelaufen")
+
+    data = _json.loads(raw)
+    return UploadStatusResponse(
+        status=data["status"],
+        upload_id=upload_id,
+        result=BulkPdfResponse(**data["result"]) if data.get("result") else None,
+        error=data.get("error"),
     )
 
 

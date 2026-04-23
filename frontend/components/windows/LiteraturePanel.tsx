@@ -463,6 +463,7 @@ export default function LiteraturePanel() {
   const [importMsg, setImportMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState<string | null>(null);
   const [importingZip, setImportingZip] = useState(false);
+  const [zipProgress, setZipProgress] = useState<{ phase: "uploading" | "processing"; sent: number; total: number } | null>(null);
   const [zipResult, setZipResult] = useState<BulkPdfResult | null>(null);
   const [showZipDetails, setShowZipDetails] = useState(false);
 
@@ -546,38 +547,70 @@ export default function LiteraturePanel() {
     } finally { setImporting(false); }
   }
 
+  const CHUNK_SIZE = 45 * 1024 * 1024; // 45 MB — sicher unter Cloudflare-Limit
+
   async function handleZipImport(file: File) {
     setImportingZip(true); setZipResult(null); setImportMsg(null);
+
     try {
-      // 1. Presigned S3-URL holen — Upload geht direkt zu S3, Cloudflare wird umgangen
-      const urlRes = await apiFetch(`${BACKEND_URL}/v1/literature/bulk-upload-url`);
-      if (!urlRes.ok) throw new Error("Upload-URL konnte nicht erstellt werden");
-      const { upload_url, s3_key } = await urlRes.json() as { upload_url: string; s3_key: string };
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+      const uploadId = crypto.randomUUID().replace(/-/g, "");
 
-      // 2. ZIP direkt zu S3 (kein Cloudflare-Limit)
-      const putRes = await fetch(upload_url, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": "application/zip" },
-      });
-      if (!putRes.ok) throw new Error(`S3-Upload fehlgeschlagen (${putRes.status})`);
+      setZipProgress({ phase: "uploading", sent: 0, total: totalChunks });
 
-      // 3. Backend verarbeitet ZIP von S3
-      const res = await apiFetch(`${BACKEND_URL}/v1/literature/import-pdfs-from-s3`, {
-        method: "POST",
-        body: JSON.stringify({ s3_key }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setZipResult(data as BulkPdfResult);
-        setShowZipDetails(true);
-        await loadAll();
-      } else {
-        setImportMsg({ type: "err", text: data.detail || "ZIP-Import fehlgeschlagen" });
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const chunk = file.slice(start, Math.min(start + CHUNK_SIZE, file.size));
+
+        const fd = new FormData();
+        fd.append("upload_id", uploadId);
+        fd.append("chunk_index", String(i));
+        fd.append("total_chunks", String(totalChunks));
+        fd.append("chunk", chunk, "chunk.bin");
+
+        const res = await apiFetchForm(`${BACKEND_URL}/v1/literature/import-pdfs/upload-chunk`, fd);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: "Upload fehlgeschlagen" })) as { detail?: string };
+          throw new Error(err.detail || `Chunk ${i + 1}/${totalChunks} fehlgeschlagen`);
+        }
+
+        const chunkResult = await res.json() as { status: string };
+        setZipProgress({ phase: "uploading", sent: i + 1, total: totalChunks });
+
+        if (chunkResult.status === "processing") break;
       }
+
+      // Verarbeitung läuft im Hintergrund — Status pollen
+      setZipProgress({ phase: "processing", sent: totalChunks, total: totalChunks });
+
+      const deadline = Date.now() + 45 * 60 * 1000; // 45 Min Timeout
+      while (Date.now() < deadline) {
+        await new Promise<void>(resolve => setTimeout(resolve, 5000));
+
+        const statusRes = await apiFetch(`${BACKEND_URL}/v1/literature/import-pdfs/status/${uploadId}`);
+        if (!statusRes.ok) continue; // noch nicht bereit
+
+        const statusData = await statusRes.json() as { status: string; result?: BulkPdfResult; error?: string };
+
+        if (statusData.status === "done" && statusData.result) {
+          setZipResult(statusData.result);
+          setShowZipDetails(true);
+          await loadAll();
+          return;
+        }
+        if (statusData.status === "error") {
+          throw new Error(statusData.error || "Verarbeitung fehlgeschlagen");
+        }
+      }
+
+      throw new Error("Timeout — Verarbeitung läuft noch. Einträge werden geladen, sobald fertig.");
+
     } catch (err) {
       setImportMsg({ type: "err", text: err instanceof Error ? err.message : "Verbindungsfehler" });
-    } finally { setImportingZip(false); }
+    } finally {
+      setImportingZip(false);
+      setZipProgress(null);
+    }
   }
 
   async function handlePdfUpload(entry: LitEntry, file: File) {
@@ -650,7 +683,14 @@ export default function LiteraturePanel() {
           className="flex items-center gap-1 bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300 text-xs px-2.5 py-1.5 rounded-lg transition-colors shrink-0">
           {importingZip ? <IconSpinner /> : <span className="text-[11px]">🗜</span>}
           PDFs (ZIP)
-          {entries.length > 0 && entriesWithoutPdf > 0 && (
+          {importingZip && zipProgress && (
+            <span className="text-[9px] text-blue-400 font-mono">
+              {zipProgress.phase === "uploading"
+                ? `${zipProgress.sent}/${zipProgress.total}`
+                : "⏳"}
+            </span>
+          )}
+          {!importingZip && entries.length > 0 && entriesWithoutPdf > 0 && (
             <span className="text-[9px] text-amber-500 font-medium">{entriesWithoutPdf}</span>
           )}
         </button>
