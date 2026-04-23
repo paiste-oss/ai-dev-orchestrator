@@ -23,7 +23,11 @@ import zipfile
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -508,7 +512,9 @@ def _match_entry(
 
 
 @router.get("/bulk-upload-url", response_model=BulkUploadUrlResponse)
+@limiter.limit("5/hour")
 async def get_bulk_upload_url(
+    request: Request,
     user: Customer = Depends(get_current_user),
 ):
     """Presigned S3 PUT-URL für direkten ZIP-Upload vom Browser (Cloudflare umgehen)."""
