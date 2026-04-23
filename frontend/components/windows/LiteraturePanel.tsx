@@ -547,11 +547,26 @@ export default function LiteraturePanel() {
   }
 
   async function handleZipImport(file: File) {
-    setImportingZip(true); setZipResult(null);
+    setImportingZip(true); setZipResult(null); setImportMsg(null);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await apiFetchForm(`${BACKEND_URL}/v1/literature/import-pdfs`, fd);
+      // 1. Presigned S3-URL holen — Upload geht direkt zu S3, Cloudflare wird umgangen
+      const urlRes = await apiFetch(`${BACKEND_URL}/v1/literature/bulk-upload-url`);
+      if (!urlRes.ok) throw new Error("Upload-URL konnte nicht erstellt werden");
+      const { upload_url, s3_key } = await urlRes.json() as { upload_url: string; s3_key: string };
+
+      // 2. ZIP direkt zu S3 (kein Cloudflare-Limit)
+      const putRes = await fetch(upload_url, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": "application/zip" },
+      });
+      if (!putRes.ok) throw new Error(`S3-Upload fehlgeschlagen (${putRes.status})`);
+
+      // 3. Backend verarbeitet ZIP von S3
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/import-pdfs-from-s3`, {
+        method: "POST",
+        body: JSON.stringify({ s3_key }),
+      });
       const data = await res.json();
       if (res.ok) {
         setZipResult(data as BulkPdfResult);
@@ -560,8 +575,9 @@ export default function LiteraturePanel() {
       } else {
         setImportMsg({ type: "err", text: data.detail || "ZIP-Import fehlgeschlagen" });
       }
-    } catch { setImportMsg({ type: "err", text: "Verbindungsfehler" }); }
-    finally { setImportingZip(false); }
+    } catch (err) {
+      setImportMsg({ type: "err", text: err instanceof Error ? err.message : "Verbindungsfehler" });
+    } finally { setImportingZip(false); }
   }
 
   async function handlePdfUpload(entry: LitEntry, file: File) {

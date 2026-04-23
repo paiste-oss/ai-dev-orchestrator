@@ -6,7 +6,9 @@ Literatur-Endpunkte — persönliche Literaturdatenbank pro Kunde.
   PUT    /v1/literature/{id}              — bearbeiten
   DELETE /v1/literature/{id}             — löschen
   POST   /v1/literature/import            — .ris / .xml Datei importieren
-  POST   /v1/literature/import-pdfs       — ZIP mit PDFs → automatische Zuordnung
+  GET    /v1/literature/bulk-upload-url    — Presigned S3-URL für direkten ZIP-Upload
+  POST   /v1/literature/import-pdfs-from-s3 — ZIP aus S3 verarbeiten (nach S3-Upload)
+  POST   /v1/literature/import-pdfs       — ZIP direkt hochladen (≤ 90 MB)
   POST   /v1/literature/{id}/pdf          — PDF anhängen
   GET    /v1/literature/{id}/pdf          — PDF herunterladen
 """
@@ -33,6 +35,7 @@ from models.literature_entry import LiteratureEntry
 from services.literature_parser import parse_endnote_xml, parse_ris
 from services.s3_storage import delete_file as s3_delete
 from services.s3_storage import download_file as s3_download
+from services.s3_storage import generate_presigned_put_url as s3_presigned_put
 from services.s3_storage import upload_file as s3_upload
 
 _log = logging.getLogger("uvicorn.error")
@@ -421,6 +424,16 @@ class BulkPdfResponse(BaseModel):
     details: list[PdfMatchDetail]
 
 
+class BulkUploadUrlResponse(BaseModel):
+    upload_url: str
+    s3_key: str
+    expires_in: int
+
+
+class BulkPdfFromS3Request(BaseModel):
+    s3_key: str
+
+
 def _normalize_for_match(text: str) -> set[str]:
     """Wörter ≥4 Zeichen aus Text als Set — für Overlap-Berechnung."""
     return set(re.findall(r'[a-z]{4,}', text.lower()))
@@ -494,25 +507,62 @@ def _match_entry(
     return None, ""
 
 
+@router.get("/bulk-upload-url", response_model=BulkUploadUrlResponse)
+async def get_bulk_upload_url(
+    user: Customer = Depends(get_current_user),
+):
+    """Presigned S3 PUT-URL für direkten ZIP-Upload vom Browser (Cloudflare umgehen)."""
+    s3_key = f"literature-bulk-uploads/{user.id}/{uuid.uuid4()}.zip"
+    upload_url = await s3_presigned_put(s3_key, content_type="application/zip", expires_in=7200)
+    return BulkUploadUrlResponse(upload_url=upload_url, s3_key=s3_key, expires_in=7200)
+
+
+@router.post("/import-pdfs-from-s3", response_model=BulkPdfResponse, status_code=200)
+async def import_pdfs_bulk_from_s3(
+    req: BulkPdfFromS3Request,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Verarbeitet eine ZIP-Datei die bereits direkt auf S3 hochgeladen wurde."""
+    if not req.s3_key.startswith(f"literature-bulk-uploads/{user.id}/"):
+        raise HTTPException(status_code=403, detail="Zugriff verweigert")
+    try:
+        content = await s3_download(req.s3_key)
+    except Exception:
+        raise HTTPException(status_code=404, detail="ZIP nicht gefunden — Upload möglicherweise abgelaufen")
+    finally:
+        # Temp-Datei immer löschen, auch bei Fehler
+        try:
+            await s3_delete(req.s3_key)
+        except Exception:
+            pass
+    return await _process_bulk_zip(content, user, db)
+
+
 @router.post("/import-pdfs", response_model=BulkPdfResponse, status_code=200)
 async def import_pdfs_bulk(
     file: UploadFile = File(...),
     user: Customer = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Nimmt eine ZIP-Datei mit PDFs entgegen.
-    Ordnet jedes PDF einem Literatureintrag zu (DOI → Dateiname → Titelwörter).
-    Uploads gehen nach S3 und werden per Qdrant indiziert.
-    """
+    """Direkter ZIP-Upload (für kleine ZIPs ≤ 90 MB)."""
     filename = (file.filename or "").lower()
     if not filename.endswith(".zip"):
         raise HTTPException(status_code=415, detail="Nur .zip Dateien werden unterstützt")
 
     content = await file.read()
-    if len(content) > 500 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="ZIP zu gross (max. 500 MB)")
+    if len(content) > 90 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="ZIP zu gross für Direktupload (max. 90 MB). Bitte S3-Upload-Flow verwenden.")
 
+    return await _process_bulk_zip(content, user, db)
+
+
+async def _process_bulk_zip(
+    content: bytes,
+    user: Customer,
+    db: AsyncSession,
+) -> BulkPdfResponse:
+    """Kern-Logik für den ZIP-PDF-Import — shared zwischen direktem Upload und S3-Flow."""
     if not zipfile.is_zipfile(io.BytesIO(content)):
         raise HTTPException(status_code=422, detail="Ungültige ZIP-Datei")
 

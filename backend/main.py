@@ -65,7 +65,9 @@ limiter = Limiter(key_func=_get_real_ip)
 async def lifespan(app: FastAPI):
     await init_db()
     from services.fcm_service import init_firebase
+    from services.s3_storage import setup_bucket_cors
     init_firebase()
+    await setup_bucket_cors()
     yield
 
 

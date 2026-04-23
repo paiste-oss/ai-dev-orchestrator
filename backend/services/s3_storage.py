@@ -129,3 +129,47 @@ async def file_exists(s3_key: str) -> bool:
     """Prüft ob eine Datei in S3 existiert."""
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, partial(_exists, s3_key))
+
+
+def _generate_presigned_put(key: str, content_type: str, expires_in: int) -> str:
+    return _get_client().generate_presigned_url(
+        "put_object",
+        Params={"Bucket": settings.s3_bucket, "Key": key, "ContentType": content_type},
+        ExpiresIn=expires_in,
+    )
+
+
+async def generate_presigned_put_url(
+    key: str,
+    content_type: str = "application/zip",
+    expires_in: int = 7200,
+) -> str:
+    """Erstellt eine Presigned PUT-URL — Browser kann direkt zu S3 uploaden (Cloudflare umgehen)."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None, partial(_generate_presigned_put, key, content_type, expires_in)
+    )
+
+
+def _setup_cors() -> None:
+    try:
+        _get_client().put_bucket_cors(
+            Bucket=settings.s3_bucket,
+            CORSConfiguration={
+                "CORSRules": [{
+                    "AllowedHeaders": ["*"],
+                    "AllowedMethods": ["PUT", "GET"],
+                    "AllowedOrigins": ["https://www.baddi.ch", "https://baddi.ch", "http://localhost:3000"],
+                    "MaxAgeSeconds": 3600,
+                }]
+            },
+        )
+        _log.info("S3 CORS konfiguriert")
+    except Exception as e:
+        _log.warning("S3 CORS-Konfiguration fehlgeschlagen (ignoriert): %s", e)
+
+
+async def setup_bucket_cors() -> None:
+    """CORS auf dem S3-Bucket setzen — einmalig beim Start."""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _setup_cors)
