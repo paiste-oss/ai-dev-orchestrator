@@ -78,6 +78,8 @@ class LiteratureEntryOut(BaseModel):
     pdf_s3_key: str | None
     pdf_size_bytes: int
     baddi_readable: bool
+    is_favorite: bool
+    read_later: bool
     import_source: str
     created_at: datetime
 
@@ -121,6 +123,11 @@ class LiteratureUpdateRequest(BaseModel):
     tags: list[str] | None = None
     notes: str | None = None
     baddi_readable: bool | None = None
+
+
+class FlagsUpdateRequest(BaseModel):
+    is_favorite: bool | None = None
+    read_later: bool | None = None
 
 
 class ImportResponse(BaseModel):
@@ -302,6 +309,25 @@ async def delete_literature_entry(
     entry.is_active = False
     await db.commit()
     return {"ok": True}
+
+
+@router.patch("/{entry_id}/flags", response_model=LiteratureEntryOut)
+async def update_entry_flags(
+    entry_id: uuid.UUID,
+    req: FlagsUpdateRequest,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    entry = await db.get(LiteratureEntry, entry_id)
+    if not entry or not entry.is_active or entry.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+    if req.is_favorite is not None:
+        entry.is_favorite = req.is_favorite
+    if req.read_later is not None:
+        entry.read_later = req.read_later
+    await db.commit()
+    await db.refresh(entry)
+    return entry
 
 
 # ── Import ────────────────────────────────────────────────────────────────────

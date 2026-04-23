@@ -42,11 +42,13 @@ interface LitEntry {
   pdf_s3_key: string | null;
   pdf_size_bytes: number;
   baddi_readable: boolean;
+  is_favorite: boolean;
+  read_later: boolean;
   import_source: string;
   created_at: string;
 }
 
-type EntryTypeFilter = "all" | "paper" | "book" | "patent";
+type SidebarFilter = "all" | "new" | "paper" | "book" | "patent" | "favorites" | "read_later";
 
 const EMPTY_FORM: Partial<LitEntry> = {
   entry_type: "paper",
@@ -85,6 +87,18 @@ function IconUpload() {
 function IconChevron({ open }: { open: boolean }) {
   return <svg className={`w-3 h-3 transition-transform ${open ? "rotate-90" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>;
 }
+function IconStarFilled() {
+  return <svg className="w-3.5 h-3.5 text-yellow-400" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
+}
+function IconStar() {
+  return <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
+}
+function IconBookmarkFilled() {
+  return <svg className="w-3.5 h-3.5 text-blue-400" viewBox="0 0 24 24" fill="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>;
+}
+function IconBookmarkOutline() {
+  return <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>;
+}
 
 function fmtAuthors(authors: string[] | null): string {
   if (!authors || authors.length === 0) return "";
@@ -100,6 +114,8 @@ function DetailPanel({
   onDelete,
   onEdit,
   onPdfUpload,
+  onToggleFavorite,
+  onToggleReadLater,
   deleting,
 }: {
   entry: LitEntry | null;
@@ -107,6 +123,8 @@ function DetailPanel({
   onDelete: (id: string) => void;
   onEdit: (entry: LitEntry) => void;
   onPdfUpload: (entry: LitEntry, file: File) => void;
+  onToggleFavorite: (entry: LitEntry) => void;
+  onToggleReadLater: (entry: LitEntry) => void;
   deleting: string | null;
 }) {
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -134,6 +152,14 @@ function DetailPanel({
           )}
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
+          <button onClick={() => onToggleFavorite(entry)} title={entry.is_favorite ? "Aus Favoriten entfernen" : "Zu Favoriten"}
+            className="p-1 rounded transition-colors hover:scale-110">
+            {entry.is_favorite ? <IconStarFilled /> : <span className="text-gray-600 hover:text-yellow-400 block transition-colors"><IconStar /></span>}
+          </button>
+          <button onClick={() => onToggleReadLater(entry)} title={entry.read_later ? "Aus 'Zu lesen' entfernen" : "Zu lesen vormerken"}
+            className="p-1 rounded transition-colors hover:scale-110">
+            {entry.read_later ? <IconBookmarkFilled /> : <span className="text-gray-600 hover:text-blue-400 block transition-colors"><IconBookmarkOutline /></span>}
+          </button>
           <button onClick={() => onEdit(entry)} title="Bearbeiten"
             className="p-1 rounded text-gray-600 hover:text-[var(--accent-light)] transition-colors">
             <IconEdit />
@@ -494,7 +520,7 @@ export default function LiteraturePanel() {
   const [entries, setEntries] = useState<LitEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<EntryTypeFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<SidebarFilter>("all");
   const [paperOpen, setPaperOpen] = useState(true);
   const [bookOpen, setBookOpen] = useState(true);
   const [patentOpen, setPatentOpen] = useState(true);
@@ -525,13 +551,21 @@ export default function LiteraturePanel() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
+  const now = Date.now();
+  const _24h = 24 * 60 * 60 * 1000;
   const papers = entries.filter(e => e.entry_type === "paper");
   const books = entries.filter(e => e.entry_type === "book");
   const patents = entries.filter(e => e.entry_type === "patent");
+  const newEntries = entries.filter(e => now - new Date(e.created_at).getTime() < _24h);
+  const favorites = entries.filter(e => e.is_favorite);
+  const readLaterEntries = entries.filter(e => e.read_later);
   const entriesWithoutPdf = entries.filter(e => !e.pdf_s3_key).length;
 
   const filtered = entries.filter(e => {
-    if (typeFilter !== "all" && e.entry_type !== typeFilter) return false;
+    if (typeFilter === "new") { if (now - new Date(e.created_at).getTime() >= _24h) return false; }
+    else if (typeFilter === "favorites") { if (!e.is_favorite) return false; }
+    else if (typeFilter === "read_later") { if (!e.read_later) return false; }
+    else if (typeFilter !== "all") { if (e.entry_type !== typeFilter) return false; }
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -572,6 +606,24 @@ export default function LiteraturePanel() {
         if (selected?.id === id) { setSelected(null); setShowDetail(false); }
       }
     } finally { setDeleting(null); }
+  }
+
+  async function handleToggleFlag(entry: LitEntry, flag: "is_favorite" | "read_later") {
+    const newVal = !entry[flag];
+    const patch = { [flag]: newVal };
+    // Optimistic update
+    setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, ...patch } : e));
+    setSelected(prev => prev?.id === entry.id ? { ...prev, ...patch } : prev);
+    try {
+      await apiFetch(`${BACKEND_URL}/v1/literature/${entry.id}/flags`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      });
+    } catch {
+      // Rollback
+      setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, [flag]: !newVal } : e));
+      setSelected(prev => prev?.id === entry.id ? { ...prev, [flag]: !newVal } : prev);
+    }
   }
 
   async function handleImport(file: File) {
@@ -700,7 +752,7 @@ export default function LiteraturePanel() {
 
   // Sidebar groups
   function SidebarGroup({ type, label, icon, count, open, onToggle }: {
-    type: EntryTypeFilter; label: string; icon: string;
+    type: SidebarFilter; label: string; icon: string;
     count: number; open: boolean; onToggle: () => void;
   }) {
     return (
@@ -809,19 +861,47 @@ export default function LiteraturePanel() {
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Sidebar */}
         <div className="w-44 shrink-0 border-r border-white/6 flex flex-col overflow-y-auto py-2 px-2">
-          {/* All */}
+          {/* Alle */}
           <button onClick={() => setTypeFilter("all")}
-            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors mb-1 ${typeFilter === "all" ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
+            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${typeFilter === "all" ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
             <span>📚</span>
             <span className="flex-1 text-left">Alle</span>
             <span className="text-[10px] text-gray-600">{entries.length}</span>
           </button>
 
-          <div className="border-t border-white/6 my-1" />
+          {/* Neu Hinzugefügt */}
+          {newEntries.length > 0 && (
+            <button onClick={() => setTypeFilter("new")}
+              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors mt-0.5 ${typeFilter === "new" ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
+              <span className="text-[11px]">🆕</span>
+              <span className="flex-1 text-left">Neu hinzugefügt</span>
+              <span className="text-[10px] text-gray-600">{newEntries.length}</span>
+            </button>
+          )}
+
+          <div className="border-t border-white/6 my-1.5" />
 
           <SidebarGroup type="paper" label="Paper" icon="📄" count={papers.length} open={paperOpen} onToggle={() => setPaperOpen(v => !v)} />
           <SidebarGroup type="book" label="Bücher" icon="📖" count={books.length} open={bookOpen} onToggle={() => setBookOpen(v => !v)} />
           <SidebarGroup type="patent" label="Patente" icon="🏛" count={patents.length} open={patentOpen} onToggle={() => setPatentOpen(v => !v)} />
+
+          <div className="border-t border-white/6 my-1.5" />
+
+          {/* Favoriten */}
+          <button onClick={() => setTypeFilter("favorites")}
+            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${typeFilter === "favorites" ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
+            <span className="text-yellow-400 text-[11px]">★</span>
+            <span className="flex-1 text-left">Favoriten</span>
+            {favorites.length > 0 && <span className="text-[10px] text-gray-600">{favorites.length}</span>}
+          </button>
+
+          {/* Zu Lesen */}
+          <button onClick={() => setTypeFilter("read_later")}
+            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors mt-0.5 ${typeFilter === "read_later" ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
+            <span className="text-blue-400 text-[11px]">🔖</span>
+            <span className="flex-1 text-left">Zu lesen</span>
+            {readLaterEntries.length > 0 && <span className="text-[10px] text-gray-600">{readLaterEntries.length}</span>}
+          </button>
         </div>
 
         {/* List */}
@@ -850,7 +930,7 @@ export default function LiteraturePanel() {
                 const isActive = selected?.id === entry.id && (showDetail || showForm);
                 return (
                   <div key={entry.id} onClick={() => selectEntry(entry)}
-                    className={`flex items-start gap-2 px-3 py-2.5 border-b border-white/4 cursor-pointer transition-colors ${isActive ? "bg-[var(--accent-10)]" : "hover:bg-white/3"}`}>
+                    className={`group flex items-start gap-2 px-3 py-2.5 border-b border-white/4 cursor-pointer transition-colors ${isActive ? "bg-[var(--accent-10)]" : "hover:bg-white/3"}`}>
                     <span className="text-base shrink-0 mt-0.5">{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-white font-medium truncate">{entry.title}</p>
@@ -861,9 +941,23 @@ export default function LiteraturePanel() {
                           : (entry.journal ? ` · ${entry.journal}` : "") + (entry.publisher ? ` · ${entry.publisher}` : "")}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {entry.pdf_s3_key && <span className="text-[9px] text-gray-600" title="PDF angehängt">PDF</span>}
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {/* Permanente Indikatoren */}
+                      {entry.pdf_s3_key && <span className="text-[9px] text-gray-600 group-hover:hidden" title="PDF angehängt">PDF</span>}
                       {uploadingPdf === entry.id && <IconSpinner />}
+                      {/* Hover-Aktionen */}
+                      <div className="hidden group-hover:flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => handleToggleFlag(entry, "is_favorite")}
+                          title={entry.is_favorite ? "Favorit entfernen" : "Favorit"}
+                          className="p-0.5 rounded transition-colors">
+                          {entry.is_favorite ? <IconStarFilled /> : <span className="text-gray-600 hover:text-yellow-400 block transition-colors"><IconStar /></span>}
+                        </button>
+                        <button onClick={() => handleToggleFlag(entry, "read_later")}
+                          title={entry.read_later ? "Aus 'Zu lesen' entfernen" : "Zu lesen"}
+                          className="p-0.5 rounded transition-colors">
+                          {entry.read_later ? <IconBookmarkFilled /> : <span className="text-gray-600 hover:text-blue-400 block transition-colors"><IconBookmarkOutline /></span>}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -892,6 +986,8 @@ export default function LiteraturePanel() {
                   onDelete={handleDelete}
                   onEdit={openEdit}
                   onPdfUpload={handlePdfUpload}
+                  onToggleFavorite={e => handleToggleFlag(e, "is_favorite")}
+                  onToggleReadLater={e => handleToggleFlag(e, "read_later")}
                   deleting={deleting}
                 />
               )}

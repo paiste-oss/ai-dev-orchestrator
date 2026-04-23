@@ -57,6 +57,10 @@ class LiteratureEntry(Base):
     baddi_readable: Mapped[bool] = mapped_column(Boolean, default=True)
     qdrant_point_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
+    # User-Flags
+    is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    read_later: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+
     # Herkunft: manual | ris | endnote_xml
     import_source: Mapped[str] = mapped_column(String(32), default="manual")
 
