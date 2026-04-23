@@ -300,7 +300,7 @@ function EntryForm({
   onExtractPdf,
 }: {
   initial: Partial<LitEntry>;
-  onSave: (data: Partial<LitEntry>) => void;
+  onSave: (data: Partial<LitEntry>, pdfFile?: File) => void;
   onCancel: () => void;
   saving: boolean;
   onExtractPdf?: (file: File) => Promise<Partial<LitEntry>>;
@@ -309,9 +309,12 @@ function EntryForm({
   const [authorInput, setAuthorInput] = useState((initial.authors || []).join("; "));
   const [tagInput, setTagInput] = useState((initial.tags || []).join(", "));
   const [extracting, setExtracting] = useState(false);
+  const [pendingPdfFile, setPendingPdfFile] = useState<File | null>(null);
+  const [dropActive, setDropActive] = useState(false);
   const pdfExtractRef = useRef<HTMLInputElement>(null);
 
   async function handlePdfExtract(file: File) {
+    setPendingPdfFile(file);
     if (!onExtractPdf) return;
     setExtracting(true);
     try {
@@ -326,6 +329,13 @@ function EntryForm({
     }
   }
 
+  function handleDropZoneDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDropActive(false);
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === "application/pdf") handlePdfExtract(file);
+  }
+
   function set(field: keyof LitEntry, value: unknown) {
     setForm(f => ({ ...f, [field]: value }));
   }
@@ -333,7 +343,10 @@ function EntryForm({
   function handleSave() {
     const authors = authorInput.split(";").map(a => a.trim()).filter(Boolean);
     const tags = tagInput.split(",").map(t => t.trim()).filter(Boolean);
-    onSave({ ...form, authors: authors.length ? authors : null, tags: tags.length ? tags : null });
+    onSave(
+      { ...form, authors: authors.length ? authors : null, tags: tags.length ? tags : null },
+      pendingPdfFile ?? undefined,
+    );
   }
 
   const isPaper = form.entry_type === "paper";
@@ -356,18 +369,48 @@ function EntryForm({
         {/* PDF Autofill — nur bei neuen Einträgen */}
         {!initial.id && onExtractPdf && (
           <div
-            className={`rounded-lg border-2 border-dashed transition-colors cursor-pointer ${extracting ? "border-[var(--accent)]/40 bg-[var(--accent)]/5" : "border-white/10 hover:border-white/20"}`}
-            onClick={() => !extracting && pdfExtractRef.current?.click()}
+            className={`rounded-lg border-2 border-dashed transition-colors ${
+              extracting
+                ? "border-[var(--accent)]/40 bg-[var(--accent)]/5"
+                : dropActive
+                  ? "border-[var(--accent)] bg-[var(--accent)]/10"
+                  : pendingPdfFile
+                    ? "border-emerald-600/50 bg-emerald-950/20"
+                    : "border-white/10 hover:border-white/25 cursor-pointer"
+            }`}
+            onClick={() => !extracting && !pendingPdfFile && pdfExtractRef.current?.click()}
+            onDragOver={e => { e.preventDefault(); if (!extracting) setDropActive(true); }}
+            onDragEnter={e => { e.preventDefault(); if (!extracting) setDropActive(true); }}
+            onDragLeave={() => setDropActive(false)}
+            onDrop={handleDropZoneDrop}
           >
             {extracting ? (
               <div className="flex items-center justify-center gap-2 py-3 px-3">
                 <IconSpinner />
                 <span className="text-xs text-[var(--accent-light)]">Analysiere PDF…</span>
               </div>
+            ) : pendingPdfFile ? (
+              <div className="flex items-center gap-2 py-2.5 px-3">
+                <svg className="w-3.5 h-3.5 shrink-0 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span className="flex-1 text-xs text-emerald-300 truncate">{pendingPdfFile.name}</span>
+                <span className="text-[10px] text-gray-500 shrink-0">{Math.round(pendingPdfFile.size / 1024)} KB</span>
+                <button
+                  onClick={e => { e.stopPropagation(); setPendingPdfFile(null); }}
+                  className="text-gray-600 hover:text-red-400 transition-colors shrink-0 text-xs px-1"
+                  title="PDF entfernen">
+                  ×
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); pdfExtractRef.current?.click(); }}
+                  className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors shrink-0"
+                  title="Anderes PDF wählen">
+                  Ändern
+                </button>
+              </div>
             ) : (
               <div className="flex items-center justify-center gap-2 py-3 px-3 text-gray-500 hover:text-gray-300 transition-colors">
                 <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-                <span className="text-xs">PDF hochladen — Felder automatisch ausfüllen</span>
+                <span className="text-xs">PDF hierher ziehen oder klicken</span>
               </div>
             )}
             <input ref={pdfExtractRef} type="file" accept=".pdf" className="hidden"
@@ -700,7 +743,7 @@ export default function LiteraturePanel() {
     );
   });
 
-  async function handleSave(data: Partial<LitEntry>) {
+  async function handleSave(data: Partial<LitEntry>, pdfFile?: File) {
     setSaving(true);
     try {
       const isEdit = !!data.id;
@@ -709,13 +752,21 @@ export default function LiteraturePanel() {
         method: isEdit ? "PUT" : "POST",
         body: JSON.stringify(data),
       });
-      if (res.ok) {
-        const saved: LitEntry = await res.json();
-        setEntries(prev => isEdit ? prev.map(e => e.id === saved.id ? saved : e) : [saved, ...prev]);
-        setSelected(saved);
-        setShowForm(false);
-        setShowDetail(true);
+      if (!res.ok) return;
+      let saved: LitEntry = await res.json();
+
+      // PDF direkt nach dem Erstellen/Aktualisieren hochladen
+      if (pdfFile) {
+        const fd = new FormData();
+        fd.append("file", pdfFile);
+        const pdfRes = await apiFetchForm(`${BACKEND_URL}/v1/literature/${saved.id}/pdf`, fd);
+        if (pdfRes.ok) saved = await pdfRes.json();
       }
+
+      setEntries(prev => isEdit ? prev.map(e => e.id === saved.id ? saved : e) : [saved, ...prev]);
+      setSelected(saved);
+      setShowForm(false);
+      setShowDetail(true);
     } finally { setSaving(false); }
   }
 
