@@ -547,7 +547,7 @@ export default function LiteraturePanel() {
     } finally { setImporting(false); }
   }
 
-  const CHUNK_SIZE = 45 * 1024 * 1024; // 45 MB — sicher unter Cloudflare-Limit
+  const CHUNK_SIZE = 90 * 1024 * 1024; // 90 MB — knapp unter Cloudflare-Limit (100 MB)
 
   async function handleZipImport(file: File) {
     setImportingZip(true); setZipResult(null); setImportMsg(null);

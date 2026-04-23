@@ -762,8 +762,8 @@ async def upload_pdf_chunk(
         raise HTTPException(status_code=422, detail="Ungültige Upload-ID")
     if not (0 <= chunk_index < total_chunks):
         raise HTTPException(status_code=422, detail="Ungültiger Chunk-Index")
-    if not (1 <= total_chunks <= 50):
-        raise HTTPException(status_code=422, detail="total_chunks muss zwischen 1 und 50 liegen")
+    if not (1 <= total_chunks <= 200):
+        raise HTTPException(status_code=422, detail="total_chunks muss zwischen 1 und 200 liegen")
 
     chunk_dir = _CHUNK_TMP_BASE / f"{user.id}_{upload_id}"
     chunk_dir.mkdir(parents=True, exist_ok=True)
