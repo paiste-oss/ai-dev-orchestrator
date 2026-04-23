@@ -243,15 +243,34 @@ function EntryForm({
   onSave,
   onCancel,
   saving,
+  onExtractPdf,
 }: {
   initial: Partial<LitEntry>;
   onSave: (data: Partial<LitEntry>) => void;
   onCancel: () => void;
   saving: boolean;
+  onExtractPdf?: (file: File) => Promise<Partial<LitEntry>>;
 }) {
   const [form, setForm] = useState<Partial<LitEntry>>(initial);
   const [authorInput, setAuthorInput] = useState((initial.authors || []).join("; "));
   const [tagInput, setTagInput] = useState((initial.tags || []).join(", "));
+  const [extracting, setExtracting] = useState(false);
+  const pdfExtractRef = useRef<HTMLInputElement>(null);
+
+  async function handlePdfExtract(file: File) {
+    if (!onExtractPdf) return;
+    setExtracting(true);
+    try {
+      const meta = await onExtractPdf(file);
+      setForm(prev => ({ ...prev, ...meta }));
+      if (meta.authors && meta.authors.length > 0) setAuthorInput(meta.authors.join("; "));
+      if (meta.tags && meta.tags.length > 0) setTagInput(meta.tags.join(", "));
+    } catch {
+      // Fehlschlag ist ok — User kann manuell ausfüllen
+    } finally {
+      setExtracting(false);
+    }
+  }
 
   function set(field: keyof LitEntry, value: unknown) {
     setForm(f => ({ ...f, [field]: value }));
@@ -280,6 +299,31 @@ function EntryForm({
       </div>
 
       <div className="flex-1 overflow-auto p-3 space-y-3">
+        {/* PDF Autofill — nur bei neuen Einträgen */}
+        {!initial.id && onExtractPdf && (
+          <div
+            className={`rounded-lg border-2 border-dashed transition-colors cursor-pointer ${extracting ? "border-[var(--accent)]/40 bg-[var(--accent)]/5" : "border-white/10 hover:border-white/20"}`}
+            onClick={() => !extracting && pdfExtractRef.current?.click()}
+          >
+            {extracting ? (
+              <div className="flex items-center justify-center gap-2 py-3 px-3">
+                <IconSpinner />
+                <span className="text-xs text-[var(--accent-light)]">Analysiere PDF…</span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 py-3 px-3 text-gray-500 hover:text-gray-300 transition-colors">
+                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="18"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                <span className="text-xs">PDF hochladen — Felder automatisch ausfüllen</span>
+              </div>
+            )}
+            <input ref={pdfExtractRef} type="file" accept=".pdf" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handlePdfExtract(f); e.target.value = ""; }} />
+          </div>
+        )}
+
+        {/* Alle Felder — während Extraktion gesperrt */}
+        <div className={`space-y-3 ${extracting ? "opacity-40 pointer-events-none select-none" : ""}`}>
+
         {/* Typ */}
         <div className="flex gap-2">
           {([["paper", "📄 Paper"], ["book", "📖 Buch"], ["patent", "🏛 Patent"]] as const).map(([val, label]) => (
@@ -425,11 +469,12 @@ function EntryForm({
             className={`${inputClass} mt-1 resize-none`} />
         </div>
 
+        </div>{/* Ende: Felder-Wrapper */}
       </div>
 
       {/* Footer */}
       <div className="flex gap-2 px-3 py-2 border-t border-white/6 shrink-0">
-        <button onClick={handleSave} disabled={saving || !form.title?.trim()}
+        <button onClick={handleSave} disabled={saving || extracting || !form.title?.trim()}
           className="flex-1 flex items-center justify-center gap-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-40 text-white text-xs py-1.5 rounded-lg transition-colors">
           {saving ? <IconSpinner /> : null}
           {saving ? "Speichern..." : "Speichern"}
@@ -611,6 +656,14 @@ export default function LiteraturePanel() {
       setImportingZip(false);
       setZipProgress(null);
     }
+  }
+
+  async function handleExtractPdf(file: File): Promise<Partial<LitEntry>> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await apiFetchForm(`${BACKEND_URL}/v1/literature/extract-pdf-meta`, fd);
+    if (!res.ok) throw new Error("Extraktion fehlgeschlagen");
+    return await res.json() as Partial<LitEntry>;
   }
 
   async function handlePdfUpload(entry: LitEntry, file: File) {
@@ -830,6 +883,7 @@ export default function LiteraturePanel() {
                   onSave={handleSave}
                   onCancel={() => { setShowForm(false); if (selected) setShowDetail(true); }}
                   saving={saving}
+                  onExtractPdf={!editEntry.id ? handleExtractPdf : undefined}
                 />
               ) : (
                 <DetailPanel

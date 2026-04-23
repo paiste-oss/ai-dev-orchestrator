@@ -361,6 +361,61 @@ async def import_literature(
     return ImportResponse(imported=len(created), skipped=skipped, entries=created)
 
 
+# ── PDF Metadaten-Extraktion (Autofill) ──────────────────────────────────────
+
+@router.post("/extract-pdf-meta", response_model=PdfMetaResponse)
+async def extract_pdf_meta(
+    file: UploadFile = File(...),
+    user: Customer = Depends(get_current_user),
+):
+    """PDF hochladen → Metadaten per KI extrahieren → für Autofill im Neu-Formular."""
+    content = await file.read()
+    if len(content) > _MAX_PDF_SIZE:
+        raise HTTPException(status_code=413, detail="PDF zu gross (max. 50 MB)")
+
+    filename = file.filename or "document.pdf"
+
+    pdf_text = ""
+    try:
+        from services.file_parser import parse_file
+        parsed = parse_file(content, filename, "application/pdf")
+        pdf_text = parsed.text[:5000]
+    except Exception as e:
+        _log.warning("[Literatur/Autofill] PDF-Text-Extraktion fehlgeschlagen: %s", e)
+
+    if not pdf_text.strip():
+        return PdfMetaResponse(title=os.path.splitext(filename)[0])
+
+    try:
+        from services.llm_gateway import chat_with_claude
+        result = await chat_with_claude(
+            messages=[{
+                "role": "user",
+                "content": (
+                    "Extrahiere bibliografische Metadaten aus diesem PDF-Text-Anfang.\n"
+                    "Antworte NUR mit einem JSON-Objekt, kein Text davor oder danach, keine Code-Fence.\n"
+                    "Fehlende Felder als null. Autoren im Format ['Nachname, Vorname', ...].\n\n"
+                    f"PDF-Text:\n{pdf_text[:4000]}\n\n"
+                    "JSON-Schema:\n"
+                    '{"entry_type":"paper|book|patent","title":null,"authors":null,'
+                    '"year":null,"abstract":null,"journal":null,"volume":null,"issue":null,'
+                    '"pages":null,"doi":null,"publisher":null,"isbn":null,"edition":null,"tags":null}'
+                ),
+            }],
+            model="claude-haiku-4-5-20251001",
+        )
+        raw = result.text.strip()
+        # Code-Fence entfernen falls vorhanden
+        if raw.startswith("```"):
+            raw = re.sub(r'^```[a-z]*\n?', '', raw)
+            raw = re.sub(r'\n?```$', '', raw.strip())
+        meta = _json.loads(raw)
+        return PdfMetaResponse(**{k: v for k, v in meta.items() if v is not None})
+    except Exception as e:
+        _log.warning("[Literatur/Autofill] LLM-Extraktion fehlgeschlagen: %s", e)
+        return PdfMetaResponse(title=os.path.splitext(filename)[0])
+
+
 # ── PDF Anhang ────────────────────────────────────────────────────────────────
 
 @router.post("/{entry_id}/pdf", response_model=LiteratureEntryOut)
@@ -441,6 +496,23 @@ class BulkUploadUrlResponse(BaseModel):
 
 class BulkPdfFromS3Request(BaseModel):
     s3_key: str
+
+
+class PdfMetaResponse(BaseModel):
+    entry_type: str = "paper"
+    title: str | None = None
+    authors: list[str] | None = None
+    year: int | None = None
+    abstract: str | None = None
+    journal: str | None = None
+    volume: str | None = None
+    issue: str | None = None
+    pages: str | None = None
+    doi: str | None = None
+    publisher: str | None = None
+    isbn: str | None = None
+    edition: str | None = None
+    tags: list[str] | None = None
 
 
 class ChunkUploadResponse(BaseModel):
