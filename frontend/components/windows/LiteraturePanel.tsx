@@ -45,8 +45,17 @@ interface LitEntry {
   baddi_readable: boolean;
   is_favorite: boolean;
   read_later: boolean;
+  group_id: string | null;
   import_source: string;
   created_at: string;
+}
+
+interface LitGroup {
+  id: string;
+  entry_type: "paper" | "book" | "patent";
+  name: string;
+  parent_id: string | null;
+  position: number;
 }
 
 type SidebarFilter = "all" | "new" | "paper" | "book" | "patent" | "favorites" | "read_later";
@@ -99,6 +108,24 @@ function IconBookmarkFilled() {
 }
 function IconBookmarkOutline() {
   return <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>;
+}
+function IconFolder() {
+  return <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>;
+}
+function IconFolderOpen() {
+  return <svg className="w-3 h-3 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>;
+}
+function IconGroup() {
+  return <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>;
+}
+function IconPlus() {
+  return <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+}
+function IconPencilTiny() {
+  return <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>;
+}
+function IconTrashTiny() {
+  return <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>;
 }
 
 function fmtAuthors(authors: string[] | null): string {
@@ -523,9 +550,19 @@ export default function LiteraturePanel() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<SidebarFilter>("all");
+  const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [paperOpen, setPaperOpen] = useState(true);
   const [bookOpen, setBookOpen] = useState(true);
   const [patentOpen, setPatentOpen] = useState(true);
+
+  // Groups state
+  const [groups, setGroups] = useState<LitGroup[]>([]);
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameVal, setRenameVal] = useState("");
+  const [addingGroupFor, setAddingGroupFor] = useState<{ type: "paper" | "book" | "patent"; parentId: string | null } | null>(null);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
   const [selected, setSelected] = useState<LitEntry | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -546,12 +583,84 @@ export default function LiteraturePanel() {
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/literature/mine`);
-      if (res.ok) setEntries(await res.json());
+      const [entriesRes, groupsRes] = await Promise.all([
+        apiFetch(`${BACKEND_URL}/v1/literature/mine`),
+        apiFetch(`${BACKEND_URL}/v1/literature/groups`),
+      ]);
+      if (entriesRes.ok) setEntries(await entriesRes.json());
+      if (groupsRes.ok) setGroups(await groupsRes.json());
     } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  async function handleCreateGroup(type: "paper" | "book" | "patent", parentId: string | null, name: string) {
+    const res = await apiFetch(`${BACKEND_URL}/v1/literature/groups`, {
+      method: "POST",
+      body: JSON.stringify({ entry_type: type, name, parent_id: parentId, position: 0 }),
+    });
+    if (res.ok) {
+      const grp: LitGroup = await res.json();
+      setGroups(prev => [...prev, grp]);
+      if (parentId) setOpenGroups(prev => new Set(prev).add(parentId));
+    }
+  }
+
+  async function handleRenameGroup(id: string, name: string) {
+    const res = await apiFetch(`${BACKEND_URL}/v1/literature/groups/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ name }),
+    });
+    if (res.ok) {
+      const updated: LitGroup = await res.json();
+      setGroups(prev => prev.map(g => g.id === id ? updated : g));
+    }
+    setRenamingId(null);
+  }
+
+  async function handleDeleteGroup(id: string) {
+    const res = await apiFetch(`${BACKEND_URL}/v1/literature/groups/${id}`, { method: "DELETE" });
+    if (res.ok || res.status === 204) {
+      setGroups(prev => prev.filter(g => g.id !== id && g.parent_id !== id));
+      setEntries(prev => prev.map(e => e.group_id === id ? { ...e, group_id: null } : e));
+      if (groupFilter === id) setGroupFilter(null);
+    }
+  }
+
+  async function handleAssignGroup(entryId: string, groupId: string | null) {
+    // Optimistic
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, group_id: groupId } : e));
+    const res = await apiFetch(`${BACKEND_URL}/v1/literature/${entryId}/group`, {
+      method: "PATCH",
+      body: JSON.stringify({ group_id: groupId }),
+    });
+    if (!res.ok) {
+      // Rollback — reload to be safe
+      loadAll();
+    }
+  }
+
+  function handleDragStart(e: React.DragEvent, entryId: string) {
+    e.dataTransfer.setData("entryId", entryId);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragOver(e: React.DragEvent, groupId: string) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverGroupId(groupId);
+  }
+
+  function handleDragLeave() {
+    setDragOverGroupId(null);
+  }
+
+  function handleDrop(e: React.DragEvent, groupId: string) {
+    e.preventDefault();
+    setDragOverGroupId(null);
+    const entryId = e.dataTransfer.getData("entryId");
+    if (entryId) handleAssignGroup(entryId, groupId);
+  }
 
   const now = Date.now();
   const _24h = 24 * 60 * 60 * 1000;
@@ -563,11 +672,22 @@ export default function LiteraturePanel() {
   const readLaterEntries = entries.filter(e => e.read_later);
   const entriesWithoutPdf = entries.filter(e => !e.pdf_s3_key).length;
 
+  // All sub-folder IDs of a group (direct children)
+  const subFolderIds = (groupId: string): string[] =>
+    groups.filter(g => g.parent_id === groupId).map(g => g.id);
+
   const filtered = entries.filter(e => {
     if (typeFilter === "new") { if (now - new Date(e.created_at).getTime() >= _24h) return false; }
     else if (typeFilter === "favorites") { if (!e.is_favorite) return false; }
     else if (typeFilter === "read_later") { if (!e.read_later) return false; }
     else if (typeFilter !== "all") { if (e.entry_type !== typeFilter) return false; }
+    if (groupFilter) {
+      const grp = groups.find(g => g.id === groupFilter);
+      if (grp) {
+        const ids = grp.parent_id === null ? [grp.id, ...subFolderIds(grp.id)] : [grp.id];
+        if (!ids.includes(e.group_id ?? "")) return false;
+      }
+    }
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -754,21 +874,188 @@ export default function LiteraturePanel() {
     setShowDetail(true);
   }
 
-  // Sidebar groups
+  // Inline name input for new group/folder
+  function NewGroupInput({ onConfirm, onCancel }: { onConfirm: (name: string) => void; onCancel: () => void }) {
+    return (
+      <div className="flex items-center gap-1 px-1 py-0.5">
+        <input
+          autoFocus
+          value={newGroupName}
+          onChange={e => setNewGroupName(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter" && newGroupName.trim()) { onConfirm(newGroupName.trim()); setNewGroupName(""); }
+            if (e.key === "Escape") { onCancel(); setNewGroupName(""); }
+          }}
+          placeholder="Name…"
+          className="flex-1 bg-white/10 border border-white/20 rounded px-1.5 py-0.5 text-[11px] text-white outline-none focus:border-[var(--accent)]/60 min-w-0"
+        />
+        <button onClick={() => { if (newGroupName.trim()) { onConfirm(newGroupName.trim()); setNewGroupName(""); } }}
+          className="text-[var(--accent-light)] hover:text-white text-[10px] px-1">✓</button>
+        <button onClick={() => { onCancel(); setNewGroupName(""); }}
+          className="text-gray-500 hover:text-white text-[10px] px-1">✕</button>
+      </div>
+    );
+  }
+
+  function RenameInput({ current, onConfirm, onCancel }: { current: string; onConfirm: (name: string) => void; onCancel: () => void }) {
+    const [val, setVal] = useState(current);
+    return (
+      <div className="flex items-center gap-1 px-1 py-0.5 flex-1 min-w-0">
+        <input
+          autoFocus
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter" && val.trim()) onConfirm(val.trim());
+            if (e.key === "Escape") onCancel();
+          }}
+          className="flex-1 bg-white/10 border border-white/20 rounded px-1.5 py-0.5 text-[11px] text-white outline-none focus:border-[var(--accent)]/60 min-w-0"
+        />
+        <button onClick={() => { if (val.trim()) onConfirm(val.trim()); }}
+          className="text-[var(--accent-light)] hover:text-white text-[10px] shrink-0">✓</button>
+        <button onClick={onCancel} className="text-gray-500 hover:text-white text-[10px] shrink-0">✕</button>
+      </div>
+    );
+  }
+
+  // Sidebar section for a type (Paper / Bücher / Patente) with nested groups
   function SidebarGroup({ type, label, icon, count, open, onToggle }: {
     type: SidebarFilter; label: string; icon: string;
     count: number; open: boolean; onToggle: () => void;
   }) {
+    const entryType = type as "paper" | "book" | "patent";
+    const topGroups = groups.filter(g => g.entry_type === entryType && g.parent_id === null)
+      .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+
+    const isAddingHere = addingGroupFor?.type === entryType && addingGroupFor?.parentId === null;
+
     return (
       <div>
-        <button onClick={onToggle}
-          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${typeFilter === type ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
-          onContextMenu={e => { e.preventDefault(); setTypeFilter(type); }}>
-          <IconChevron open={open} />
-          <span>{icon}</span>
-          <span className="flex-1 text-left">{label}</span>
-          <span className="text-[10px] text-gray-600">{count}</span>
-        </button>
+        {/* Type header */}
+        <div className="flex items-center gap-1 group/type">
+          <button
+            className={`flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${typeFilter === type && !groupFilter ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
+            onClick={() => { onToggle(); setTypeFilter(type); setGroupFilter(null); }}>
+            <IconChevron open={open} />
+            <span>{icon}</span>
+            <span className="flex-1 text-left">{label}</span>
+            <span className="text-[10px] text-gray-600">{count}</span>
+          </button>
+          <button
+            onClick={() => setAddingGroupFor(isAddingHere ? null : { type: entryType, parentId: null })}
+            title="Neue Gruppe"
+            className="opacity-0 group-hover/type:opacity-100 p-1 rounded text-gray-500 hover:text-white transition-all shrink-0">
+            <IconPlus />
+          </button>
+        </div>
+
+        {/* Groups + Folders */}
+        {open && (
+          <div className="ml-3 mt-0.5 space-y-0.5">
+            {isAddingHere && (
+              <NewGroupInput
+                onConfirm={name => { handleCreateGroup(entryType, null, name); setAddingGroupFor(null); }}
+                onCancel={() => setAddingGroupFor(null)}
+              />
+            )}
+            {topGroups.map(grp => {
+              const subFolders = groups.filter(g => g.parent_id === grp.id)
+                .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+              const grpOpen = openGroups.has(grp.id);
+              const grpCount = entries.filter(e => e.group_id === grp.id || subFolders.some(f => f.id === e.group_id)).length;
+              const isAddingFolder = addingGroupFor?.parentId === grp.id;
+              const isGrpActive = groupFilter === grp.id;
+              const isDragOver = dragOverGroupId === grp.id;
+
+              return (
+                <div key={grp.id}>
+                  {/* Group row */}
+                  <div
+                    className={`flex items-center gap-1 rounded-lg px-1.5 py-1 group/grp transition-colors ${isGrpActive ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : isDragOver ? "bg-white/10 text-white" : "text-gray-500 hover:bg-white/5 hover:text-gray-300"}`}
+                    onDragOver={e => handleDragOver(e, grp.id)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={e => handleDrop(e, grp.id)}
+                  >
+                    <button
+                      className="shrink-0"
+                      onClick={() => setOpenGroups(prev => { const s = new Set(prev); grpOpen ? s.delete(grp.id) : s.add(grp.id); return s; })}>
+                      <IconChevron open={grpOpen} />
+                    </button>
+                    <span className="shrink-0"><IconGroup /></span>
+                    {renamingId === grp.id ? (
+                      <RenameInput
+                        current={grp.name}
+                        onConfirm={name => handleRenameGroup(grp.id, name)}
+                        onCancel={() => setRenamingId(null)}
+                      />
+                    ) : (
+                      <>
+                        <button
+                          className="flex-1 text-left text-[11px] truncate"
+                          onClick={() => { setGroupFilter(isGrpActive ? null : grp.id); setTypeFilter(type); }}>
+                          {grp.name}
+                        </button>
+                        <span className="text-[10px] text-gray-700 shrink-0 group-hover/grp:hidden">{grpCount > 0 ? grpCount : ""}</span>
+                        <div className="hidden group-hover/grp:flex items-center gap-0.5 shrink-0">
+                          <button onClick={() => setAddingGroupFor(isAddingFolder ? null : { type: entryType, parentId: grp.id })} title="Ordner hinzufügen" className="p-0.5 hover:text-white"><IconPlus /></button>
+                          <button onClick={() => { setRenamingId(grp.id); setRenameVal(grp.name); }} title="Umbenennen" className="p-0.5 hover:text-white"><IconPencilTiny /></button>
+                          <button onClick={() => handleDeleteGroup(grp.id)} title="Löschen" className="p-0.5 hover:text-red-400"><IconTrashTiny /></button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Sub-folders */}
+                  {grpOpen && (
+                    <div className="ml-4 mt-0.5 space-y-0.5">
+                      {isAddingFolder && (
+                        <NewGroupInput
+                          onConfirm={name => { handleCreateGroup(entryType, grp.id, name); setAddingGroupFor(null); }}
+                          onCancel={() => setAddingGroupFor(null)}
+                        />
+                      )}
+                      {subFolders.map(folder => {
+                        const folderCount = entries.filter(e => e.group_id === folder.id).length;
+                        const isFolderActive = groupFilter === folder.id;
+                        const isDragOverFolder = dragOverGroupId === folder.id;
+                        return (
+                          <div key={folder.id}
+                            className={`flex items-center gap-1 rounded-lg px-1.5 py-1 group/folder transition-colors ${isFolderActive ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : isDragOverFolder ? "bg-white/10 text-white" : "text-gray-500 hover:bg-white/5 hover:text-gray-300"}`}
+                            onDragOver={e => handleDragOver(e, folder.id)}
+                            onDragLeave={handleDragLeave}
+                            onDrop={e => handleDrop(e, folder.id)}
+                          >
+                            <span className="shrink-0">{isFolderActive ? <IconFolderOpen /> : <IconFolder />}</span>
+                            {renamingId === folder.id ? (
+                              <RenameInput
+                                current={folder.name}
+                                onConfirm={name => handleRenameGroup(folder.id, name)}
+                                onCancel={() => setRenamingId(null)}
+                              />
+                            ) : (
+                              <>
+                                <button
+                                  className="flex-1 text-left text-[11px] truncate"
+                                  onClick={() => { setGroupFilter(isFolderActive ? null : folder.id); setTypeFilter(type); }}>
+                                  {folder.name}
+                                </button>
+                                <span className="text-[10px] text-gray-700 shrink-0 group-hover/folder:hidden">{folderCount > 0 ? folderCount : ""}</span>
+                                <div className="hidden group-hover/folder:flex items-center gap-0.5 shrink-0">
+                                  <button onClick={() => setRenamingId(folder.id)} title="Umbenennen" className="p-0.5 hover:text-white"><IconPencilTiny /></button>
+                                  <button onClick={() => handleDeleteGroup(folder.id)} title="Löschen" className="p-0.5 hover:text-red-400"><IconTrashTiny /></button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   }
@@ -866,8 +1153,8 @@ export default function LiteraturePanel() {
         {/* Sidebar */}
         <div className="w-44 shrink-0 border-r border-white/6 flex flex-col overflow-y-auto py-2 px-2">
           {/* Alle */}
-          <button onClick={() => setTypeFilter("all")}
-            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${typeFilter === "all" ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
+          <button onClick={() => { setTypeFilter("all"); setGroupFilter(null); }}
+            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${typeFilter === "all" && !groupFilter ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
             <span>📚</span>
             <span className="flex-1 text-left">Alle</span>
             <span className="text-[10px] text-gray-600">{entries.length}</span>
@@ -875,7 +1162,7 @@ export default function LiteraturePanel() {
 
           {/* Neu Hinzugefügt */}
           {newEntries.length > 0 && (
-            <button onClick={() => setTypeFilter("new")}
+            <button onClick={() => { setTypeFilter("new"); setGroupFilter(null); }}
               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors mt-0.5 ${typeFilter === "new" ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
               <span className="text-[11px]">🆕</span>
               <span className="flex-1 text-left">Neu hinzugefügt</span>
@@ -932,8 +1219,12 @@ export default function LiteraturePanel() {
             <div className="flex-1 overflow-auto">
               {filtered.map(entry => {
                 const isActive = selected?.id === entry.id && (showDetail || showForm);
+                const entryGroup = entry.group_id ? groups.find(g => g.id === entry.group_id) : null;
                 return (
-                  <div key={entry.id} onClick={() => selectEntry(entry)}
+                  <div key={entry.id}
+                    draggable
+                    onDragStart={e => handleDragStart(e, entry.id)}
+                    onClick={() => selectEntry(entry)}
                     className={`group flex items-start gap-2 px-3 py-2.5 border-b border-white/4 cursor-pointer transition-colors ${isActive ? "bg-[var(--accent-10)]" : "hover:bg-white/3"}`}>
                     <span className="text-base shrink-0 mt-0.5">{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
                     <div className="flex-1 min-w-0">
@@ -944,6 +1235,12 @@ export default function LiteraturePanel() {
                           ? (entry.isbn ? ` · ${entry.isbn}` : "") + (entry.journal ? ` · ${entry.journal}` : "")
                           : (entry.journal ? ` · ${entry.journal}` : "") + (entry.publisher ? ` · ${entry.publisher}` : "")}
                       </p>
+                      {entryGroup && (
+                        <span className="text-[9px] text-amber-600/80 mt-0.5 flex items-center gap-0.5">
+                          <IconFolder />
+                          {entryGroup.name}
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-0.5 shrink-0">
                       {/* Permanente Indikatoren */}

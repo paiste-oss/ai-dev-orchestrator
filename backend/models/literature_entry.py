@@ -57,6 +57,11 @@ class LiteratureEntry(Base):
     baddi_readable: Mapped[bool] = mapped_column(Boolean, default=True)
     qdrant_point_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
+    # Gruppe / Ordner
+    group_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("literature_groups.id", ondelete="SET NULL"), nullable=True
+    )
+
     # User-Flags
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     read_later: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")

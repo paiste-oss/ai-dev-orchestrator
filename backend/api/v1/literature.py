@@ -40,6 +40,7 @@ from core.database import get_db
 from core.dependencies import get_current_user
 from models.customer import Customer
 from models.literature_entry import LiteratureEntry
+from models.literature_group import LiteratureGroup
 from services.literature_parser import parse_endnote_xml, parse_ris
 from services.s3_storage import delete_file as s3_delete
 from services.s3_storage import download_file as s3_download
@@ -80,10 +81,37 @@ class LiteratureEntryOut(BaseModel):
     baddi_readable: bool
     is_favorite: bool
     read_later: bool
+    group_id: uuid.UUID | None
     import_source: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class LiteratureGroupOut(BaseModel):
+    id: uuid.UUID
+    entry_type: str
+    name: str
+    parent_id: uuid.UUID | None
+    position: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class LiteratureGroupCreate(BaseModel):
+    entry_type: str
+    name: str
+    parent_id: uuid.UUID | None = None
+    position: int = 0
+
+
+class LiteratureGroupRename(BaseModel):
+    name: str
+
+
+class EntryGroupAssign(BaseModel):
+    group_id: uuid.UUID | None = None
 
 
 class LiteratureCreateRequest(BaseModel):
@@ -384,6 +412,103 @@ async def update_entry_flags(
     await db.commit()
     await db.refresh(entry)
     return entry
+
+
+@router.patch("/{entry_id}/group", response_model=LiteratureEntryOut)
+async def assign_entry_group(
+    entry_id: uuid.UUID,
+    req: EntryGroupAssign,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    entry = await db.get(LiteratureEntry, entry_id)
+    if not entry or entry.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+    if req.group_id is not None:
+        grp = await db.get(LiteratureGroup, req.group_id)
+        if not grp or grp.customer_id != user.id:
+            raise HTTPException(status_code=404, detail="Gruppe nicht gefunden")
+    entry.group_id = req.group_id
+    await db.commit()
+    await db.refresh(entry)
+    return entry
+
+
+# ── Literature Groups ─────────────────────────────────────────────────────────
+
+@router.get("/groups", response_model=list[LiteratureGroupOut])
+async def list_groups(
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(LiteratureGroup)
+        .where(LiteratureGroup.customer_id == user.id)
+        .order_by(LiteratureGroup.entry_type, LiteratureGroup.position, LiteratureGroup.created_at)
+    )
+    return result.scalars().all()
+
+
+@router.post("/groups", response_model=LiteratureGroupOut, status_code=201)
+async def create_group(
+    req: LiteratureGroupCreate,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if req.entry_type not in ("paper", "book", "patent"):
+        raise HTTPException(status_code=422, detail="entry_type muss paper, book oder patent sein")
+    if req.parent_id is not None:
+        parent = await db.get(LiteratureGroup, req.parent_id)
+        if not parent or parent.customer_id != user.id:
+            raise HTTPException(status_code=404, detail="Übergeordnete Gruppe nicht gefunden")
+        if parent.parent_id is not None:
+            raise HTTPException(status_code=422, detail="Nur eine Verschachtelungsebene erlaubt")
+    grp = LiteratureGroup(
+        customer_id=user.id,
+        entry_type=req.entry_type,
+        name=req.name.strip()[:256],
+        parent_id=req.parent_id,
+        position=req.position,
+    )
+    db.add(grp)
+    await db.commit()
+    await db.refresh(grp)
+    _log.info("[Literatur-Gruppe] Erstellt: %s (%s)", grp.name, grp.entry_type)
+    return grp
+
+
+@router.put("/groups/{group_id}", response_model=LiteratureGroupOut)
+async def rename_group(
+    group_id: uuid.UUID,
+    req: LiteratureGroupRename,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    grp = await db.get(LiteratureGroup, group_id)
+    if not grp or grp.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Gruppe nicht gefunden")
+    grp.name = req.name.strip()[:256]
+    await db.commit()
+    await db.refresh(grp)
+    return grp
+
+
+@router.delete("/groups/{group_id}", status_code=204)
+async def delete_group(
+    group_id: uuid.UUID,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    grp = await db.get(LiteratureGroup, group_id)
+    if not grp or grp.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Gruppe nicht gefunden")
+    # Einträge aus der Gruppe lösen (SET NULL via FK-Constraint, aber explizit für Subordner)
+    await db.execute(
+        select(LiteratureEntry)
+        .where(LiteratureEntry.group_id == group_id)
+    )
+    await db.delete(grp)
+    await db.commit()
 
 
 # ── Import ────────────────────────────────────────────────────────────────────

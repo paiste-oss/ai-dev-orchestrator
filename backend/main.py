@@ -37,6 +37,7 @@ import models.support_ticket    # noqa: F401
 import models.email_message    # noqa: F401
 import models.device_token      # noqa: F401
 import models.literature_entry  # noqa: F401
+import models.literature_group   # noqa: F401
 
 os.environ["OPENAI_API_KEY"] = settings.openai_api_key or "NA"
 
