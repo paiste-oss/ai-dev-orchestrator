@@ -338,17 +338,50 @@
     "saving": "Speichert…"
   },
   "window": {
-    "chart":        { "label": "Dashboard",       "desc": "Aktienkurse und Kursverlauf interaktiv vergleichen." },
-    "whiteboard":   { "label": "Whiteboard",      "desc": "Freihand zeichnen, Sticker setzen und Notizen anlegen." },
-    "netzwerk":     { "label": "Namensnetz",      "desc": "Personen und Netzwerke visualisieren." },
-    "documents":    { "label": "Dokumente",       "desc": "Hochgeladene Dateien verwalten und neue hochladen." },
-    "diktieren":    { "label": "Diktieren",       "desc": "Sprachaufnahmen erstellen und automatisch transkribieren." },
-    "memory":       { "label": "Gedächtnis",      "desc": "Erinnerungen verwalten — was {buddy} über dich weiss." },
-    "geo_map":      { "label": "Schweizer Karte", "desc": "Interaktive swisstopo-Karte für Orte und Adressen." },
-    "assistenz":    { "label": "Assistenz",       "desc": "{buddy} führt dich Schritt für Schritt durch Aufgaben." },
-    "flight_board": { "label": "Flugplan",        "desc": "Echtzeit-Abflüge und Ankünfte mit Status." },
-    "calendar":     { "label": "Kalender",        "desc": "Persönlicher Kalender mit Terminen erstellen und verwalten." },
-    "email":        { "label": "E-Mail",          "desc": "Eingehende E-Mails lesen und beantworten." }
+    "chart": {
+      "label": "Dashboard",
+      "desc": "Aktienkurse und Kursverlauf interaktiv vergleichen."
+    },
+    "whiteboard": {
+      "label": "Whiteboard",
+      "desc": "Freihand zeichnen, Sticker setzen und Notizen anlegen."
+    },
+    "netzwerk": {
+      "label": "Namensnetz",
+      "desc": "Personen und Netzwerke visualisieren."
+    },
+    "documents": {
+      "label": "Dokumente",
+      "desc": "Hochgeladene Dateien verwalten und neue hochladen."
+    },
+    "diktieren": {
+      "label": "Diktieren",
+      "desc": "Sprachaufnahmen erstellen und automatisch transkribieren."
+    },
+    "memory": {
+      "label": "Gedächtnis",
+      "desc": "Erinnerungen verwalten — was {buddy} über dich weiss."
+    },
+    "geo_map": {
+      "label": "Schweizer Karte",
+      "desc": "Interaktive swisstopo-Karte für Orte und Adressen."
+    },
+    "assistenz": {
+      "label": "Assistenz",
+      "desc": "{buddy} führt dich Schritt für Schritt durch Aufgaben."
+    },
+    "flight_board": {
+      "label": "Flugplan",
+      "desc": "Echtzeit-Abflüge und Ankünfte mit Status."
+    },
+    "calendar": {
+      "label": "Kalender",
+      "desc": "Persönlicher Kalender mit Terminen erstellen und verwalten."
+    },
+    "email": {
+      "label": "E-Mail",
+      "desc": "Eingehende E-Mails lesen und beantworten."
+    }
   },
   "docs": {
     "all_files": "Alle Dateien",
@@ -419,10 +452,25 @@
     "all_day_label": "Ganztag",
     "week_abbr": "KW",
     "title_placeholder": "Titel *",
-    "day_0": "Mo", "day_1": "Di", "day_2": "Mi", "day_3": "Do", "day_4": "Fr", "day_5": "Sa", "day_6": "So",
-    "month_0": "Januar", "month_1": "Februar", "month_2": "März", "month_3": "April",
-    "month_4": "Mai", "month_5": "Juni", "month_6": "Juli", "month_7": "August",
-    "month_8": "September", "month_9": "Oktober", "month_10": "November", "month_11": "Dezember"
+    "day_0": "Mo",
+    "day_1": "Di",
+    "day_2": "Mi",
+    "day_3": "Do",
+    "day_4": "Fr",
+    "day_5": "Sa",
+    "day_6": "So",
+    "month_0": "Januar",
+    "month_1": "Februar",
+    "month_2": "März",
+    "month_3": "April",
+    "month_4": "Mai",
+    "month_5": "Juni",
+    "month_6": "Juli",
+    "month_7": "August",
+    "month_8": "September",
+    "month_9": "Oktober",
+    "month_10": "November",
+    "month_11": "Dezember"
   },
   "dict": {
     "header_subtitle": "Sprachaufnahmen aufnehmen & transkribieren",
@@ -507,5 +555,10 @@
     "cancel": "Abbrechen",
     "book": "In Dolibarr buchen →",
     "close": "Schliessen"
+  },
+  "err": {
+    "network": "Da scheint etwas schiefgelaufen zu sein — bitte prüfe deine Verbindung.",
+    "generic": "Etwas ist schiefgelaufen — bitte versuche es erneut.",
+    "server": "Der Server antwortet gerade nicht — bitte versuche es in einem Moment erneut."
   }
 }

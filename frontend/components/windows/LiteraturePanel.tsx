@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
+import { useT } from "@/lib/i18n";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -517,6 +518,7 @@ function EntryForm({
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function LiteraturePanel() {
+  const t = useT();
   const [entries, setEntries] = useState<LitEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -637,10 +639,11 @@ export default function LiteraturePanel() {
         setImportMsg({ type: "ok", text: `${data.imported} Einträge importiert${data.skipped ? `, ${data.skipped} übersprungen` : ""}.` });
         await loadAll();
       } else {
-        setImportMsg({ type: "err", text: data.detail || "Import fehlgeschlagen" });
+        setImportMsg({ type: "err", text: data.detail || t("err.generic") });
       }
     } catch (err) {
-      setImportMsg({ type: "err", text: err instanceof Error ? err.message : "Verbindungsfehler" });
+      const msg = err instanceof Error ? err.message : "";
+      setImportMsg({ type: "err", text: msg === "ERR_NETWORK" ? t("err.network") : msg || t("err.generic") });
     } finally { setImporting(false); }
   }
 
@@ -667,8 +670,8 @@ export default function LiteraturePanel() {
 
         const res = await apiFetchForm(`${BACKEND_URL}/v1/literature/import-pdfs/upload-chunk`, fd);
         if (!res.ok) {
-          const err = await res.json().catch(() => ({ detail: "Upload fehlgeschlagen" })) as { detail?: string };
-          throw new Error(err.detail || `Chunk ${i + 1}/${totalChunks} fehlgeschlagen`);
+          const err = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
+          throw new Error(err.detail || t("err.generic"));
         }
 
         const chunkResult = await res.json() as { status: string };
@@ -696,14 +699,15 @@ export default function LiteraturePanel() {
           return;
         }
         if (statusData.status === "error") {
-          throw new Error(statusData.error || "Verarbeitung fehlgeschlagen");
+          throw new Error(statusData.error || t("err.generic"));
         }
       }
 
-      throw new Error("Timeout — Verarbeitung läuft noch. Einträge werden geladen, sobald fertig.");
+      throw new Error(t("err.generic"));
 
     } catch (err) {
-      setImportMsg({ type: "err", text: err instanceof Error ? err.message : "Verbindungsfehler" });
+      const msg = err instanceof Error ? err.message : "";
+      setImportMsg({ type: "err", text: msg === "ERR_NETWORK" ? t("err.network") : msg || t("err.generic") });
     } finally {
       setImportingZip(false);
       setZipProgress(null);
@@ -714,7 +718,7 @@ export default function LiteraturePanel() {
     const fd = new FormData();
     fd.append("file", file);
     const res = await apiFetchForm(`${BACKEND_URL}/v1/literature/extract-pdf-meta`, fd);
-    if (!res.ok) throw new Error("Extraktion fehlgeschlagen");
+    if (!res.ok) throw new Error(t("err.generic"));
     return await res.json() as Partial<LitEntry>;
   }
 

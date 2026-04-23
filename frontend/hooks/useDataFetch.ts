@@ -25,6 +25,13 @@ interface UseDataFetchResult<T> {
  * Kein Fetch (z.B. bei fehlendem Auth):
  *   const { data } = useDataFetch<Tool>(condition ? url : null);
  */
+function humanizeError(msg: string): string {
+  if (msg === "ERR_NETWORK") return "Da scheint etwas schiefgelaufen zu sein — bitte prüfe deine Verbindung.";
+  if (/^HTTP 5/.test(msg)) return "Der Server antwortet gerade nicht — bitte versuche es in einem Moment erneut.";
+  if (/^HTTP 4/.test(msg)) return msg;
+  return msg;
+}
+
 export function useDataFetch<T>(
   url: string | null,
   deps: unknown[] = [],
@@ -52,7 +59,7 @@ export function useDataFetch<T>(
       setData(await res.json());
     } catch (e) {
       if ((e as Error).name !== "AbortError") {
-        setError(e instanceof Error ? e.message : "Unbekannter Fehler");
+        setError(humanizeError(e instanceof Error ? e.message : "ERR_NETWORK"));
       }
     } finally {
       setLoading(false);

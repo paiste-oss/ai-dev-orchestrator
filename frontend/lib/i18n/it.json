@@ -338,17 +338,50 @@
     "saving": "Salvataggio…"
   },
   "window": {
-    "chart":        { "label": "Dashboard",    "desc": "Confronta i prezzi azionari in modo interattivo." },
-    "whiteboard":   { "label": "Lavagna",      "desc": "Disegna a mano libera e aggiungi note." },
-    "netzwerk":     { "label": "Rete",         "desc": "Visualizza persone e le loro connessioni." },
-    "documents":    { "label": "Documenti",    "desc": "Gestisci i file caricati." },
-    "diktieren":    { "label": "Dettatura",    "desc": "Registra voce e trascrivi automaticamente." },
-    "memory":       { "label": "Memoria",      "desc": "Gestisci i ricordi — cosa sa {buddy} di te." },
-    "geo_map":      { "label": "Mappa svizzera", "desc": "Mappa swisstopo interattiva." },
-    "assistenz":    { "label": "Assistente",   "desc": "{buddy} ti guida passo dopo passo." },
-    "flight_board": { "label": "Voli",         "desc": "Partenze e arrivi in tempo reale." },
-    "calendar":     { "label": "Calendario",   "desc": "Calendario personale con eventi." },
-    "email":        { "label": "E-Mail",       "desc": "Leggi e rispondi alle email." }
+    "chart": {
+      "label": "Dashboard",
+      "desc": "Confronta i prezzi azionari in modo interattivo."
+    },
+    "whiteboard": {
+      "label": "Lavagna",
+      "desc": "Disegna a mano libera e aggiungi note."
+    },
+    "netzwerk": {
+      "label": "Rete",
+      "desc": "Visualizza persone e le loro connessioni."
+    },
+    "documents": {
+      "label": "Documenti",
+      "desc": "Gestisci i file caricati."
+    },
+    "diktieren": {
+      "label": "Dettatura",
+      "desc": "Registra voce e trascrivi automaticamente."
+    },
+    "memory": {
+      "label": "Memoria",
+      "desc": "Gestisci i ricordi — cosa sa {buddy} di te."
+    },
+    "geo_map": {
+      "label": "Mappa svizzera",
+      "desc": "Mappa swisstopo interattiva."
+    },
+    "assistenz": {
+      "label": "Assistente",
+      "desc": "{buddy} ti guida passo dopo passo."
+    },
+    "flight_board": {
+      "label": "Voli",
+      "desc": "Partenze e arrivi in tempo reale."
+    },
+    "calendar": {
+      "label": "Calendario",
+      "desc": "Calendario personale con eventi."
+    },
+    "email": {
+      "label": "E-Mail",
+      "desc": "Leggi e rispondi alle email."
+    }
   },
   "docs": {
     "all_files": "Tutti i file",
@@ -419,10 +452,25 @@
     "all_day_label": "Tutto il giorno",
     "week_abbr": "Sett",
     "title_placeholder": "Titolo *",
-    "day_0": "Lu", "day_1": "Ma", "day_2": "Me", "day_3": "Gi", "day_4": "Ve", "day_5": "Sa", "day_6": "Do",
-    "month_0": "Gennaio", "month_1": "Febbraio", "month_2": "Marzo", "month_3": "Aprile",
-    "month_4": "Maggio", "month_5": "Giugno", "month_6": "Luglio", "month_7": "Agosto",
-    "month_8": "Settembre", "month_9": "Ottobre", "month_10": "Novembre", "month_11": "Dicembre"
+    "day_0": "Lu",
+    "day_1": "Ma",
+    "day_2": "Me",
+    "day_3": "Gi",
+    "day_4": "Ve",
+    "day_5": "Sa",
+    "day_6": "Do",
+    "month_0": "Gennaio",
+    "month_1": "Febbraio",
+    "month_2": "Marzo",
+    "month_3": "Aprile",
+    "month_4": "Maggio",
+    "month_5": "Giugno",
+    "month_6": "Luglio",
+    "month_7": "Agosto",
+    "month_8": "Settembre",
+    "month_9": "Ottobre",
+    "month_10": "Novembre",
+    "month_11": "Dicembre"
   },
   "dict": {
     "header_subtitle": "Registra e trascrivi note vocali",
@@ -507,5 +555,10 @@
     "cancel": "Annulla",
     "book": "Registra in Dolibarr →",
     "close": "Chiudi"
+  },
+  "err": {
+    "network": "Sembra che qualcosa sia andato storto — controlla la tua connessione.",
+    "generic": "Qualcosa è andato storto — riprova.",
+    "server": "Il server non risponde al momento — riprova tra un attimo."
   }
 }

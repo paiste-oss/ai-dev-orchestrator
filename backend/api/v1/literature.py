@@ -136,6 +136,62 @@ class ImportResponse(BaseModel):
     entries: list[LiteratureEntryOut]
 
 
+class PdfMatchDetail(BaseModel):
+    filename: str
+    status: str          # "matched" | "already_has_pdf" | "unmatched"
+    match_method: str | None = None
+    matched_title: str | None = None
+    entry_id: str | None = None
+
+
+class BulkPdfResponse(BaseModel):
+    matched: int
+    already_had_pdf: int
+    unmatched: int
+    details: list[PdfMatchDetail]
+
+
+class BulkUploadUrlResponse(BaseModel):
+    upload_url: str
+    s3_key: str
+    expires_in: int
+
+
+class BulkPdfFromS3Request(BaseModel):
+    s3_key: str
+
+
+class PdfMetaResponse(BaseModel):
+    entry_type: str = "paper"
+    title: str | None = None
+    authors: list[str] | None = None
+    year: int | None = None
+    abstract: str | None = None
+    journal: str | None = None
+    volume: str | None = None
+    issue: str | None = None
+    pages: str | None = None
+    doi: str | None = None
+    publisher: str | None = None
+    isbn: str | None = None
+    edition: str | None = None
+    tags: list[str] | None = None
+
+
+class ChunkUploadResponse(BaseModel):
+    upload_id: str
+    chunks_received: int
+    total_chunks: int
+    status: str  # "uploading" | "processing"
+
+
+class UploadStatusResponse(BaseModel):
+    status: str  # "uploading" | "processing" | "done" | "error"
+    upload_id: str
+    result: BulkPdfResponse | None = None
+    error: str | None = None
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _build_extracted_text(entry: LiteratureEntry) -> str:
@@ -498,62 +554,6 @@ async def attach_pdf(
 
 
 # ── Bulk PDF Import (ZIP) ─────────────────────────────────────────────────────
-
-class PdfMatchDetail(BaseModel):
-    filename: str
-    status: str          # "matched" | "already_has_pdf" | "unmatched"
-    match_method: str | None = None   # "doi" | "filename" | "title_text"
-    matched_title: str | None = None
-    entry_id: str | None = None
-
-
-class BulkPdfResponse(BaseModel):
-    matched: int
-    already_had_pdf: int
-    unmatched: int
-    details: list[PdfMatchDetail]
-
-
-class BulkUploadUrlResponse(BaseModel):
-    upload_url: str
-    s3_key: str
-    expires_in: int
-
-
-class BulkPdfFromS3Request(BaseModel):
-    s3_key: str
-
-
-class PdfMetaResponse(BaseModel):
-    entry_type: str = "paper"
-    title: str | None = None
-    authors: list[str] | None = None
-    year: int | None = None
-    abstract: str | None = None
-    journal: str | None = None
-    volume: str | None = None
-    issue: str | None = None
-    pages: str | None = None
-    doi: str | None = None
-    publisher: str | None = None
-    isbn: str | None = None
-    edition: str | None = None
-    tags: list[str] | None = None
-
-
-class ChunkUploadResponse(BaseModel):
-    upload_id: str
-    chunks_received: int
-    total_chunks: int
-    status: str  # "uploading" | "processing"
-
-
-class UploadStatusResponse(BaseModel):
-    status: str  # "uploading" | "processing" | "done" | "error"
-    upload_id: str
-    result: BulkPdfResponse | None = None
-    error: str | None = None
-
 
 def _normalize_for_match(text: str) -> set[str]:
     """Wörter ≥4 Zeichen aus Text als Set — für Overlap-Berechnung."""

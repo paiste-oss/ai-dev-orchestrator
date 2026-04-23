@@ -338,17 +338,50 @@
     "saving": "Saving…"
   },
   "window": {
-    "chart":        { "label": "Dashboard",    "desc": "Compare stock prices and charts interactively." },
-    "whiteboard":   { "label": "Whiteboard",   "desc": "Draw freehand, add stickers and notes." },
-    "netzwerk":     { "label": "Network",      "desc": "Visualize people and their connections." },
-    "documents":    { "label": "Documents",    "desc": "Manage uploaded files and upload new ones." },
-    "diktieren":    { "label": "Dictation",    "desc": "Record voice and auto-transcribe with Whisper." },
-    "memory":       { "label": "Memory",       "desc": "Manage memories — what {buddy} knows about you." },
-    "geo_map":      { "label": "Swiss Map",    "desc": "Interactive swisstopo map for locations and addresses." },
-    "assistenz":    { "label": "Assistant",    "desc": "{buddy} guides you step by step through tasks." },
-    "flight_board": { "label": "Flight Board", "desc": "Real-time departures and arrivals with status." },
-    "calendar":     { "label": "Calendar",     "desc": "Personal calendar — create and manage events." },
-    "email":        { "label": "E-Mail",       "desc": "Read and reply to incoming emails." }
+    "chart": {
+      "label": "Dashboard",
+      "desc": "Compare stock prices and charts interactively."
+    },
+    "whiteboard": {
+      "label": "Whiteboard",
+      "desc": "Draw freehand, add stickers and notes."
+    },
+    "netzwerk": {
+      "label": "Network",
+      "desc": "Visualize people and their connections."
+    },
+    "documents": {
+      "label": "Documents",
+      "desc": "Manage uploaded files and upload new ones."
+    },
+    "diktieren": {
+      "label": "Dictation",
+      "desc": "Record voice and auto-transcribe with Whisper."
+    },
+    "memory": {
+      "label": "Memory",
+      "desc": "Manage memories — what {buddy} knows about you."
+    },
+    "geo_map": {
+      "label": "Swiss Map",
+      "desc": "Interactive swisstopo map for locations and addresses."
+    },
+    "assistenz": {
+      "label": "Assistant",
+      "desc": "{buddy} guides you step by step through tasks."
+    },
+    "flight_board": {
+      "label": "Flight Board",
+      "desc": "Real-time departures and arrivals with status."
+    },
+    "calendar": {
+      "label": "Calendar",
+      "desc": "Personal calendar — create and manage events."
+    },
+    "email": {
+      "label": "E-Mail",
+      "desc": "Read and reply to incoming emails."
+    }
   },
   "docs": {
     "all_files": "All Files",
@@ -419,10 +452,25 @@
     "all_day_label": "All day",
     "week_abbr": "Wk",
     "title_placeholder": "Title *",
-    "day_0": "Mo", "day_1": "Tu", "day_2": "We", "day_3": "Th", "day_4": "Fr", "day_5": "Sa", "day_6": "Su",
-    "month_0": "January", "month_1": "February", "month_2": "March", "month_3": "April",
-    "month_4": "May", "month_5": "June", "month_6": "July", "month_7": "August",
-    "month_8": "September", "month_9": "October", "month_10": "November", "month_11": "December"
+    "day_0": "Mo",
+    "day_1": "Tu",
+    "day_2": "We",
+    "day_3": "Th",
+    "day_4": "Fr",
+    "day_5": "Sa",
+    "day_6": "Su",
+    "month_0": "January",
+    "month_1": "February",
+    "month_2": "March",
+    "month_3": "April",
+    "month_4": "May",
+    "month_5": "June",
+    "month_6": "July",
+    "month_7": "August",
+    "month_8": "September",
+    "month_9": "October",
+    "month_10": "November",
+    "month_11": "December"
   },
   "dict": {
     "header_subtitle": "Record and transcribe voice notes",
@@ -507,5 +555,10 @@
     "cancel": "Cancel",
     "book": "Book in Dolibarr →",
     "close": "Close"
+  },
+  "err": {
+    "network": "Something seems to have gone wrong — please check your connection.",
+    "generic": "Something went wrong — please try again.",
+    "server": "The server isn't responding right now — please try again in a moment."
   }
 }

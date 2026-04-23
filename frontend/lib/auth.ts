@@ -59,17 +59,23 @@ export function getDashboardPath(user: AuthUser): string {
 }
 
 /** Fetch-Wrapper der den JWT automatisch mitsendet (JSON).
- *  Bei 401 wird die Session gelöscht und zur Login-Seite weitergeleitet. */
+ *  Bei 401 wird die Session gelöscht und zur Login-Seite weitergeleitet.
+ *  Bei Netzwerkfehler (kein Server erreichbar) wird ERR_NETWORK geworfen. */
 export async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const token = getToken();
-  const res = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init.headers ?? {}),
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init.headers ?? {}),
+      },
+    });
+  } catch {
+    throw new Error("ERR_NETWORK");
+  }
   if (res.status === 401 && typeof window !== "undefined") {
     clearSession();
     window.location.replace("/login");
@@ -82,11 +88,16 @@ export async function apiFetch(url: string, init: RequestInit = {}): Promise<Res
  *  Bei 401 wird die Session gelöscht und zur Login-Seite weitergeleitet. */
 export async function apiFetchForm(url: string, formData: FormData): Promise<Response> {
   const token = getToken();
-  const res = await fetch(url, {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData,
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+  } catch {
+    throw new Error("ERR_NETWORK");
+  }
   if (res.status === 401 && typeof window !== "undefined") {
     clearSession();
     window.location.replace("/login");

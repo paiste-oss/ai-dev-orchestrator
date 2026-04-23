@@ -338,17 +338,50 @@
     "saving": "Enregistrement…"
   },
   "window": {
-    "chart":        { "label": "Tableau de bord", "desc": "Comparer les cours boursiers interactivement." },
-    "whiteboard":   { "label": "Tableau blanc",   "desc": "Dessiner, ajouter des autocollants et des notes." },
-    "netzwerk":     { "label": "Réseau",           "desc": "Visualiser des personnes et leurs liens." },
-    "documents":    { "label": "Documents",        "desc": "Gérer les fichiers téléchargés." },
-    "diktieren":    { "label": "Dictée",           "desc": "Enregistrer et transcrire automatiquement." },
-    "memory":       { "label": "Mémoire",          "desc": "Gérer les souvenirs — ce que {buddy} sait de vous." },
-    "geo_map":      { "label": "Carte suisse",     "desc": "Carte swisstopo interactive." },
-    "assistenz":    { "label": "Assistant",        "desc": "{buddy} vous guide étape par étape." },
-    "flight_board": { "label": "Tableau de vols",  "desc": "Départs et arrivées en temps réel." },
-    "calendar":     { "label": "Calendrier",       "desc": "Calendrier personnel avec événements." },
-    "email":        { "label": "E-Mail",           "desc": "Lire et répondre aux e-mails." }
+    "chart": {
+      "label": "Tableau de bord",
+      "desc": "Comparer les cours boursiers interactivement."
+    },
+    "whiteboard": {
+      "label": "Tableau blanc",
+      "desc": "Dessiner, ajouter des autocollants et des notes."
+    },
+    "netzwerk": {
+      "label": "Réseau",
+      "desc": "Visualiser des personnes et leurs liens."
+    },
+    "documents": {
+      "label": "Documents",
+      "desc": "Gérer les fichiers téléchargés."
+    },
+    "diktieren": {
+      "label": "Dictée",
+      "desc": "Enregistrer et transcrire automatiquement."
+    },
+    "memory": {
+      "label": "Mémoire",
+      "desc": "Gérer les souvenirs — ce que {buddy} sait de vous."
+    },
+    "geo_map": {
+      "label": "Carte suisse",
+      "desc": "Carte swisstopo interactive."
+    },
+    "assistenz": {
+      "label": "Assistant",
+      "desc": "{buddy} vous guide étape par étape."
+    },
+    "flight_board": {
+      "label": "Tableau de vols",
+      "desc": "Départs et arrivées en temps réel."
+    },
+    "calendar": {
+      "label": "Calendrier",
+      "desc": "Calendrier personnel avec événements."
+    },
+    "email": {
+      "label": "E-Mail",
+      "desc": "Lire et répondre aux e-mails."
+    }
   },
   "docs": {
     "all_files": "Tous les fichiers",
@@ -419,10 +452,25 @@
     "all_day_label": "Toute la journée",
     "week_abbr": "Sem",
     "title_placeholder": "Titre *",
-    "day_0": "Lu", "day_1": "Ma", "day_2": "Me", "day_3": "Je", "day_4": "Ve", "day_5": "Sa", "day_6": "Di",
-    "month_0": "Janvier", "month_1": "Février", "month_2": "Mars", "month_3": "Avril",
-    "month_4": "Mai", "month_5": "Juin", "month_6": "Juillet", "month_7": "Août",
-    "month_8": "Septembre", "month_9": "Octobre", "month_10": "Novembre", "month_11": "Décembre"
+    "day_0": "Lu",
+    "day_1": "Ma",
+    "day_2": "Me",
+    "day_3": "Je",
+    "day_4": "Ve",
+    "day_5": "Sa",
+    "day_6": "Di",
+    "month_0": "Janvier",
+    "month_1": "Février",
+    "month_2": "Mars",
+    "month_3": "Avril",
+    "month_4": "Mai",
+    "month_5": "Juin",
+    "month_6": "Juillet",
+    "month_7": "Août",
+    "month_8": "Septembre",
+    "month_9": "Octobre",
+    "month_10": "Novembre",
+    "month_11": "Décembre"
   },
   "dict": {
     "header_subtitle": "Enregistrer et transcrire des notes vocales",
@@ -507,5 +555,10 @@
     "cancel": "Annuler",
     "book": "Comptabiliser dans Dolibarr →",
     "close": "Fermer"
+  },
+  "err": {
+    "network": "Il semble que quelque chose ait mal tourné — vérifiez votre connexion.",
+    "generic": "Quelque chose s'est mal passé — veuillez réessayer.",
+    "server": "Le serveur ne répond pas en ce moment — veuillez réessayer dans un instant."
   }
 }
