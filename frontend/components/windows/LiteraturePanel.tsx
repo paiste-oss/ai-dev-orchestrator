@@ -1186,15 +1186,17 @@ export default function LiteraturePanel() {
               {filtered.map(entry => {
                 const isActive = selected?.id === entry.id && (showDetail || showForm);
                 const entryGroup = entry.group_id ? groups.find(g => g.id === entry.group_id) : null;
+                const hasPdf = !!entry.pdf_s3_key;
                 return (
                   <div key={entry.id}
                     draggable
                     onDragStart={e => handleDragStart(e, entry.id)}
                     onClick={() => selectEntry(entry)}
-                    className={`group flex items-start gap-2 px-3 py-2.5 border-b border-white/4 cursor-pointer transition-colors ${isActive ? "bg-[var(--accent-10)]" : "hover:bg-white/3"}`}>
-                    <span className="text-base shrink-0 mt-0.5">{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
+                    title={hasPdf ? undefined : "Kein PDF hinterlegt"}
+                    className={`group flex items-start gap-2 px-3 py-2.5 border-b border-white/4 cursor-pointer transition-colors border-l-2 ${isActive ? "bg-[var(--accent-10)]" : "hover:bg-white/3"} ${hasPdf ? "border-l-transparent" : "border-l-amber-500/50"}`}>
+                    <span className={`text-base shrink-0 mt-0.5 ${hasPdf ? "" : "opacity-50"}`}>{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-white font-medium truncate">{entry.title}</p>
+                      <p className={`text-xs font-medium truncate ${hasPdf ? "text-white" : "text-gray-500"}`}>{entry.title}</p>
                       <p className="text-[10px] text-gray-500 truncate mt-0.5">
                         {fmtAuthors(entry.authors)}{entry.year ? ` · ${entry.year}` : ""}
                         {entry.entry_type === "patent"
