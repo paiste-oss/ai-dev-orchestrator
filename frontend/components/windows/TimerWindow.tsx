@@ -43,7 +43,8 @@ function playBeep() {
   } catch { /* audio context unavailable */ }
 }
 
-export default function TimerWindow({ mode = "timer", durationSeconds = 60, autostart = false }: Props) {
+export default function TimerWindow({ mode: propMode = "timer", durationSeconds = 60, autostart = false }: Props) {
+  const [mode, setMode] = useState<"timer" | "stopwatch">(propMode);
   const isTimer = mode === "timer";
   const totalMs = Math.max(1, Math.floor(durationSeconds * 1000));
 
@@ -112,6 +113,19 @@ export default function TimerWindow({ mode = "timer", durationSeconds = 60, auto
     setLaps(prev => [elapsedMs, ...prev]);
   }, [elapsedMs]);
 
+  // Manueller Wechsel zwischen Timer und Stoppuhr (Toggle im Fenster)
+  const switchMode = useCallback((next: "timer" | "stopwatch") => {
+    if (next === mode) return;
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    startRef.current = null;
+    baseElapsedRef.current = 0;
+    setElapsedMs(0);
+    setRunning(false);
+    setFinished(false);
+    setLaps([]);
+    setMode(next);
+  }, [mode]);
+
   // Autostart on mount
   useEffect(() => {
     if (autostart) start();
@@ -120,6 +134,41 @@ export default function TimerWindow({ mode = "timer", durationSeconds = 60, auto
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Reagiert auf Baddi-Updates (Singleton-Fenster bekommt neue Props)
+  const lastPropsRef = useRef({ mode: propMode, durationSeconds });
+  useEffect(() => {
+    const prev = lastPropsRef.current;
+    const modeChanged = prev.mode !== propMode;
+    const durationChanged = prev.durationSeconds !== durationSeconds;
+    if (!modeChanged && !durationChanged) return;
+    lastPropsRef.current = { mode: propMode, durationSeconds };
+
+    // Vollständiger Reset auf die neuen Werte
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    startRef.current = null;
+    baseElapsedRef.current = 0;
+    setElapsedMs(0);
+    setFinished(false);
+    setLaps([]);
+    setMode(propMode);
+    if (propMode === "timer") {
+      const newTotal = Math.max(1, Math.floor(durationSeconds * 1000));
+      setCustomTotalMs(newTotal);
+      setInputH(Math.floor(durationSeconds / 3600).toString());
+      setInputM(Math.floor((durationSeconds % 3600) / 60).toString());
+      setInputS(Math.floor(durationSeconds % 60).toString());
+    }
+    // Auto-start bei Baddi-Update
+    if (autostart) {
+      startRef.current = performance.now();
+      setRunning(true);
+      rafRef.current = requestAnimationFrame(tick);
+    } else {
+      setRunning(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propMode, durationSeconds]);
 
   // Update custom duration from inputs
   function applyCustomDuration() {
@@ -147,10 +196,24 @@ export default function TimerWindow({ mode = "timer", durationSeconds = 60, auto
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-gradient-to-b from-[#0a0b12] to-[#050811]">
-      {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5 shrink-0">
-        <span className="text-lg">{isTimer ? "⏲" : "⏱"}</span>
-        <span className="text-sm text-white font-medium">{isTimer ? "Timer" : "Stoppuhr"}</span>
+      {/* Header mit Mode-Toggle */}
+      <div className="flex items-center gap-3 px-4 py-2.5 border-b border-white/5 shrink-0">
+        <div className="flex items-center bg-white/5 border border-white/10 rounded-full p-0.5">
+          <button
+            onClick={() => switchMode("timer")}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+              isTimer ? "bg-indigo-600 text-white shadow-sm" : "text-gray-400 hover:text-white"
+            }`}>
+            <span>⏲</span>Timer
+          </button>
+          <button
+            onClick={() => switchMode("stopwatch")}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+              !isTimer ? "bg-indigo-600 text-white shadow-sm" : "text-gray-400 hover:text-white"
+            }`}>
+            <span>⏱</span>Stoppuhr
+          </button>
+        </div>
         {finished && <span className="ml-auto text-xs text-emerald-400 animate-pulse">Zeit abgelaufen!</span>}
       </div>
 

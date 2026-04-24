@@ -179,7 +179,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 480,
     status: "active",
     canvasType: "timer",
-    singleton: false,
+    singleton: true,
   },
   {
     id: "3d_renderer",
