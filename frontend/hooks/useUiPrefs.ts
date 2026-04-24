@@ -60,9 +60,50 @@ export const WINDOW_BG_SOLID: Record<string, string> = {
 };
 
 export const BG_COLORS: Record<string, string> = {
+  // Ursprüngliche Dunkel-Palette
   dark: "#030712", darker: "#000000", lighter: "#111827",
   slate: "#0f172a", navy: "#0c1445", forest: "#0a1a0f", wine: "#1a0a12", warm: "#1a1208",
   white: "#ffffff",
+  // Warm/Modern — helle & dunkle Akzente
+  warm_white: "#FBF9F5",
+  stone: "#F4F5F6",
+  sand: "#F5EFE3",
+  charcoal: "#1E1F24",
+  cream: "#F5EFE0",
+  warm_sand: "#E8DDC4",
+  clay: "#E8C8B6",
+  deep_navy: "#1A2744",
+  paper: "#FAF6EE",
+  cream2: "#F2EBDA",
+  warm_grey: "#DFDDD8",
+  deep_burgundy: "#3A1718",
+  cream3: "#F4EEDD",
+  moss: "#DCE2CE",
+  ochre: "#E8D7A8",
+  deep_forest: "#1E3A2F",
+};
+
+// Klartext-Labels für die Palette (sprachunabhängig)
+export const BG_COLOR_LABELS: Record<string, string> = {
+  dark: "Dunkel", darker: "Tiefschwarz", lighter: "Grau",
+  slate: "Slate", navy: "Navy", forest: "Forest", wine: "Wine", warm: "Warm",
+  white: "Weiss",
+  warm_white: "Warm White",
+  stone: "Stone",
+  sand: "Sand",
+  charcoal: "Charcoal",
+  cream: "Cream",
+  warm_sand: "Warm Sand",
+  clay: "Clay",
+  deep_navy: "Deep Navy",
+  paper: "Paper",
+  cream2: "Cream 2",
+  warm_grey: "Warm Grey",
+  deep_burgundy: "Deep Burgundy",
+  cream3: "Cream 3",
+  moss: "Moss",
+  ochre: "Ochre",
+  deep_forest: "Deep Forest",
 };
 
 const DEFAULT_PREFS: UiPrefs = {

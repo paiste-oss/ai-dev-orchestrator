@@ -5,7 +5,7 @@ import { ArtifactEntry, UiPrefs } from "@/lib/chat-types";
 import { WINDOW_MODULES } from "@/lib/window-registry";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
-import { ACCENT_COLORS as ACCENT_COLORS_MAP, BG_COLORS, WINDOW_BG_SOLID } from "@/hooks/useUiPrefs";
+import { ACCENT_COLORS as ACCENT_COLORS_MAP, BG_COLORS, BG_COLOR_LABELS, WINDOW_BG_SOLID } from "@/hooks/useUiPrefs";
 import { useT } from "@/lib/i18n";
 
 interface Props {
@@ -338,13 +338,25 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
 
                 <div className="space-y-1.5">
                   <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.background")}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {BG_OPTIONS.map(bg => (
-                      <ColorDot key={bg.v} hex={bg.hex} title={t(`design.bg_${bg.v}`)}
-                        active={uiPrefs.background === bg.v && !uiPrefs.backgroundImage}
-                        onClick={() => updatePrefs({ background: bg.v, backgroundImage: "" as UiPrefs["backgroundImage"] })}
-                      />
-                    ))}
+                  <div className="grid grid-cols-2 gap-1">
+                    {BG_OPTIONS.map(bg => {
+                      const active = uiPrefs.background === bg.v && !uiPrefs.backgroundImage;
+                      const label = BG_COLOR_LABELS[bg.v] ?? bg.v;
+                      return (
+                        <button
+                          key={bg.v}
+                          onClick={() => updatePrefs({ background: bg.v, backgroundImage: "" as UiPrefs["backgroundImage"] })}
+                          className={`flex items-center gap-1.5 px-1.5 py-1 rounded-md border transition-all ${active ? "border-white/40 bg-white/5" : "border-transparent hover:border-white/15 hover:bg-white/3"}`}
+                        >
+                          <span
+                            className={`w-4 h-4 rounded-full border shrink-0 ${active ? "border-white" : "border-white/20"}`}
+                            style={{ backgroundColor: bg.hex }}
+                          />
+                          <span className="flex-1 text-left text-[10px] text-gray-300 truncate">{label}</span>
+                          <span className="text-[9px] font-mono text-gray-600 shrink-0">{bg.hex.toUpperCase()}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                   <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                   <div className="flex gap-1.5 mt-1">
