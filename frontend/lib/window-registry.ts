@@ -171,6 +171,17 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     singleton: true,
   },
   {
+    id: "timer",
+    label: "Timer / Stoppuhr",
+    icon: "⏲",
+    description: "Countdown-Timer oder Stoppuhr — Baddi startet sie per Sprache: 'Starte einen Timer mit 12 Minuten' oder 'Starte eine Stoppuhr'.",
+    defaultWidth: 360,
+    defaultHeight: 480,
+    status: "active",
+    canvasType: "timer",
+    singleton: false,
+  },
+  {
     id: "3d_renderer",
     label: "3D-Renderer",
     icon: "🧊",

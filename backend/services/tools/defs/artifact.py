@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 _ARTIFACT_TYPES = ["chart", "whiteboard", "netzwerk", "geo_map", "assistenz",
-                   "design", "memory", "documents", "diktieren", "image_viewer"]
+                   "design", "memory", "documents", "diktieren", "image_viewer", "timer"]
 
 ARTIFACT_TOOL_DEFS = [
     {
@@ -14,6 +14,7 @@ ARTIFACT_TOOL_DEFS = [
             "Für Assistenz-Anfragen (Anmeldungen, Formulare, Behörden): artifact_type='assistenz'. "
             "Für Aktien/Charts: artifact_type='chart'. "
             "Für Karten/Orte: artifact_type='geo_map'. "
+            "Für Timer (Countdown) oder Stoppuhr: artifact_type='timer'. "
             "Für Whiteboard, Namensnetz, Design etc.: jeweiligen artifact_type wählen."
         ),
         "input_schema": {
@@ -36,6 +37,10 @@ ARTIFACT_TOOL_DEFS = [
                         "  geo_map:   {east: 2600000, north: 1200000, zoom: 8, "
                         "bgLayer: 'ch.swisstopo.pixelkarte-farbe'}\n"
                         "  assistenz: {url: 'https://...', goal: 'Was der Nutzer erreichen möchte'}\n"
+                        "  timer:     {mode: 'timer', durationSeconds: 720, autostart: true} ODER "
+                        "{mode: 'stopwatch', autostart: true} — durationSeconds nur bei mode='timer', "
+                        "als Sekunden (z.B. 12 Minuten = 720, 1 Stunde = 3600). autostart=true startet "
+                        "automatisch nach dem Öffnen.\n"
                         "  alle anderen: {} (leer lassen)"
                     ),
                 },

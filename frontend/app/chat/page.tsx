@@ -47,6 +47,7 @@ import AssistenzWindow from "@/components/windows/AssistenzWindow";
 import FlightBoardWindow from "@/components/windows/FlightBoardWindow";
 import EmailWindow from "@/components/windows/EmailWindow";
 import CalendarWindow from "@/components/windows/CalendarWindow";
+import TimerWindow from "@/components/windows/TimerWindow";
 import StockCard from "@/components/chat/StockCard";
 import StockHistoryCard from "@/components/chat/StockHistoryCard";
 import ImageGalleryCard from "@/components/chat/ImageGalleryCard";
@@ -686,6 +687,13 @@ export default function ChatPage() {
       );
       case "email": return <EmailWindow />;
       case "calendar": return <CalendarWindow />;
+      case "timer": return (
+        <TimerWindow
+          mode={(d?.mode as "timer" | "stopwatch" | undefined) ?? "timer"}
+          durationSeconds={d?.durationSeconds as number | undefined}
+          autostart={(d?.autostart as boolean | undefined) ?? true}
+        />
+      );
       default: return (
         <div className="p-4 text-sm text-gray-400 font-mono whitespace-pre-wrap">
           {JSON.stringify(d, null, 2)}
