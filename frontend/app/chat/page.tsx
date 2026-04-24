@@ -692,13 +692,21 @@ export default function ChatPage() {
       );
       case "email": return <EmailWindow />;
       case "calendar": return <CalendarWindow />;
-      case "timer": return (
-        <TimerWindow
-          mode={(d?.mode as "timer" | "stopwatch" | undefined) ?? "timer"}
-          durationSeconds={d?.durationSeconds as number | undefined}
-          autostart={(d?.autostart as boolean | undefined) ?? true}
-        />
-      );
+      case "timer": {
+        // Fallback: wenn mode nicht gesetzt, aus Titel erkennen
+        // ("Stoppuhr" / "stopwatch" → stopwatch, sonst timer)
+        const rawMode = d?.mode as "timer" | "stopwatch" | undefined;
+        const titleLower = (artifact.title ?? "").toLowerCase();
+        const inferredMode: "timer" | "stopwatch" = rawMode
+          ?? (titleLower.includes("stoppuhr") || titleLower.includes("stopwatch") ? "stopwatch" : "timer");
+        return (
+          <TimerWindow
+            mode={inferredMode}
+            durationSeconds={d?.durationSeconds as number | undefined}
+            autostart={(d?.autostart as boolean | undefined) ?? true}
+          />
+        );
+      }
       default: return (
         <div className="p-4 text-sm text-gray-400 font-mono whitespace-pre-wrap">
           {JSON.stringify(d, null, 2)}
