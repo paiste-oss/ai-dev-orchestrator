@@ -146,6 +146,9 @@ export function LiteratureUploadProvider({ children }: { children: React.ReactNo
 
         const res = await apiFetchForm(`${BACKEND_URL}/v1/literature/import-pdfs/upload-chunk`, fd);
         if (!res.ok) {
+          if (res.status === 429) {
+            throw new Error("Upload-Rate zu hoch — bitte warte eine Minute und versuche es erneut.");
+          }
           const err = await res.json().catch(() => ({ detail: t.generic })) as { detail?: string };
           throw new Error(err.detail || t.generic);
         }

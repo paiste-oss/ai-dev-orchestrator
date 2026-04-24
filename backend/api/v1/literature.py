@@ -970,7 +970,7 @@ async def _bulk_zip_background_task(zip_path_str: str, customer_id_str: str, upl
 
 
 @router.post("/import-pdfs/upload-chunk", response_model=ChunkUploadResponse)
-@limiter.limit("300/hour")
+@limiter.limit("2000/hour")  # 2000 × 90 MB = ~180 GB/h — genug für sehr grosse Uploads
 async def upload_pdf_chunk(
     request: Request,
     background_tasks: BackgroundTasks,
