@@ -5,6 +5,7 @@ import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { useT } from "@/lib/i18n";
 import { useLiteratureUpload } from "@/lib/literature-upload-context";
+import WindowFrame from "./WindowFrame";
 
 interface LitEntry {
   id: string;
@@ -1027,9 +1028,9 @@ export default function LiteraturePanel() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <WindowFrame>
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/6 shrink-0">
+      <div className="flex items-center gap-2 px-3 py-2 border-b window-border-soft shrink-0">
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche in Literatur…"
           className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50" />
         <button onClick={() => importInputRef.current?.click()}
@@ -1264,6 +1265,6 @@ export default function LiteraturePanel() {
           </>
         )}
       </div>
-    </div>
+    </WindowFrame>
   );
 }

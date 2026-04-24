@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { useT } from "@/lib/i18n";
+import WindowFrame from "./WindowFrame";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -222,32 +223,30 @@ export default function CalendarWindow() {
   }
 
   return (
-    <div className="flex flex-col h-full text-white overflow-hidden">
-
-      {/* ── Header ── */}
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-white/6 shrink-0">
+    <WindowFrame header={(
+      <div className="flex items-center gap-1.5">
         <button
           onClick={prevMonth}
-          className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/8 transition-colors text-lg font-light"
+          className="w-7 h-7 flex items-center justify-center rounded-lg window-text-hover text-lg font-light"
         >‹</button>
 
         <button
           onClick={goToday}
-          className="flex-1 text-center text-sm font-semibold text-white hover:text-[var(--accent-light)] transition-colors"
+          className="flex-1 text-center text-sm font-semibold window-text hover:text-[var(--accent-light)] transition-colors"
         >
           {MONTHS[month]} {year}
         </button>
 
         <button
           onClick={nextMonth}
-          className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/8 transition-colors text-lg font-light"
+          className="w-7 h-7 flex items-center justify-center rounded-lg window-text-hover text-lg font-light"
         >›</button>
 
-        <div className="w-px h-4 bg-white/10" />
+        <div className="w-px h-4 window-fill-soft" />
 
         <button
           onClick={load} disabled={loading}
-          className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-600 hover:text-gray-400 transition-colors disabled:opacity-40"
+          className="w-7 h-7 flex items-center justify-center rounded-lg window-text-subtle hover:window-text transition-colors disabled:opacity-40"
           title={t("cal.refresh")}
         >
           <svg className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -263,6 +262,7 @@ export default function CalendarWindow() {
           {t("cal.add_event")}
         </button>
       </div>
+    )}>
 
       {/* ── Day-of-week header ── */}
       <div
@@ -525,6 +525,6 @@ export default function CalendarWindow() {
           </div>
         )}
       </div>
-    </div>
+    </WindowFrame>
   );
 }

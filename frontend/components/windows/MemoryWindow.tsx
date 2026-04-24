@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { MemoryItem } from "@/lib/chat-types";
 import { formatDate } from "@/lib/format";
 import { useT } from "@/lib/i18n";
+import WindowFrame from "./WindowFrame";
 
 interface Props {
   buddyName?: string;
@@ -45,19 +46,19 @@ export default function MemoryWindow({ buddyName = "Baddi", memories, onDelete, 
   };
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="px-4 py-2.5 border-b border-white/5 shrink-0 flex items-center justify-between">
-        <p className="text-xs text-gray-500">{t("mem.subtitle", { name: buddyName })}</p>
+    <WindowFrame header={(
+      <div className="flex items-center justify-between">
+        <p className="text-xs window-text-muted">{t("mem.subtitle", { name: buddyName })}</p>
         {onRefresh && (
           <button onClick={onRefresh} title={t("mem.refresh")}
-            className="text-gray-600 hover:text-gray-300 transition-colors p-1 rounded hover:bg-white/5">
+            className="window-text-hover p-1 rounded">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
           </button>
         )}
       </div>
+    )}>
 
       {/* Filter Bar */}
       <div className="px-3 py-2 border-b border-white/5 shrink-0 flex items-center gap-2 flex-wrap">
@@ -145,12 +146,12 @@ export default function MemoryWindow({ buddyName = "Baddi", memories, onDelete, 
 
       {/* Footer */}
       {memories.length > 0 && (
-        <div className="px-4 py-2 border-t border-white/5 shrink-0">
-          <span className="text-[11px] text-gray-600">
+        <div className="px-4 py-2 border-t window-border-soft shrink-0">
+          <span className="text-[11px] window-text-subtle">
             {t("mem.count", { n: String(filtered.length), total: String(memories.length) })}
           </span>
         </div>
       )}
-    </div>
+    </WindowFrame>
   );
 }

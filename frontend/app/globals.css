@@ -207,3 +207,30 @@ body {
     color: color-contrast(var(--page-bg, #030712) vs #ffffff, #111111);
   }
 }
+
+/* ── Auto-Kontrast INNERHALB von Fenstern ────────────────────────────────────
+ * Bezieht sich auf --window-bg (Design → Fenster-Hintergrund).
+ * Wird von WindowFrame und seinen Abkömmlingen verwendet.
+ */
+.window-text        { color: var(--auto-window-text-color,  #ffffff); }
+.window-text-muted  { color: var(--auto-window-text-muted,  rgba(255,255,255,0.70)); }
+.window-text-subtle { color: var(--auto-window-text-subtle, rgba(255,255,255,0.45)); }
+
+.window-border-soft { border-color:     var(--auto-window-border-soft, rgba(255,255,255,0.08)); }
+.window-fill-soft   { background-color: var(--auto-window-fill-soft,   rgba(255,255,255,0.05)); }
+.window-fill-soft:hover { background-color: var(--auto-window-fill-hover, rgba(255,255,255,0.10)); }
+
+.window-text-hover {
+  color: var(--auto-window-text-muted, rgba(255,255,255,0.70));
+  transition: color 150ms, background-color 150ms;
+}
+.window-text-hover:hover {
+  color: var(--auto-window-text-color, #ffffff);
+  background-color: var(--auto-window-fill-soft, rgba(255,255,255,0.05));
+}
+
+@supports (color: color-contrast(#000 vs #fff, #000)) {
+  .window-text {
+    color: color-contrast(var(--window-bg, rgba(8,12,22,0.92)) vs #ffffff, #111111);
+  }
+}
