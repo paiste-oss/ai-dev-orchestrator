@@ -916,13 +916,39 @@ async def _run_zip_entries(
     )
 
 
+# ZIP-Sicherheitsgrenzen:
+# - Max. unkomprimierte Gesamtgrösse: 50 GB (reicht für > 100k PDFs)
+# - Max. Compression-Ratio: 200x (PDFs sind ≈1:1, normale Files ≤50x;
+#   hohe Ratios deuten auf Zip-Bombs hin)
+_MAX_ZIP_UNCOMPRESSED = 50 * 1024 * 1024 * 1024  # 50 GB
+_MAX_ZIP_COMPRESSION_RATIO = 200
+
+
+def _validate_zip_safety(zf: zipfile.ZipFile) -> None:
+    total_uncompressed = 0
+    total_compressed = 0
+    for info in zf.infolist():
+        total_uncompressed += info.file_size
+        total_compressed += info.compress_size
+    if total_uncompressed > _MAX_ZIP_UNCOMPRESSED:
+        raise HTTPException(
+            status_code=413,
+            detail=f"ZIP-Inhalt zu gross (max. {_MAX_ZIP_UNCOMPRESSED // (1024**3)} GB unkomprimiert)",
+        )
+    # Zip-Bomb-Schutz: nur prüfen wenn komprimierte Grösse nicht vernachlässigbar ist
+    if total_compressed > 1024 and total_uncompressed / total_compressed > _MAX_ZIP_COMPRESSION_RATIO:
+        raise HTTPException(
+            status_code=422,
+            detail="ZIP-Datei verdächtig stark komprimiert — möglicher Zip-Bomb-Angriff",
+        )
+
+
 async def _process_bulk_zip(content: bytes, user: Customer, db: AsyncSession) -> BulkPdfResponse:
     """ZIP-Import von Bytes (kleines ZIP ≤ 90 MB)."""
     if not zipfile.is_zipfile(io.BytesIO(content)):
         raise HTTPException(status_code=422, detail="Ungültige ZIP-Datei")
     with zipfile.ZipFile(io.BytesIO(content)) as _zf_check:
-        if sum(i.file_size for i in _zf_check.infolist()) > 2 * 1024 * 1024 * 1024:
-            raise HTTPException(status_code=413, detail="ZIP-Inhalt zu gross (max. 2 GB unkomprimiert)")
+        _validate_zip_safety(_zf_check)
     with zipfile.ZipFile(io.BytesIO(content)) as zf:
         return await _run_zip_entries(zf, user, db)
 
@@ -932,8 +958,7 @@ async def _process_bulk_zip_from_path(zip_path: pathlib.Path, user: Customer, db
     if not zipfile.is_zipfile(zip_path):
         raise HTTPException(status_code=422, detail="Ungültige ZIP-Datei")
     with zipfile.ZipFile(zip_path) as _zf_check:
-        if sum(i.file_size for i in _zf_check.infolist()) > 2 * 1024 * 1024 * 1024:
-            raise HTTPException(status_code=413, detail="ZIP-Inhalt zu gross (max. 2 GB unkomprimiert)")
+        _validate_zip_safety(_zf_check)
     with zipfile.ZipFile(zip_path) as zf:
         return await _run_zip_entries(zf, user, db)
 
