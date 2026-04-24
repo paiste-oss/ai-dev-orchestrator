@@ -53,6 +53,7 @@ export interface BrowserViewData {
 // Marker-based structured data types
 export interface OpenWindowData {
   canvasType: string;
+  title?: string;
   symbols?: string[];
   symbol?: string;
   east?: number;
@@ -61,6 +62,10 @@ export interface OpenWindowData {
   bgLayer?: string;
   url?: string;
   goal?: string;
+  // Timer / Stoppuhr
+  mode?: "timer" | "stopwatch";
+  durationSeconds?: number;
+  autostart?: boolean;
 }
 
 export interface OpenDocumentData {

@@ -338,12 +338,17 @@ export default function ChatPage() {
     // Fenster öffnen via [FENSTER:]-Marker
     if (last.responseType === "open_window") {
       const d = last.structuredData as OpenWindowData;
-      const title = openWindowTitle(d.canvasType) ?? `🪟 ${d.canvasType}`;
+      const title = d.title && d.title.trim()
+        ? `${WINDOW_MODULES.find(m => m.canvasType === d.canvasType)?.icon ?? "🪟"} ${d.title.trim()}`
+        : openWindowTitle(d.canvasType) ?? `🪟 ${d.canvasType}`;
       const data: Record<string, unknown> = {};
       if (d.symbols) data.symbols = d.symbols;
       if (d.symbol)  data.symbol  = d.symbol;
       if (d.east)    { data.east = d.east; data.north = d.north; data.zoom = d.zoom; data.bgLayer = d.bgLayer; }
       if (d.url)     { data.url = d.url; data.goal = d.goal; }
+      if (d.mode)                   data.mode = d.mode;
+      if (d.durationSeconds != null) data.durationSeconds = d.durationSeconds;
+      if (d.autostart != null)      data.autostart = d.autostart;
       openArtifact(d.canvasType, title, data);
       return;
     }
