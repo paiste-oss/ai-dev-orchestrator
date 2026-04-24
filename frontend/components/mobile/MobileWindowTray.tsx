@@ -38,7 +38,7 @@ export default function MobileWindowTray({
         className={`shrink-0 flex items-center gap-1.5 px-2.5 h-8 rounded-lg border text-xs font-medium transition-all select-none ${
           chatActive
             ? "bg-[var(--accent-30)] border-[var(--accent-50)] text-[var(--accent-light)]"
-            : "bg-white/5 border-white/8 text-gray-400 active:bg-white/10"
+            : "auto-tab-inactive"
         }`}
         title={t("mobile.back_to_chat")}
       >
@@ -52,7 +52,7 @@ export default function MobileWindowTray({
         className={`shrink-0 flex items-center gap-1.5 px-2.5 h-8 rounded-lg border text-xs font-medium transition-all select-none ${
           homeOpen
             ? "bg-[var(--accent-30)] border-[var(--accent-50)] text-[var(--accent-light)]"
-            : "bg-white/5 border-white/8 text-gray-400 active:bg-white/10"
+            : "auto-tab-inactive"
         }`}
         title="Home"
       >
@@ -73,7 +73,7 @@ export default function MobileWindowTray({
       {/* Fenster hinzufügen */}
       <button
         onClick={onAdd}
-        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-white bg-white/5 hover:bg-white/10 border border-white/8 transition-colors"
+        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg border auto-tab-inactive"
         title={t("mobile.add_window")}
       >
         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -126,7 +126,7 @@ function TrayItem({
       className={`shrink-0 flex items-center gap-1.5 px-2.5 h-8 rounded-lg border text-xs font-medium transition-all select-none ${
         isActive
           ? "bg-[var(--accent-30)] border-[var(--accent-50)] text-[var(--accent-light)]"
-          : "bg-white/5 border-white/8 text-gray-400 active:bg-white/10"
+          : "auto-tab-inactive"
       }`}
       onPointerDown={(e) => {
         pointerMoved.current = false;

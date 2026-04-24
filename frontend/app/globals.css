@@ -179,9 +179,29 @@ body {
  * Progressive Enhancement (moderne Browser): color-contrast() übernimmt
  *   und wählt direkt im Browser den besseren Kontrast.
  */
-.auto-text {
-  color: var(--auto-text-color, #ffffff);
+.auto-text        { color: var(--auto-text-color,  #ffffff); }
+.auto-text-muted  { color: var(--auto-text-muted,  rgba(255,255,255,0.70)); }
+.auto-text-subtle { color: var(--auto-text-subtle, rgba(255,255,255,0.45)); }
+
+/* Interaktiv: gedämpft im Ruhezustand, voll beim Hover */
+.auto-text-hover {
+  color: var(--auto-text-muted, rgba(255,255,255,0.70));
+  transition: color 150ms, background-color 150ms;
 }
+.auto-text-hover:hover {
+  color: var(--auto-text-color, #ffffff);
+  background-color: var(--auto-fill-soft, rgba(255,255,255,0.06));
+}
+
+.auto-fill-soft   { background-color: var(--auto-fill-soft,   rgba(255,255,255,0.06)); }
+.auto-border-soft { border-color:     var(--auto-border-soft, rgba(255,255,255,0.12)); }
+.auto-fill-soft:hover { background-color: var(--auto-fill-hover, rgba(255,255,255,0.12)); }
+
+/* Tabs — Aktiv / Inaktiv mit sanftem Hover-Feedback */
+.auto-tab-active   { color: var(--auto-text-color); background-color: var(--auto-fill-hover, rgba(255,255,255,0.10)); border-color: var(--auto-border-soft); }
+.auto-tab-inactive { color: var(--auto-text-muted); border-color: transparent; transition: color 150ms, background-color 150ms; }
+.auto-tab-inactive:hover { color: var(--auto-text-color); background-color: var(--auto-fill-soft); }
+
 @supports (color: color-contrast(#000 vs #fff, #000)) {
   .auto-text {
     color: color-contrast(var(--page-bg, #030712) vs #ffffff, #111111);

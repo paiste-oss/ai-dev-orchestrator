@@ -142,7 +142,7 @@ export default function ArtifactShell({
             <button
               onClick={() => setPickerOpen((v) => !v)}
               title={t("chat.add_window")}
-              className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors"
+              className="p-1.5 rounded-lg auto-text-hover"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/>
@@ -180,10 +180,8 @@ export default function ArtifactShell({
 
         {/* Permanent Home tab */}
         <div
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer shrink-0 transition-all select-none ${
-            homeActive
-              ? "bg-white/10 text-white border border-white/15"
-              : "text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent"
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer shrink-0 transition-all select-none border ${
+            homeActive ? "auto-tab-active" : "auto-tab-inactive"
           }`}
           onClick={() => setHomeActive(true)}
         >
@@ -205,10 +203,8 @@ export default function ArtifactShell({
               <div
                 key={a.id}
                 data-tab
-                className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer shrink-0 transition-all select-none ${
-                  isActive
-                    ? "bg-white/10 text-white border border-white/15"
-                    : "text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent"
+                className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer shrink-0 transition-all select-none border ${
+                  isActive ? "auto-tab-active" : "auto-tab-inactive"
                 }`}
                 onClick={() => {
                   setHomeActive(false);
@@ -229,7 +225,7 @@ export default function ArtifactShell({
                     e.stopPropagation();
                     onClose(a.id);
                   }}
-                  className="ml-0.5 w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all"
+                  className="ml-0.5 w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 auto-text-subtle hover:text-red-400 transition-all"
                 >
                   ✕
                 </button>

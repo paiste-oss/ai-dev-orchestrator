@@ -741,7 +741,7 @@ export default function ChatPage() {
   const chatColumnContent = (
     <>
       {!historyLoaded && (
-        <p className="text-center text-gray-600 text-sm pt-8">Lade Verlauf…</p>
+        <p className="text-center auto-text-subtle text-sm pt-8">Lade Verlauf…</p>
       )}
       {historyLoaded && messages.length === 0 && (
         <div className="flex flex-col items-center justify-center min-h-[60%] gap-4 text-center py-8">
@@ -755,15 +755,15 @@ export default function ChatPage() {
             <span className="text-white font-bold text-xl">{buddyInitial}</span>
           </div>
           <div>
-            <h2 className="font-semibold text-white">Hallo{firstName ? `, ${firstName}` : ""}!</h2>
-            <p className="text-gray-400 text-sm mt-1">Wie kann ich dir helfen?</p>
+            <h2 className="font-semibold auto-text">Hallo{firstName ? `, ${firstName}` : ""}!</h2>
+            <p className="auto-text-muted text-sm mt-1">Wie kann ich dir helfen?</p>
           </div>
           <div className="flex flex-wrap justify-center gap-2 max-w-xs">
             {suggestions.map((s) => (
               <button
                 key={s}
                 onClick={() => setInput(s)}
-                className="px-3 py-1.5 rounded-full text-xs text-gray-300 bg-white/5 hover:bg-white/10 border border-white/8 hover:border-white/15 transition-all"
+                className="px-3 py-1.5 rounded-full text-xs auto-text-muted auto-fill-soft border auto-border-soft transition-all"
               >
                 {s}
               </button>
