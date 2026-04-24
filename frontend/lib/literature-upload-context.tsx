@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 
@@ -55,6 +55,13 @@ interface Ctx {
 const LiteratureUploadContext = createContext<Ctx | null>(null);
 
 const CHUNK_SIZE = 90 * 1024 * 1024;
+const PENDING_KEY = "baddi:lit_upload_pending";
+
+// Default-Messages für Recovery (kein t() im Context verfügbar)
+const RECOVERY_MESSAGES = {
+  network: "Da scheint etwas schiefgelaufen zu sein — bitte prüfe deine Verbindung.",
+  generic: "Etwas ist schiefgelaufen — bitte versuche es erneut.",
+};
 
 export function LiteratureUploadProvider({ children }: { children: React.ReactNode }) {
   const [importingZip, setImportingZip] = useState(false);
@@ -71,6 +78,47 @@ export function LiteratureUploadProvider({ children }: { children: React.ReactNo
   const dismissZipResult = useCallback(() => {
     setZipResult(null);
     setShowZipDetails(false);
+  }, []);
+
+  // ── Status-Polling ──────────────────────────────────────────────────────────
+  // Pollt den Backend-Status für eine laufende Verarbeitung. Wird sowohl vom
+  // normalen Upload-Flow als auch vom Recovery-Flow nach Reload verwendet.
+  const pollStatus = useCallback(async (uploadId: string, total: number, t: { network: string; generic: string }) => {
+    setImportingZip(true);
+    setZipProgress({ phase: "processing", sent: total || 1, total: total || 1 });
+
+    const deadline = Date.now() + 45 * 60 * 1000;
+    try {
+      while (Date.now() < deadline) {
+        await new Promise<void>(resolve => setTimeout(resolve, 5000));
+        const statusRes = await apiFetch(`${BACKEND_URL}/v1/literature/import-pdfs/status/${uploadId}`);
+
+        // 404 = Upload-ID existiert nicht mehr (Redis TTL abgelaufen, 4h)
+        if (statusRes.status === 404) {
+          try { localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
+          return;
+        }
+        if (!statusRes.ok) continue;
+
+        const statusData = await statusRes.json() as { status: string; result?: BulkPdfResult; error?: string };
+
+        if (statusData.status === "done" && statusData.result) {
+          setZipResult(statusData.result);
+          setShowZipDetails(true);
+          setReloadKey(k => k + 1);
+          try { localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
+          return;
+        }
+        if (statusData.status === "error") {
+          throw new Error(statusData.error || t.generic);
+        }
+      }
+      throw new Error(t.generic);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setImportMsg({ type: "err", text: msg === "ERR_NETWORK" ? t.network : msg || t.generic });
+      try { localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
+    }
   }, []);
 
   const startZipImport = useCallback(async (file: File, t: { network: string; generic: string }) => {
@@ -108,37 +156,50 @@ export function LiteratureUploadProvider({ children }: { children: React.ReactNo
         if (chunkResult.status === "processing") break;
       }
 
-      setZipProgress({ phase: "processing", sent: totalChunks, total: totalChunks });
+      // Alle Chunks hochgeladen → Verarbeitung läuft im Hintergrund beim Backend.
+      // Ab hier ist Reload-Recovery möglich: upload_id persistieren.
+      try {
+        localStorage.setItem(PENDING_KEY, JSON.stringify({ upload_id: uploadId, total: totalChunks }));
+      } catch { /* QuotaExceeded etc. — nicht kritisch */ }
 
-      const deadline = Date.now() + 45 * 60 * 1000;
-      while (Date.now() < deadline) {
-        await new Promise<void>(resolve => setTimeout(resolve, 5000));
-
-        const statusRes = await apiFetch(`${BACKEND_URL}/v1/literature/import-pdfs/status/${uploadId}`);
-        if (!statusRes.ok) continue;
-
-        const statusData = await statusRes.json() as { status: string; result?: BulkPdfResult; error?: string };
-
-        if (statusData.status === "done" && statusData.result) {
-          setZipResult(statusData.result);
-          setShowZipDetails(true);
-          setReloadKey(k => k + 1);
-          return;
-        }
-        if (statusData.status === "error") {
-          throw new Error(statusData.error || t.generic);
-        }
-      }
-      throw new Error(t.generic);
+      await pollStatus(uploadId, totalChunks, t);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       setImportMsg({ type: "err", text: msg === "ERR_NETWORK" ? t.network : msg || t.generic });
+      try { localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
     } finally {
       setImportingZip(false);
       setZipProgress(null);
       runningRef.current = false;
     }
-  }, []);
+  }, [pollStatus]);
+
+  // ── Reload-Recovery ─────────────────────────────────────────────────────────
+  // Beim Mount: prüfe ob ein laufender Upload in der Processing-Phase war.
+  // Falls ja → Status-Polling wieder aufnehmen. Der Backend-Job läuft
+  // unabhängig weiter, der Chunk-Upload-State ist nicht recover­bar.
+  useEffect(() => {
+    let cancelled = false;
+    try {
+      const raw = localStorage.getItem(PENDING_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { upload_id?: string; total?: number };
+      if (!parsed.upload_id || runningRef.current) return;
+      runningRef.current = true;
+      setImportMsg({ type: "ok", text: "Upload wird fortgesetzt — Verarbeitung im Hintergrund läuft." });
+      (async () => {
+        await pollStatus(parsed.upload_id!, parsed.total ?? 0, RECOVERY_MESSAGES);
+        if (!cancelled) {
+          setImportingZip(false);
+          setZipProgress(null);
+          runningRef.current = false;
+        }
+      })();
+    } catch {
+      try { localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
+    }
+    return () => { cancelled = true; };
+  }, [pollStatus]);
 
   const startXmlImport = useCallback(async (file: File, t: { network: string; generic: string }) => {
     setImportingXml(true);
@@ -182,6 +243,6 @@ export function LiteratureUploadProvider({ children }: { children: React.ReactNo
 
 export function useLiteratureUpload(): Ctx {
   const ctx = useContext(LiteratureUploadContext);
-  if (!ctx) throw new Error("useLiteratureUpload must be used within LiteratureUploadProvider");
+  if (!ctx) throw new Error("useLiteratureUpload must be used within LiteraturePanel");
   return ctx;
 }
