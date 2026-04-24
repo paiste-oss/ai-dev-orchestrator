@@ -246,12 +246,14 @@ export default function ChatPage() {
     false,
     uiPrefs.ttsVoice ?? "female",
   );
-  const ttsDefaultSynced = useRef(false);
+  // Session-Button folgt der Default-Einstellung aus Home → Design.
+  // Der Button togglet nur ttsEnabled (Session), nicht uiPrefs.ttsDefault —
+  // darum feuert dieser Effect NICHT beim manuellen Button-Klick. Bei neuem
+  // Login / Reload lädt useUiPrefs den gespeicherten Default neu → Effect feuert
+  // → Button startet wieder beim Default.
   useEffect(() => {
-    if (ttsDefaultSynced.current) return;
     if (uiPrefs.ttsDefault !== undefined) {
       setTtsEnabled(uiPrefs.ttsDefault);
-      ttsDefaultSynced.current = true;
     }
   }, [uiPrefs.ttsDefault, setTtsEnabled]);
   const [emotion, setEmotion] = useState<string | null>(null);
