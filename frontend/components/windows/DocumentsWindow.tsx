@@ -5,6 +5,7 @@ import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { fmtBytes as formatBytes, formatDate } from "@/lib/format";
 import { useT } from "@/lib/i18n";
+import WindowFrame from "./WindowFrame";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -504,14 +505,15 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
   ];
 
   return (
+    <WindowFrame>
     <div
-      className={`relative flex flex-col h-full text-white overflow-hidden transition-colors ${dragOver ? "bg-[var(--accent-10)] ring-2 ring-[var(--accent-50)] ring-inset" : ""}`}
+      className={`relative flex flex-col h-full transition-colors ${dragOver ? "bg-[var(--accent-10)] ring-2 ring-[var(--accent-50)] ring-inset" : ""}`}
       onDragOver={e => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
       onDrop={e => { e.preventDefault(); setDragOver(false); handleUpload(e.dataTransfer.files); }}
     >
       {/* ── Toolbar ── */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/6 shrink-0">
+      <div className="flex items-center gap-2 px-3 py-2 border-b window-border-soft shrink-0">
         <button onClick={() => setSidebarOpen(v => !v)} title="Sidebar"
           className="p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors">
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -826,5 +828,6 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
         )}
       </div>
     </div>
+    </WindowFrame>
   );
 }

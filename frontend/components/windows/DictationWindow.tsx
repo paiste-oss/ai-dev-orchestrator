@@ -6,6 +6,7 @@ import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { getWhisperPrompt } from "@/lib/whisperPrompts";
 import { AUDIO_CONSTRAINTS, convertToWav } from "@/lib/audioUtils";
+import WindowFrame from "./WindowFrame";
 
 type Step = "idle" | "recording" | "review";
 
@@ -182,18 +183,18 @@ export default function DictationWindow({ language }: { language?: string }) {
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden text-white">
-      {/* Header */}
-      <div className="px-4 py-2.5 border-b border-white/5 shrink-0 flex items-center justify-between">
-        <p className="text-xs text-gray-500">{t("dict.header_subtitle")}</p>
+    <WindowFrame header={(
+      <div className="flex items-center justify-between">
+        <p className="text-xs window-text-muted">{t("dict.header_subtitle")}</p>
         {step === "idle" && (
-          <span className="text-[10px] text-gray-600">
+          <span className="text-[10px] window-text-subtle">
             {dictations.length !== 1
               ? t("dict.count_plural", { n: String(dictations.length) })
               : t("dict.count_single", { n: String(dictations.length) })}
           </span>
         )}
       </div>
+    )}>
 
       {/* Recorder */}
       <div className="shrink-0 px-4 py-4 border-b border-white/5">
@@ -305,6 +306,6 @@ export default function DictationWindow({ language }: { language?: string }) {
           </div>
         ))}
       </div>
-    </div>
+    </WindowFrame>
   );
 }

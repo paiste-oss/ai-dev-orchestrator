@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { apiFetch, getToken } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
+import WindowFrame from "./WindowFrame";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Group { id: string; color: string; label: string; }
@@ -1362,7 +1363,7 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
   const canvasCursor = dragging ? "grabbing" : mode === "connect" ? (connecting ? "crosshair" : "cell") : "grab";
 
   return (
-    <div className="h-full bg-[#0d0d14] text-[#e2e2e8] flex flex-col overflow-hidden touch-none">
+    <WindowFrame className="touch-none">
       <Toast message={toast.message} visible={toast.visible} />
 
       {showSettings && (
@@ -1555,6 +1556,6 @@ export default function NetzwerkWindow({ boardId: initialBoardId, onBoardId, rel
             onUpdateNote={(netId, note) => update(prev => ({ ...prev, networks: prev.networks.map(n => n.id === netId ? { ...n, note } : n) }))} />
         )}
       </div>
-    </div>
+    </WindowFrame>
   );
 }

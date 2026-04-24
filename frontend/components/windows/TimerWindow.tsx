@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import WindowFrame from "./WindowFrame";
 
 interface Props {
   mode?: "timer" | "stopwatch";
@@ -195,7 +196,7 @@ export default function TimerWindow({ mode: propMode = "timer", durationSeconds 
   const offset = isTimer ? circumference * (1 - progress) : 0;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-gradient-to-b from-[#0a0b12] to-[#050811]">
+    <WindowFrame noBackground className="bg-gradient-to-b from-[#0a0b12] to-[#050811]">
       {/* Header mit Mode-Toggle */}
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-white/5 shrink-0">
         <div className="flex items-center bg-white/5 border border-white/10 rounded-full p-0.5">
@@ -324,6 +325,6 @@ export default function TimerWindow({ mode: propMode = "timer", durationSeconds 
           </div>
         )}
       </div>
-    </div>
+    </WindowFrame>
   );
 }

@@ -2,6 +2,7 @@
 
 import { FlightBoardData, FlightEntry } from "@/lib/chat-types";
 import { useT } from "@/lib/i18n";
+import WindowFrame from "./WindowFrame";
 
 interface Props {
   data: FlightBoardData | undefined;
@@ -135,7 +136,7 @@ export default function FlightBoardWindow({ data, onRefresh, isRefreshing = fals
     : t("flight.plan");
 
   return (
-    <div className="flex flex-col h-full text-[#e2e2e8] bg-[#0d0d14]">
+    <WindowFrame>
       {/* Header */}
       <div className="shrink-0 px-4 py-3 border-b border-white/5 bg-[#10101a] flex items-center gap-3">
         <span className="text-lg">✈</span>
@@ -191,6 +192,6 @@ export default function FlightBoardWindow({ data, onRefresh, isRefreshing = fals
           </table>
         )}
       </div>
-    </div>
+    </WindowFrame>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useT } from "@/lib/i18n";
+import WindowFrame from "./WindowFrame";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend,
@@ -310,7 +311,7 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-full flex flex-col overflow-hidden bg-gray-950 text-white text-xs">
+    <WindowFrame className="text-xs">
 
       {/* Tab bar */}
       <div className="shrink-0 flex border-b border-white/6">
@@ -766,6 +767,6 @@ export default function ChartWindow({ initialSymbol, initialSymbols, onStateChan
           </div>
         </div>
       )}
-    </div>
+    </WindowFrame>
   );
 }

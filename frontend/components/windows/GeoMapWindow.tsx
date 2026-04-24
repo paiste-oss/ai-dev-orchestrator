@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useT } from "@/lib/i18n";
+import WindowFrame from "./WindowFrame";
 
 interface Props {
   east?: number;
@@ -55,7 +56,7 @@ export default function GeoMapWindow({ east = 2600000, north = 1200000, zoom = 8
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-950">
+    <WindowFrame>
       {/* Toolbar */}
       <div className="flex items-center gap-2 px-3 py-2 bg-gray-900 border-b border-white/5 shrink-0">
         <form onSubmit={handleSearch} className="flex items-center gap-1.5 flex-1">
@@ -123,6 +124,6 @@ export default function GeoMapWindow({ east = 2600000, north = 1200000, zoom = 8
           E {coords.east} / N {coords.north}
         </span>
       </div>
-    </div>
+    </WindowFrame>
   );
 }

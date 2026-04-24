@@ -1,6 +1,7 @@
 "use client";
 
 import { useT } from "@/lib/i18n";
+import WindowFrame from "./WindowFrame";
 
 interface Props {
   url: string;
@@ -36,13 +37,15 @@ export default function FileViewerWindow({ url, filename, fileType, mimeType }: 
 
   if (isAudio) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 px-6">
-        <span className="text-5xl">🎙</span>
-        <p className="text-white text-sm font-medium text-center">{filename}</p>
-        <audio controls src={url} className="w-full max-w-sm" style={{ accentColor: "#6366f1" }}>
-          {t("fileview.no_audio")}
-        </audio>
-      </div>
+      <WindowFrame>
+        <div className="flex flex-col items-center justify-center h-full gap-4 px-6">
+          <span className="text-5xl">🎙</span>
+          <p className="window-text text-sm font-medium text-center">{filename}</p>
+          <audio controls src={url} className="w-full max-w-sm" style={{ accentColor: "#6366f1" }}>
+            {t("fileview.no_audio")}
+          </audio>
+        </div>
+      </WindowFrame>
     );
   }
 
@@ -58,17 +61,19 @@ export default function FileViewerWindow({ url, filename, fileType, mimeType }: 
   }
 
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
-      <span className="text-5xl opacity-30">📎</span>
-      <p className="text-white text-sm font-medium">{filename}</p>
-      <p className="text-gray-500 text-xs">
-        {t("fileview.no_preview", { ext: ext.toUpperCase() })}<br />
-        {t("fileview.given_to_baddi")}
-      </p>
-      <a href={url} download={filename}
-        className="text-xs text-[var(--accent-light)] hover:text-[var(--accent-hover)] underline underline-offset-2">
-        {t("fileview.download")}
-      </a>
-    </div>
+    <WindowFrame>
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
+        <span className="text-5xl opacity-30">📎</span>
+        <p className="window-text text-sm font-medium">{filename}</p>
+        <p className="window-text-muted text-xs">
+          {t("fileview.no_preview", { ext: ext.toUpperCase() })}<br />
+          {t("fileview.given_to_baddi")}
+        </p>
+        <a href={url} download={filename}
+          className="text-xs text-[var(--accent-light)] hover:text-[var(--accent-hover)] underline underline-offset-2">
+          {t("fileview.download")}
+        </a>
+      </div>
+    </WindowFrame>
   );
 }

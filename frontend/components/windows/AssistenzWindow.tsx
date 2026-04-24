@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { useT } from "@/lib/i18n";
+import WindowFrame from "./WindowFrame";
 
 interface Step {
   label: string;
@@ -202,7 +203,7 @@ export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUr
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden text-white">
+    <WindowFrame>
 
       {/* URL-Leiste */}
       <div className="shrink-0 px-3 py-2 border-b border-white/5 flex gap-2 items-center">
@@ -472,6 +473,6 @@ export default function AssistenzWindow({ initialUrl, initialGoal }: { initialUr
           100% { transform: scale(2.2); opacity: 0; }
         }
       `}</style>
-    </div>
+    </WindowFrame>
   );
 }

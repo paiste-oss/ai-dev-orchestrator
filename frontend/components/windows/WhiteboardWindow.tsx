@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { useT } from "@/lib/i18n";
+import WindowFrame from "./WindowFrame";
 
 const Excalidraw = dynamic(
   () => import("@excalidraw/excalidraw").then(m => ({ default: m.Excalidraw })),
@@ -110,7 +111,7 @@ export default function WhiteboardWindow({ boardId: initialBoardId, onBoardId, s
   }
 
   return (
-    <div className="relative h-full w-full">
+    <WindowFrame noBackground className="relative">
       {saving && (
         <div className="absolute top-2 right-3 z-10 text-[10px] text-gray-400 animate-pulse pointer-events-none">
           {t("whiteboard.saving")}
@@ -154,6 +155,6 @@ export default function WhiteboardWindow({ boardId: initialBoardId, onBoardId, s
           }}
         />
       </div>
-    </div>
+    </WindowFrame>
   );
 }

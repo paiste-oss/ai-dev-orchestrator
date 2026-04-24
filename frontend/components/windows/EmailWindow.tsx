@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { useT } from "@/lib/i18n";
+import WindowFrame from "./WindowFrame";
 
 interface EmailMsg {
   id: string;
@@ -224,10 +225,10 @@ export default function EmailWindow() {
   }
 
   return (
-    <div className="flex flex-col h-full text-white overflow-hidden">
+    <WindowFrame>
 
       {/* Tabs + Refresh */}
-      <div className="flex items-center shrink-0 border-b border-white/6">
+      <div className="flex items-center shrink-0 border-b window-border-soft">
         {([
           ["trusted",   t("email.trusted_tab"),   trusted],
           ["untrusted", t("email.untrusted_tab"),  untrusted],
@@ -528,6 +529,6 @@ export default function EmailWindow() {
           </div>
         )}
       </div>
-    </div>
+    </WindowFrame>
   );
 }

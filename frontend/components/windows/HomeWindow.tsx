@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { ACCENT_COLORS as ACCENT_COLORS_MAP, BG_COLORS, BG_COLOR_LABELS, WINDOW_BG_SOLID } from "@/hooks/useUiPrefs";
 import { useT } from "@/lib/i18n";
+import WindowFrame from "./WindowFrame";
 
 interface Props {
   artifacts: ArtifactEntry[];
@@ -199,6 +200,7 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
   const hasReminders = reminders && (reminders.stock_alerts.length > 0 || reminders.training_reminders.length > 0);
 
   return (
+    <WindowFrame noBackground={hasBg}>
     <div
       className="relative h-full overflow-hidden"
       style={hasBg ? { ...bgStyle, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
@@ -540,5 +542,6 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
 
       </div>
     </div>
+    </WindowFrame>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { useT } from "@/lib/i18n";
+import WindowFrame from "./WindowFrame";
 
 interface Props {
   initialUrl?: string;
@@ -64,9 +65,9 @@ export default function ImageViewerWindow({ initialUrl = "", onNaturalSize }: Pr
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <WindowFrame>
       {/* Toolbar */}
-      <div className="shrink-0 border-b border-white/5 px-2 py-1.5 flex gap-1.5 items-center">
+      <div className="shrink-0 border-b window-border-soft px-2 py-1.5 flex gap-1.5 items-center">
         <input
           value={inputUrl}
           onChange={e => setInputUrl(e.target.value)}
@@ -147,6 +148,6 @@ export default function ImageViewerWindow({ initialUrl = "", onNaturalSize }: Pr
           </div>
         )}
       </div>
-    </div>
+    </WindowFrame>
   );
 }
