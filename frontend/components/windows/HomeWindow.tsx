@@ -80,10 +80,6 @@ const DAY_NAMES: Record<string, string> = {
 
 const ACCENT_COLORS = Object.entries(ACCENT_COLORS_MAP).map(([v, hex]) => ({ v, hex }));
 const WINDOW_BG_OPTIONS = Object.entries(WINDOW_BG_SOLID).map(([v, hex]) => ({ v, hex }));
-const FONT_COLOR_OPTIONS = [
-  { v: "white", hex: "#ffffff" },
-  { v: "black", hex: "#111111" },
-];
 const BG_OPTIONS = Object.keys(BG_COLORS).map((v) => ({ v, hex: BG_COLORS[v] }));
 
 function ColorDot({ hex, active, onClick, title }: { hex: string; active: boolean; onClick: () => void; title?: string }) {
@@ -395,17 +391,6 @@ export default function HomeWindow({ artifacts, bgStyle, uiPrefs, onPrefsChange,
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t("design.font_color")}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {FONT_COLOR_OPTIONS.map(c => (
-                      <ColorDot key={c.v} hex={c.hex} title={c.v}
-                        active={uiPrefs.fontColor === c.v}
-                        onClick={() => updatePrefs({ fontColor: c.v })}
-                      />
-                    ))}
-                  </div>
-                </div>
               </div>
 
               {/* Right column */}

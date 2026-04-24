@@ -18,7 +18,7 @@ import {
   TransportBoardData, ActionButtonsData, BrowserViewData,
   OpenWindowData, ARTIFACT_RESPONSE_TYPES, ARTIFACT_META,
 } from "@/lib/chat-types";
-import { FONT_SIZES, FONT_FAMILIES, LINE_SPACINGS, ACCENT_COLORS, CHAT_WIDTHS, FONT_COLORS } from "@/hooks/useUiPrefs";
+import { FONT_SIZES, FONT_FAMILIES, LINE_SPACINGS, ACCENT_COLORS, CHAT_WIDTHS } from "@/hooks/useUiPrefs";
 
 interface ChatMessageProps {
   msg: Message;
@@ -71,7 +71,9 @@ export default function ChatMessage({ msg, uiPrefs, copied, onCopy, hideRichCont
   const fontFamily = FONT_FAMILIES[uiPrefs.fontFamily] ?? FONT_FAMILIES.system;
   const lineHeight = LINE_SPACINGS[uiPrefs.lineSpacing] ?? "1.625";
   const accentBg   = ACCENT_COLORS[uiPrefs.accentColor] ?? "#6366f1";
-  const fontColor  = FONT_COLORS[uiPrefs.fontColor]     ?? "#ffffff";
+  // Schriftfarbe wird automatisch aus Hintergrund berechnet (color-contrast /
+  // YIQ-Fallback) via CSS-Variable --auto-text-color, gesetzt in chat/page.tsx
+  const fontColor  = "var(--auto-text-color, #ffffff)";
   const maxWidth   = CHAT_WIDTHS[uiPrefs.chatWidth]    ?? "75%";
   const ts = uiPrefs.showTimestamps ?? "hover";
   const tsClass = ts === "always" ? "opacity-100" : ts === "never" ? "hidden" : "opacity-0 group-hover:opacity-100 transition-opacity";

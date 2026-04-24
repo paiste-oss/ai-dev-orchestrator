@@ -170,3 +170,20 @@ body {
   svg.w-6    { width: 26px !important; height: 26px !important; }
   svg.w-7    { width: 31px !important; height: 31px !important; }
 }
+
+/* ── Auto-Kontrast für Text auf dem Page-Hintergrund ─────────────────────────
+ * Berechnete Schriftfarbe — abhängig vom aktuellen Hintergrund.
+ *
+ * Fallback (alle Browser): --auto-text-color wird via JS gesetzt
+ *   (YIQ-Formel → #ffffff oder #111111).
+ * Progressive Enhancement (moderne Browser): color-contrast() übernimmt
+ *   und wählt direkt im Browser den besseren Kontrast.
+ */
+.auto-text {
+  color: var(--auto-text-color, #ffffff);
+}
+@supports (color: color-contrast(#000 vs #fff, #000)) {
+  .auto-text {
+    color: color-contrast(var(--page-bg, #030712) vs #ffffff, #111111);
+  }
+}

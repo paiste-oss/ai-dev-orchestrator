@@ -23,6 +23,7 @@ import { useArtifacts } from "@/hooks/useArtifacts";
 import { useCamera } from "@/hooks/useCamera";
 import { useTTS } from "@/hooks/useTTS";
 import { useUiPrefs, BG_COLORS, WINDOW_BG_COLORS } from "@/hooks/useUiPrefs";
+import { applyAutoTextColor } from "@/lib/contrast";
 
 import TopBar from "@/components/chat/TopBar";
 import ArtifactShell from "@/components/chat/ArtifactShell";
@@ -726,6 +727,11 @@ export default function ChatPage() {
     const val = WINDOW_BG_COLORS[uiPrefs.windowBg ?? "glass"] ?? "rgba(8, 12, 22, 0.92)";
     document.documentElement.style.setProperty("--window-bg", val);
   }, [uiPrefs.windowBg]);
+
+  // Auto-Schriftfarbe: CSS-Variablen für color-contrast() und YIQ-Fallback setzen
+  useLayoutEffect(() => {
+    applyAutoTextColor(bgColor);
+  }, [bgColor]);
 
   const bgStyle = uiPrefs.backgroundImage
     ? { backgroundImage: `url(${uiPrefs.backgroundImage})`, backgroundSize: "cover", backgroundPosition: "center" }
