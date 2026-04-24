@@ -4,23 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, apiFetchForm } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { useT } from "@/lib/i18n";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-
-interface PdfMatchDetail {
-  filename: string;
-  status: "matched" | "already_has_pdf" | "unmatched";
-  match_method: "doi" | "filename" | "title_text" | null;
-  matched_title: string | null;
-  entry_id: string | null;
-}
-
-interface BulkPdfResult {
-  matched: number;
-  already_had_pdf: number;
-  unmatched: number;
-  details: PdfMatchDetail[];
-}
+import { useLiteratureUpload } from "@/lib/literature-upload-context";
 
 interface LitEntry {
   id: string;
@@ -612,13 +596,12 @@ export default function LiteraturePanel() {
   const [editEntry, setEditEntry] = useState<Partial<LitEntry>>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [importMsg, setImportMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState<string | null>(null);
-  const [importingZip, setImportingZip] = useState(false);
-  const [zipProgress, setZipProgress] = useState<{ phase: "uploading" | "processing"; sent: number; total: number } | null>(null);
-  const [zipResult, setZipResult] = useState<BulkPdfResult | null>(null);
-  const [showZipDetails, setShowZipDetails] = useState(false);
+  // Upload-State aus globalem Context — überlebt Unmount beim Fensterwechsel
+  const { importingZip, zipProgress, zipResult, showZipDetails, setShowZipDetails,
+          dismissZipResult, startZipImport,
+          importingXml: importing, startXmlImport,
+          importMsg, setImportMsg, reloadKey } = useLiteratureUpload();
 
   const importInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
@@ -636,6 +619,12 @@ export default function LiteraturePanel() {
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  // Nach abgeschlossenem Upload (via Context) die Einträge neu laden
+  const firstReloadKey = useRef(reloadKey);
+  useEffect(() => {
+    if (reloadKey !== firstReloadKey.current) loadAll();
+  }, [reloadKey, loadAll]);
 
   async function handleCreateGroup(type: "paper" | "book" | "patent", parentId: string | null, name: string) {
     const res = await apiFetch(`${BACKEND_URL}/v1/literature/groups`, {
@@ -799,91 +788,14 @@ export default function LiteraturePanel() {
     }
   }
 
-  async function handleImport(file: File) {
-    setImporting(true); setImportMsg(null);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await apiFetchForm(`${BACKEND_URL}/v1/literature/import`, fd);
-      const data = await res.json();
-      if (res.ok) {
-        setImportMsg({ type: "ok", text: `${data.imported} Einträge importiert${data.skipped ? `, ${data.skipped} übersprungen` : ""}.` });
-        await loadAll();
-      } else {
-        setImportMsg({ type: "err", text: data.detail || t("err.generic") });
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      setImportMsg({ type: "err", text: msg === "ERR_NETWORK" ? t("err.network") : msg || t("err.generic") });
-    } finally { setImporting(false); }
-  }
+  // Upload-Dispatcher — leitet an den globalen Context weiter
+  const handleImport = useCallback((file: File) => {
+    startXmlImport(file, { network: t("err.network"), generic: t("err.generic") });
+  }, [startXmlImport, t]);
 
-  const CHUNK_SIZE = 90 * 1024 * 1024; // 90 MB — knapp unter Cloudflare-Limit (100 MB)
-
-  async function handleZipImport(file: File) {
-    setImportingZip(true); setZipResult(null); setImportMsg(null);
-
-    try {
-      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-      const uploadId = crypto.randomUUID().replace(/-/g, "");
-
-      setZipProgress({ phase: "uploading", sent: 0, total: totalChunks });
-
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * CHUNK_SIZE;
-        const chunk = file.slice(start, Math.min(start + CHUNK_SIZE, file.size));
-
-        const fd = new FormData();
-        fd.append("upload_id", uploadId);
-        fd.append("chunk_index", String(i));
-        fd.append("total_chunks", String(totalChunks));
-        fd.append("chunk", chunk, "chunk.bin");
-
-        const res = await apiFetchForm(`${BACKEND_URL}/v1/literature/import-pdfs/upload-chunk`, fd);
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
-          throw new Error(err.detail || t("err.generic"));
-        }
-
-        const chunkResult = await res.json() as { status: string };
-        setZipProgress({ phase: "uploading", sent: i + 1, total: totalChunks });
-
-        if (chunkResult.status === "processing") break;
-      }
-
-      // Verarbeitung läuft im Hintergrund — Status pollen
-      setZipProgress({ phase: "processing", sent: totalChunks, total: totalChunks });
-
-      const deadline = Date.now() + 45 * 60 * 1000; // 45 Min Timeout
-      while (Date.now() < deadline) {
-        await new Promise<void>(resolve => setTimeout(resolve, 5000));
-
-        const statusRes = await apiFetch(`${BACKEND_URL}/v1/literature/import-pdfs/status/${uploadId}`);
-        if (!statusRes.ok) continue; // noch nicht bereit
-
-        const statusData = await statusRes.json() as { status: string; result?: BulkPdfResult; error?: string };
-
-        if (statusData.status === "done" && statusData.result) {
-          setZipResult(statusData.result);
-          setShowZipDetails(true);
-          await loadAll();
-          return;
-        }
-        if (statusData.status === "error") {
-          throw new Error(statusData.error || t("err.generic"));
-        }
-      }
-
-      throw new Error(t("err.generic"));
-
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      setImportMsg({ type: "err", text: msg === "ERR_NETWORK" ? t("err.network") : msg || t("err.generic") });
-    } finally {
-      setImportingZip(false);
-      setZipProgress(null);
-    }
-  }
+  const handleZipImport = useCallback((file: File) => {
+    startZipImport(file, { network: t("err.network"), generic: t("err.generic") });
+  }, [startZipImport, t]);
 
   async function handleExtractPdf(file: File): Promise<Partial<LitEntry>> {
     const fd = new FormData();
@@ -1171,11 +1083,11 @@ export default function LiteraturePanel() {
             <span className="text-[10px] text-emerald-400">✓ {zipResult.matched} zugeordnet</span>
             {zipResult.already_had_pdf > 0 && <span className="text-[10px] text-gray-500">{zipResult.already_had_pdf} hatten schon PDF</span>}
             {zipResult.unmatched > 0 && <span className="text-[10px] text-amber-400">⚠ {zipResult.unmatched} nicht gefunden</span>}
-            <button onClick={() => setShowZipDetails(v => !v)}
+            <button onClick={() => setShowZipDetails(!showZipDetails)}
               className="ml-auto text-[10px] text-gray-500 hover:text-gray-300 transition-colors">
               {showZipDetails ? "Ausblenden" : "Details"}
             </button>
-            <button onClick={() => setZipResult(null)} className="text-gray-600 hover:text-gray-400">×</button>
+            <button onClick={dismissZipResult} className="text-gray-600 hover:text-gray-400">×</button>
           </div>
           {showZipDetails && (
             <div className="border-t border-white/8 max-h-40 overflow-auto">

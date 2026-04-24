@@ -60,6 +60,8 @@ import MobileWindowTray from "@/components/mobile/MobileWindowTray";
 import MobileWindowPickerSheet from "@/components/mobile/MobileWindowPickerSheet";
 import InvoiceModal from "@/components/chat/InvoiceModal";
 import { TranslationProvider } from "@/lib/i18n";
+import { LiteratureUploadProvider } from "@/lib/literature-upload-context";
+import LiteratureUploadBanner from "@/components/LiteratureUploadBanner";
 
 const suggestions = ["Was kannst du?", "Erkläre mir etwas", "Öffne eine Webseite", "Aktuelle Nachrichten"];
 
@@ -794,6 +796,7 @@ export default function ChatPage() {
 
     return (
       <TranslationProvider lang={uiPrefs.language}>
+      <LiteratureUploadProvider>
       <div className="flex flex-col h-[100dvh] overflow-hidden" style={bgStyle}>
         <TopBar
           buddyName={uiPrefs.buddyName ?? "Baddi"}
@@ -900,6 +903,7 @@ export default function ChatPage() {
         )}
         {invoiceOpen && <InvoiceModal onClose={() => setInvoiceOpen(false)} />}
       </div>
+      </LiteratureUploadProvider>
       </TranslationProvider>
     );
   }
@@ -907,6 +911,7 @@ export default function ChatPage() {
   // ── DESKTOP SPLIT-VIEW ────────────────────────────────────────────────────
   return (
     <TranslationProvider lang={uiPrefs.language}>
+    <LiteratureUploadProvider>
     <div className="flex h-[100dvh] overflow-hidden" style={bgStyle}>
 
       {/* ── Chat-Spalte (inkl. TopBar) ── */}
@@ -1032,7 +1037,9 @@ export default function ChatPage() {
           })} />
       )}
       {invoiceOpen && <InvoiceModal onClose={() => setInvoiceOpen(false)} />}
+      <LiteratureUploadBanner />
     </div>
+    </LiteratureUploadProvider>
     </TranslationProvider>
   );
 }
