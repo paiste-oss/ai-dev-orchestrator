@@ -83,6 +83,7 @@ class LiteratureEntryOut(BaseModel):
     is_favorite: bool
     read_later: bool
     group_ids: list[uuid.UUID]  # many-to-many: ein Eintrag kann in mehreren Gruppen sein
+    has_meta_backup: bool  # True wenn metadata_backup gesetzt ist (Undo möglich)
     import_source: str
     created_at: datetime
 
@@ -729,6 +730,227 @@ async def extract_pdf_meta(
     except Exception as e:
         _log.warning("[Literatur/Autofill] LLM-Extraktion fehlgeschlagen: %s", e)
         return PdfMetaResponse(title=os.path.splitext(filename)[0])
+
+
+# ── Metadaten aus angehängter PDF verbessern (Stufe 1: pro Eintrag) ───────────
+
+class RefreshMetaResponse(BaseModel):
+    current: dict
+    extracted: dict
+    proposed: dict  # Smart-Merge: nur Felder, die wir empfehlen zu ersetzen
+
+
+class ApplyMetaRequest(BaseModel):
+    fields: dict  # vom User bestätigte Felder die übernommen werden sollen
+
+
+# Felder, die User-eigene Daten enthalten — nie überschreiben durch PDF-Extraktion
+_META_USER_FIELDS = {"notes", "tags", "is_favorite", "read_later", "group_ids", "baddi_readable"}
+# Felder, die wir aus dem PDF-Extract auf den Eintrag übertragen können
+_META_FIELDS = {
+    "entry_type", "title", "authors", "year", "abstract",
+    "journal", "volume", "issue", "pages", "doi",
+    "publisher", "isbn", "edition",
+}
+
+
+async def _extract_pdf_meta_for_entry(entry: LiteratureEntry) -> dict | None:
+    """Lädt PDF aus S3, extrahiert Text, ruft Haiku — gibt Metadaten-Dict zurück."""
+    if not entry.pdf_s3_key:
+        return None
+    try:
+        content = await s3_download(entry.pdf_s3_key)
+    except Exception as exc:
+        _log.warning("[Literatur/Refresh-Meta] S3-Download fehlgeschlagen %s: %s", entry.id, exc)
+        return None
+
+    pdf_text = ""
+    try:
+        from services.file_parser import parse_file
+        parsed = parse_file(content, entry.title or "document.pdf", "application/pdf")
+        pdf_text = parsed.text[:5000]
+    except Exception as exc:
+        _log.warning("[Literatur/Refresh-Meta] PDF-Text-Extraktion fehlgeschlagen %s: %s", entry.id, exc)
+        return None
+    if not pdf_text.strip():
+        return None
+
+    try:
+        from services.llm_gateway import chat_with_claude
+        result = await chat_with_claude(
+            messages=[{
+                "role": "user",
+                "content": (
+                    "Extrahiere bibliografische Metadaten aus diesem PDF-Text-Anfang.\n"
+                    "Antworte NUR mit einem JSON-Objekt, kein Text davor oder danach, keine Code-Fence.\n"
+                    "Fehlende Felder als null. Autoren im Format ['Nachname, Vorname', ...].\n\n"
+                    f"PDF-Text:\n{pdf_text[:4000]}\n\n"
+                    "JSON-Schema:\n"
+                    '{"entry_type":"paper|book|patent","title":null,"authors":null,'
+                    '"year":null,"abstract":null,"journal":null,"volume":null,"issue":null,'
+                    '"pages":null,"doi":null,"publisher":null,"isbn":null,"edition":null}'
+                ),
+            }],
+            model="claude-haiku-4-5-20251001",
+        )
+        raw = result.text.strip()
+        if raw.startswith("```"):
+            raw = re.sub(r'^```[a-z]*\n?', '', raw)
+            raw = re.sub(r'\n?```$', '', raw.strip())
+        meta = _json.loads(raw)
+        # Filter auf erlaubte Felder, leere Strings → None
+        cleaned = {}
+        for k, v in meta.items():
+            if k not in _META_FIELDS:
+                continue
+            if v is None or (isinstance(v, str) and not v.strip()):
+                continue
+            if isinstance(v, list) and not v:
+                continue
+            cleaned[k] = v
+        return cleaned
+    except Exception as exc:
+        _log.warning("[Literatur/Refresh-Meta] LLM fehlgeschlagen %s: %s", entry.id, exc)
+        return None
+
+
+def _compute_proposed_changes(entry: LiteratureEntry, extracted: dict) -> dict:
+    """Smart-Merge: was aus extracted übernehmen wir? Nur 'klare Verbesserungen'.
+
+    Regeln:
+      - title: ersetzen wenn neu deutlich länger (>20%) UND alter als Substring/
+        Präfix erkennbar (typische XML-Truncation), oder wenn alt leer
+      - authors: übernehmen wenn neu mehr Einträge ODER alt enthält 'et al.'
+      - alle anderen Felder: nur wenn aktuell leer
+    """
+    proposed: dict = {}
+
+    new_title = extracted.get("title")
+    if new_title:
+        cur = (entry.title or "").strip()
+        new = new_title.strip()
+        if not cur:
+            proposed["title"] = new
+        elif len(new) > len(cur) * 1.2:
+            cur_low, new_low = cur.lower(), new.lower()
+            if cur_low in new_low or new_low.startswith(cur_low[:30]):
+                proposed["title"] = new
+
+    new_authors = extracted.get("authors")
+    if isinstance(new_authors, list) and new_authors:
+        cur_authors = entry.authors or []
+        has_et_al = any("et al" in (a or "").lower() for a in cur_authors)
+        if not cur_authors or len(new_authors) > len(cur_authors) or has_et_al:
+            proposed["authors"] = new_authors
+
+    # Felder die nur leere ersetzen
+    fill_only_empty = {"abstract", "doi", "year", "journal", "volume", "issue",
+                       "pages", "publisher", "isbn", "edition"}
+    for f in fill_only_empty:
+        new_val = extracted.get(f)
+        cur_val = getattr(entry, f, None)
+        if new_val and not cur_val:
+            proposed[f] = new_val
+
+    # entry_type nur falls aktueller default 'paper' und PDF was anderes erkennt
+    new_type = extracted.get("entry_type")
+    if new_type and new_type in _VALID_ENTRY_TYPES and new_type != entry.entry_type and entry.entry_type == "paper":
+        proposed["entry_type"] = new_type
+
+    return proposed
+
+
+def _entry_to_meta_dict(entry: LiteratureEntry) -> dict:
+    """Aktuelle Metadaten als Dict — für Diff-Anzeige + Backup."""
+    return {f: getattr(entry, f, None) for f in _META_FIELDS}
+
+
+@router.post("/{entry_id}/refresh-meta", response_model=RefreshMetaResponse)
+async def refresh_entry_meta(
+    entry_id: uuid.UUID,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Liest die angehängte PDF erneut, gibt aktuelle vs. vorgeschlagene Metadaten zurück.
+    Wendet KEINE Änderung an — nur Vorschau für Diff-Ansicht im Frontend."""
+    entry = await db.get(LiteratureEntry, entry_id)
+    if not entry or not entry.is_active or entry.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+    if not entry.pdf_s3_key:
+        raise HTTPException(status_code=422, detail="Eintrag hat kein PDF angehängt")
+
+    extracted = await _extract_pdf_meta_for_entry(entry)
+    if extracted is None:
+        raise HTTPException(status_code=500, detail="PDF konnte nicht ausgewertet werden")
+
+    proposed = _compute_proposed_changes(entry, extracted)
+    return RefreshMetaResponse(
+        current=_entry_to_meta_dict(entry),
+        extracted=extracted,
+        proposed=proposed,
+    )
+
+
+@router.post("/{entry_id}/apply-meta", response_model=LiteratureEntryOut)
+async def apply_entry_meta(
+    entry_id: uuid.UUID,
+    req: ApplyMetaRequest,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Übernimmt vom User bestätigte Felder. Speichert Backup für Undo."""
+    entry = await db.get(LiteratureEntry, entry_id)
+    if not entry or not entry.is_active or entry.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+
+    # Nur erlaubte Felder filtern (Schutz gegen Manipulation)
+    fields = {k: v for k, v in (req.fields or {}).items() if k in _META_FIELDS}
+    if not fields:
+        raise HTTPException(status_code=422, detail="Keine zu übernehmenden Felder angegeben")
+
+    if "entry_type" in fields and fields["entry_type"] not in _VALID_ENTRY_TYPES:
+        raise HTTPException(status_code=422, detail="Ungültiger entry_type")
+
+    # Backup vor Änderung
+    entry.metadata_backup = _entry_to_meta_dict(entry)
+    entry.metadata_backup_at = datetime.utcnow()
+
+    for k, v in fields.items():
+        setattr(entry, k, v)
+
+    entry.extracted_text = _sanitize_pg_text(_build_extracted_text(entry))
+    _deindex_entry(entry)
+    _index_entry(entry)
+    await db.commit()
+    await db.refresh(entry)
+    return entry
+
+
+@router.post("/{entry_id}/restore-meta", response_model=LiteratureEntryOut)
+async def restore_entry_meta(
+    entry_id: uuid.UUID,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Setzt die zuletzt gesicherten Metadaten wieder ein."""
+    entry = await db.get(LiteratureEntry, entry_id)
+    if not entry or not entry.is_active or entry.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+    if not entry.metadata_backup:
+        raise HTTPException(status_code=422, detail="Kein Backup vorhanden")
+
+    backup = entry.metadata_backup
+    for k, v in backup.items():
+        if k in _META_FIELDS:
+            setattr(entry, k, v)
+    entry.metadata_backup = None
+    entry.metadata_backup_at = None
+    entry.extracted_text = _sanitize_pg_text(_build_extracted_text(entry))
+    _deindex_entry(entry)
+    _index_entry(entry)
+    await db.commit()
+    await db.refresh(entry)
+    return entry
 
 
 # ── PDF Anhang ────────────────────────────────────────────────────────────────

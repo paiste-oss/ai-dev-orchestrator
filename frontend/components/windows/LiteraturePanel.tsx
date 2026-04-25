@@ -53,6 +53,7 @@ interface LitEntry {
   is_favorite: boolean;
   read_later: boolean;
   group_ids: string[];
+  has_meta_backup?: boolean;
   import_source: string;
   created_at: string;
 }
@@ -152,6 +153,9 @@ function DetailPanel({
   onEdit,
   onPdfUpload,
   onPdfOpen,
+  onRefreshMeta,
+  onRestoreMeta,
+  refreshingMeta,
   onToggleFavorite,
   onToggleReadLater,
   deleting,
@@ -163,6 +167,9 @@ function DetailPanel({
   onEdit: (entry: LitEntry) => void;
   onPdfUpload: (entry: LitEntry, file: File) => void;
   onPdfOpen: (entry: LitEntry) => void;
+  onRefreshMeta: (entry: LitEntry) => void;
+  onRestoreMeta: (entry: LitEntry) => void;
+  refreshingMeta: boolean;
   onToggleFavorite: (entry: LitEntry) => void;
   onToggleReadLater: (entry: LitEntry) => void;
   deleting: string | null;
@@ -179,6 +186,26 @@ function DetailPanel({
         </svg>
       </button>
       <span className="flex-1" />
+      {entry && entry.has_meta_backup && (
+        <button onClick={() => onRestoreMeta(entry)} title="Letzte Metadaten-Aktualisierung rückgängig machen"
+          className="p-1 rounded text-gray-500 hover:text-amber-400 hover:bg-white/5 transition-colors">
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/>
+          </svg>
+        </button>
+      )}
+      {entry && entry.pdf_s3_key && (
+        <button onClick={() => onRefreshMeta(entry)} disabled={refreshingMeta}
+          title="Metadaten aus PDF aktualisieren"
+          className="p-1 rounded text-gray-500 hover:text-[var(--accent-light)] hover:bg-white/5 transition-colors disabled:opacity-40">
+          {refreshingMeta ? <IconSpinner /> : (
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12a9 9 0 1 1-9-9c2.39 0 4.68.94 6.4 2.6L21 8"/>
+              <polyline points="21 3 21 8 16 8"/>
+            </svg>
+          )}
+        </button>
+      )}
       <button onClick={onClose} title="Schliessen"
         className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors">
         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -490,6 +517,131 @@ function SortableGrid({ sortKey, sortDir, onSort, allSelected, someSelected, onT
       <Th k="authors" label="Autoren" />
       <Th k="journal" label="Journal" />
       <span></span>
+    </div>
+  );
+}
+
+// ── Refresh-Meta Diff Modal ───────────────────────────────────────────────────
+
+interface RefreshMetaData {
+  current: Record<string, unknown>;
+  extracted: Record<string, unknown>;
+  proposed: Record<string, unknown>;
+}
+
+const META_FIELD_LABELS: Record<string, string> = {
+  entry_type: "Typ",
+  title: "Titel",
+  authors: "Autoren",
+  year: "Jahr",
+  abstract: "Abstract",
+  journal: "Journal",
+  volume: "Vol.",
+  issue: "Nr.",
+  pages: "Seiten",
+  doi: "DOI",
+  publisher: "Verlag",
+  isbn: "ISBN",
+  edition: "Auflage",
+};
+
+function formatMetaValue(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (Array.isArray(v)) return v.join("; ");
+  return String(v);
+}
+
+function RefreshMetaModal({
+  data,
+  onApply,
+  onCancel,
+  applying,
+}: {
+  data: RefreshMetaData;
+  onApply: (selectedFields: Record<string, unknown>) => void;
+  onCancel: () => void;
+  applying: boolean;
+}) {
+  // Default: alle vorgeschlagenen Felder sind angehakt
+  const proposedKeys = Object.keys(data.proposed);
+  const [selected, setSelected] = useState<Set<string>>(new Set(proposedKeys));
+
+  const toggle = (k: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k); else next.add(k);
+      return next;
+    });
+  };
+
+  const handleApply = () => {
+    const fields: Record<string, unknown> = {};
+    for (const k of selected) {
+      if (k in data.proposed) fields[k] = data.proposed[k];
+    }
+    onApply(fields);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onCancel}>
+      <div className="bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="shrink-0 px-5 py-3 border-b border-white/8">
+          <h3 className="text-sm font-semibold text-white">Metadaten aus PDF</h3>
+          <p className="text-[11px] text-gray-400 mt-1">
+            Vorgeschlagene Änderungen aus der Analyse des PDF-Inhalts.
+            Nur klare Verbesserungen sind angehakt.
+          </p>
+        </div>
+
+        <div className="flex-1 overflow-auto p-5 space-y-3">
+          {proposedKeys.length === 0 ? (
+            <div className="py-8 text-center text-gray-400 text-sm">
+              Aus dem PDF konnten keine Verbesserungen abgeleitet werden — die aktuellen Daten scheinen vollständig.
+            </div>
+          ) : (
+            proposedKeys.map(k => {
+              const cur = data.current[k];
+              const prop = data.proposed[k];
+              const checked = selected.has(k);
+              return (
+                <div key={k} className={`rounded-lg border p-3 transition-colors ${checked ? "bg-[var(--accent-10)] border-[var(--accent-30)]" : "bg-white/3 border-white/8"}`}>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" checked={checked} onChange={() => toggle(k)}
+                      className="mt-0.5 w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] uppercase tracking-wider text-gray-400 font-medium">{META_FIELD_LABELS[k] ?? k}</p>
+                      <div className="mt-1 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <p className="text-[10px] text-gray-500 mb-0.5">Aktuell</p>
+                          <p className="text-gray-300 break-words leading-snug">{formatMetaValue(cur)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-emerald-500 mb-0.5">Aus PDF</p>
+                          <p className="text-emerald-200 break-words leading-snug">{formatMetaValue(prop)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="shrink-0 flex items-center gap-2 px-5 py-3 border-t border-white/8">
+          <span className="text-[11px] text-gray-500">{selected.size} von {proposedKeys.length} ausgewählt</span>
+          <span className="flex-1" />
+          <button onClick={onCancel} disabled={applying}
+            className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-xs disabled:opacity-40">
+            Abbrechen
+          </button>
+          <button onClick={handleApply} disabled={applying || selected.size === 0}
+            className="px-3 py-1.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-medium disabled:opacity-40 flex items-center gap-1.5">
+            {applying ? <IconSpinner /> : null}
+            {applying ? "Übernehme…" : "Übernehmen"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -908,6 +1060,81 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Refresh-Meta-Modal: Loading + Diff-Daten
+  const [refreshingMeta, setRefreshingMeta] = useState(false);
+  const [refreshMetaData, setRefreshMetaData] = useState<RefreshMetaData | null>(null);
+  const [refreshMetaEntryId, setRefreshMetaEntryId] = useState<string | null>(null);
+  const [applyingMeta, setApplyingMeta] = useState(false);
+
+  async function handleRefreshMeta(entry: LitEntry) {
+    if (!entry.pdf_s3_key) return;
+    setRefreshingMeta(true);
+    setRefreshMetaEntryId(entry.id);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/${entry.id}/refresh-meta`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
+        setImportMsg({ type: "err", text: err.detail || t("err.generic") });
+        return;
+      }
+      const data = await res.json() as RefreshMetaData;
+      setRefreshMetaData(data);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setImportMsg({ type: "err", text: msg === "ERR_NETWORK" ? t("err.network") : msg || t("err.generic") });
+    } finally {
+      setRefreshingMeta(false);
+    }
+  }
+
+  async function handleApplyMeta(fields: Record<string, unknown>) {
+    if (!refreshMetaEntryId) return;
+    setApplyingMeta(true);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/${refreshMetaEntryId}/apply-meta`, {
+        method: "POST",
+        body: JSON.stringify({ fields }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
+        setImportMsg({ type: "err", text: err.detail || t("err.generic") });
+        return;
+      }
+      const updated: LitEntry = await res.json();
+      setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
+      if (selected?.id === updated.id) setSelected(updated);
+      setRefreshMetaData(null);
+      setRefreshMetaEntryId(null);
+      setImportMsg({ type: "ok", text: `${Object.keys(fields).length} Feld(er) aus PDF aktualisiert.` });
+    } finally {
+      setApplyingMeta(false);
+    }
+  }
+
+  async function handleRestoreMeta(entry: LitEntry) {
+    if (!entry.has_meta_backup) return;
+    if (!confirm("Letzte Metadaten-Aktualisierung rückgängig machen?")) return;
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/${entry.id}/restore-meta`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        setImportMsg({ type: "err", text: t("err.generic") });
+        return;
+      }
+      const updated: LitEntry = await res.json();
+      setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
+      if (selected?.id === updated.id) setSelected(updated);
+      setImportMsg({ type: "ok", text: "Metadaten zurückgesetzt." });
+    } catch {
+      setImportMsg({ type: "err", text: t("err.generic") });
+    }
+  }
 
   function toggleSort(k: SortKey) {
     if (sortKey === k) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -1906,6 +2133,9 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                     onEdit={openEdit}
                     onPdfUpload={handlePdfUpload}
                     onPdfOpen={handlePdfOpen}
+                    onRefreshMeta={handleRefreshMeta}
+                    onRestoreMeta={handleRestoreMeta}
+                    refreshingMeta={refreshingMeta}
                     onToggleFavorite={e => handleToggleFlag(e, "is_favorite")}
                     onToggleReadLater={e => handleToggleFlag(e, "read_later")}
                     deleting={deleting}
@@ -1937,6 +2167,16 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
 
         </div> {/* /T-Layout */}
       </div>
+
+      {/* Refresh-Meta Diff-Modal */}
+      {refreshMetaData && (
+        <RefreshMetaModal
+          data={refreshMetaData}
+          onCancel={() => { setRefreshMetaData(null); setRefreshMetaEntryId(null); }}
+          onApply={handleApplyMeta}
+          applying={applyingMeta}
+        />
+      )}
     </WindowFrame>
   );
 }

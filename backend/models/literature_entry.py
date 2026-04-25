@@ -70,6 +70,10 @@ class LiteratureEntry(Base):
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     read_later: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
+    # Backup vor letztem 'Metadaten aus PDF verbessern' (für Undo)
+    metadata_backup: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    metadata_backup_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     # Herkunft: manual | ris | endnote_xml
     import_source: Mapped[str] = mapped_column(String(32), default="manual")
 
@@ -90,6 +94,10 @@ class LiteratureEntry(Base):
     def group_ids(self) -> list[uuid.UUID]:
         """Pydantic from_attributes greift hier zu für LiteratureEntryOut."""
         return [g.id for g in (self.groups or [])]
+
+    @property
+    def has_meta_backup(self) -> bool:
+        return self.metadata_backup is not None
 
     def __repr__(self) -> str:
         return f"<LiteratureEntry id={self.id} type={self.entry_type} title={self.title[:40]!r}>"
