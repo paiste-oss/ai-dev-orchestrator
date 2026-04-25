@@ -650,7 +650,7 @@ export default function ChatPage() {
         <DocumentsWindow onOpenFile={handleOpenFile} />
       );
       case "literature": return (
-        <LiteraturePanel />
+        <LiteraturePanel onOpenFile={handleOpenFile} />
       );
       case "diktieren": return (
         <DictationWindow language={uiPrefs.language} />

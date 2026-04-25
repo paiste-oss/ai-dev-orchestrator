@@ -127,6 +127,7 @@ function DetailPanel({
   onDelete,
   onEdit,
   onPdfUpload,
+  onPdfOpen,
   onToggleFavorite,
   onToggleReadLater,
   deleting,
@@ -136,6 +137,7 @@ function DetailPanel({
   onDelete: (id: string) => void;
   onEdit: (entry: LitEntry) => void;
   onPdfUpload: (entry: LitEntry, file: File) => void;
+  onPdfOpen: (entry: LitEntry) => void;
   onToggleFavorite: (entry: LitEntry) => void;
   onToggleReadLater: (entry: LitEntry) => void;
   deleting: string | null;
@@ -252,10 +254,10 @@ function DetailPanel({
           <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">PDF</p>
           {entry.pdf_s3_key ? (
             <div className="flex items-center gap-2">
-              <a href={`${BACKEND_URL}/v1/literature/${entry.id}/pdf`} target="_blank" rel="noopener noreferrer"
+              <button onClick={() => onPdfOpen(entry)}
                 className="flex items-center gap-1.5 text-[var(--accent-light)] hover:underline">
                 <span>📄</span> PDF öffnen ({Math.round(entry.pdf_size_bytes / 1024)} KB)
-              </a>
+              </button>
               <button onClick={() => pdfInputRef.current?.click()}
                 className="text-gray-600 hover:text-gray-400 transition-colors">
                 <IconEdit />
@@ -572,7 +574,11 @@ function EntryForm({
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export default function LiteraturePanel() {
+interface LiteraturePanelProps {
+  onOpenFile?: (args: { url: string; filename: string; fileType: string }) => void;
+}
+
+export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {}) {
   const t = useT();
   const [entries, setEntries] = useState<LitEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -818,6 +824,29 @@ export default function LiteraturePanel() {
         if (selected?.id === updated.id) setSelected(updated);
       }
     } finally { setUploadingPdf(null); }
+  }
+
+  // PDF im FileViewer-Fenster öffnen — apiFetch sendet JWT, Blob-URL für iframe
+  async function handlePdfOpen(entry: LitEntry) {
+    if (!entry.pdf_s3_key) return;
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/${entry.id}/pdf`);
+      if (!res.ok) {
+        setImportMsg({ type: "err", text: t("err.generic") });
+        return;
+      }
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const filename = entry.pdf_s3_key.split("/").pop() || `${entry.title}.pdf`;
+      if (onOpenFile) {
+        onOpenFile({ url: blobUrl, filename, fileType: "pdf" });
+      } else {
+        // Fallback: kein Callback verfügbar → in neuem Tab öffnen (Blob-URL umgeht Auth-Problem)
+        window.open(blobUrl, "_blank", "noopener");
+      }
+    } catch {
+      setImportMsg({ type: "err", text: t("err.network") });
+    }
   }
 
   function openEdit(entry: LitEntry) {
@@ -1256,6 +1285,7 @@ export default function LiteraturePanel() {
                   onDelete={handleDelete}
                   onEdit={openEdit}
                   onPdfUpload={handlePdfUpload}
+                  onPdfOpen={handlePdfOpen}
                   onToggleFavorite={e => handleToggleFlag(e, "is_favorite")}
                   onToggleReadLater={e => handleToggleFlag(e, "read_later")}
                   deleting={deleting}
