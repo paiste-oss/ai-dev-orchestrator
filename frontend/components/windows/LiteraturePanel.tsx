@@ -124,6 +124,7 @@ function fmtAuthors(authors: string[] | null): string {
 function DetailPanel({
   entry,
   onClose,
+  onCollapse,
   onDelete,
   onEdit,
   onPdfUpload,
@@ -134,6 +135,7 @@ function DetailPanel({
 }: {
   entry: LitEntry | null;
   onClose: () => void;
+  onCollapse: () => void;
   onDelete: (id: string) => void;
   onEdit: (entry: LitEntry) => void;
   onPdfUpload: (entry: LitEntry, file: File) => void;
@@ -144,10 +146,32 @@ function DetailPanel({
 }) {
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
+  // Wiederverwendbarer Header — exakt gleich hoch wie der PDF-Vorschau-Header
+  const headerBar = (
+    <div className="shrink-0 flex items-center gap-0.5 px-3 py-1.5 border-b window-border-soft">
+      <button onClick={onCollapse} title="Detail einklappen"
+        className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
+      <span className="flex-1" />
+      <button onClick={onClose} title="Schliessen"
+        className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors">
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+  );
+
   if (!entry) return (
-    <div className="flex flex-col items-center justify-center h-full text-center gap-2">
-      <span className="text-3xl opacity-10">📚</span>
-      <p className="text-gray-600 text-xs">Eintrag auswählen</p>
+    <div className="flex flex-col h-full overflow-hidden">
+      {headerBar}
+      <div className="flex flex-col items-center justify-center flex-1 text-center gap-2">
+        <span className="text-3xl opacity-10">📚</span>
+        <p className="text-gray-600 text-xs">Eintrag auswählen</p>
+      </div>
     </div>
   );
 
@@ -157,7 +181,10 @@ function DetailPanel({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header — Titel prominent + Close */}
+      {/* Header-Bar (gleich hoch wie PDF-Vorschau) — nur Buttons, kein Titel */}
+      {headerBar}
+
+      {/* Titel-Section unter dem Header */}
       <div className="flex items-start gap-3 px-4 py-3 border-b border-white/6 shrink-0">
         <span className="text-2xl shrink-0">{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
         <div className="flex-1 min-w-0">
@@ -166,11 +193,6 @@ function DetailPanel({
             {entry.entry_type === "paper" ? "Paper" : entry.entry_type === "patent" ? "Patent" : "Buch"}
           </p>
         </div>
-        <button onClick={onClose} className="p-1 text-gray-600 hover:text-gray-400 transition-colors shrink-0" title="Schliessen">
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
       </div>
 
       {/* Content — strukturierte Felder */}
@@ -467,6 +489,7 @@ function EntryForm({
   initial,
   onSave,
   onCancel,
+  onCollapse,
   saving,
   onExtractPdf,
   pendingPdfFile,
@@ -475,6 +498,7 @@ function EntryForm({
   initial: Partial<LitEntry>;
   onSave: (data: Partial<LitEntry>, pdfFile?: File) => void;
   onCancel: () => void;
+  onCollapse: () => void;
   saving: boolean;
   onExtractPdf?: (file: File) => Promise<Partial<LitEntry>>;
   pendingPdfFile: File | null;
@@ -530,13 +554,26 @@ function EntryForm({
 
   return (
     <div className="flex flex-col h-full overflow-auto">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-white/6 shrink-0">
-        <p className="text-xs font-medium text-white">{initial.id ? "Bearbeiten" : "Neuer Eintrag"}</p>
-        <button onClick={onCancel} className="text-gray-600 hover:text-gray-400 transition-colors">
+      {/* Header-Bar (gleich hoch wie PDF-Vorschau) — Collapse-Button + Schliessen */}
+      <div className="shrink-0 flex items-center gap-0.5 px-3 py-1.5 border-b window-border-soft">
+        <button onClick={onCollapse} title="Detail einklappen"
+          className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <span className="flex-1" />
+        <button onClick={onCancel} title="Abbrechen"
+          className="p-1 rounded text-gray-600 hover:text-gray-300 hover:bg-white/5 transition-colors">
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
+      </div>
+
+      {/* Form-Title */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-white/6 shrink-0">
+        <p className="text-xs font-medium text-white">{initial.id ? "Bearbeiten" : "Neuer Eintrag"}</p>
       </div>
 
       <div className="flex-1 overflow-auto p-3 space-y-3">
@@ -816,6 +853,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   const [leftPercent, setLeftPercent] = useState(45);
   const [titleColWidth, setTitleColWidth] = useState(320); // px, resizable
   const titleColRef = useRef(320);
+  const [detailCollapsed, setDetailCollapsed] = useState(false);
   const layoutLoaded = useRef(false);
   const tBodyRef = useRef<HTMLDivElement>(null);
   const tBottomRef = useRef<HTMLDivElement>(null);
@@ -829,7 +867,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
     try {
       const raw = localStorage.getItem(layoutKey);
       if (raw) {
-        const parsed = JSON.parse(raw) as { topPercent?: number; leftPercent?: number; titleColWidth?: number };
+        const parsed = JSON.parse(raw) as { topPercent?: number; leftPercent?: number; titleColWidth?: number; detailCollapsed?: boolean };
         if (typeof parsed.topPercent === "number" && parsed.topPercent >= 15 && parsed.topPercent <= 80) {
           setTopPercent(parsed.topPercent);
         }
@@ -840,6 +878,9 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
           setTitleColWidth(parsed.titleColWidth);
           titleColRef.current = parsed.titleColWidth;
         }
+        if (typeof parsed.detailCollapsed === "boolean") {
+          setDetailCollapsed(parsed.detailCollapsed);
+        }
       }
     } catch { /* ignore */ }
     layoutLoaded.current = true;
@@ -849,9 +890,9 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   useEffect(() => {
     if (!layoutKey || !layoutLoaded.current) return;
     try {
-      localStorage.setItem(layoutKey, JSON.stringify({ topPercent, leftPercent, titleColWidth }));
+      localStorage.setItem(layoutKey, JSON.stringify({ topPercent, leftPercent, titleColWidth, detailCollapsed }));
     } catch { /* QuotaExceeded etc. */ }
-  }, [topPercent, leftPercent, titleColWidth, layoutKey]);
+  }, [topPercent, leftPercent, titleColWidth, detailCollapsed, layoutKey]);
 
   // Drag-Handler für Title-Spaltenbreite (direkte DOM-Manipulation während Drag)
   const startDragTitleCol = useCallback((e: React.MouseEvent) => {
@@ -1096,11 +1137,32 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
     try {
       const isEdit = !!data.id;
       const url = isEdit ? `${BACKEND_URL}/v1/literature/${data.id}` : `${BACKEND_URL}/v1/literature/`;
+      // Felder filtern, die der Backend-Updater nicht erwartet
+      // (id, entry_type, pdf_*, is_favorite, read_later, group_id, etc. sind nicht
+      // in LiteratureUpdateRequest — Pydantic ignoriert sie zwar, aber wir bleiben
+      // explizit damit die Wartung einfacher ist und keine Daten ungewollt überschrieben werden)
+      const allowedFields: (keyof LitEntry)[] = isEdit
+        ? ["title", "authors", "year", "abstract", "journal", "volume", "issue", "pages",
+           "doi", "url", "publisher", "isbn", "edition", "tags", "notes", "baddi_readable"]
+        : ["entry_type", "title", "authors", "year", "abstract", "journal", "volume", "issue",
+           "pages", "doi", "url", "publisher", "isbn", "edition", "tags", "notes", "baddi_readable"];
+      const body: Record<string, unknown> = {};
+      for (const k of allowedFields) {
+        if (data[k] !== undefined) body[k] = data[k];
+      }
+
       const res = await apiFetch(url, {
         method: isEdit ? "PUT" : "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify(body),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ detail: `HTTP ${res.status}` })) as { detail?: string | object };
+        const detailText = typeof errBody.detail === "string"
+          ? errBody.detail
+          : JSON.stringify(errBody.detail ?? errBody);
+        setImportMsg({ type: "err", text: `Speichern fehlgeschlagen: ${detailText}` });
+        return;
+      }
       let saved: LitEntry = await res.json();
 
       // PDF direkt nach dem Erstellen/Aktualisieren hochladen
@@ -1116,6 +1178,9 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       setShowForm(false);
       setShowDetail(true);
       setPendingPdfFile(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setImportMsg({ type: "err", text: msg === "ERR_NETWORK" ? t("err.network") : msg || t("err.generic") });
     } finally { setSaving(false); }
   }
 
@@ -1662,37 +1727,54 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
 
         {/* Bottom: Detail (links) | PDF Preview (rechts) */}
         <div ref={tBottomRef} className="flex flex-1 min-h-0 overflow-hidden">
-          {/* Detail / Form */}
-          <div ref={detailPanelRef} className="overflow-hidden h-full" style={{ width: `${leftPercent}%` }}>
-            {showForm ? (
-              <EntryForm
-                initial={editEntry}
-                onSave={handleSave}
-                onCancel={() => { setShowForm(false); setPendingPdfFile(null); if (selected) setShowDetail(true); }}
-                saving={saving}
-                onExtractPdf={!editEntry.id ? handleExtractPdf : undefined}
-                pendingPdfFile={pendingPdfFile}
-                setPendingPdfFile={setPendingPdfFile}
-              />
-            ) : (
-              <DetailPanel
-                entry={selected}
-                onClose={() => { setShowDetail(false); setSelected(null); }}
-                onDelete={handleDelete}
-                onEdit={openEdit}
-                onPdfUpload={handlePdfUpload}
-                onPdfOpen={handlePdfOpen}
-                onToggleFavorite={e => handleToggleFlag(e, "is_favorite")}
-                onToggleReadLater={e => handleToggleFlag(e, "read_later")}
-                deleting={deleting}
-              />
-            )}
-          </div>
+          {detailCollapsed ? (
+            // Eingeklappt: schmaler Streifen mit Ausklapp-Button
+            <div className="w-9 shrink-0 border-r window-border-soft flex flex-col items-center justify-start py-2 bg-black/10">
+              <button onClick={() => setDetailCollapsed(false)}
+                title="Detail ausklappen"
+                className="p-1.5 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white">
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Detail / Form */}
+              <div ref={detailPanelRef} className="overflow-hidden h-full" style={{ width: `${leftPercent}%` }}>
+                {showForm ? (
+                  <EntryForm
+                    initial={editEntry}
+                    onSave={handleSave}
+                    onCancel={() => { setShowForm(false); setPendingPdfFile(null); if (selected) setShowDetail(true); }}
+                    saving={saving}
+                    onExtractPdf={!editEntry.id ? handleExtractPdf : undefined}
+                    pendingPdfFile={pendingPdfFile}
+                    setPendingPdfFile={setPendingPdfFile}
+                    onCollapse={() => setDetailCollapsed(true)}
+                  />
+                ) : (
+                  <DetailPanel
+                    entry={selected}
+                    onClose={() => { setShowDetail(false); setSelected(null); }}
+                    onCollapse={() => setDetailCollapsed(true)}
+                    onDelete={handleDelete}
+                    onEdit={openEdit}
+                    onPdfUpload={handlePdfUpload}
+                    onPdfOpen={handlePdfOpen}
+                    onToggleFavorite={e => handleToggleFlag(e, "is_favorite")}
+                    onToggleReadLater={e => handleToggleFlag(e, "read_later")}
+                    deleting={deleting}
+                  />
+                )}
+              </div>
 
-          {/* Vertikaler Splitter zwischen Detail und Vorschau */}
-          <div onMouseDown={startDragV}
-            className="w-[5px] shrink-0 bg-white/5 hover:bg-[var(--accent)]/40 cursor-col-resize transition-colors"
-            title="Ziehen um Breite zu ändern" />
+              {/* Vertikaler Splitter zwischen Detail und Vorschau */}
+              <div onMouseDown={startDragV}
+                className="w-[5px] shrink-0 bg-white/5 hover:bg-[var(--accent)]/40 cursor-col-resize transition-colors"
+                title="Ziehen um Breite zu ändern" />
+            </>
+          )}
 
           {/* PDF Preview */}
           <div className="flex-1 overflow-hidden border-l window-border-soft">
