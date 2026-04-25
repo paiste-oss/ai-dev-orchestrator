@@ -88,16 +88,30 @@ export function LiteratureUploadProvider({ children }: { children: React.ReactNo
     setZipProgress({ phase: "processing", sent: total || 1, total: total || 1 });
 
     const deadline = Date.now() + 45 * 60 * 1000;
+    let consecutive404 = 0;
     try {
       while (Date.now() < deadline) {
         await new Promise<void>(resolve => setTimeout(resolve, 5000));
         const statusRes = await apiFetch(`${BACKEND_URL}/v1/literature/import-pdfs/status/${uploadId}`);
 
-        // 404 = Upload-ID existiert nicht mehr (Redis TTL abgelaufen, 4h)
+        // 404 = Upload-ID nicht (mehr) bekannt — kann zwei Gründe haben:
+        //   a) Backend hatte noch nie diesen Status (sehr früh) → 1-2x normal
+        //   b) Redis TTL abgelaufen ODER Background-Task crashte ohne Status zu schreiben
         if (statusRes.status === 404) {
-          try { localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
-          return;
+          consecutive404++;
+          if (consecutive404 >= 3) {
+            // Aufgeben — Einträge neu laden, evtl. ist trotzdem etwas durchgekommen
+            try { localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
+            setReloadKey(k => k + 1);
+            setImportMsg({
+              type: "err",
+              text: "Upload-Status nicht mehr abrufbar. Einträge wurden neu geladen — falls PDFs fehlen, bitte ZIP erneut hochladen.",
+            });
+            return;
+          }
+          continue;
         }
+        consecutive404 = 0;
         if (!statusRes.ok) continue;
 
         const statusData = await statusRes.json() as { status: string; result?: BulkPdfResult; error?: string };
@@ -106,6 +120,7 @@ export function LiteratureUploadProvider({ children }: { children: React.ReactNo
           setZipResult(statusData.result);
           setShowZipDetails(true);
           setReloadKey(k => k + 1);
+          setImportMsg(null);
           try { localStorage.removeItem(PENDING_KEY); } catch { /* ignore */ }
           return;
         }

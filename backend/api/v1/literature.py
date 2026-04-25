@@ -222,6 +222,19 @@ class UploadStatusResponse(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def _sanitize_pg_text(text: str | None) -> str | None:
+    """Entfernt NUL-Bytes und andere für PostgreSQL UTF-8-Felder verbotene Zeichen.
+    PDFs enthalten oft \\x00 von Schriftart-Encodings — die brechen den DB-Insert.
+    """
+    if text is None:
+        return None
+    # NUL-Byte ist der wichtigste Übeltäter
+    cleaned = text.replace("\x00", "")
+    # Andere Steuerzeichen ausser Tab/Newline/CR rauswerfen
+    cleaned = "".join(c for c in cleaned if c >= " " or c in "\t\n\r")
+    return cleaned
+
+
 def _build_extracted_text(entry: LiteratureEntry) -> str:
     parts = [entry.title]
     if entry.authors:
@@ -296,7 +309,7 @@ async def _create_entry_from_dict(
         baddi_readable=data.get("baddi_readable", True),
         import_source=data.get("import_source", "manual"),
     )
-    entry.extracted_text = _build_extracted_text(entry)
+    entry.extracted_text = _sanitize_pg_text(_build_extracted_text(entry))
     db.add(entry)
     if index:
         await db.flush()  # ID für sofortige Qdrant-Indexierung nötig
@@ -364,7 +377,7 @@ async def update_literature_entry(
     for field, value in req.model_dump(exclude_none=True).items():
         setattr(entry, field, value)
 
-    entry.extracted_text = _build_extracted_text(entry)
+    entry.extracted_text = _sanitize_pg_text(_build_extracted_text(entry))
     _deindex_entry(entry)
     _index_entry(entry)
     await db.commit()
@@ -665,7 +678,7 @@ async def attach_pdf(
         from services.file_parser import parse_file
         parsed = parse_file(content, filename, mime)
         if parsed.text.strip():
-            entry.extracted_text = _build_extracted_text(entry) + "\n\n" + parsed.text[:8000]
+            entry.extracted_text = _sanitize_pg_text(_build_extracted_text(entry) + "\n\n" + parsed.text[:8000])
     except Exception as e:
         _log.warning("PDF-Parsing fehlgeschlagen für Literatureintrag %s: %s", entry_id, e)
 
@@ -882,11 +895,19 @@ async def _run_zip_entries(
             matched_entry.pdf_size_bytes = len(pdf_bytes)
 
             if pdf_text.strip():
-                matched_entry.extracted_text = (
-                    _build_extracted_text(matched_entry) + "\n\n" + pdf_text[:8000]
-                )
+                combined = _build_extracted_text(matched_entry) + "\n\n" + pdf_text[:8000]
+                matched_entry.extracted_text = _sanitize_pg_text(combined)
             _deindex_entry(matched_entry)
             _index_entry(matched_entry)
+
+            # Per-PDF-Commit — ein Fehler bei einem PDF zerschmettert nicht den Batch
+            try:
+                await db.commit()
+            except Exception as commit_err:
+                _log.error("[Literatur/ZIP] Commit fehlgeschlagen für %s: %s — überspringe", basename, commit_err)
+                await db.rollback()
+                details.append(PdfMatchDetail(filename=basename, status="unmatched"))
+                continue
 
             matched_count += 1
             details.append(PdfMatchDetail(
@@ -897,11 +918,10 @@ async def _run_zip_entries(
                 entry_id=str(matched_entry.id),
             ))
         except Exception as e:
-            _log.error("[Literatur/ZIP] S3-Upload fehlgeschlagen für %s: %s", basename, e)
+            _log.error("[Literatur/ZIP] PDF-Verarbeitung fehlgeschlagen für %s: %s", basename, e)
+            try: await db.rollback()
+            except Exception: pass
             details.append(PdfMatchDetail(filename=basename, status="unmatched"))
-
-    if matched_count:
-        await db.commit()
 
     unmatched = sum(1 for d in details if d.status == "unmatched")
     _log.info(
@@ -979,16 +999,16 @@ async def _bulk_zip_background_task(zip_path_str: str, customer_id_str: str, upl
         async with AsyncSessionLocal() as db:
             user = await db.get(CustomerModel, customer_id)
             if not user:
-                await r.set(redis_key, _json.dumps({"status": "error", "upload_id": upload_id, "error": "Kunde nicht gefunden"}), ex=3600)
+                await r.set(redis_key, _json.dumps({"status": "error", "upload_id": upload_id, "error": "Kunde nicht gefunden"}), ex=21600)
                 return
             result = await _process_bulk_zip_from_path(zip_path, user, db)
-        await r.set(redis_key, _json.dumps({"status": "done", "upload_id": upload_id, "result": result.model_dump(mode="json")}), ex=3600)
+        await r.set(redis_key, _json.dumps({"status": "done", "upload_id": upload_id, "result": result.model_dump(mode="json")}), ex=21600)
         _log.info("[Literatur/ZIP] Hintergrund-Verarbeitung abgeschlossen: %s", upload_id)
     except HTTPException as exc:
-        await r.set(redis_key, _json.dumps({"status": "error", "upload_id": upload_id, "error": exc.detail}), ex=3600)
+        await r.set(redis_key, _json.dumps({"status": "error", "upload_id": upload_id, "error": exc.detail}), ex=21600)
     except Exception as exc:
         _log.error("[Literatur/ZIP] Hintergrund-Verarbeitung fehlgeschlagen für %s: %s", upload_id, exc)
-        await r.set(redis_key, _json.dumps({"status": "error", "upload_id": upload_id, "error": str(exc)[:200]}), ex=3600)
+        await r.set(redis_key, _json.dumps({"status": "error", "upload_id": upload_id, "error": str(exc)[:200]}), ex=21600)
     finally:
         shutil.rmtree(zip_path.parent, ignore_errors=True)
         await r.aclose()
@@ -1040,7 +1060,7 @@ async def upload_pdf_chunk(
     import redis.asyncio as aioredis
     from core.config import settings as _settings
     r = aioredis.from_url(_settings.redis_url)
-    await r.set(f"lit_bulk:{user.id}:{upload_id}", _json.dumps({"status": "processing", "upload_id": upload_id}), ex=14400)
+    await r.set(f"lit_bulk:{user.id}:{upload_id}", _json.dumps({"status": "processing", "upload_id": upload_id}), ex=21600)
     await r.aclose()
 
     background_tasks.add_task(_bulk_zip_background_task, str(assembled_path), str(user.id), upload_id)
