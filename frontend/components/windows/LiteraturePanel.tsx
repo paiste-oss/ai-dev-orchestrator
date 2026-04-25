@@ -207,14 +207,11 @@ function DetailPanel({
       {headerBar}
 
       {/* Titel-Section unter dem Header */}
-      <div className="flex items-start gap-3 px-4 py-3 border-b border-white/6 shrink-0">
-        <span className="text-2xl shrink-0">{typeIcon(entry.entry_type)}</span>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-white font-semibold leading-snug">{entry.title}</p>
-          <p className="text-[10px] text-gray-600 mt-1 uppercase tracking-wider">
-            {typeLabel(entry.entry_type)}
-          </p>
-        </div>
+      <div className="px-4 py-3 border-b border-white/6 shrink-0">
+        <p className="text-sm text-white font-semibold leading-snug">{entry.title}</p>
+        <p className="text-[11px] text-gray-400 mt-1 uppercase tracking-wider font-medium">
+          {typeLabel(entry.entry_type)}
+        </p>
       </div>
 
       {/* Content — strukturierte Felder */}
@@ -223,7 +220,7 @@ function DetailPanel({
         {/* Autoren */}
         {entry.authors && entry.authors.length > 0 && (
           <div>
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Autoren</p>
+            <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-1.5">Autoren</p>
             <p className="text-sm text-gray-200 leading-relaxed">{entry.authors.join("; ")}</p>
           </div>
         )}
@@ -232,25 +229,25 @@ function DetailPanel({
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           {entry.year && (
             <div>
-              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Jahr</p>
+              <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">Jahr</p>
               <p className="text-sm text-white tabular-nums">{entry.year}</p>
             </div>
           )}
           {entry.journal && (
             <div className="col-span-2">
-              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">{entry.entry_type === "patent" ? "Patentamt" : "Journal"}</p>
+              <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">{entry.entry_type === "patent" ? "Patentamt" : "Journal"}</p>
               <p className="text-sm text-white">{entry.journal}</p>
             </div>
           )}
           {entry.publisher && (
             <div className="col-span-2">
-              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Verlag</p>
+              <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">Verlag</p>
               <p className="text-sm text-white">{entry.publisher}</p>
             </div>
           )}
           {entry.entry_type !== "patent" && (entry.volume || entry.issue || entry.pages) && (
             <div className="col-span-2">
-              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Ausgabe</p>
+              <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">Ausgabe</p>
               <p className="text-sm text-gray-300">
                 {entry.volume && <>Vol. <span className="text-white">{entry.volume}</span></>}
                 {entry.issue && <>{entry.volume ? " · " : ""}Nr. <span className="text-white">{entry.issue}</span></>}
@@ -260,13 +257,13 @@ function DetailPanel({
           )}
           {entry.isbn && (
             <div>
-              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">{entry.entry_type === "patent" ? "Patentnummer" : "ISBN"}</p>
+              <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">{entry.entry_type === "patent" ? "Patentnummer" : "ISBN"}</p>
               <p className="text-sm text-white font-mono">{entry.isbn}</p>
             </div>
           )}
           {entry.edition && (
             <div>
-              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Auflage</p>
+              <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">Auflage</p>
               <p className="text-sm text-white">{entry.edition}</p>
             </div>
           )}
@@ -275,7 +272,7 @@ function DetailPanel({
         {/* Tags */}
         {entry.tags && entry.tags.length > 0 && (
           <div>
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Tags</p>
+            <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-1.5">Tags</p>
             <div className="flex flex-wrap gap-1.5">
               {entry.tags.map(tag => (
                 <span key={tag} className="text-xs bg-white/5 text-gray-300 px-2 py-0.5 rounded-full border border-white/10">#{tag}</span>
@@ -285,13 +282,13 @@ function DetailPanel({
         )}
         {entry.abstract && (
           <div>
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Abstract</p>
+            <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-1.5">Abstract</p>
             <p className="text-sm text-gray-300 leading-relaxed">{entry.abstract}</p>
           </div>
         )}
         {entry.notes && (
           <div>
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Notizen</p>
+            <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-1.5">Notizen</p>
             <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{entry.notes}</p>
           </div>
         )}
@@ -317,7 +314,7 @@ function DetailPanel({
         {/* PDF — nur wenn keines angehängt ist; sonst ist es schon in der Vorschau */}
         {!entry.pdf_s3_key && (
           <div>
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">PDF</p>
+            <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-1">PDF</p>
             <button onClick={() => pdfInputRef.current?.click()}
               className="flex items-center gap-1.5 text-gray-500 hover:text-gray-300 transition-colors">
               <IconUpload /> PDF anhängen
@@ -573,7 +570,7 @@ function EntryForm({
 
   const isPaper = form.entry_type === "paper";
   const isPatent = form.entry_type === "patent";
-  const labelClass = "text-[10px] text-gray-600 uppercase tracking-wider";
+  const labelClass = "text-[11px] text-gray-400 uppercase tracking-wider font-medium";
   const inputClass = "w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50";
 
   return (
@@ -1721,6 +1718,26 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
               className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50" />
           </div>
 
+          {/* Selektions-Aktionen — bleibt sichtbar beim Scrollen (außerhalb des Scroll-Containers) */}
+          {selectedIds.size > 0 && (
+            <div className="shrink-0 flex items-center gap-3 px-3 py-1.5 bg-[var(--accent-10)] border-y border-[var(--accent-30)] text-[11px] text-[var(--accent-light)]">
+              <span>{selectedIds.size} ausgewählt</span>
+              <button onClick={() => setSelectedIds(new Set())} className="hover:underline">Auswahl aufheben</button>
+              <button onClick={() => handleExportPdfs(Array.from(selectedIds))}
+                className="hover:underline flex items-center gap-1">
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                PDFs exportieren
+              </button>
+              <button onClick={() => {
+                if (!confirm(`${selectedIds.size} Einträge wirklich löschen?`)) return;
+                Array.from(selectedIds).forEach(id => handleDelete(id));
+                setSelectedIds(new Set());
+              }} className="text-red-400 hover:underline">Löschen</button>
+            </div>
+          )}
+
           {loading ? (
             <div className="flex items-center justify-center flex-1 text-gray-600 text-xs">Lade…</div>
           ) : sorted.length === 0 ? (
@@ -1758,27 +1775,6 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                     });
                   }} />
 
-                {/* Selektions-Aktionen wenn was markiert */}
-                {selectedIds.size > 0 && (
-                  <div className="flex items-center gap-3 px-3 py-1.5 bg-[var(--accent-10)] border-b border-[var(--accent-30)] text-[11px] text-[var(--accent-light)]">
-                    <span>{selectedIds.size} ausgewählt</span>
-                    <button onClick={() => setSelectedIds(new Set())} className="hover:underline">Auswahl aufheben</button>
-                    <span className="ml-auto flex items-center gap-3">
-                      <button onClick={() => handleExportPdfs(Array.from(selectedIds))}
-                        className="hover:underline flex items-center gap-1">
-                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                        </svg>
-                        PDFs exportieren
-                      </button>
-                      <button onClick={() => {
-                        if (!confirm(`${selectedIds.size} Einträge wirklich löschen?`)) return;
-                        Array.from(selectedIds).forEach(id => handleDelete(id));
-                        setSelectedIds(new Set());
-                      }} className="text-red-400 hover:underline">Löschen</button>
-                    </span>
-                  </div>
-                )}
 
                 {sorted.map(entry => {
                   const isActive = selected?.id === entry.id && (showDetail || showForm);
