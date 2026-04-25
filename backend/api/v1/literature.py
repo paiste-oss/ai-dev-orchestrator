@@ -175,16 +175,18 @@ class ImportResponse(BaseModel):
 
 class PdfMatchDetail(BaseModel):
     filename: str
-    status: str          # "matched" | "already_has_pdf" | "unmatched"
-    match_method: str | None = None
+    status: str          # "matched" | "already_has_pdf" | "unmatched" | "orphan"
+    match_method: str | None = None  # doi | filename | title_text | llm_doi | llm_title | llm_author_year
     matched_title: str | None = None
     entry_id: str | None = None
+    orphan_id: str | None = None  # gesetzt wenn status=="orphan"
 
 
 class BulkPdfResponse(BaseModel):
     matched: int
     already_had_pdf: int
-    unmatched: int
+    unmatched: int      # endgültig verloren (nur Lese-Fehler etc.)
+    orphans: int = 0    # PDFs die nicht zugeordnet werden konnten, aber im Postfach liegen
     details: list[PdfMatchDetail]
 
 
@@ -766,26 +768,23 @@ _META_FIELDS = {
 }
 
 
-async def _extract_pdf_meta_for_entry(entry: LiteratureEntry) -> dict | None:
-    """Lädt PDF aus S3, extrahiert Text, ruft Haiku — gibt Metadaten-Dict zurück."""
-    if not entry.pdf_s3_key:
-        return None
-    try:
-        content = await s3_download(entry.pdf_s3_key)
-    except Exception as exc:
-        _log.warning("[Literatur/Refresh-Meta] S3-Download fehlgeschlagen %s: %s", entry.id, exc)
-        return None
-
+async def _extract_pdf_meta_from_bytes(
+    pdf_bytes: bytes, filename: str = "document.pdf",
+) -> tuple[dict | None, str]:
+    """Aus PDF-Bytes via Haiku Metadaten extrahieren.
+    Gibt (meta_dict_or_None, pdf_text_preview) zurück. Text bleibt auch nutzbar
+    wenn die LLM-Extraktion scheitert (z. B. für Orphan-Vorschau)."""
     pdf_text = ""
     try:
         from services.file_parser import parse_file
-        parsed = parse_file(content, entry.title or "document.pdf", "application/pdf")
+        parsed = parse_file(pdf_bytes, filename, "application/pdf")
         pdf_text = parsed.text[:5000]
     except Exception as exc:
-        _log.warning("[Literatur/Refresh-Meta] PDF-Text-Extraktion fehlgeschlagen %s: %s", entry.id, exc)
-        return None
+        _log.warning("[Literatur/Meta] PDF-Text-Extraktion fehlgeschlagen für %s: %s", filename, exc)
+        return None, ""
+
     if not pdf_text.strip():
-        return None
+        return None, pdf_text
 
     try:
         from services.llm_gateway import chat_with_claude
@@ -810,7 +809,6 @@ async def _extract_pdf_meta_for_entry(entry: LiteratureEntry) -> dict | None:
             raw = re.sub(r'^```[a-z]*\n?', '', raw)
             raw = re.sub(r'\n?```$', '', raw.strip())
         meta = _json.loads(raw)
-        # Filter auf erlaubte Felder, leere Strings → None
         cleaned = {}
         for k, v in meta.items():
             if k not in _META_FIELDS:
@@ -820,10 +818,23 @@ async def _extract_pdf_meta_for_entry(entry: LiteratureEntry) -> dict | None:
             if isinstance(v, list) and not v:
                 continue
             cleaned[k] = v
-        return cleaned
+        return cleaned, pdf_text
     except Exception as exc:
-        _log.warning("[Literatur/Refresh-Meta] LLM fehlgeschlagen %s: %s", entry.id, exc)
+        _log.warning("[Literatur/Meta] LLM-Extraktion fehlgeschlagen für %s: %s", filename, exc)
+        return None, pdf_text
+
+
+async def _extract_pdf_meta_for_entry(entry: LiteratureEntry) -> dict | None:
+    """Lädt PDF aus S3, extrahiert Text, ruft Haiku — gibt Metadaten-Dict zurück."""
+    if not entry.pdf_s3_key:
         return None
+    try:
+        content = await s3_download(entry.pdf_s3_key)
+    except Exception as exc:
+        _log.warning("[Literatur/Refresh-Meta] S3-Download fehlgeschlagen %s: %s", entry.id, exc)
+        return None
+    meta, _text = await _extract_pdf_meta_from_bytes(content, entry.title or "document.pdf")
+    return meta
 
 
 def _compute_proposed_changes(entry: LiteratureEntry, extracted: dict) -> dict:
@@ -1262,6 +1273,220 @@ async def undo_bulk_refresh_meta(
     return BulkRefreshUndoResponse(restored=restored)
 
 
+# ── Orphan PDFs (Stufe 3 — Postfach für nicht-zugeordnete PDFs) ───────────────
+
+class OrphanPdfOut(BaseModel):
+    id: uuid.UUID
+    filename: str
+    size_bytes: int
+    extracted_meta: dict | None
+    extracted_text_preview: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class OrphanAssignRequest(BaseModel):
+    entry_id: uuid.UUID
+
+
+class OrphanPromoteRequest(BaseModel):
+    """Manuelles Anlegen eines neuen Eintrags aus einem Orphan-PDF.
+    Felder die fehlen, kommen automatisch aus extracted_meta."""
+    entry_type: str = "paper"
+    title: str
+    authors: list[str] | None = None
+    year: int | None = None
+    abstract: str | None = None
+    journal: str | None = None
+    volume: str | None = None
+    issue: str | None = None
+    pages: str | None = None
+    doi: str | None = None
+    publisher: str | None = None
+    isbn: str | None = None
+    edition: str | None = None
+    tags: list[str] | None = None
+    notes: str | None = None
+
+
+@router.get("/orphans", response_model=list[OrphanPdfOut])
+async def list_orphans(
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from models.literature_orphan_pdf import LiteratureOrphanPdf
+    result = await db.execute(
+        select(LiteratureOrphanPdf).where(
+            LiteratureOrphanPdf.customer_id == user.id,
+            LiteratureOrphanPdf.is_active.is_(True),
+        ).order_by(LiteratureOrphanPdf.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+@router.get("/orphans/{orphan_id}/pdf")
+async def download_orphan_pdf(
+    orphan_id: uuid.UUID,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from fastapi.responses import Response
+    from models.literature_orphan_pdf import LiteratureOrphanPdf
+    orphan = await db.get(LiteratureOrphanPdf, orphan_id)
+    if not orphan or not orphan.is_active or orphan.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Unbekanntes PDF nicht gefunden")
+    try:
+        file_bytes = await s3_download(orphan.s3_key)
+    except Exception as exc:
+        _log.error("[Literatur/Orphan] S3-Download fehlgeschlagen %s: %s", orphan_id, exc)
+        raise HTTPException(status_code=503, detail="PDF vorübergehend nicht verfügbar")
+    return Response(
+        content=file_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": _content_disposition("inline", orphan.filename)},
+    )
+
+
+@router.post("/orphans/{orphan_id}/assign", response_model=LiteratureEntryOut)
+async def assign_orphan_to_entry(
+    orphan_id: uuid.UUID,
+    req: OrphanAssignRequest,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Hängt das Orphan-PDF an einen bestehenden Literatur-Eintrag und entfernt
+    den Orphan-Datensatz. Verschiebt nicht — kopiert den S3-Key. Falls der
+    Ziel-Eintrag schon ein PDF hat, schlägt der Aufruf fehl (User soll bewusst
+    entscheiden)."""
+    from models.literature_orphan_pdf import LiteratureOrphanPdf
+    orphan = await db.get(LiteratureOrphanPdf, orphan_id)
+    if not orphan or not orphan.is_active or orphan.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Unbekanntes PDF nicht gefunden")
+
+    entry = await db.get(LiteratureEntry, req.entry_id)
+    if not entry or not entry.is_active or entry.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+    if entry.pdf_s3_key:
+        raise HTTPException(status_code=409, detail="Eintrag hat bereits ein PDF angehängt")
+
+    # PDF-Bytes laden, in den entry-spezifischen S3-Pfad re-uploaden, alten Key löschen,
+    # extracted_text aktualisieren — analog zum normalen attach_pdf-Flow.
+    try:
+        pdf_bytes = await s3_download(orphan.s3_key)
+    except Exception as exc:
+        _log.error("[Literatur/Orphan-Assign] S3-Download fehlgeschlagen %s: %s", orphan_id, exc)
+        raise HTTPException(status_code=503, detail="PDF konnte nicht geladen werden")
+
+    new_s3_key = await s3_upload(
+        customer_id=user.id,
+        doc_id=entry.id,
+        filename=orphan.filename,
+        content=pdf_bytes,
+        content_type="application/pdf",
+    )
+    entry.pdf_s3_key = new_s3_key
+    entry.pdf_size_bytes = orphan.size_bytes
+
+    if orphan.extracted_text_preview:
+        combined = _build_extracted_text(entry) + "\n\n" + orphan.extracted_text_preview[:8000]
+        entry.extracted_text = _sanitize_pg_text(combined)
+    _deindex_entry(entry)
+    _index_entry(entry)
+
+    # Orphan-Aufräumen: Soft-Delete (DB) + S3-Bytes hard delete
+    orphan.is_active = False
+    try:
+        await s3_delete(orphan.s3_key)
+    except Exception as exc:
+        _log.warning("[Literatur/Orphan-Assign] S3-Cleanup fehlgeschlagen %s: %s", orphan.s3_key, exc)
+
+    await db.commit()
+    await db.refresh(entry)
+    _log.info("[Literatur/Orphan] Zugeordnet: %s → %s", orphan_id, entry.id)
+    return entry
+
+
+@router.post("/orphans/{orphan_id}/promote", response_model=LiteratureEntryOut, status_code=201)
+async def promote_orphan_to_new_entry(
+    orphan_id: uuid.UUID,
+    req: OrphanPromoteRequest,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Erstellt einen neuen Literatur-Eintrag aus dem Orphan-PDF.
+    Felder vom User haben Vorrang; fehlende werden mit extracted_meta gefüllt."""
+    from models.literature_orphan_pdf import LiteratureOrphanPdf
+    orphan = await db.get(LiteratureOrphanPdf, orphan_id)
+    if not orphan or not orphan.is_active or orphan.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Unbekanntes PDF nicht gefunden")
+    if not req.title.strip():
+        raise HTTPException(status_code=422, detail="Titel darf nicht leer sein")
+    if req.entry_type not in _VALID_ENTRY_TYPES:
+        raise HTTPException(status_code=422, detail=f"entry_type muss einer von {', '.join(_VALID_ENTRY_TYPES)} sein")
+
+    # Felder zusammenführen — User hat Vorrang
+    data = req.model_dump(exclude_none=True)
+    if orphan.extracted_meta:
+        for k, v in orphan.extracted_meta.items():
+            if k in _META_FIELDS and k not in data and v not in (None, "", []):
+                data[k] = v
+    data["import_source"] = "orphan_pdf"
+
+    entry = await _create_entry_from_dict(data, user.id, db, index=False)
+    await db.flush()  # ID
+
+    # PDF aus Orphan-Bucket in entry-Pfad re-uploaden
+    try:
+        pdf_bytes = await s3_download(orphan.s3_key)
+    except Exception as exc:
+        _log.error("[Literatur/Orphan-Promote] S3-Download fehlgeschlagen %s: %s", orphan_id, exc)
+        raise HTTPException(status_code=503, detail="PDF konnte nicht geladen werden")
+
+    new_s3_key = await s3_upload(
+        customer_id=user.id,
+        doc_id=entry.id,
+        filename=orphan.filename,
+        content=pdf_bytes,
+        content_type="application/pdf",
+    )
+    entry.pdf_s3_key = new_s3_key
+    entry.pdf_size_bytes = orphan.size_bytes
+    if orphan.extracted_text_preview:
+        combined = _build_extracted_text(entry) + "\n\n" + orphan.extracted_text_preview[:8000]
+        entry.extracted_text = _sanitize_pg_text(combined)
+    _index_entry(entry)
+
+    orphan.is_active = False
+    try:
+        await s3_delete(orphan.s3_key)
+    except Exception as exc:
+        _log.warning("[Literatur/Orphan-Promote] S3-Cleanup fehlgeschlagen %s: %s", orphan.s3_key, exc)
+
+    await db.commit()
+    await db.refresh(entry)
+    _log.info("[Literatur/Orphan] Befördert zu neuem Eintrag: %s → %s", orphan_id, entry.id)
+    return entry
+
+
+@router.delete("/orphans/{orphan_id}", status_code=204)
+async def delete_orphan(
+    orphan_id: uuid.UUID,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from models.literature_orphan_pdf import LiteratureOrphanPdf
+    orphan = await db.get(LiteratureOrphanPdf, orphan_id)
+    if not orphan or not orphan.is_active or orphan.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Unbekanntes PDF nicht gefunden")
+    try:
+        await s3_delete(orphan.s3_key)
+    except Exception as exc:
+        _log.warning("[Literatur/Orphan-Delete] S3-Cleanup fehlgeschlagen %s: %s", orphan.s3_key, exc)
+    orphan.is_active = False
+    await db.commit()
+
+
 # ── PDF Anhang ────────────────────────────────────────────────────────────────
 
 @router.post("/{entry_id}/pdf", response_model=LiteratureEntryOut)
@@ -1392,6 +1617,68 @@ def _match_entry(
     return None, ""
 
 
+def _match_extracted_meta(
+    extracted: dict,
+    entries: list[LiteratureEntry],
+    doi_index: dict[str, LiteratureEntry],
+) -> tuple[LiteratureEntry | None, str]:
+    """LLM-Fallback-Matcher: extrahierte Meta gegen XML-Einträge prüfen.
+    Strenger als Heuristik (Titel ≥ 0.75 Jaccard oder Substring + DOI exact + Autor+Jahr).
+    Überspringt Einträge die schon ein PDF haben.
+    """
+    candidates = [e for e in entries if not e.pdf_s3_key]
+    if not candidates:
+        return None, ""
+
+    # 1) DOI exakt aus extrahierter Meta
+    doi = (extracted.get("doi") or "").strip().lower().rstrip(".,;)/>")
+    if doi and doi in doi_index:
+        target = doi_index[doi]
+        if not target.pdf_s3_key:
+            return target, "llm_doi"
+
+    # 2) Titel-Fuzzy
+    new_title = (extracted.get("title") or "").strip()
+    if new_title and len(new_title) >= 15:
+        new_words = _normalize_for_match(new_title)
+        new_low = new_title.lower()
+        best_score = 0.0
+        best_entry: LiteratureEntry | None = None
+        for e in candidates:
+            cur_low = (e.title or "").strip().lower()
+            cur_words = _normalize_for_match(e.title or "")
+            if not cur_words:
+                continue
+            score = _word_overlap(new_words, cur_words)
+            # Substring-Bonus (XML-Truncation oder 'Author - Title'-Pattern)
+            if cur_low and (cur_low in new_low or new_low in cur_low):
+                score = max(score, 0.85)
+            if score > best_score:
+                best_score = score
+                best_entry = e
+        if best_score >= 0.75 and best_entry:
+            return best_entry, "llm_title"
+
+    # 3) Autor (erster Nachname) + Jahr
+    year = extracted.get("year")
+    authors = extracted.get("authors") or []
+    if isinstance(year, int) and authors:
+        first_lastname = (authors[0] or "").split(",")[0].strip().lower()
+        if first_lastname and len(first_lastname) >= 3:
+            for e in candidates:
+                if e.year != year or not e.authors:
+                    continue
+                e_first_last = (e.authors[0] or "").split(",")[0].strip().lower()
+                if e_first_last == first_lastname:
+                    return e, "llm_author_year"
+
+    return None, ""
+
+
+# Max. LLM-Aufrufe pro ZIP-Lauf — schützt vor unerwarteten Kosten bei Mega-ZIPs
+_MAX_LLM_FALLBACKS_PER_ZIP = 200
+
+
 @router.get("/bulk-upload-url", response_model=BulkUploadUrlResponse)
 @limiter.limit("5/hour")
 async def get_bulk_upload_url(
@@ -1444,12 +1731,64 @@ async def import_pdfs_bulk(
     return await _process_bulk_zip(content, user, db)
 
 
+async def _save_pdf_as_orphan(
+    pdf_bytes: bytes,
+    basename: str,
+    user: Customer,
+    db: AsyncSession,
+    extracted_meta: dict | None,
+    pdf_text: str,
+) -> "uuid.UUID | None":
+    """Speichert ein nicht zuordenbares PDF im Postfach (S3 + DB-Eintrag).
+    Gibt die Orphan-ID zurück oder None bei Fehler."""
+    from models.literature_orphan_pdf import LiteratureOrphanPdf
+    orphan_id = uuid.uuid4()
+    try:
+        s3_key = await s3_upload(
+            customer_id=user.id,
+            doc_id=orphan_id,
+            filename=basename,
+            content=pdf_bytes,
+            content_type="application/pdf",
+        )
+    except Exception as exc:
+        _log.error("[Literatur/Orphan] S3-Upload fehlgeschlagen für %s: %s", basename, exc)
+        return None
+
+    try:
+        orphan = LiteratureOrphanPdf(
+            id=orphan_id,
+            customer_id=user.id,
+            filename=basename[:512],
+            s3_key=s3_key,
+            size_bytes=len(pdf_bytes),
+            extracted_meta=extracted_meta,
+            extracted_text_preview=_sanitize_pg_text(pdf_text[:4000]) if pdf_text else None,
+        )
+        db.add(orphan)
+        await db.commit()
+        return orphan_id
+    except Exception as exc:
+        _log.error("[Literatur/Orphan] DB-Insert fehlgeschlagen für %s: %s", basename, exc)
+        try: await db.rollback()
+        except Exception: pass
+        # PDF wieder aus S3 entfernen, wenn DB-Insert scheitert
+        try: await s3_delete(s3_key)
+        except Exception: pass
+        return None
+
+
 async def _run_zip_entries(
     zf: zipfile.ZipFile,
     user: Customer,
     db: AsyncSession,
 ) -> BulkPdfResponse:
-    """Innere ZIP-Verarbeitung: matching, S3-Upload, DB-Update — shared zwischen allen ZIP-Import-Pfaden."""
+    """Innere ZIP-Verarbeitung: matching, S3-Upload, DB-Update — shared zwischen allen ZIP-Import-Pfaden.
+    Ablauf pro PDF:
+      1) Heuristik-Match (DOI / Dateiname / Titel-Text)
+      2) Bei Miss: Haiku-Metadaten-Extraktion + Re-Match (DOI exakt / Titel-Fuzzy / Autor+Jahr)
+      3) Bei finalem Miss: PDF ins Postfach (Orphan) — User kann später manuell zuordnen
+    """
     result_q = await db.execute(
         select(LiteratureEntry).where(
             LiteratureEntry.customer_id == user.id,
@@ -1467,6 +1806,8 @@ async def _run_zip_entries(
     details: list[PdfMatchDetail] = []
     matched_count = 0
     already_count = 0
+    orphan_count = 0
+    llm_calls = 0
 
     pdf_names = [
         n for n in zf.namelist()
@@ -1492,10 +1833,32 @@ async def _run_zip_entries(
         except Exception:
             pass
 
+        # Stufe 1: Heuristik-Match
         matched_entry, method = _match_entry(pdf_text, stem, doi_index, entries)
+        extracted_meta_for_orphan: dict | None = None
 
+        # Stufe 2: LLM-Fallback wenn Heuristik nichts findet
+        if not matched_entry and pdf_text.strip() and llm_calls < _MAX_LLM_FALLBACKS_PER_ZIP:
+            llm_calls += 1
+            extracted_meta, _ = await _extract_pdf_meta_from_bytes(pdf_bytes, basename)
+            extracted_meta_for_orphan = extracted_meta
+            if extracted_meta:
+                matched_entry, method = _match_extracted_meta(extracted_meta, entries, doi_index)
+
+        # Stufe 3: Postfach (Orphan) — unmatched aber persistiert
         if not matched_entry:
-            details.append(PdfMatchDetail(filename=basename, status="unmatched"))
+            orphan_id = await _save_pdf_as_orphan(
+                pdf_bytes, basename, user, db,
+                extracted_meta=extracted_meta_for_orphan,
+                pdf_text=pdf_text,
+            )
+            if orphan_id:
+                orphan_count += 1
+                details.append(PdfMatchDetail(
+                    filename=basename, status="orphan", orphan_id=str(orphan_id),
+                ))
+            else:
+                details.append(PdfMatchDetail(filename=basename, status="unmatched"))
             continue
 
         if matched_entry.pdf_s3_key:
@@ -1526,7 +1889,6 @@ async def _run_zip_entries(
             _deindex_entry(matched_entry)
             _index_entry(matched_entry)
 
-            # Per-PDF-Commit — ein Fehler bei einem PDF zerschmettert nicht den Batch
             try:
                 await db.commit()
             except Exception as commit_err:
@@ -1551,13 +1913,14 @@ async def _run_zip_entries(
 
     unmatched = sum(1 for d in details if d.status == "unmatched")
     _log.info(
-        "[Literatur/ZIP] %d zugeordnet, %d hatte schon PDF, %d unbekannt — Kunde %s",
-        matched_count, already_count, unmatched, user.id,
+        "[Literatur/ZIP] %d zugeordnet, %d hatte schon PDF, %d ins Postfach, %d Lese-Fehler, %d LLM-Aufrufe — Kunde %s",
+        matched_count, already_count, orphan_count, unmatched, llm_calls, user.id,
     )
     return BulkPdfResponse(
         matched=matched_count,
         already_had_pdf=already_count,
         unmatched=unmatched,
+        orphans=orphan_count,
         details=details,
     )
 

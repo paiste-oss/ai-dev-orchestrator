@@ -66,7 +66,24 @@ interface LitGroup {
   position: number;
 }
 
-type SidebarFilter = "all" | "new" | EntryType | "favorites" | "read_later";
+type SidebarFilter = "all" | "new" | EntryType | "favorites" | "read_later" | "orphans";
+
+interface OrphanPdf {
+  id: string;
+  filename: string;
+  size_bytes: number;
+  extracted_meta: {
+    title?: string | null;
+    authors?: string[] | null;
+    year?: number | null;
+    journal?: string | null;
+    doi?: string | null;
+    publisher?: string | null;
+    abstract?: string | null;
+  } | null;
+  extracted_text_preview: string | null;
+  created_at: string;
+}
 
 const EMPTY_FORM: Partial<LitEntry> = {
   entry_type: "paper",
@@ -569,6 +586,191 @@ function SortableGrid({ sortKey, sortDir, onSort, allSelected, someSelected, onT
       <Th k="authors" label="Autoren" />
       <Th k="journal" label="Journal" />
       <span></span>
+    </div>
+  );
+}
+
+// ── Orphan-PDF Liste & Assign-Dialog ──────────────────────────────────────────
+
+function OrphansList({
+  orphans, busy, onView, onAssign, onPromote, onDelete,
+}: {
+  orphans: OrphanPdf[];
+  busy: string | null;
+  onView: (o: OrphanPdf) => void;
+  onAssign: (o: OrphanPdf) => void;
+  onPromote: (o: OrphanPdf) => void;
+  onDelete: (o: OrphanPdf) => void;
+}) {
+  if (orphans.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center flex-1 gap-2 text-center px-4">
+        <span className="text-4xl opacity-20">📥</span>
+        <p className="text-gray-500 text-xs">Keine unbekannten PDFs</p>
+        <p className="text-[10px] text-gray-700 max-w-xs">
+          PDFs aus dem ZIP-Upload, die keinem XML-Eintrag zugeordnet werden konnten,
+          landen hier — bisher ist alles zugeordnet.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="flex-1 overflow-auto px-3 py-2 space-y-2">
+      <div className="text-[11px] text-amber-300/90 bg-amber-950/30 border border-amber-800/30 rounded-lg px-3 py-2">
+        Diese PDFs konnten beim Upload keinem XML-Eintrag zugeordnet werden.
+        Du kannst sie zu einem bestehenden Eintrag zuordnen, einen neuen Eintrag daraus anlegen, oder sie löschen.
+      </div>
+      {orphans.map(o => {
+        const m = o.extracted_meta || {};
+        const sizeMb = (o.size_bytes / (1024 * 1024)).toFixed(1);
+        const isBusy = busy === o.id;
+        return (
+          <div key={o.id} className="rounded-lg border border-white/10 bg-white/3 hover:bg-white/5 transition-colors">
+            <div className="px-3 py-2 flex items-start gap-3">
+              <span className="text-lg shrink-0 mt-0.5">📄</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-white font-medium break-words" title={o.filename}>{o.filename}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">{sizeMb} MB</p>
+                {(m.title || m.authors || m.year) && (
+                  <div className="mt-2 space-y-0.5">
+                    {m.title && <p className="text-[11px] text-gray-300">{m.title}</p>}
+                    {m.authors && m.authors.length > 0 && (
+                      <p className="text-[10px] text-gray-500">{m.authors.join("; ")}{m.year ? ` · ${m.year}` : ""}</p>
+                    )}
+                    {!m.authors?.length && m.year && <p className="text-[10px] text-gray-500">{m.year}</p>}
+                    {m.journal && <p className="text-[10px] text-gray-600 italic">{m.journal}</p>}
+                    {m.doi && <p className="text-[10px] text-gray-600 font-mono">{m.doi}</p>}
+                  </div>
+                )}
+                {!m.title && !m.authors && !m.year && (
+                  <p className="text-[10px] text-gray-600 italic mt-1">Keine Metadaten extrahiert</p>
+                )}
+              </div>
+            </div>
+            <div className="px-3 py-1.5 border-t border-white/6 flex items-center gap-3 text-[11px]">
+              <button onClick={() => onView(o)} disabled={isBusy}
+                className="text-[var(--accent-light)] hover:underline disabled:opacity-40">
+                Anzeigen
+              </button>
+              <button onClick={() => onAssign(o)} disabled={isBusy}
+                className="text-emerald-400 hover:underline disabled:opacity-40">
+                Zu vorhandenem zuordnen
+              </button>
+              <button onClick={() => onPromote(o)} disabled={isBusy}
+                className="text-blue-400 hover:underline disabled:opacity-40">
+                Als neuen Eintrag anlegen
+              </button>
+              <span className="flex-1" />
+              <button onClick={() => onDelete(o)} disabled={isBusy}
+                className="text-red-400 hover:underline disabled:opacity-40">
+                {isBusy ? "…" : "Löschen"}
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function OrphanAssignDialog({
+  orphan, candidates, onAssign, onCancel, busy,
+}: {
+  orphan: OrphanPdf;
+  candidates: LitEntry[];  // nur Einträge ohne PDF
+  onAssign: (entryId: string) => void;
+  onCancel: () => void;
+  busy: boolean;
+}) {
+  const [search, setSearch] = useState("");
+  const meta = orphan.extracted_meta || {};
+
+  // Initial-Sortierung: Score nach Titel-Ähnlichkeit zur extrahierten Meta
+  const norm = (s: string) => s.toLowerCase();
+  const extractedTitle = norm(meta.title || "");
+  const extractedDoi = norm(meta.doi || "");
+  const extractedFirstAuthor = norm((meta.authors?.[0] || "").split(",")[0] || "");
+
+  function score(e: LitEntry): number {
+    let s = 0;
+    if (extractedDoi && e.doi && norm(e.doi) === extractedDoi) s += 100;
+    if (extractedTitle) {
+      const et = norm(e.title);
+      if (et === extractedTitle) s += 80;
+      else if (et.includes(extractedTitle) || extractedTitle.includes(et)) s += 50;
+      else {
+        // Wort-Overlap
+        const a = new Set(et.split(/\s+/).filter(w => w.length >= 4));
+        const b = new Set(extractedTitle.split(/\s+/).filter(w => w.length >= 4));
+        const inter = [...a].filter(x => b.has(x)).length;
+        if (a.size && b.size) s += (inter / Math.max(a.size, b.size)) * 40;
+      }
+    }
+    if (extractedFirstAuthor && e.authors?.[0]) {
+      const ea = norm(e.authors[0].split(",")[0]);
+      if (ea === extractedFirstAuthor) s += 20;
+    }
+    if (meta.year && e.year === meta.year) s += 10;
+    return s;
+  }
+
+  const q = search.trim().toLowerCase();
+  const filtered = candidates
+    .filter(e => !q || e.title.toLowerCase().includes(q) || (e.authors || []).some(a => a.toLowerCase().includes(q)))
+    .map(e => ({ e, s: score(e) }))
+    .sort((a, b) => b.s - a.s)
+    .slice(0, 100);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onCancel}>
+      <div className="bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="shrink-0 px-5 py-3 border-b border-white/8">
+          <h3 className="text-sm font-semibold text-white">PDF zu vorhandenem Eintrag zuordnen</h3>
+          <p className="text-[11px] text-gray-400 mt-1 break-words">
+            <span className="font-mono">{orphan.filename}</span>
+            {meta.title && <> · erkannt: <span className="italic">{meta.title}</span></>}
+          </p>
+        </div>
+        <div className="shrink-0 px-5 py-2 border-b border-white/6">
+          <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Suche in Einträgen ohne PDF…"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50" />
+          <p className="text-[10px] text-gray-500 mt-1">
+            {candidates.length} Einträge ohne PDF · sortiert nach Übereinstimmung
+          </p>
+        </div>
+        <div className="flex-1 overflow-auto px-2 py-2">
+          {filtered.length === 0 ? (
+            <p className="text-xs text-gray-500 text-center py-8">Kein Treffer</p>
+          ) : (
+            <div className="space-y-0.5">
+              {filtered.map(({ e, s }) => (
+                <button key={e.id} onClick={() => onAssign(e.id)} disabled={busy}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 disabled:opacity-40 group transition-colors">
+                  <div className="flex items-start gap-2">
+                    <span className="text-xs shrink-0 mt-0.5">{typeIcon(e.entry_type)}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white truncate group-hover:text-[var(--accent-light)]">{e.title}</p>
+                      <p className="text-[10px] text-gray-500 truncate">
+                        {(e.authors || []).slice(0, 3).join("; ")}{e.year ? ` · ${e.year}` : ""}
+                      </p>
+                    </div>
+                    {s >= 50 && (
+                      <span className="shrink-0 text-[9px] text-emerald-400 uppercase tracking-wider">empfehlung</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="shrink-0 flex items-center justify-end px-5 py-3 border-t border-white/8">
+          <button onClick={onCancel} disabled={busy}
+            className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-xs disabled:opacity-40">
+            Abbrechen
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1669,15 +1871,28 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   const importInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
 
+  const [orphans, setOrphans] = useState<OrphanPdf[]>([]);
+  const [orphanAssignFor, setOrphanAssignFor] = useState<OrphanPdf | null>(null);
+  const [orphanBusy, setOrphanBusy] = useState<string | null>(null);
+
+  const loadOrphans = useCallback(async () => {
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/orphans`);
+      if (res.ok) setOrphans(await res.json());
+    } catch { /* still */ }
+  }, []);
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [entriesRes, groupsRes] = await Promise.all([
+      const [entriesRes, groupsRes, orphansRes] = await Promise.all([
         apiFetch(`${BACKEND_URL}/v1/literature/mine`),
         apiFetch(`${BACKEND_URL}/v1/literature/groups`),
+        apiFetch(`${BACKEND_URL}/v1/literature/orphans`),
       ]);
       if (entriesRes.ok) setEntries(await entriesRes.json());
       if (groupsRes.ok) setGroups(await groupsRes.json());
+      if (orphansRes.ok) setOrphans(await orphansRes.json());
     } finally { setLoading(false); }
   }, []);
 
@@ -1996,6 +2211,87 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
     }
   }
 
+  async function handleOpenOrphanPdf(orphan: OrphanPdf) {
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/orphans/${orphan.id}/pdf`);
+      if (!res.ok) { setImportMsg({ type: "err", text: t("err.generic") }); return; }
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      if (onOpenFile) {
+        onOpenFile({ url: blobUrl, filename: orphan.filename, fileType: "pdf", literatureTitle: orphan.filename });
+      } else {
+        window.open(blobUrl, "_blank", "noopener");
+      }
+    } catch {
+      setImportMsg({ type: "err", text: t("err.network") });
+    }
+  }
+
+  async function handleDeleteOrphan(orphan: OrphanPdf) {
+    if (!confirm(`"${orphan.filename}" endgültig löschen?`)) return;
+    setOrphanBusy(orphan.id);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/orphans/${orphan.id}`, { method: "DELETE" });
+      if (res.ok || res.status === 204) {
+        setOrphans(prev => prev.filter(o => o.id !== orphan.id));
+      } else {
+        setImportMsg({ type: "err", text: t("err.generic") });
+      }
+    } finally { setOrphanBusy(null); }
+  }
+
+  async function handleAssignOrphan(orphan: OrphanPdf, entryId: string) {
+    setOrphanBusy(orphan.id);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/orphans/${orphan.id}/assign`, {
+        method: "POST",
+        body: JSON.stringify({ entry_id: entryId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
+        setImportMsg({ type: "err", text: err.detail || t("err.generic") });
+        return;
+      }
+      const updated: LitEntry = await res.json();
+      setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
+      setOrphans(prev => prev.filter(o => o.id !== orphan.id));
+      setOrphanAssignFor(null);
+      setImportMsg({ type: "ok", text: `PDF zugeordnet zu "${updated.title.slice(0, 60)}"` });
+    } finally { setOrphanBusy(null); }
+  }
+
+  async function handlePromoteOrphan(orphan: OrphanPdf) {
+    const meta = orphan.extracted_meta || {};
+    const fallbackTitle = (meta.title || orphan.filename.replace(/\.pdf$/i, "")).trim();
+    const titleInput = prompt("Titel für den neuen Eintrag:", fallbackTitle);
+    if (!titleInput || !titleInput.trim()) return;
+
+    setOrphanBusy(orphan.id);
+    try {
+      const body: Record<string, unknown> = { entry_type: "paper", title: titleInput.trim() };
+      const transferable = ["authors", "year", "abstract", "journal", "volume", "issue",
+        "pages", "doi", "publisher", "isbn", "edition"] as const;
+      for (const k of transferable) {
+        const v = (meta as Record<string, unknown>)[k];
+        if (v !== null && v !== undefined && v !== "") body[k] = v;
+      }
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/orphans/${orphan.id}/promote`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
+        setImportMsg({ type: "err", text: err.detail || t("err.generic") });
+        return;
+      }
+      const created: LitEntry = await res.json();
+      setEntries(prev => [created, ...prev]);
+      setOrphans(prev => prev.filter(o => o.id !== orphan.id));
+      setSelected(created);
+      setImportMsg({ type: "ok", text: `Neuer Eintrag angelegt: "${created.title.slice(0, 60)}"` });
+    } finally { setOrphanBusy(null); }
+  }
+
   function openEdit(entry: LitEntry) {
     setEditEntry(entry);
     setShowDetail(false);
@@ -2267,7 +2563,13 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
             <span className="text-xs text-white font-medium">PDF-Import abgeschlossen</span>
             <span className="text-[10px] text-emerald-400">✓ {zipResult.matched} zugeordnet</span>
             {zipResult.already_had_pdf > 0 && <span className="text-[10px] text-gray-500">{zipResult.already_had_pdf} hatten schon PDF</span>}
-            {zipResult.unmatched > 0 && <span className="text-[10px] text-amber-400">⚠ {zipResult.unmatched} nicht gefunden</span>}
+            {(zipResult.orphans ?? 0) > 0 && (
+              <button onClick={() => setTypeFilter("orphans")}
+                className="text-[10px] text-amber-300 hover:underline">
+                📥 {zipResult.orphans} ins Postfach
+              </button>
+            )}
+            {zipResult.unmatched > 0 && <span className="text-[10px] text-red-400">⚠ {zipResult.unmatched} Lese-Fehler</span>}
             <button onClick={() => setShowZipDetails(!showZipDetails)}
               className="ml-auto text-[10px] text-gray-500 hover:text-gray-300 transition-colors">
               {showZipDetails ? "Ausblenden" : "Details"}
@@ -2351,6 +2653,17 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
             <span className="flex-1 text-left">Zu lesen</span>
             {readLaterEntries.length > 0 && <span className="text-[10px] text-gray-600">{readLaterEntries.length}</span>}
           </button>
+
+          {/* Unbekannte PDFs (Orphans) — nur wenn vorhanden */}
+          {orphans.length > 0 && (
+            <button onClick={() => { setTypeFilter("orphans"); setGroupFilter(null); }}
+              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors mt-0.5 ${typeFilter === "orphans" ? "bg-amber-500/20 text-amber-300" : "text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-200"}`}
+              title="PDFs aus dem ZIP-Upload, die keinem XML-Eintrag zugeordnet werden konnten">
+              <span className="text-[11px]">📥</span>
+              <span className="flex-1 text-left">Unbekannte PDFs</span>
+              <span className="text-[10px] opacity-80">{orphans.length}</span>
+            </button>
+          )}
         </div>
 
         {/* T-Layout: oben Liste, unten Detail | PDF */}
@@ -2398,7 +2711,16 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
             );
           })()}
 
-          {loading ? (
+          {typeFilter === "orphans" ? (
+            <OrphansList
+              orphans={orphans}
+              busy={orphanBusy}
+              onView={handleOpenOrphanPdf}
+              onAssign={(o) => setOrphanAssignFor(o)}
+              onPromote={handlePromoteOrphan}
+              onDelete={handleDeleteOrphan}
+            />
+          ) : loading ? (
             <div className="flex items-center justify-center flex-1 text-gray-600 text-xs">Lade…</div>
           ) : sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 gap-2 text-center">
@@ -2584,6 +2906,17 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       {/* Bulk-Refresh Auswertung */}
       {bulkAuditOpen && bulkStatus && (
         <BulkRefreshAuditModal status={bulkStatus} onClose={() => setBulkAuditOpen(false)} />
+      )}
+
+      {/* Orphan-PDF: Zuordnen-Dialog */}
+      {orphanAssignFor && (
+        <OrphanAssignDialog
+          orphan={orphanAssignFor}
+          candidates={entries.filter(e => !e.pdf_s3_key)}
+          busy={orphanBusy === orphanAssignFor.id}
+          onCancel={() => setOrphanAssignFor(null)}
+          onAssign={(entryId) => handleAssignOrphan(orphanAssignFor, entryId)}
+        />
       )}
     </WindowFrame>
   );

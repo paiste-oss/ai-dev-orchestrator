@@ -6,16 +6,18 @@ import { BACKEND_URL } from "@/lib/config";
 
 export interface PdfMatchDetail {
   filename: string;
-  status: "matched" | "already_has_pdf" | "unmatched";
-  match_method: "doi" | "filename" | "title_text" | null;
+  status: "matched" | "already_has_pdf" | "unmatched" | "orphan";
+  match_method: "doi" | "filename" | "title_text" | "llm_doi" | "llm_title" | "llm_author_year" | null;
   matched_title: string | null;
   entry_id: string | null;
+  orphan_id?: string | null;
 }
 
 export interface BulkPdfResult {
   matched: number;
   already_had_pdf: number;
   unmatched: number;
+  orphans?: number;
   details: PdfMatchDetail[];
 }
 
