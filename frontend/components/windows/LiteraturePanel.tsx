@@ -560,6 +560,136 @@ function valuesEqual(a: unknown, b: unknown): boolean {
   return norm(a) === norm(b);
 }
 
+// ── Bulk-Refresh-Meta (Stufe 2) ────────────────────────────────────────────────
+
+interface BulkRefreshStatus {
+  job_id: string;
+  status: "processing" | "done" | "error";
+  total: number;
+  processed: number;
+  updated: number;
+  unchanged: number;
+  errors: number;
+  field_counts: Record<string, number>;
+  started_at: string;
+  completed_at: string | null;
+  error_msg: string | null;
+  can_undo: boolean;
+}
+
+function BulkRefreshBanner({
+  status,
+  onUndo,
+  onShowDetails,
+  onDismiss,
+  undoing,
+}: {
+  status: BulkRefreshStatus;
+  onUndo: () => void;
+  onShowDetails: () => void;
+  onDismiss: () => void;
+  undoing: boolean;
+}) {
+  const pct = status.total > 0 ? Math.round((status.processed / status.total) * 100) : 0;
+
+  if (status.status === "processing") {
+    return (
+      <div className="mx-3 mt-2 shrink-0 rounded-lg bg-[var(--accent-10)] border border-[var(--accent-30)] px-3 py-2">
+        <div className="flex items-center gap-2 text-xs text-[var(--accent-light)]">
+          <IconSpinner />
+          <span className="font-medium">PDF-Metadaten werden verbessert</span>
+          <span className="text-gray-300">— {status.processed} von {status.total}</span>
+          <span className="flex-1" />
+          <span className="text-[10px] text-gray-400">{pct}%</span>
+        </div>
+        <div className="mt-1.5 h-1 rounded-full bg-white/10 overflow-hidden">
+          <div className="h-full bg-[var(--accent)] transition-all" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+    );
+  }
+
+  if (status.status === "error") {
+    return (
+      <div className="mx-3 mt-2 shrink-0 rounded-lg bg-red-950/50 border border-red-800/50 px-3 py-2 text-xs text-red-300 flex items-center gap-2">
+        <span>⚠️</span>
+        <span className="flex-1 break-words">PDF-Metadaten-Verbesserung fehlgeschlagen: {status.error_msg || "Unbekannter Fehler"}</span>
+        <button onClick={onDismiss} className="hover:underline shrink-0">Schliessen</button>
+      </div>
+    );
+  }
+
+  // done
+  return (
+    <div className="mx-3 mt-2 shrink-0 rounded-lg bg-emerald-950/50 border border-emerald-800/50 px-3 py-2 text-xs text-emerald-300">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span>✓</span>
+        <span className="font-medium">
+          {status.updated} von {status.total} Einträgen verbessert
+        </span>
+        {status.unchanged > 0 && <span className="text-gray-400">· {status.unchanged} unverändert</span>}
+        {status.errors > 0 && <span className="text-orange-300">· {status.errors} Fehler</span>}
+        <span className="flex-1" />
+        {status.updated > 0 && (
+          <button onClick={onShowDetails} className="hover:underline">Details</button>
+        )}
+        {status.can_undo && (
+          <button onClick={onUndo} disabled={undoing}
+            className="hover:underline disabled:opacity-50 flex items-center gap-1">
+            {undoing ? <IconSpinner /> : null}
+            {undoing ? "Setze zurück…" : "Rückgängig"}
+          </button>
+        )}
+        <button onClick={onDismiss} className="hover:underline">Schliessen</button>
+      </div>
+    </div>
+  );
+}
+
+function BulkRefreshAuditModal({
+  status,
+  onClose,
+}: {
+  status: BulkRefreshStatus;
+  onClose: () => void;
+}) {
+  const fieldEntries = Object.entries(status.field_counts).sort((a, b) => b[1] - a[1]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+      <div className="bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="shrink-0 px-5 py-3 border-b border-white/8">
+          <h3 className="text-sm font-semibold text-white">Bulk-Refresh — Auswertung</h3>
+          <p className="text-[11px] text-gray-400 mt-1">
+            {status.updated} verbessert · {status.unchanged} unverändert · {status.errors} Fehler — von {status.total} insgesamt
+          </p>
+        </div>
+        <div className="flex-1 overflow-auto p-5">
+          {fieldEntries.length === 0 ? (
+            <p className="text-xs text-gray-400">Keine Felder geändert.</p>
+          ) : (
+            <div className="space-y-1.5">
+              <p className="text-[11px] uppercase tracking-wider text-gray-400 font-medium mb-2">Geänderte Felder</p>
+              {fieldEntries.map(([k, n]) => (
+                <div key={k} className="flex items-center gap-3 text-xs">
+                  <span className="w-24 shrink-0 text-gray-300">{META_FIELD_LABELS[k] ?? k}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                    <div className="h-full bg-emerald-500/60" style={{ width: `${Math.min(100, (n / Math.max(1, status.updated)) * 100)}%` }} />
+                  </div>
+                  <span className="w-10 text-right text-emerald-300 tabular-nums">{n}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="shrink-0 flex items-center justify-end px-5 py-3 border-t border-white/8">
+          <button onClick={onClose}
+            className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-xs">Schliessen</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RefreshMetaModal({
   data,
   onApply,
@@ -1178,6 +1308,160 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
     }
   }
 
+  // ── Bulk-Refresh-Meta (Stufe 2) ─────────────────────────────────────────────
+  const bulkJobStorageKey = useMemo(() => {
+    const email = getSession()?.email;
+    return email ? `baddi:lit_bulk_meta:${encodeURIComponent(email)}` : null;
+  }, []);
+  const [bulkStatus, setBulkStatus] = useState<BulkRefreshStatus | null>(null);
+  const [bulkUndoing, setBulkUndoing] = useState(false);
+  const [bulkAuditOpen, setBulkAuditOpen] = useState(false);
+  const bulkPollRef = useRef<number | null>(null);
+
+  const persistBulkJob = useCallback((jobId: string | null) => {
+    if (!bulkJobStorageKey) return;
+    if (jobId) localStorage.setItem(bulkJobStorageKey, jobId);
+    else localStorage.removeItem(bulkJobStorageKey);
+  }, [bulkJobStorageKey]);
+
+  const stopBulkPolling = useCallback(() => {
+    if (bulkPollRef.current !== null) {
+      window.clearInterval(bulkPollRef.current);
+      bulkPollRef.current = null;
+    }
+  }, []);
+
+  const fetchBulkStatus = useCallback(async (jobId: string): Promise<BulkRefreshStatus | null> => {
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/refresh-meta-bulk/${jobId}`);
+      if (res.status === 404) {
+        return null;
+      }
+      if (!res.ok) return null;
+      return await res.json() as BulkRefreshStatus;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // loadAllRef erlaubt Forward-Referenz auf das später deklarierte loadAll
+  // (vermeidet "used before declaration" und hält startBulkPolling stabil).
+  const loadAllRef = useRef<() => Promise<void>>(async () => {});
+
+  const startBulkPolling = useCallback((jobId: string) => {
+    stopBulkPolling();
+    bulkPollRef.current = window.setInterval(async () => {
+      const s = await fetchBulkStatus(jobId);
+      if (!s) {
+        stopBulkPolling();
+        return;
+      }
+      setBulkStatus(s);
+      if (s.status !== "processing") {
+        stopBulkPolling();
+        loadAllRef.current();
+      }
+    }, 4000);
+  }, [fetchBulkStatus, stopBulkPolling]);
+
+  // Reload-Recovery: laufender Job aus localStorage wiederherstellen
+  useEffect(() => {
+    if (!bulkJobStorageKey) return;
+    const saved = localStorage.getItem(bulkJobStorageKey);
+    if (!saved) return;
+    (async () => {
+      const s = await fetchBulkStatus(saved);
+      if (!s) {
+        localStorage.removeItem(bulkJobStorageKey);
+        return;
+      }
+      setBulkStatus(s);
+      if (s.status === "processing") startBulkPolling(saved);
+    })();
+    return () => stopBulkPolling();
+  }, [bulkJobStorageKey, fetchBulkStatus, startBulkPolling, stopBulkPolling]);
+
+  async function handleStartBulkRefresh() {
+    const ids = Array.from(selectedIds);
+    const eligible = ids.filter(id => {
+      const e = entries.find(x => x.id === id);
+      return e?.pdf_s3_key;
+    });
+    if (eligible.length === 0) {
+      setImportMsg({ type: "err", text: "Keine der ausgewählten Einträge hat ein PDF angehängt." });
+      return;
+    }
+    if (bulkStatus?.status === "processing") {
+      setImportMsg({ type: "err", text: "Es läuft bereits ein Bulk-Refresh — bitte warten." });
+      return;
+    }
+    if (!confirm(`PDF-Metadaten von ${eligible.length} Einträg(en) verbessern? Das läuft im Hintergrund — du kannst weiterarbeiten.`)) return;
+
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/refresh-meta-bulk`, {
+        method: "POST",
+        body: JSON.stringify({ entry_ids: eligible }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
+        setImportMsg({ type: "err", text: err.detail || t("err.generic") });
+        return;
+      }
+      const data = await res.json() as { job_id: string; total: number; status: string };
+      persistBulkJob(data.job_id);
+      setBulkStatus({
+        job_id: data.job_id,
+        status: "processing",
+        total: data.total,
+        processed: 0,
+        updated: 0,
+        unchanged: 0,
+        errors: 0,
+        field_counts: {},
+        started_at: new Date().toISOString(),
+        completed_at: null,
+        error_msg: null,
+        can_undo: false,
+      });
+      startBulkPolling(data.job_id);
+      setSelectedIds(new Set());
+    } catch {
+      setImportMsg({ type: "err", text: t("err.generic") });
+    }
+  }
+
+  async function handleBulkUndo() {
+    if (!bulkStatus || !bulkStatus.can_undo) return;
+    if (!confirm(`Bulk-Verbesserung von ${bulkStatus.updated} Eintrag/Einträgen rückgängig machen?`)) return;
+    setBulkUndoing(true);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/refresh-meta-bulk/${bulkStatus.job_id}/undo`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
+        setImportMsg({ type: "err", text: err.detail || t("err.generic") });
+        return;
+      }
+      const data = await res.json() as { restored: number };
+      setBulkStatus(prev => prev ? { ...prev, can_undo: false } : prev);
+      setImportMsg({ type: "ok", text: `${data.restored} Eintrag/Einträge wiederhergestellt.` });
+      await loadAllRef.current();
+    } catch {
+      setImportMsg({ type: "err", text: t("err.generic") });
+    } finally {
+      setBulkUndoing(false);
+    }
+  }
+
+  function handleDismissBulkBanner() {
+    persistBulkJob(null);
+    setBulkStatus(null);
+    setBulkAuditOpen(false);
+    stopBulkPolling();
+  }
+
   function toggleSort(k: SortKey) {
     if (sortKey === k) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(k); setSortDir("asc"); }
@@ -1346,6 +1630,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => { loadAllRef.current = loadAll; }, [loadAll]);
 
   // Nach abgeschlossenem Upload (via Context) die Einträge neu laden
   const firstReloadKey = useRef(reloadKey);
@@ -1907,6 +2192,15 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       </div>
 
       {/* Import status */}
+      {bulkStatus && (
+        <BulkRefreshBanner
+          status={bulkStatus}
+          onUndo={handleBulkUndo}
+          onShowDetails={() => setBulkAuditOpen(true)}
+          onDismiss={handleDismissBulkBanner}
+          undoing={bulkUndoing}
+        />
+      )}
       {importMsg && (
         <div className={`mx-3 mt-2 shrink-0 rounded-lg px-3 py-2 text-xs flex items-center gap-2 ${importMsg.type === "ok" ? "bg-emerald-950/50 border border-emerald-800/50 text-emerald-300" : "bg-red-950/50 border border-red-800/50 text-red-300"}`}>
           {importMsg.type === "ok" ? "✓" : "⚠️"} {importMsg.text}
@@ -2019,24 +2313,38 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
           </div>
 
           {/* Selektions-Aktionen — bleibt sichtbar beim Scrollen (außerhalb des Scroll-Containers) */}
-          {selectedIds.size > 0 && (
-            <div className="shrink-0 flex items-center gap-3 px-3 py-1.5 bg-[var(--accent-10)] border-y border-[var(--accent-30)] text-[11px] text-[var(--accent-light)]">
-              <span>{selectedIds.size} ausgewählt</span>
-              <button onClick={() => setSelectedIds(new Set())} className="hover:underline">Auswahl aufheben</button>
-              <button onClick={() => handleExportPdfs(Array.from(selectedIds))}
-                className="hover:underline flex items-center gap-1">
-                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                PDFs exportieren
-              </button>
-              <button onClick={() => {
-                if (!confirm(`${selectedIds.size} Einträge wirklich löschen?`)) return;
-                Array.from(selectedIds).forEach(id => handleDelete(id));
-                setSelectedIds(new Set());
-              }} className="text-red-400 hover:underline">Löschen</button>
-            </div>
-          )}
+          {selectedIds.size > 0 && (() => {
+            const selWithPdf = Array.from(selectedIds).filter(id => entries.find(e => e.id === id)?.pdf_s3_key).length;
+            const bulkBusy = bulkStatus?.status === "processing";
+            return (
+              <div className="shrink-0 flex items-center gap-3 px-3 py-1.5 bg-[var(--accent-10)] border-y border-[var(--accent-30)] text-[11px] text-[var(--accent-light)] flex-wrap">
+                <span>{selectedIds.size} ausgewählt</span>
+                <button onClick={() => setSelectedIds(new Set())} className="hover:underline">Auswahl aufheben</button>
+                <button onClick={() => handleExportPdfs(Array.from(selectedIds))}
+                  className="hover:underline flex items-center gap-1">
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  PDFs exportieren
+                </button>
+                <button
+                  onClick={handleStartBulkRefresh}
+                  disabled={selWithPdf === 0 || bulkBusy}
+                  title={selWithPdf === 0 ? "Keiner der ausgewählten Einträge hat ein PDF" : bulkBusy ? "Bulk-Refresh läuft bereits" : ""}
+                  className="hover:underline flex items-center gap-1 disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed">
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10"/><path d="M20.49 15A9 9 0 015.64 18.36L1 14"/>
+                  </svg>
+                  PDF-Metadaten verbessern{selWithPdf > 0 && selWithPdf !== selectedIds.size ? ` (${selWithPdf})` : ""}
+                </button>
+                <button onClick={() => {
+                  if (!confirm(`${selectedIds.size} Einträge wirklich löschen?`)) return;
+                  Array.from(selectedIds).forEach(id => handleDelete(id));
+                  setSelectedIds(new Set());
+                }} className="text-red-400 hover:underline">Löschen</button>
+              </div>
+            );
+          })()}
 
           {loading ? (
             <div className="flex items-center justify-center flex-1 text-gray-600 text-xs">Lade…</div>
@@ -2219,6 +2527,11 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
           applying={applyingMeta}
           errorMsg={applyMetaError}
         />
+      )}
+
+      {/* Bulk-Refresh Auswertung */}
+      {bulkAuditOpen && bulkStatus && (
+        <BulkRefreshAuditModal status={bulkStatus} onClose={() => setBulkAuditOpen(false)} />
       )}
     </WindowFrame>
   );

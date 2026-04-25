@@ -73,6 +73,8 @@ class LiteratureEntry(Base):
     # Backup vor letztem 'Metadaten aus PDF verbessern' (für Undo)
     metadata_backup: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     metadata_backup_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Job-ID des Bulk-Refresh, falls Backup von einem Bulk-Lauf stammt (für granulares Bulk-Undo)
+    metadata_backup_job_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Herkunft: manual | ris | endnote_xml
     import_source: Mapped[str] = mapped_column(String(32), default="manual")

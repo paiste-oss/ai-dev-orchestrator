@@ -962,12 +962,292 @@ async def restore_entry_meta(
             setattr(entry, k, v)
     entry.metadata_backup = None
     entry.metadata_backup_at = None
+    entry.metadata_backup_job_id = None
     entry.extracted_text = _sanitize_pg_text(_build_extracted_text(entry))
     _deindex_entry(entry)
     _index_entry(entry)
     await db.commit()
     await db.refresh(entry)
     return entry
+
+
+# ── Bulk Refresh-Meta (Stufe 2) ───────────────────────────────────────────────
+
+_BULK_META_REDIS_TTL = 6 * 3600  # 6 Stunden
+
+
+class BulkRefreshRequest(BaseModel):
+    entry_ids: list[uuid.UUID]
+
+
+class BulkRefreshStartResponse(BaseModel):
+    job_id: str
+    total: int
+    status: str  # "processing"
+
+
+class BulkRefreshStatusResponse(BaseModel):
+    job_id: str
+    status: str  # "processing" | "done" | "error"
+    total: int
+    processed: int
+    updated: int
+    unchanged: int
+    errors: int
+    field_counts: dict[str, int]
+    started_at: str
+    completed_at: str | None = None
+    error_msg: str | None = None
+    can_undo: bool = False
+
+
+class BulkRefreshUndoResponse(BaseModel):
+    restored: int
+
+
+def _bulk_redis_key(customer_id: uuid.UUID, job_id: str) -> str:
+    return f"lit_bulk_meta:{customer_id}:{job_id}"
+
+
+async def _bulk_meta_refresh_task(
+    entry_ids: list[str],
+    customer_id_str: str,
+    job_id: str,
+) -> None:
+    """Background: für jeden Eintrag PDF-Meta extrahieren, Smart-Merge anwenden,
+    Backup mit Job-ID setzen und committen. Status nach jedem Eintrag in Redis schreiben."""
+    import redis.asyncio as aioredis
+    from core.config import settings
+    from core.database import AsyncSessionLocal
+
+    customer_id = uuid.UUID(customer_id_str)
+    redis_key = _bulk_redis_key(customer_id, job_id)
+    r = aioredis.from_url(settings.redis_url)
+
+    state: dict[str, Any] = {
+        "job_id": job_id,
+        "status": "processing",
+        "total": len(entry_ids),
+        "processed": 0,
+        "updated": 0,
+        "unchanged": 0,
+        "errors": 0,
+        "field_counts": {},
+        "started_at": datetime.utcnow().isoformat(),
+        "completed_at": None,
+        "error_msg": None,
+        "can_undo": False,
+    }
+
+    async def _publish() -> None:
+        await r.set(redis_key, _json.dumps(state), ex=_BULK_META_REDIS_TTL)
+
+    try:
+        await _publish()
+
+        for eid_str in entry_ids:
+            try:
+                async with AsyncSessionLocal() as db:
+                    entry = await db.get(LiteratureEntry, uuid.UUID(eid_str))
+                    if not entry or not entry.is_active or entry.customer_id != customer_id:
+                        state["errors"] += 1
+                        state["processed"] += 1
+                        await _publish()
+                        continue
+                    if not entry.pdf_s3_key:
+                        state["unchanged"] += 1
+                        state["processed"] += 1
+                        await _publish()
+                        continue
+
+                    extracted = await _extract_pdf_meta_for_entry(entry)
+                    if extracted is None:
+                        state["errors"] += 1
+                        state["processed"] += 1
+                        await _publish()
+                        continue
+
+                    proposed = _compute_proposed_changes(entry, extracted)
+                    if not proposed:
+                        state["unchanged"] += 1
+                        state["processed"] += 1
+                        await _publish()
+                        continue
+
+                    # Backup vor Änderung — mit Job-ID für Bulk-Undo
+                    entry.metadata_backup = _entry_to_meta_dict(entry)
+                    entry.metadata_backup_at = datetime.utcnow()
+                    entry.metadata_backup_job_id = job_id
+
+                    for k, v in proposed.items():
+                        setattr(entry, k, v)
+                        state["field_counts"][k] = state["field_counts"].get(k, 0) + 1
+
+                    entry.extracted_text = _sanitize_pg_text(_build_extracted_text(entry))
+                    _deindex_entry(entry)
+                    _index_entry(entry)
+                    await db.commit()
+
+                    state["updated"] += 1
+                    state["processed"] += 1
+                    state["can_undo"] = True
+                    await _publish()
+            except Exception as exc:
+                _log.warning("[Literatur/Bulk-Meta] Eintrag %s fehlgeschlagen: %s", eid_str, exc)
+                state["errors"] += 1
+                state["processed"] += 1
+                await _publish()
+
+        state["status"] = "done"
+        state["completed_at"] = datetime.utcnow().isoformat()
+        await _publish()
+        _log.info(
+            "[Literatur/Bulk-Meta] Job %s fertig: %d updated, %d unchanged, %d errors",
+            job_id, state["updated"], state["unchanged"], state["errors"],
+        )
+    except Exception as exc:
+        _log.error("[Literatur/Bulk-Meta] Job %s abgebrochen: %s", job_id, exc)
+        state["status"] = "error"
+        state["error_msg"] = str(exc)[:300]
+        state["completed_at"] = datetime.utcnow().isoformat()
+        await _publish()
+    finally:
+        await r.aclose()
+
+
+@router.post("/refresh-meta-bulk", response_model=BulkRefreshStartResponse)
+async def start_bulk_refresh_meta(
+    req: BulkRefreshRequest,
+    background_tasks: BackgroundTasks,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Startet Hintergrund-Job für Bulk-Refresh der PDF-Metadaten.
+    Gilt nur für Einträge mit angehängter PDF; Conservative-Smart-Merge
+    (übernimmt nur klare Verbesserungen automatisch)."""
+    if not req.entry_ids:
+        raise HTTPException(status_code=422, detail="Keine Einträge ausgewählt")
+    if len(req.entry_ids) > 1000:
+        raise HTTPException(status_code=422, detail="Maximal 1000 Einträge pro Bulk-Lauf")
+
+    # Filter: nur eigene aktive Einträge mit PDF
+    result = await db.execute(
+        select(LiteratureEntry.id).where(
+            LiteratureEntry.id.in_(req.entry_ids),
+            LiteratureEntry.customer_id == user.id,
+            LiteratureEntry.is_active.is_(True),
+            LiteratureEntry.pdf_s3_key.isnot(None),
+        )
+    )
+    valid_ids = [str(r[0]) for r in result.all()]
+    if not valid_ids:
+        raise HTTPException(status_code=422, detail="Keine der ausgewählten Einträge hat ein PDF angehängt")
+
+    job_id = uuid.uuid4().hex
+    redis_key = _bulk_redis_key(user.id, job_id)
+
+    # Initial-State direkt setzen (synchron) damit Frontend sofort polln kann
+    import redis.asyncio as aioredis
+    from core.config import settings as _settings
+    r = aioredis.from_url(_settings.redis_url)
+    try:
+        await r.set(redis_key, _json.dumps({
+            "job_id": job_id,
+            "status": "processing",
+            "total": len(valid_ids),
+            "processed": 0,
+            "updated": 0,
+            "unchanged": 0,
+            "errors": 0,
+            "field_counts": {},
+            "started_at": datetime.utcnow().isoformat(),
+            "completed_at": None,
+            "error_msg": None,
+            "can_undo": False,
+        }), ex=_BULK_META_REDIS_TTL)
+    finally:
+        await r.aclose()
+
+    background_tasks.add_task(_bulk_meta_refresh_task, valid_ids, str(user.id), job_id)
+    _log.info("[Literatur/Bulk-Meta] Job %s gestartet (%d Einträge) für Kunde %s", job_id, len(valid_ids), user.id)
+    return BulkRefreshStartResponse(job_id=job_id, total=len(valid_ids), status="processing")
+
+
+@router.get("/refresh-meta-bulk/{job_id}", response_model=BulkRefreshStatusResponse)
+async def get_bulk_refresh_status(
+    job_id: str,
+    user: Customer = Depends(get_current_user),
+):
+    if not re.match(r'^[a-f0-9]{32}$', job_id):
+        raise HTTPException(status_code=422, detail="Ungültige Job-ID")
+
+    import redis.asyncio as aioredis
+    from core.config import settings as _settings
+    r = aioredis.from_url(_settings.redis_url)
+    try:
+        raw = await r.get(_bulk_redis_key(user.id, job_id))
+    finally:
+        await r.aclose()
+
+    if not raw:
+        raise HTTPException(status_code=404, detail="Job nicht gefunden oder abgelaufen")
+    data = _json.loads(raw)
+    return BulkRefreshStatusResponse(**data)
+
+
+@router.post("/refresh-meta-bulk/{job_id}/undo", response_model=BulkRefreshUndoResponse)
+async def undo_bulk_refresh_meta(
+    job_id: str,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stellt alle Einträge wieder her, die in diesem Bulk-Job geändert wurden."""
+    if not re.match(r'^[a-f0-9]{32}$', job_id):
+        raise HTTPException(status_code=422, detail="Ungültige Job-ID")
+
+    result = await db.execute(
+        select(LiteratureEntry).where(
+            LiteratureEntry.customer_id == user.id,
+            LiteratureEntry.is_active.is_(True),
+            LiteratureEntry.metadata_backup_job_id == job_id,
+        )
+    )
+    entries = list(result.scalars().all())
+    if not entries:
+        raise HTTPException(status_code=404, detail="Keine wiederherstellbaren Einträge zu diesem Job")
+
+    restored = 0
+    for entry in entries:
+        if not entry.metadata_backup:
+            continue
+        for k, v in entry.metadata_backup.items():
+            if k in _META_FIELDS:
+                setattr(entry, k, v)
+        entry.metadata_backup = None
+        entry.metadata_backup_at = None
+        entry.metadata_backup_job_id = None
+        entry.extracted_text = _sanitize_pg_text(_build_extracted_text(entry))
+        _deindex_entry(entry)
+        _index_entry(entry)
+        restored += 1
+
+    await db.commit()
+
+    # Redis-Status auf undone setzen, damit Frontend Undo-Button entfernen kann
+    import redis.asyncio as aioredis
+    from core.config import settings as _settings
+    r = aioredis.from_url(_settings.redis_url)
+    try:
+        raw = await r.get(_bulk_redis_key(user.id, job_id))
+        if raw:
+            data = _json.loads(raw)
+            data["can_undo"] = False
+            await r.set(_bulk_redis_key(user.id, job_id), _json.dumps(data), ex=_BULK_META_REDIS_TTL)
+    finally:
+        await r.aclose()
+
+    _log.info("[Literatur/Bulk-Meta] Undo Job %s: %d wiederhergestellt", job_id, restored)
+    return BulkRefreshUndoResponse(restored=restored)
 
 
 # ── PDF Anhang ────────────────────────────────────────────────────────────────
