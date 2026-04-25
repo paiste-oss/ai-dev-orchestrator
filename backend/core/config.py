@@ -131,6 +131,11 @@ class Settings(BaseSettings):
     firebase_credentials_path: str = ""   # z.B. /secrets/firebase-service-account.json
     firebase_project_id: str = ""         # Projekt-ID aus Firebase Console
 
+    # Phase A — Wissenspool: Email für Crossref/Unpaywall Polite-Pool.
+    # Beide APIs identifizieren Aufrufer per Email; das ist KEINE Authentifizierung,
+    # nur Höflichkeit und besseres Rate-Limiting.
+    literature_api_email: str = "chguntlin@hotmail.com"
+
     # Dev Orchestrator — Projekt-Root im Container
     project_root: str = "/project"
 

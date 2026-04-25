@@ -59,6 +59,52 @@ LIBRARY_TOOL_DEFS = [
         },
     },
     {
+        "name": "literature_global_search",
+        "description": (
+            "Durchsucht den GLOBALEN Wissenspool (Crossref/Unpaywall-Anreicherung aller "
+            "Baddi-Nutzer-Bibliotheken) via Volltext-Suche auf Titel + Abstract. "
+            "Nutze dieses Tool wenn der Nutzer nach Papern fragt, die NICHT in seiner "
+            "eigenen Bibliothek sind, oder wenn 'library_search' nichts gefunden hat. "
+            "Resultate enthalten DOI, Titel, Autoren, Jahr, Journal, Abstract und ein "
+            "Flag 'in_my_library' das anzeigt ob der Nutzer das Paper schon hat. "
+            "Bei Open-Access-Papern (oa_url gesetzt) gibt es einen direkten PDF-Link."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Suchbegriff (Titel-Wörter oder Abstract-Konzepte).",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max. Anzahl Treffer (1-50). Default: 10.",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "literature_get_by_doi",
+        "description": (
+            "Holt vollständige Metadaten zu einem Paper anhand der DOI. Nutze "
+            "dieses Tool wenn der Nutzer eine konkrete DOI nennt oder wenn aus "
+            "'literature_global_search' eine Detailansicht eines Treffers gewünscht "
+            "ist. Bei unbekannter DOI wird sie on-demand bei Crossref/Unpaywall "
+            "abgefragt (kann ~10s dauern)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "doi": {
+                    "type": "string",
+                    "description": "DOI im Format '10.xxxx/yyy' — mit oder ohne https://doi.org/ Prefix.",
+                },
+            },
+            "required": ["doi"],
+        },
+    },
+    {
         "name": "library_recent",
         "description": (
             "Zeigt die zuletzt hinzugefügten Bibliotheks-Einträge. Nutze für Fragen wie "

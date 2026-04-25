@@ -39,6 +39,7 @@ import models.device_token      # noqa: F401
 import models.literature_entry  # noqa: F401
 import models.literature_group   # noqa: F401
 import models.literature_orphan_pdf  # noqa: F401
+import models.literature_global_index  # noqa: F401
 
 os.environ["OPENAI_API_KEY"] = settings.openai_api_key or "NA"
 

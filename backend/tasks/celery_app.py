@@ -16,6 +16,7 @@ celery_app = Celery(
         "tasks.knowledge_ingestion",
         "tasks.dolibarr_journal",
         "tasks.health_monitor",
+        "tasks.literature_enrichment_task",
     ],
 )
 

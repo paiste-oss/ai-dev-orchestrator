@@ -177,6 +177,103 @@ async def _handle_library(tool_name: str, tool_input: dict, customer_id: str | N
                     return {"error": "Dokument nicht gefunden oder nicht zugreifbar."}
                 return _format_doc_entry(d, with_text=True)
 
+    # ── literature_global_search ───────────────────────────────────────────
+    if tool_name == "literature_global_search":
+        query = (tool_input.get("query") or "").strip()
+        if not query:
+            return {"error": "Suchbegriff fehlt."}
+        limit = max(1, min(int(tool_input.get("limit") or 10), 50))
+
+        from models.literature_global_index import LiteratureGlobalIndex
+        async with AsyncSessionLocal() as db:
+            tsv = sa_func.to_tsvector("simple",
+                sa_func.coalesce(LiteratureGlobalIndex.title, "") + " " +
+                sa_func.coalesce(LiteratureGlobalIndex.abstract, ""))
+            tsq = sa_func.plainto_tsquery("simple", query)
+            rank = sa_func.ts_rank(tsv, tsq)
+            stmt = (
+                select(LiteratureGlobalIndex)
+                .where(tsv.op("@@")(tsq))
+                .where(LiteratureGlobalIndex.enrichment_status == "enriched")
+                .order_by(rank.desc())
+                .limit(limit)
+            )
+            rows = (await db.execute(stmt)).scalars().all()
+
+            my_dois: set[str] = set()
+            if rows:
+                my_q = await db.execute(
+                    select(LiteratureEntry.doi).where(
+                        LiteratureEntry.customer_id == customer_uuid,
+                        LiteratureEntry.is_active.is_(True),
+                        LiteratureEntry.doi.in_([r.doi for r in rows]),
+                    )
+                )
+                my_dois = {(d or "").strip().lower() for (d,) in my_q.all() if d}
+
+        results = []
+        for r in rows:
+            results.append({
+                "doi": r.doi,
+                "title": r.title,
+                "authors": r.authors or [],
+                "year": r.year,
+                "journal": r.journal,
+                "abstract": (r.abstract or "")[:600],
+                "oa_url": r.oa_url,
+                "oa_status": r.oa_status,
+                "in_my_library": r.doi in my_dois,
+            })
+        return {"query": query, "count": len(results), "results": results}
+
+    # ── literature_get_by_doi ──────────────────────────────────────────────
+    if tool_name == "literature_get_by_doi":
+        raw_doi = (tool_input.get("doi") or "").strip()
+        if not raw_doi:
+            return {"error": "DOI fehlt."}
+
+        from models.literature_global_index import LiteratureGlobalIndex
+        from services.literature_enrichment import enrich_doi, normalize_doi
+
+        norm = normalize_doi(raw_doi)
+        if not norm:
+            return {"error": f"Ungültige DOI: {raw_doi}"}
+
+        async with AsyncSessionLocal() as db:
+            rec = await db.get(LiteratureGlobalIndex, norm)
+            if not rec or rec.enrichment_status == "pending":
+                rec = await enrich_doi(db, norm)
+                await db.commit()
+            if not rec or rec.enrichment_status == "failed_404":
+                return {"error": f"DOI {norm} nicht in Crossref/Unpaywall gefunden."}
+
+            # In-Library-Check
+            my_q = await db.execute(
+                select(LiteratureEntry.id).where(
+                    LiteratureEntry.customer_id == customer_uuid,
+                    LiteratureEntry.is_active.is_(True),
+                    LiteratureEntry.doi == norm,
+                ).limit(1)
+            )
+            in_my = my_q.scalar_one_or_none() is not None
+
+        return {
+            "doi": rec.doi,
+            "title": rec.title,
+            "authors": rec.authors or [],
+            "year": rec.year,
+            "journal": rec.journal,
+            "volume": rec.volume,
+            "issue": rec.issue,
+            "pages": rec.pages,
+            "publisher": rec.publisher,
+            "abstract": rec.abstract,
+            "oa_url": rec.oa_url,
+            "oa_status": rec.oa_status,
+            "oa_license": rec.oa_license,
+            "in_my_library": in_my,
+        }
+
     # ── library_recent ──────────────────────────────────────────────────────
     if tool_name == "library_recent":
         days = max(1, min(int(tool_input.get("days") or 7), 90))

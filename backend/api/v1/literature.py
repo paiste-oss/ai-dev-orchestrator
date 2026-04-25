@@ -33,7 +33,7 @@ from slowapi.util import get_remote_address
 
 limiter = Limiter(key_func=get_remote_address)
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
@@ -306,6 +306,19 @@ def _deindex_entry(entry: LiteratureEntry) -> None:
             _log.warning("Qdrant-Deindexierung fehlgeschlagen: %s", e)
 
 
+def _trigger_global_enrichment(doi: str | None) -> None:
+    """Feuer-und-vergiss: schickt eine DOI an den Celery-Worker, der sie in
+    den globalen Wissenspool indexiert. Fehler beim Trigger sind nicht
+    kritisch — Worker offline ist akzeptabel."""
+    if not doi:
+        return
+    try:
+        from tasks.literature_enrichment_task import enrich_doi_async
+        enrich_doi_async.delay(doi)
+    except Exception as exc:
+        _log.info("[Literatur/Global-Trigger] %s: %s — Worker evtl. offline", doi, exc)
+
+
 async def _create_entry_from_dict(
     data: dict[str, Any],
     customer_id: uuid.UUID,
@@ -340,6 +353,8 @@ async def _create_entry_from_dict(
     if index:
         await db.flush()  # ID für sofortige Qdrant-Indexierung nötig
         _index_entry(entry)
+    # Phase A — globale Anreicherung anstossen (asynchron via Celery)
+    _trigger_global_enrichment(entry.doi)
     return entry
 
 
@@ -1304,6 +1319,160 @@ async def undo_bulk_refresh_meta(
 
     _log.info("[Literatur/Bulk-Meta] Undo Job %s: %d wiederhergestellt", job_id, restored)
     return BulkRefreshUndoResponse(restored=restored)
+
+
+# ── Globaler Wissenspool (Phase A) ────────────────────────────────────────────
+
+class GlobalIndexEntry(BaseModel):
+    doi: str
+    title: str | None
+    authors: list[str] | None
+    year: int | None
+    journal: str | None
+    volume: str | None
+    issue: str | None
+    pages: str | None
+    publisher: str | None
+    entry_type: str | None
+    isbn: str | None
+    abstract: str | None
+    oa_status: str | None
+    oa_url: str | None
+    oa_license: str | None
+    source: str
+    enrichment_status: str
+    in_my_library: bool = False  # gesetzt vom Endpoint je nach User
+
+    model_config = {"from_attributes": True}
+
+
+class GlobalSearchResponse(BaseModel):
+    query: str
+    total: int
+    results: list[GlobalIndexEntry]
+
+
+class BackfillResponse(BaseModel):
+    enqueued: bool
+    estimated_dois: int
+    task_id: str | None = None
+
+
+@router.get("/global/search", response_model=GlobalSearchResponse)
+async def search_global_index(
+    q: str,
+    limit: int = 20,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Volltext-Suche im globalen Wissenspool (Titel + Abstract).
+    Markiert pro Treffer ob er bereits in der Library des Kunden liegt."""
+    from models.literature_global_index import LiteratureGlobalIndex
+    from sqlalchemy import func, text as sql_text
+
+    if not q.strip():
+        raise HTTPException(status_code=422, detail="Suchbegriff darf nicht leer sein")
+    limit = max(1, min(limit, 50))
+
+    # Postgres FTS — 'simple' (sprachneutral) damit DE/EN/Mischformen funktionieren
+    tsv = func.to_tsvector("simple",
+        func.coalesce(LiteratureGlobalIndex.title, "") + " " + func.coalesce(LiteratureGlobalIndex.abstract, ""))
+    tsq = func.plainto_tsquery("simple", q)
+    rank = func.ts_rank(tsv, tsq)
+
+    stmt = (
+        select(LiteratureGlobalIndex)
+        .where(tsv.op("@@")(tsq))
+        .where(LiteratureGlobalIndex.enrichment_status == "enriched")
+        .order_by(rank.desc())
+        .limit(limit)
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+
+    # Welche dieser DOIs hat der Kunde bereits?
+    if rows:
+        my_dois_q = await db.execute(
+            select(LiteratureEntry.doi).where(
+                LiteratureEntry.customer_id == user.id,
+                LiteratureEntry.is_active.is_(True),
+                LiteratureEntry.doi.in_([r.doi for r in rows]),
+            )
+        )
+        my_dois = {(d or "").strip().lower() for (d,) in my_dois_q.all() if d}
+    else:
+        my_dois = set()
+
+    results = []
+    for r in rows:
+        item = GlobalIndexEntry.model_validate(r, from_attributes=True)
+        item.in_my_library = r.doi in my_dois
+        results.append(item)
+
+    return GlobalSearchResponse(query=q, total=len(results), results=results)
+
+
+@router.get("/global/{doi:path}", response_model=GlobalIndexEntry)
+async def get_global_entry(
+    doi: str,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Details zu einem globalen Eintrag via DOI. Triggert bei Bedarf eine
+    On-Demand-Anreicherung (synchron, max ~30s) wenn die DOI noch nicht im Pool ist.
+    """
+    from models.literature_global_index import LiteratureGlobalIndex
+    from services.literature_enrichment import enrich_doi, normalize_doi
+
+    norm = normalize_doi(doi)
+    if not norm:
+        raise HTTPException(status_code=422, detail="Ungültige DOI")
+
+    rec = await db.get(LiteratureGlobalIndex, norm)
+    if not rec or rec.enrichment_status == "pending":
+        # On-demand anreichern
+        rec = await enrich_doi(db, norm)
+        await db.commit()
+        if rec is None:
+            raise HTTPException(status_code=422, detail="DOI konnte nicht aufgelöst werden")
+
+    # In-Library-Check
+    my_q = await db.execute(
+        select(LiteratureEntry.id).where(
+            LiteratureEntry.customer_id == user.id,
+            LiteratureEntry.is_active.is_(True),
+            LiteratureEntry.doi == norm,
+        ).limit(1)
+    )
+    in_my = my_q.scalar_one_or_none() is not None
+
+    out = GlobalIndexEntry.model_validate(rec, from_attributes=True)
+    out.in_my_library = in_my
+    return out
+
+
+@router.post("/global/backfill", response_model=BackfillResponse)
+async def trigger_global_backfill(
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stösst die Anreicherung aller bestehenden Einträge mit DOI an.
+    Läuft als Celery-Task, dauert je nach Bibliotheksgrösse 30-60 Min für 1000 DOIs."""
+    from sqlalchemy import distinct
+    count_q = await db.execute(
+        select(func.count(distinct(LiteratureEntry.doi))).where(
+            LiteratureEntry.is_active.is_(True),
+            LiteratureEntry.doi.isnot(None),
+        )
+    )
+    estimated = int(count_q.scalar() or 0)
+
+    try:
+        from tasks.literature_enrichment_task import backfill_global_index
+        result = backfill_global_index.delay()
+        return BackfillResponse(enqueued=True, estimated_dois=estimated, task_id=result.id)
+    except Exception as exc:
+        _log.error("[Global-Backfill] Trigger fehlgeschlagen: %s", exc)
+        raise HTTPException(status_code=503, detail="Celery-Worker nicht erreichbar")
 
 
 # ── Orphan PDFs (Stufe 3 — Postfach für nicht-zugeordnete PDFs) ───────────────
