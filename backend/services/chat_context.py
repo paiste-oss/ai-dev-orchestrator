@@ -122,7 +122,7 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
                 LiteratureEntry.baddi_readable.is_(True),
             )
             .order_by(LiteratureEntry.created_at.desc())
-            .limit(30)
+            .limit(500)  # Kompakte Liste — bei vielen Einträgen wird die Darstellung im Prompt verkürzt
         )
         literature_entries = lit_result.scalars().all()
     except Exception as e:

@@ -243,7 +243,12 @@ def _build_dynamic_block(
 
     if literature_entries:
         lit_parts: list[str] = []
-        for e in literature_entries[:20]:
+        total = len(literature_entries)
+        # Bei vielen Einträgen kompakte Darstellung (nur Titel/Autor/Jahr) —
+        # Abstract/Notizen würden den Prompt sprengen. Bis ~30 Einträge volle Details.
+        compact = total > 30
+        max_entries = total  # alle anzeigen, kein Cut-Off
+        for e in literature_entries[:max_entries]:
             authors_str = ", ".join(e.authors[:3]) if e.authors else ""
             year_str = f" ({e.year})" if e.year else ""
             type_label = "Paper" if e.entry_type == "paper" else "Buch"
@@ -254,15 +259,19 @@ def _build_dynamic_block(
                 header += f" — {e.journal}"
             if e.publisher:
                 header += f" — {e.publisher}"
-            abstract = (e.abstract or "")[:400]
-            if abstract:
-                header += f"\nAbstract: {abstract}"
-            if e.notes:
-                header += f"\nNotizen: {e.notes[:200]}"
+            if not compact:
+                abstract = (e.abstract or "")[:400]
+                if abstract:
+                    header += f"\nAbstract: {abstract}"
+                if e.notes:
+                    header += f"\nNotizen: {e.notes[:200]}"
             lit_parts.append(header)
+        sep = "\n" if compact else "\n\n"
+        count_note = f"\nDie Bibliothek umfasst {total} Einträge (alle hier aufgelistet)." if compact else ""
         parts.append(
             f"\nLITERATUR VON {first_name.upper()} (Bibliothek — für Recherche nutzbar):\n"
-            + "\n\n".join(lit_parts)
+            + sep.join(lit_parts)
+            + count_note
             + "\nDu kannst auf diese Literatur eingehen und darauf verweisen."
         )
 
