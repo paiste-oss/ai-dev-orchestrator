@@ -231,6 +231,20 @@ class UploadStatusResponse(BaseModel):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def _content_disposition(mode: str, raw_name: str, ext: str = "") -> str:
+    """RFC-konformer Content-Disposition-Header.
+    Latin-1 für 'filename=' (ASCII-Fallback), UTF-8 für 'filename*=' — sonst
+    schmeisst Starlette/Uvicorn UnicodeEncodeError bei Sonderzeichen wie U+2010.
+    """
+    from urllib.parse import quote
+    base = (raw_name or "datei").strip()[:120]
+    ascii_safe = re.sub(r"[^A-Za-z0-9 \-_.]", "_", base).strip() or "datei"
+    return (
+        f'{mode}; filename="{ascii_safe}{ext}"; '
+        f"filename*=UTF-8''{quote(base + ext, safe='')}"
+    )
+
+
 def _sanitize_pg_text(text: str | None) -> str | None:
     """Entfernt NUL-Bytes und andere für PostgreSQL UTF-8-Felder verbotene Zeichen.
     PDFs enthalten oft \\x00 von Schriftart-Encodings — die brechen den DB-Insert.
@@ -584,11 +598,9 @@ async def export_pdfs(
         except Exception as exc:
             _log.error("[Export] PDF-Download fehlgeschlagen für %s: %s", e.id, exc)
             raise HTTPException(status_code=500, detail="PDF konnte nicht abgerufen werden")
-        safe_title = re.sub(r"[^\w\-. ]", "_", e.title)[:120].strip() or "literatur"
-        filename = f"{safe_title}.pdf"
         return StreamingResponse(
             io.BytesIO(content), media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+            headers={"Content-Disposition": _content_disposition("attachment", e.title, ".pdf")},
         )
 
     # ZIP mit allen PDFs
@@ -1734,5 +1746,5 @@ async def download_pdf(
     return Response(
         content=file_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{entry.title[:60]}.pdf"'},
+        headers={"Content-Disposition": _content_disposition("inline", entry.title, ".pdf")},
     )
