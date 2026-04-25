@@ -565,11 +565,13 @@ function RefreshMetaModal({
   onApply,
   onCancel,
   applying,
+  errorMsg,
 }: {
   data: RefreshMetaData;
   onApply: (selectedFields: Record<string, unknown>) => void;
   onCancel: () => void;
   applying: boolean;
+  errorMsg: string | null;
 }) {
   // Zeige ALLE Felder wo PDF-Extraktion einen anderen Wert hat (auch jene
   // die smart-merge nicht von sich aus vorschlägt — User kann manuell wählen).
@@ -651,6 +653,12 @@ function RefreshMetaModal({
           )}
         </div>
 
+        {errorMsg && (
+          <div className="shrink-0 mx-5 mb-3 p-2.5 rounded-lg bg-red-950/50 border border-red-800/50 text-red-300 text-xs flex items-start gap-2">
+            <span className="shrink-0">⚠️</span>
+            <span className="break-words">{errorMsg}</span>
+          </div>
+        )}
         <div className="shrink-0 flex items-center gap-2 px-5 py-3 border-t border-white/8">
           <span className="text-[11px] text-gray-500">{selected.size} von {diffKeys.length} ausgewählt</span>
           <span className="flex-1" />
@@ -1089,6 +1097,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   const [refreshMetaData, setRefreshMetaData] = useState<RefreshMetaData | null>(null);
   const [refreshMetaEntryId, setRefreshMetaEntryId] = useState<string | null>(null);
   const [applyingMeta, setApplyingMeta] = useState(false);
+  const [applyMetaError, setApplyMetaError] = useState<string | null>(null);
 
   async function handleRefreshMeta(entry: LitEntry) {
     if (!entry.pdf_s3_key) return;
@@ -1117,22 +1126,32 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   async function handleApplyMeta(fields: Record<string, unknown>) {
     if (!refreshMetaEntryId) return;
     setApplyingMeta(true);
+    setApplyMetaError(null);
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/literature/${refreshMetaEntryId}/apply-meta`, {
         method: "POST",
         body: JSON.stringify({ fields }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
-        setImportMsg({ type: "err", text: err.detail || t("err.generic") });
+        const errBody = await res.json().catch(() => ({ detail: `HTTP ${res.status}` })) as { detail?: string | object };
+        const detail = typeof errBody.detail === "string" ? errBody.detail : JSON.stringify(errBody.detail ?? errBody);
+        console.error("[Literatur] apply-meta fehlgeschlagen:", res.status, errBody);
+        setApplyMetaError(`Speichern fehlgeschlagen (${res.status}): ${detail}`);
         return;
       }
       const updated: LitEntry = await res.json();
       setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
       if (selected?.id === updated.id) setSelected(updated);
+      // Modal schliessen — auch wenn ein State-Update parallel laufen sollte,
+      // setzen wir explizit beide Werte:
       setRefreshMetaData(null);
       setRefreshMetaEntryId(null);
+      setApplyMetaError(null);
       setImportMsg({ type: "ok", text: `${Object.keys(fields).length} Feld(er) aus PDF aktualisiert.` });
+    } catch (err) {
+      console.error("[Literatur] apply-meta Exception:", err);
+      const msg = err instanceof Error ? err.message : "";
+      setApplyMetaError(msg === "ERR_NETWORK" ? t("err.network") : msg || t("err.generic"));
     } finally {
       setApplyingMeta(false);
     }
@@ -2195,9 +2214,10 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       {refreshMetaData && (
         <RefreshMetaModal
           data={refreshMetaData}
-          onCancel={() => { setRefreshMetaData(null); setRefreshMetaEntryId(null); }}
+          onCancel={() => { setRefreshMetaData(null); setRefreshMetaEntryId(null); setApplyMetaError(null); }}
           onApply={handleApplyMeta}
           applying={applyingMeta}
+          errorMsg={applyMetaError}
         />
       )}
     </WindowFrame>
