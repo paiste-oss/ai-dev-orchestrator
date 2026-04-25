@@ -54,6 +54,7 @@ interface LitEntry {
   read_later: boolean;
   group_ids: string[];
   has_meta_backup?: boolean;
+  meta_refreshed_count?: number;
   import_source: string;
   created_at: string;
 }
@@ -203,6 +204,12 @@ function DetailPanel({
         </svg>
       </button>
       <span className="flex-1" />
+      {entry && (entry.meta_refreshed_count ?? 0) > 0 && (
+        <span title={`PDF-Metadaten ${entry.meta_refreshed_count}× verbessert`}
+          className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-emerald-500/15 text-emerald-300/90 border border-emerald-500/20">
+          ✓ {entry.meta_refreshed_count}×
+        </span>
+      )}
       {entry && entry.has_meta_backup && (
         <button onClick={() => onRestoreMeta(entry)} title="Letzte Metadaten-Aktualisierung rückgängig machen"
           className="p-1 rounded text-gray-500 hover:text-amber-400 hover:bg-white/5 transition-colors">
@@ -213,7 +220,9 @@ function DetailPanel({
       )}
       {entry && entry.pdf_s3_key && (
         <button onClick={() => onRefreshMeta(entry)} disabled={refreshingMeta}
-          title="Metadaten aus PDF aktualisieren"
+          title={(entry.meta_refreshed_count ?? 0) > 0
+            ? `Metadaten aus PDF erneut prüfen (${entry.meta_refreshed_count}× durchlaufen)`
+            : "Metadaten aus PDF aktualisieren"}
           className="p-1 rounded text-gray-500 hover:text-[var(--accent-light)] hover:bg-white/5 transition-colors disabled:opacity-40">
           {refreshingMeta ? <IconSpinner /> : (
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1637,11 +1646,10 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
 
   async function handleStartBulkRefresh() {
     const ids = Array.from(selectedIds);
-    const eligible = ids.filter(id => {
-      const e = entries.find(x => x.id === id);
-      return e?.pdf_s3_key;
-    });
-    if (eligible.length === 0) {
+    const withPdf = ids.filter(id => entries.find(x => x.id === id)?.pdf_s3_key);
+    const fresh = withPdf.filter(id => (entries.find(x => x.id === id)?.meta_refreshed_count ?? 0) === 0);
+    const alreadyDone = withPdf.length - fresh.length;
+    if (withPdf.length === 0) {
       setImportMsg({ type: "err", text: "Keine der ausgewählten Einträge hat ein PDF angehängt." });
       return;
     }
@@ -1649,19 +1657,40 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       setImportMsg({ type: "err", text: "Es läuft bereits ein Bulk-Refresh — bitte warten." });
       return;
     }
-    if (!confirm(`PDF-Metadaten von ${eligible.length} Einträg(en) verbessern? Das läuft im Hintergrund — du kannst weiterarbeiten.`)) return;
+
+    let force = false;
+    let toProcess = fresh;
+    if (fresh.length === 0 && alreadyDone > 0) {
+      // Alle ausgewählten wurden schon mal verbessert
+      if (!confirm(`Alle ${alreadyDone} ausgewählten Einträge wurden bereits geprüft. Trotzdem nochmal durchlaufen lassen?`)) return;
+      force = true;
+      toProcess = withPdf;
+    } else if (alreadyDone > 0) {
+      // Mischung — Default: nur die noch nicht durchgelaufenen
+      const ok = confirm(
+        `${fresh.length} Einträge werden geprüft.\n` +
+        `${alreadyDone} wurden bereits geprüft und werden übersprungen.\n\n` +
+        "OK = nur die neuen prüfen   ·   Abbrechen = nichts tun",
+      );
+      if (!ok) return;
+    } else {
+      if (!confirm(`PDF-Metadaten von ${fresh.length} Einträg(en) verbessern? Das läuft im Hintergrund.`)) return;
+    }
 
     try {
       const res = await apiFetch(`${BACKEND_URL}/v1/literature/refresh-meta-bulk`, {
         method: "POST",
-        body: JSON.stringify({ entry_ids: eligible }),
+        body: JSON.stringify({ entry_ids: toProcess, force }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
         setImportMsg({ type: "err", text: err.detail || t("err.generic") });
         return;
       }
-      const data = await res.json() as { job_id: string; total: number; status: string };
+      const data = await res.json() as { job_id: string; total: number; status: string; skipped_already_refreshed?: number };
+      if (data.skipped_already_refreshed && data.skipped_already_refreshed > 0) {
+        setImportMsg({ type: "ok", text: `${data.skipped_already_refreshed} bereits verbesserte Einträge übersprungen — ${data.total} werden geprüft.` });
+      }
       persistBulkJob(data.job_id);
       setBulkStatus({
         job_id: data.job_id,
@@ -2680,6 +2709,10 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
           {/* Selektions-Aktionen — bleibt sichtbar beim Scrollen (außerhalb des Scroll-Containers) */}
           {selectedIds.size > 0 && (() => {
             const selWithPdf = Array.from(selectedIds).filter(id => entries.find(e => e.id === id)?.pdf_s3_key).length;
+            const selFresh = Array.from(selectedIds).filter(id => {
+              const e = entries.find(x => x.id === id);
+              return e?.pdf_s3_key && (e.meta_refreshed_count ?? 0) === 0;
+            }).length;
             const bulkBusy = bulkStatus?.status === "processing";
             return (
               <div className="shrink-0 flex items-center gap-3 px-3 py-1.5 bg-[var(--accent-10)] border-y border-[var(--accent-30)] text-[11px] text-[var(--accent-light)] flex-wrap">
@@ -2695,12 +2728,17 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                 <button
                   onClick={handleStartBulkRefresh}
                   disabled={selWithPdf === 0 || bulkBusy}
-                  title={selWithPdf === 0 ? "Keiner der ausgewählten Einträge hat ein PDF" : bulkBusy ? "Bulk-Refresh läuft bereits" : ""}
+                  title={
+                    selWithPdf === 0 ? "Keiner der ausgewählten Einträge hat ein PDF" :
+                    bulkBusy ? "Bulk-Refresh läuft bereits" :
+                    selFresh < selWithPdf ? `${selWithPdf - selFresh} bereits geprüft — werden übersprungen` :
+                    ""
+                  }
                   className="hover:underline flex items-center gap-1 disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed">
                   <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10"/><path d="M20.49 15A9 9 0 015.64 18.36L1 14"/>
                   </svg>
-                  PDF-Metadaten verbessern{selWithPdf > 0 && selWithPdf !== selectedIds.size ? ` (${selWithPdf})` : ""}
+                  PDF-Metadaten verbessern{selFresh > 0 && selFresh !== selectedIds.size ? ` (${selFresh})` : ""}
                 </button>
                 <button onClick={() => {
                   if (!confirm(`${selectedIds.size} Einträge wirklich löschen?`)) return;

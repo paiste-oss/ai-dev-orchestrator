@@ -84,6 +84,7 @@ class LiteratureEntryOut(BaseModel):
     read_later: bool
     group_ids: list[uuid.UUID]  # many-to-many: ein Eintrag kann in mehreren Gruppen sein
     has_meta_backup: bool  # True wenn metadata_backup gesetzt ist (Undo möglich)
+    meta_refreshed_count: int = 0
     import_source: str
     created_at: datetime
 
@@ -958,6 +959,10 @@ async def apply_entry_meta(
     for k, v in fields.items():
         setattr(entry, k, v)
 
+    # Counter — Eintrag hat das Refresh-Prozedere durchlaufen
+    entry.meta_refreshed_count = (entry.meta_refreshed_count or 0) + 1
+    entry.meta_refreshed_at = datetime.utcnow()
+
     entry.extracted_text = _sanitize_pg_text(_build_extracted_text(entry))
     _deindex_entry(entry)
     _index_entry(entry)
@@ -986,6 +991,8 @@ async def restore_entry_meta(
     entry.metadata_backup = None
     entry.metadata_backup_at = None
     entry.metadata_backup_job_id = None
+    # Counter zurückdrehen — Eintrag ist wieder eligible für nächsten Bulk-Lauf
+    entry.meta_refreshed_count = max(0, (entry.meta_refreshed_count or 0) - 1)
     entry.extracted_text = _sanitize_pg_text(_build_extracted_text(entry))
     _deindex_entry(entry)
     _index_entry(entry)
@@ -1001,11 +1008,13 @@ _BULK_META_REDIS_TTL = 6 * 3600  # 6 Stunden
 
 class BulkRefreshRequest(BaseModel):
     entry_ids: list[uuid.UUID]
+    force: bool = False  # True = auch bereits verbesserte Einträge erneut durchlaufen lassen
 
 
 class BulkRefreshStartResponse(BaseModel):
     job_id: str
     total: int
+    skipped_already_refreshed: int = 0  # für Frontend-Hinweis
     status: str  # "processing"
 
 
@@ -1092,6 +1101,10 @@ async def _bulk_meta_refresh_task(
 
                     proposed = _compute_proposed_changes(entry, extracted)
                     if not proposed:
+                        # PDF angeschaut, keine Verbesserung nötig — gilt trotzdem als "durchgelaufen"
+                        entry.meta_refreshed_count = (entry.meta_refreshed_count or 0) + 1
+                        entry.meta_refreshed_at = datetime.utcnow()
+                        await db.commit()
                         state["unchanged"] += 1
                         state["processed"] += 1
                         await _publish()
@@ -1105,6 +1118,9 @@ async def _bulk_meta_refresh_task(
                     for k, v in proposed.items():
                         setattr(entry, k, v)
                         state["field_counts"][k] = state["field_counts"].get(k, 0) + 1
+
+                    entry.meta_refreshed_count = (entry.meta_refreshed_count or 0) + 1
+                    entry.meta_refreshed_at = datetime.utcnow()
 
                     entry.extracted_text = _sanitize_pg_text(_build_extracted_text(entry))
                     _deindex_entry(entry)
@@ -1150,21 +1166,31 @@ async def start_bulk_refresh_meta(
     (übernimmt nur klare Verbesserungen automatisch)."""
     if not req.entry_ids:
         raise HTTPException(status_code=422, detail="Keine Einträge ausgewählt")
-    if len(req.entry_ids) > 1000:
-        raise HTTPException(status_code=422, detail="Maximal 1000 Einträge pro Bulk-Lauf")
 
-    # Filter: nur eigene aktive Einträge mit PDF
-    result = await db.execute(
-        select(LiteratureEntry.id).where(
-            LiteratureEntry.id.in_(req.entry_ids),
-            LiteratureEntry.customer_id == user.id,
-            LiteratureEntry.is_active.is_(True),
-            LiteratureEntry.pdf_s3_key.isnot(None),
-        )
+    # Filter: nur eigene aktive Einträge mit PDF; bereits verbesserte werden
+    # standardmässig übersprungen (force=True hebt die Sperre auf).
+    base_q = select(LiteratureEntry.id, LiteratureEntry.meta_refreshed_count).where(
+        LiteratureEntry.id.in_(req.entry_ids),
+        LiteratureEntry.customer_id == user.id,
+        LiteratureEntry.is_active.is_(True),
+        LiteratureEntry.pdf_s3_key.isnot(None),
     )
-    valid_ids = [str(r[0]) for r in result.all()]
-    if not valid_ids:
+    rows = (await db.execute(base_q)).all()
+    if not rows:
         raise HTTPException(status_code=422, detail="Keine der ausgewählten Einträge hat ein PDF angehängt")
+
+    if req.force:
+        valid_ids = [str(r[0]) for r in rows]
+        skipped = 0
+    else:
+        valid_ids = [str(r[0]) for r in rows if (r[1] or 0) == 0]
+        skipped = len(rows) - len(valid_ids)
+        if not valid_ids:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Alle {skipped} ausgewählten Einträge wurden bereits verbessert. "
+                       "Setze force=true um sie erneut zu prüfen.",
+            )
 
     job_id = uuid.uuid4().hex
     redis_key = _bulk_redis_key(user.id, job_id)
@@ -1192,8 +1218,14 @@ async def start_bulk_refresh_meta(
         await r.aclose()
 
     background_tasks.add_task(_bulk_meta_refresh_task, valid_ids, str(user.id), job_id)
-    _log.info("[Literatur/Bulk-Meta] Job %s gestartet (%d Einträge) für Kunde %s", job_id, len(valid_ids), user.id)
-    return BulkRefreshStartResponse(job_id=job_id, total=len(valid_ids), status="processing")
+    _log.info(
+        "[Literatur/Bulk-Meta] Job %s gestartet (%d Einträge, %d übersprungen) für Kunde %s",
+        job_id, len(valid_ids), skipped, user.id,
+    )
+    return BulkRefreshStartResponse(
+        job_id=job_id, total=len(valid_ids),
+        skipped_already_refreshed=skipped, status="processing",
+    )
 
 
 @router.get("/refresh-meta-bulk/{job_id}", response_model=BulkRefreshStatusResponse)
@@ -1249,6 +1281,7 @@ async def undo_bulk_refresh_meta(
         entry.metadata_backup = None
         entry.metadata_backup_at = None
         entry.metadata_backup_job_id = None
+        entry.meta_refreshed_count = max(0, (entry.meta_refreshed_count or 0) - 1)
         entry.extracted_text = _sanitize_pg_text(_build_extracted_text(entry))
         _deindex_entry(entry)
         _index_entry(entry)
@@ -1675,8 +1708,10 @@ def _match_extracted_meta(
     return None, ""
 
 
-# Max. LLM-Aufrufe pro ZIP-Lauf — schützt vor unerwarteten Kosten bei Mega-ZIPs
-_MAX_LLM_FALLBACKS_PER_ZIP = 200
+# Max. LLM-Aufrufe pro ZIP-Lauf — Sicherheitsnetz gegen Mega-ZIPs.
+# Haiku-Cost ≈ 0.3 ¢/Call → 5000 Calls = ~CHF 15 worst case.
+# Für eine 3800-Eintrag-Library mit ~1000 Unmatched ist das ausreichend.
+_MAX_LLM_FALLBACKS_PER_ZIP = 5000
 
 
 @router.get("/bulk-upload-url", response_model=BulkUploadUrlResponse)

@@ -75,6 +75,10 @@ class LiteratureEntry(Base):
     metadata_backup_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Job-ID des Bulk-Refresh, falls Backup von einem Bulk-Lauf stammt (für granulares Bulk-Undo)
     metadata_backup_job_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Wie oft wurde 'Metadaten aus PDF verbessern' auf diesen Eintrag angewendet
+    # (Bulk-Lauf überspringt Einträge ≥ 1, ausser User erzwingt force=True).
+    meta_refreshed_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    meta_refreshed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Herkunft: manual | ris | endnote_xml
     import_source: Mapped[str] = mapped_column(String(32), default="manual")
