@@ -32,5 +32,12 @@ class LiteratureGroup(Base):
         "LiteratureGroup", back_populates="children", remote_side="LiteratureGroup.id"
     )
 
+    # Many-to-many — wird nicht eager geladen (kann tausende Einträge sein)
+    entries: Mapped[list["LiteratureEntry"]] = relationship(  # type: ignore
+        secondary="literature_entry_groups",
+        back_populates="groups",
+        lazy="noload",
+    )
+
     def __repr__(self) -> str:
         return f"<LiteratureGroup id={self.id} name={self.name!r} type={self.entry_type}>"

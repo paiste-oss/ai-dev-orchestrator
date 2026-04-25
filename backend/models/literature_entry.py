@@ -4,11 +4,20 @@ Unterstützt Paper (Zeitschriftenartikel) und Bücher.
 """
 import uuid
 from datetime import datetime
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database import Base
+
+
+# Many-to-many: ein Eintrag kann in mehreren Gruppen/Ordnern liegen
+literature_entry_groups = Table(
+    "literature_entry_groups",
+    Base.metadata,
+    Column("entry_id", UUID(as_uuid=True), ForeignKey("literature_entries.id", ondelete="CASCADE"), primary_key=True),
+    Column("group_id", UUID(as_uuid=True), ForeignKey("literature_groups.id", ondelete="CASCADE"), primary_key=True),
+)
 
 
 class LiteratureEntry(Base):
@@ -57,11 +66,6 @@ class LiteratureEntry(Base):
     baddi_readable: Mapped[bool] = mapped_column(Boolean, default=True)
     qdrant_point_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
-    # Gruppe / Ordner
-    group_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("literature_groups.id", ondelete="SET NULL"), nullable=True
-    )
-
     # User-Flags
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     read_later: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
@@ -74,6 +78,18 @@ class LiteratureEntry(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     customer: Mapped["Customer"] = relationship(back_populates="literature_entries")  # type: ignore
+
+    # Many-to-many: Gruppen/Ordner-Zuordnung
+    groups: Mapped[list["LiteratureGroup"]] = relationship(  # type: ignore
+        secondary=literature_entry_groups,
+        back_populates="entries",
+        lazy="selectin",
+    )
+
+    @property
+    def group_ids(self) -> list[uuid.UUID]:
+        """Pydantic from_attributes greift hier zu für LiteratureEntryOut."""
+        return [g.id for g in (self.groups or [])]
 
     def __repr__(self) -> str:
         return f"<LiteratureEntry id={self.id} type={self.entry_type} title={self.title[:40]!r}>"

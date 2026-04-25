@@ -82,7 +82,7 @@ class LiteratureEntryOut(BaseModel):
     baddi_readable: bool
     is_favorite: bool
     read_later: bool
-    group_id: uuid.UUID | None
+    group_ids: list[uuid.UUID]  # many-to-many: ein Eintrag kann in mehreren Gruppen sein
     import_source: str
     created_at: datetime
 
@@ -111,8 +111,8 @@ class LiteratureGroupRename(BaseModel):
     name: str
 
 
-class EntryGroupAssign(BaseModel):
-    group_id: uuid.UUID | None = None
+class EntryGroupsAssign(BaseModel):
+    group_ids: list[uuid.UUID] = []
 
 
 class LiteratureCreateRequest(BaseModel):
@@ -438,21 +438,34 @@ async def update_entry_flags(
     return entry
 
 
-@router.patch("/{entry_id}/group", response_model=LiteratureEntryOut)
-async def assign_entry_group(
+@router.patch("/{entry_id}/groups", response_model=LiteratureEntryOut)
+async def assign_entry_groups(
     entry_id: uuid.UUID,
-    req: EntryGroupAssign,
+    req: EntryGroupsAssign,
     user: Customer = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    """Setzt die komplette Gruppen-Zuordnung des Eintrags (replace).
+    Leere Liste entfernt aus allen Gruppen."""
     entry = await db.get(LiteratureEntry, entry_id)
     if not entry or entry.customer_id != user.id:
         raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
-    if req.group_id is not None:
-        grp = await db.get(LiteratureGroup, req.group_id)
-        if not grp or grp.customer_id != user.id:
-            raise HTTPException(status_code=404, detail="Gruppe nicht gefunden")
-    entry.group_id = req.group_id
+
+    # Dedupe + alle angegebenen Gruppen prüfen (gehören dem Kunden)
+    unique_ids = list(dict.fromkeys(req.group_ids))
+    target_groups: list[LiteratureGroup] = []
+    if unique_ids:
+        result = await db.execute(
+            select(LiteratureGroup).where(
+                LiteratureGroup.id.in_(unique_ids),
+                LiteratureGroup.customer_id == user.id,
+            )
+        )
+        target_groups = list(result.scalars().all())
+        if len(target_groups) != len(unique_ids):
+            raise HTTPException(status_code=404, detail="Eine oder mehrere Gruppen nicht gefunden")
+
+    entry.groups = target_groups
     await db.commit()
     await db.refresh(entry)
     return entry
@@ -526,11 +539,7 @@ async def delete_group(
     grp = await db.get(LiteratureGroup, group_id)
     if not grp or grp.customer_id != user.id:
         raise HTTPException(status_code=404, detail="Gruppe nicht gefunden")
-    # Einträge aus der Gruppe lösen (SET NULL via FK-Constraint, aber explizit für Subordner)
-    await db.execute(
-        select(LiteratureEntry)
-        .where(LiteratureEntry.group_id == group_id)
-    )
+    # Cascade in der Join-Tabelle (FK ondelete=CASCADE) entfernt Zuordnungen automatisch
     await db.delete(grp)
     await db.commit()
 

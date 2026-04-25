@@ -52,7 +52,7 @@ interface LitEntry {
   baddi_readable: boolean;
   is_favorite: boolean;
   read_later: boolean;
-  group_id: string | null;
+  group_ids: string[];
   import_source: string;
   created_at: string;
 }
@@ -85,6 +85,7 @@ const EMPTY_FORM: Partial<LitEntry> = {
   tags: [],
   notes: "",
   baddi_readable: true,
+  group_ids: [],
 };
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -475,10 +476,9 @@ function SortableGrid({ sortKey, sortDir, onSort, allSelected, someSelected, onT
   return (
     <div data-lit-grid="1"
       className="grid items-center gap-2 px-3 py-1.5 border-b border-white/8 sticky top-0 bg-black/40 backdrop-blur-sm z-10"
-      style={{ gridTemplateColumns: `32px 28px ${titleColWidth}px 56px 180px 180px 60px` }}>
+      style={{ gridTemplateColumns: `32px ${titleColWidth}px 56px 180px 180px 60px` }}>
       <input ref={headerRef} type="checkbox" checked={allSelected} onChange={onToggleAll}
         className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" title="Alle (de-)selektieren" />
-      <Th k="type" label="" className="text-center" />
       <div className="relative">
         <Th k="title" label="Titel" />
         {/* Resize-Handle für die Titel-Spalte */}
@@ -660,33 +660,60 @@ function EntryForm({
           </select>
         </div>
 
-        {/* Gruppe / Ordner */}
+        {/* Gruppen / Ordner — Multi-Select (Chips + Add-Dropdown) */}
         <div>
-          <label className={labelClass}>Gruppe / Ordner</label>
-          <select value={form.group_id ?? ""}
-            onChange={e => set("group_id", e.target.value || null)}
-            style={{ colorScheme: "dark" }}
-            className={`${inputClass} mt-1 cursor-pointer`}>
-            <option value="" style={{ background: "#1f2937", color: "#fff" }}>— Keine Gruppe —</option>
-            {(() => {
-              // Nur Gruppen des aktuellen Eintrag-Typs anzeigen
-              const type = form.entry_type ?? "paper";
-              const topGroups = groups.filter(g => g.entry_type === type && g.parent_id === null)
-                .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
-              return topGroups.map(top => {
-                const subFolders = groups.filter(g => g.parent_id === top.id)
+          <label className={labelClass}>Gruppen / Ordner</label>
+          <div className="mt-1 space-y-1.5">
+            {/* Bestehende Zuordnungen als Chips mit Entfernen-Button */}
+            {(form.group_ids ?? []).length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {(form.group_ids ?? []).map(gid => {
+                  const g = groups.find(grp => grp.id === gid);
+                  if (!g) return null;
+                  const parent = g.parent_id ? groups.find(p => p.id === g.parent_id) : null;
+                  const display = parent ? `${parent.name} ↳ ${g.name}` : g.name;
+                  return (
+                    <span key={gid} className="bg-amber-500/15 text-amber-300 px-2 py-0.5 rounded-full flex items-center gap-1 text-[11px] border border-amber-500/30">
+                      <IconFolder />{display}
+                      <button onClick={() => set("group_ids", (form.group_ids ?? []).filter(id => id !== gid))}
+                        className="ml-0.5 text-amber-400 hover:text-red-400" title="Entfernen">×</button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            {/* Add-Dropdown: nur Gruppen des aktuellen Typs, die noch nicht zugeordnet sind */}
+            <select value="" onChange={e => {
+              const v = e.target.value;
+              if (!v) return;
+              const next = Array.from(new Set([...(form.group_ids ?? []), v]));
+              set("group_ids", next);
+            }}
+              style={{ colorScheme: "dark" }}
+              className={`${inputClass} cursor-pointer`}>
+              <option value="" style={{ background: "#1f2937", color: "#fff" }}>+ Gruppe / Ordner hinzufügen…</option>
+              {(() => {
+                const type = form.entry_type ?? "paper";
+                const selected = new Set(form.group_ids ?? []);
+                const topGroups = groups.filter(g => g.entry_type === type && g.parent_id === null)
                   .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
-                return (
-                  <optgroup key={top.id} label={top.name} style={{ background: "#1f2937", color: "#9ca3af" }}>
-                    <option value={top.id} style={{ background: "#1f2937", color: "#fff" }}>{top.name} (Gruppe)</option>
-                    {subFolders.map(f => (
-                      <option key={f.id} value={f.id} style={{ background: "#1f2937", color: "#fff" }}>↳ {f.name}</option>
-                    ))}
-                  </optgroup>
-                );
-              });
-            })()}
-          </select>
+                return topGroups.map(top => {
+                  const subFolders = groups.filter(g => g.parent_id === top.id)
+                    .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+                  return (
+                    <optgroup key={top.id} label={top.name} style={{ background: "#1f2937", color: "#9ca3af" }}>
+                      {!selected.has(top.id) && (
+                        <option value={top.id} style={{ background: "#1f2937", color: "#fff" }}>{top.name} (Gruppe)</option>
+                      )}
+                      {subFolders.filter(f => !selected.has(f.id)).map(f => (
+                        <option key={f.id} value={f.id} style={{ background: "#1f2937", color: "#fff" }}>↳ {f.name}</option>
+                      ))}
+                    </optgroup>
+                  );
+                });
+              })()}
+            </select>
+          </div>
         </div>
 
         {/* Titel */}
@@ -957,7 +984,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       titleColRef.current = w;
       // Direkt alle Grid-Templates im DOM updaten — kein React-Re-Render
       document.querySelectorAll<HTMLElement>("[data-lit-grid='1']").forEach(el => {
-        el.style.gridTemplateColumns = `32px 28px ${w}px 56px 180px 180px 60px`;
+        el.style.gridTemplateColumns = `32px ${w}px 56px 180px 180px 60px`;
       });
     };
     const onUp = () => {
@@ -1085,22 +1112,23 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
     const res = await apiFetch(`${BACKEND_URL}/v1/literature/groups/${id}`, { method: "DELETE" });
     if (res.ok || res.status === 204) {
       setGroups(prev => prev.filter(g => g.id !== id && g.parent_id !== id));
-      setEntries(prev => prev.map(e => e.group_id === id ? { ...e, group_id: null } : e));
+      setEntries(prev => prev.map(e => e.group_ids.includes(id) ? { ...e, group_ids: e.group_ids.filter(gid => gid !== id) } : e));
       if (groupFilter === id) setGroupFilter(null);
     }
   }
 
-  async function handleAssignGroup(entryId: string, groupId: string | null) {
-    // Optimistic
-    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, group_id: groupId } : e));
-    const res = await apiFetch(`${BACKEND_URL}/v1/literature/${entryId}/group`, {
+  async function handleAssignGroup(entryId: string, groupId: string) {
+    // DnD = ADDITIV (Eintrag kann in mehreren Gruppen sein) — nicht ersetzend
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
+    if (entry.group_ids.includes(groupId)) return; // schon drin
+    const newIds = [...entry.group_ids, groupId];
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, group_ids: newIds } : e));
+    const res = await apiFetch(`${BACKEND_URL}/v1/literature/${entryId}/groups`, {
       method: "PATCH",
-      body: JSON.stringify({ group_id: groupId }),
+      body: JSON.stringify({ group_ids: newIds }),
     });
-    if (!res.ok) {
-      // Rollback — reload to be safe
-      loadAll();
-    }
+    if (!res.ok) loadAll();
   }
 
   function handleDragStart(e: React.DragEvent, entryId: string) {
@@ -1146,7 +1174,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       const grp = groups.find(g => g.id === groupFilter);
       if (grp) {
         const ids = grp.parent_id === null ? [grp.id, ...subFolderIds(grp.id)] : [grp.id];
-        if (!ids.includes(e.group_id ?? "")) return false;
+        if (!e.group_ids.some(gid => ids.includes(gid))) return false;
       }
     }
     if (!search) return true;
@@ -1220,14 +1248,17 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
         if (pdfRes.ok) saved = await pdfRes.json();
       }
 
-      // Gruppen-Zuordnung über separaten PATCH-Endpoint (akzeptiert auch null
-      // zum Entfernen — Update-Endpoint mit exclude_none=True kann das nicht)
-      const originalGroupId = isEdit ? entries.find(e => e.id === data.id)?.group_id ?? null : null;
-      const newGroupId = data.group_id ?? null;
-      if (newGroupId !== originalGroupId) {
-        const grpRes = await apiFetch(`${BACKEND_URL}/v1/literature/${saved.id}/group`, {
+      // Gruppen-Zuordnung (many-to-many) immer separat setzen — replace mode
+      const newGroupIds = data.group_ids ?? [];
+      const originalGroupIds = isEdit
+        ? (entries.find(e => e.id === data.id)?.group_ids ?? [])
+        : [];
+      const changed = newGroupIds.length !== originalGroupIds.length
+        || newGroupIds.some(g => !originalGroupIds.includes(g));
+      if (changed) {
+        const grpRes = await apiFetch(`${BACKEND_URL}/v1/literature/${saved.id}/groups`, {
           method: "PATCH",
-          body: JSON.stringify({ group_id: newGroupId }),
+          body: JSON.stringify({ group_ids: newGroupIds }),
         });
         if (grpRes.ok) saved = await grpRes.json();
       }
@@ -1469,7 +1500,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
               const subFolders = groups.filter(g => g.parent_id === grp.id)
                 .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
               const grpOpen = openGroups.has(grp.id);
-              const grpCount = entries.filter(e => e.group_id === grp.id || subFolders.some(f => f.id === e.group_id)).length;
+              const grpCount = entries.filter(e => e.group_ids.includes(grp.id) || subFolders.some(f => e.group_ids.includes(f.id))).length;
               const isAddingFolder = addingGroupFor?.parentId === grp.id;
               const isGrpActive = groupFilter === grp.id;
               const isDragOver = dragOverGroupId === grp.id;
@@ -1522,7 +1553,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                         />
                       )}
                       {subFolders.map(folder => {
-                        const folderCount = entries.filter(e => e.group_id === folder.id).length;
+                        const folderCount = entries.filter(e => e.group_ids.includes(folder.id)).length;
                         const isFolderActive = groupFilter === folder.id;
                         const isDragOverFolder = dragOverGroupId === folder.id;
                         return (
@@ -1758,7 +1789,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
             </div>
           ) : (
             <div className="flex-1 overflow-auto">
-              <div style={{ minWidth: `${32 + 28 + titleColWidth + 56 + 180 + 180 + 60 + 24}px` }}>
+              <div style={{ minWidth: `${32 + titleColWidth + 56 + 180 + 180 + 60 + 24}px` }}>
                 {/* Grid-Header */}
                 <SortableGrid sortKey={sortKey} sortDir={sortDir} onSort={toggleSort}
                   allSelected={selectedIds.size > 0 && sorted.every(e => selectedIds.has(e.id))}
@@ -1779,7 +1810,9 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                 {sorted.map(entry => {
                   const isActive = selected?.id === entry.id && (showDetail || showForm);
                   const isChecked = selectedIds.has(entry.id);
-                  const entryGroup = entry.group_id ? groups.find(g => g.id === entry.group_id) : null;
+                  const entryGroups = entry.group_ids
+                    .map(gid => groups.find(g => g.id === gid))
+                    .filter((g): g is LitGroup => !!g);
                   const hasPdf = !!entry.pdf_s3_key;
                   const yearStr = entry.year ? String(entry.year) : "";
                   const journalStr = entry.entry_type === "patent"
@@ -1793,14 +1826,17 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                       onClick={() => selectEntry(entry)}
                       title={hasPdf ? undefined : "Kein PDF hinterlegt"}
                       className={`group grid items-center gap-2 px-3 py-1.5 border-b border-white/4 cursor-pointer transition-colors border-l-2 ${isActive ? "bg-[var(--accent-10)]" : isChecked ? "bg-white/3" : "hover:bg-white/3"} ${hasPdf ? "border-l-transparent" : "border-l-amber-500/50"}`}
-                      style={{ gridTemplateColumns: `32px 28px ${titleColWidth}px 56px 180px 180px 60px` }}>
+                      style={{ gridTemplateColumns: `32px ${titleColWidth}px 56px 180px 180px 60px` }}>
                       <input type="checkbox" checked={isChecked} onClick={e => toggleRowSelect(entry.id, e)} onChange={() => {}}
                         className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" />
-                      <span className={`text-base ${hasPdf ? "" : "opacity-50"}`}>{typeIcon(entry.entry_type)}</span>
                       <div className="min-w-0">
                         <p className={`text-xs font-medium truncate ${hasPdf ? "text-white" : "text-gray-500"}`}>{entry.title}</p>
-                        {entryGroup && (
-                          <span className="text-[9px] text-amber-600/80 flex items-center gap-0.5"><IconFolder />{entryGroup.name}</span>
+                        {entryGroups.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {entryGroups.map(g => (
+                              <span key={g.id} className="text-[9px] text-amber-600/80 flex items-center gap-0.5"><IconFolder />{g.name}</span>
+                            ))}
+                          </div>
                         )}
                       </div>
                       <span className="text-[11px] text-gray-400 tabular-nums">{yearStr}</span>
