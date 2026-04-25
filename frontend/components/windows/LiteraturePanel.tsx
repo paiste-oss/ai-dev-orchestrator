@@ -650,9 +650,12 @@ function EntryForm({
           <label className={labelClass}>Typ</label>
           <select value={form.entry_type ?? "paper"}
             onChange={e => set("entry_type", e.target.value)}
+            style={{ colorScheme: "dark" }}
             className={`${inputClass} mt-1 cursor-pointer`}>
             {ENTRY_TYPES.map(val => (
-              <option key={val} value={val}>{TYPE_ICON[val]} {TYPE_LABEL_SINGULAR[val]}</option>
+              <option key={val} value={val} style={{ background: "#1f2937", color: "#fff" }}>
+                {TYPE_ICON[val]} {TYPE_LABEL_SINGULAR[val]}
+              </option>
             ))}
           </select>
         </div>
@@ -662,8 +665,9 @@ function EntryForm({
           <label className={labelClass}>Gruppe / Ordner</label>
           <select value={form.group_id ?? ""}
             onChange={e => set("group_id", e.target.value || null)}
+            style={{ colorScheme: "dark" }}
             className={`${inputClass} mt-1 cursor-pointer`}>
-            <option value="">— Keine Gruppe —</option>
+            <option value="" style={{ background: "#1f2937", color: "#fff" }}>— Keine Gruppe —</option>
             {(() => {
               // Nur Gruppen des aktuellen Eintrag-Typs anzeigen
               const type = form.entry_type ?? "paper";
@@ -673,10 +677,10 @@ function EntryForm({
                 const subFolders = groups.filter(g => g.parent_id === top.id)
                   .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
                 return (
-                  <optgroup key={top.id} label={top.name}>
-                    <option value={top.id}>{top.name} (Gruppe)</option>
+                  <optgroup key={top.id} label={top.name} style={{ background: "#1f2937", color: "#9ca3af" }}>
+                    <option value={top.id} style={{ background: "#1f2937", color: "#fff" }}>{top.name} (Gruppe)</option>
                     {subFolders.map(f => (
-                      <option key={f.id} value={f.id}>↳ {f.name}</option>
+                      <option key={f.id} value={f.id} style={{ background: "#1f2937", color: "#fff" }}>↳ {f.name}</option>
                     ))}
                   </optgroup>
                 );
