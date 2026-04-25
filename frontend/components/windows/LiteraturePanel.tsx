@@ -1343,12 +1343,12 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
 
     return (
       <div>
-        {/* Type header */}
+        {/* Type header — Klick togglt offen/zu UND filtert; kein Chevron-Icon
+             damit Paper/Bücher/Patente exakt wie Alle/Neu/Favoriten/Zu lesen ausgerichtet sind */}
         <div className="flex items-center gap-1 group/type">
           <button
             className={`flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${typeFilter === type && !groupFilter ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
             onClick={() => { onToggle(); setTypeFilter(type); setGroupFilter(null); }}>
-            <IconChevron open={open} />
             <span>{icon}</span>
             <span className="flex-1 text-left">{label}</span>
             <span className="text-[10px] text-gray-600">{count}</span>
