@@ -231,29 +231,18 @@ function DetailPanel({
           )}
         </div>
 
-        {/* PDF */}
-        <div>
-          <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">PDF</p>
-          {entry.pdf_s3_key ? (
-            <div className="flex items-center gap-2">
-              <button onClick={() => onPdfOpen(entry)}
-                className="flex items-center gap-1.5 text-[var(--accent-light)] hover:underline">
-                <span>📄</span> PDF öffnen ({Math.round(entry.pdf_size_bytes / 1024)} KB)
-              </button>
-              <button onClick={() => pdfInputRef.current?.click()}
-                className="text-gray-600 hover:text-gray-400 transition-colors">
-                <IconEdit />
-              </button>
-            </div>
-          ) : (
+        {/* PDF — nur wenn keines angehängt ist; sonst ist es schon in der Vorschau */}
+        {!entry.pdf_s3_key && (
+          <div>
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">PDF</p>
             <button onClick={() => pdfInputRef.current?.click()}
               className="flex items-center gap-1.5 text-gray-500 hover:text-gray-300 transition-colors">
               <IconUpload /> PDF anhängen
             </button>
-          )}
-          <input ref={pdfInputRef} type="file" accept=".pdf" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) onPdfUpload(entry, f); e.target.value = ""; }} />
-        </div>
+            <input ref={pdfInputRef} type="file" accept=".pdf" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) onPdfUpload(entry, f); e.target.value = ""; }} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -263,6 +252,7 @@ function DetailPanel({
 
 function PdfPreview({
   entry,
+  pendingFile,
   onOpenFullView,
   onToggleFavorite,
   onToggleReadLater,
@@ -271,6 +261,7 @@ function PdfPreview({
   deleting,
 }: {
   entry: LitEntry | null;
+  pendingFile?: File | null;
   onOpenFullView: (entry: LitEntry) => void;
   onToggleFavorite: (entry: LitEntry) => void;
   onToggleReadLater: (entry: LitEntry) => void;
@@ -283,14 +274,22 @@ function PdfPreview({
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    setError(false);
+
+    // Vorrang: hochgeladene aber noch nicht gespeicherte Datei (Neu-Modus)
+    if (pendingFile) {
+      const url = URL.createObjectURL(pendingFile);
+      setBlobUrl(url);
+      setLoading(false);
+      return () => { URL.revokeObjectURL(url); };
+    }
+
     if (!entry?.pdf_s3_key) {
       setBlobUrl(null);
-      setError(false);
       return;
     }
     let cancelled = false;
     setLoading(true);
-    setError(false);
     apiFetch(`${BACKEND_URL}/v1/literature/${entry.id}/pdf`)
       .then(async res => res.ok ? res.blob() : null)
       .then(blob => {
@@ -304,7 +303,7 @@ function PdfPreview({
       .catch(() => { if (!cancelled) setError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [entry?.id, entry?.pdf_s3_key]);
+  }, [entry?.id, entry?.pdf_s3_key, pendingFile]);
 
   // Alte Blob-URL freigeben wenn neue gesetzt wird
   useEffect(() => {
@@ -346,30 +345,30 @@ function PdfPreview({
         )}
       </div>
       <div className="flex-1 min-h-0 bg-black/20 relative">
-        {!entry && (
+        {!entry && !pendingFile && (
           <div className="flex flex-col items-center justify-center h-full gap-2 window-text-subtle text-xs px-4 text-center">
             <span className="text-3xl opacity-40">📄</span>
             <span>Kein Eintrag ausgewählt</span>
           </div>
         )}
-        {entry && !entry.pdf_s3_key && (
+        {entry && !entry.pdf_s3_key && !pendingFile && (
           <div className="flex flex-col items-center justify-center h-full gap-2 window-text-subtle text-xs px-4 text-center">
             <span className="text-3xl opacity-40">📎</span>
             <span>Kein PDF angehängt</span>
           </div>
         )}
-        {entry?.pdf_s3_key && loading && (
+        {entry?.pdf_s3_key && !pendingFile && loading && (
           <div className="flex items-center justify-center h-full window-text-subtle text-xs">PDF wird geladen…</div>
         )}
-        {entry?.pdf_s3_key && error && !loading && (
+        {entry?.pdf_s3_key && !pendingFile && error && !loading && (
           <div className="flex flex-col items-center justify-center h-full gap-2 window-text-subtle text-xs px-4 text-center">
             <span className="text-2xl">⚠️</span>
             <span>PDF konnte nicht geladen werden</span>
           </div>
         )}
-        {entry?.pdf_s3_key && blobUrl && !loading && !error && (
+        {blobUrl && !loading && !error && (
           // PDF-Open-Parameter: view=FitH = Fenster-Breite, toolbar=0 spart Platz
-          <iframe src={`${blobUrl}#view=FitH&toolbar=0&navpanes=0`} title={entry.title} className="w-full h-full border-0 block" />
+          <iframe src={`${blobUrl}#view=FitH&toolbar=0&navpanes=0`} title={pendingFile?.name ?? entry?.title ?? "PDF"} className="w-full h-full border-0 block" />
         )}
       </div>
     </div>
@@ -384,18 +383,21 @@ function EntryForm({
   onCancel,
   saving,
   onExtractPdf,
+  pendingPdfFile,
+  setPendingPdfFile,
 }: {
   initial: Partial<LitEntry>;
   onSave: (data: Partial<LitEntry>, pdfFile?: File) => void;
   onCancel: () => void;
   saving: boolean;
   onExtractPdf?: (file: File) => Promise<Partial<LitEntry>>;
+  pendingPdfFile: File | null;
+  setPendingPdfFile: (f: File | null) => void;
 }) {
   const [form, setForm] = useState<Partial<LitEntry>>(initial);
   const [authorInput, setAuthorInput] = useState((initial.authors || []).join("; "));
   const [tagInput, setTagInput] = useState((initial.tags || []).join(", "));
   const [extracting, setExtracting] = useState(false);
-  const [pendingPdfFile, setPendingPdfFile] = useState<File | null>(null);
   const [dropActive, setDropActive] = useState(false);
   const pdfExtractRef = useRef<HTMLInputElement>(null);
 
@@ -697,6 +699,9 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   const [newGroupName, setNewGroupName] = useState("");
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
 
+  // PDF beim Neu-Erfassen — gehoben aus EntryForm, damit Vorschau es sofort zeigt
+  const [pendingPdfFile, setPendingPdfFile] = useState<File | null>(null);
+
   // T-Layout: Splitter-Positionen (Prozent) — werden user-scoped persistiert
   const layoutKey = useMemo(() => {
     const email = getSession()?.email;
@@ -941,6 +946,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       setSelected(saved);
       setShowForm(false);
       setShowDetail(true);
+      setPendingPdfFile(null);
     } finally { setSaving(false); }
   }
 
@@ -1037,6 +1043,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
     setEditEntry(EMPTY_FORM);
     setShowDetail(false);
     setShowForm(true);
+    setPendingPdfFile(null);
   }
 
   function selectEntry(entry: LitEntry) {
@@ -1459,9 +1466,11 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
               <EntryForm
                 initial={editEntry}
                 onSave={handleSave}
-                onCancel={() => { setShowForm(false); if (selected) setShowDetail(true); }}
+                onCancel={() => { setShowForm(false); setPendingPdfFile(null); if (selected) setShowDetail(true); }}
                 saving={saving}
                 onExtractPdf={!editEntry.id ? handleExtractPdf : undefined}
+                pendingPdfFile={pendingPdfFile}
+                setPendingPdfFile={setPendingPdfFile}
               />
             ) : (
               <DetailPanel
@@ -1486,7 +1495,10 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
           {/* PDF Preview */}
           <div className="flex-1 overflow-hidden border-l window-border-soft">
             <PdfPreview
-              entry={selected}
+              // Im Neu-Modus (Form ohne id): kein bestehender Eintrag — Vorschau
+              // zeigt entweder die hochgeladene PDF oder bleibt leer.
+              entry={showForm && !editEntry.id ? null : selected}
+              pendingFile={showForm && !editEntry.id ? pendingPdfFile : null}
               onOpenFullView={handlePdfOpen}
               onToggleFavorite={e => handleToggleFlag(e, "is_favorite")}
               onToggleReadLater={e => handleToggleFlag(e, "read_later")}
