@@ -337,8 +337,6 @@ function PdfPreview({
   onToggleFavorite,
   onToggleReadLater,
   onEdit,
-  onDelete,
-  deleting,
 }: {
   entry: LitEntry | null;
   pendingFile?: File | null;
@@ -346,8 +344,6 @@ function PdfPreview({
   onToggleFavorite: (entry: LitEntry) => void;
   onToggleReadLater: (entry: LitEntry) => void;
   onEdit: (entry: LitEntry) => void;
-  onDelete: (id: string) => void;
-  deleting: string | null;
 }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -408,10 +404,6 @@ function PdfPreview({
             <button onClick={() => onEdit(entry)} title="Bearbeiten"
               className="p-1 rounded text-gray-600 hover:text-[var(--accent-light)] transition-colors">
               <IconEdit />
-            </button>
-            <button onClick={() => onDelete(entry.id)} disabled={deleting === entry.id} title="Löschen"
-              className="p-1 rounded text-gray-600 hover:text-red-400 transition-colors disabled:opacity-30">
-              {deleting === entry.id ? <IconSpinner /> : <IconTrash />}
             </button>
             {entry.pdf_s3_key && (
               <button onClick={() => onOpenFullView(entry)} title="Gesamtansicht"
@@ -653,18 +645,16 @@ function EntryForm({
         {/* Alle Felder — während Extraktion gesperrt */}
         <div className={`space-y-3 ${extracting ? "opacity-40 pointer-events-none select-none" : ""}`}>
 
-        {/* Typ — Grid mit 7 Optionen */}
+        {/* Typ — Dropdown */}
         <div>
           <label className={labelClass}>Typ</label>
-          <div className="grid grid-cols-4 gap-1.5 mt-1">
+          <select value={form.entry_type ?? "paper"}
+            onChange={e => set("entry_type", e.target.value)}
+            className={`${inputClass} mt-1 cursor-pointer`}>
             {ENTRY_TYPES.map(val => (
-              <button key={val} onClick={() => set("entry_type", val)}
-                className={`text-[11px] py-1.5 px-1 rounded-lg border transition-colors flex items-center justify-center gap-1 ${form.entry_type === val ? "bg-[var(--accent)] border-[var(--accent)] text-white" : "bg-white/5 border-white/10 text-gray-400 hover:text-white"}`}>
-                <span>{TYPE_ICON[val]}</span>
-                <span className="truncate">{TYPE_LABEL_SINGULAR[val]}</span>
-              </button>
+              <option key={val} value={val}>{TYPE_ICON[val]} {TYPE_LABEL_SINGULAR[val]}</option>
             ))}
-          </div>
+          </select>
         </div>
 
         {/* Gruppe / Ordner */}
@@ -1663,30 +1653,36 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Sidebar */}
         <div className="w-44 shrink-0 border-r border-white/6 flex flex-col overflow-y-auto py-2 px-2">
-          {/* Alle */}
-          <button onClick={() => { setTypeFilter("all"); setGroupFilter(null); }}
-            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${typeFilter === "all" && !groupFilter ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
-            <span>📚</span>
-            <span className="flex-1 text-left">Alle</span>
-            <span className="text-[10px] text-gray-600">{entries.length}</span>
-          </button>
-
-          {/* Neu Hinzugefügt */}
-          {newEntries.length > 0 && (
-            <button onClick={() => { setTypeFilter("new"); setGroupFilter(null); }}
-              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors mt-0.5 ${typeFilter === "new" ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
-              <span className="text-[11px]">🆕</span>
-              <span className="flex-1 text-left">Neu hinzugefügt</span>
-              <span className="text-[10px] text-gray-600">{newEntries.length}</span>
+          {/* Header-Section: Höhe so wie Suchfeld+Grid-Header rechts, damit
+               die Trennlinie unten exakt unter 'Titel, Jahr, ...' liegt */}
+          <div className="flex flex-col shrink-0" style={{ minHeight: 62 }}>
+            {/* Alle */}
+            <button onClick={() => { setTypeFilter("all"); setGroupFilter(null); }}
+              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${typeFilter === "all" && !groupFilter ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
+              <span>📚</span>
+              <span className="flex-1 text-left">Alle</span>
+              <span className="text-[10px] text-gray-600">{entries.length}</span>
             </button>
-          )}
 
-          <div className="border-t border-white/6 my-1.5" />
+            {/* Neu Hinzugefügt */}
+            {newEntries.length > 0 && (
+              <button onClick={() => { setTypeFilter("new"); setGroupFilter(null); }}
+                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors mt-0.5 ${typeFilter === "new" ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
+                <span className="text-[11px]">🆕</span>
+                <span className="flex-1 text-left">Neu hinzugefügt</span>
+                <span className="text-[10px] text-gray-600">{newEntries.length}</span>
+              </button>
+            )}
+          </div>
 
-          {ENTRY_TYPES.map(t => (
-            <SidebarGroup key={t} type={t} label={typeLabelPlural(t)} icon={typeIcon(t)}
-              count={countByType(t)} open={openTypes[t]} onToggle={() => toggleType(t)} />
-          ))}
+          <div className="border-t border-white/6" />
+
+          <div className="mt-1.5">
+            {ENTRY_TYPES.map(t => (
+              <SidebarGroup key={t} type={t} label={typeLabelPlural(t)} icon={typeIcon(t)}
+                count={countByType(t)} open={openTypes[t]} onToggle={() => toggleType(t)} />
+            ))}
+          </div>
 
           <div className="border-t border-white/6 my-1.5" />
 
@@ -1895,8 +1891,6 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
               onToggleFavorite={e => handleToggleFlag(e, "is_favorite")}
               onToggleReadLater={e => handleToggleFlag(e, "read_later")}
               onEdit={openEdit}
-              onDelete={handleDelete}
-              deleting={deleting}
             />
           </div>
         </div>
