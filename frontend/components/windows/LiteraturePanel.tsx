@@ -67,7 +67,19 @@ interface LitGroup {
   position: number;
 }
 
-type SidebarFilter = "all" | "new" | EntryType | "favorites" | "read_later" | "orphans";
+type SidebarFilter = "all" | "new" | EntryType | "favorites" | "read_later" | "orphans" | "discovery";
+
+interface GlobalPoolHit {
+  doi: string;
+  title: string | null;
+  authors: string[] | null;
+  year: number | null;
+  journal: string | null;
+  abstract: string | null;
+  oa_url: string | null;
+  oa_status: string | null;
+  in_my_library: boolean;
+}
 
 interface OrphanPdf {
   id: string;
@@ -173,7 +185,9 @@ function DetailPanel({
   onPdfOpen,
   onRefreshMeta,
   onRestoreMeta,
+  onFetchOaPdf,
   refreshingMeta,
+  fetchingOaPdf,
   onToggleFavorite,
   onToggleReadLater,
   deleting,
@@ -187,12 +201,29 @@ function DetailPanel({
   onPdfOpen: (entry: LitEntry) => void;
   onRefreshMeta: (entry: LitEntry) => void;
   onRestoreMeta: (entry: LitEntry) => void;
+  onFetchOaPdf: (entry: LitEntry) => void;
   refreshingMeta: boolean;
+  fetchingOaPdf: boolean;
   onToggleFavorite: (entry: LitEntry) => void;
   onToggleReadLater: (entry: LitEntry) => void;
   deleting: string | null;
 }) {
   const pdfInputRef = useRef<HTMLInputElement>(null);
+
+  // Open-Access-Verfügbarkeit pollen wenn Eintrag DOI hat aber kein PDF
+  const [oaInfo, setOaInfo] = useState<{ available: boolean; oa_url?: string; oa_status?: string; oa_license?: string; reason?: string } | null>(null);
+  useEffect(() => {
+    setOaInfo(null);
+    if (!entry || entry.pdf_s3_key || !entry.doi) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch(`${BACKEND_URL}/v1/literature/${entry.id}/oa-info`);
+        if (!cancelled && res.ok) setOaInfo(await res.json());
+      } catch { /* still */ }
+    })();
+    return () => { cancelled = true; };
+  }, [entry?.id, entry?.doi, entry?.pdf_s3_key]);
 
   // Wiederverwendbarer Header — exakt gleich hoch wie der PDF-Vorschau-Header
   const headerBar = (
@@ -209,6 +240,18 @@ function DetailPanel({
           className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-emerald-500/15 text-emerald-300/90 border border-emerald-500/20">
           ✓ {entry.meta_refreshed_count}×
         </span>
+      )}
+      {entry && oaInfo?.available && !entry.pdf_s3_key && (
+        <button onClick={() => onFetchOaPdf(entry)} disabled={fetchingOaPdf}
+          title={`Open-Access-PDF herunterladen (${oaInfo.oa_status ?? "OA"}${oaInfo.oa_license ? ` · ${oaInfo.oa_license}` : ""})`}
+          className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/25 hover:text-blue-200 transition-colors flex items-center gap-1 disabled:opacity-50">
+          {fetchingOaPdf ? <IconSpinner /> : (
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          )}
+          {fetchingOaPdf ? "Lade…" : "Open Access"}
+        </button>
       )}
       {entry && entry.has_meta_backup && (
         <button onClick={() => onRestoreMeta(entry)} title="Letzte Metadaten-Aktualisierung rückgängig machen"
@@ -598,6 +641,158 @@ function SortableGrid({ sortKey, sortDir, onSort, allSelected, someSelected, onT
     </div>
   );
 }
+
+// ── Discovery-Panel (Phase A.2 — Wissenspool durchsuchen) ─────────────────────
+
+function DiscoveryPanel({
+  onAdd, onAddWithOa, busyDoi,
+}: {
+  onAdd: (hit: GlobalPoolHit) => void;
+  onAddWithOa: (hit: GlobalPoolHit) => void;
+  busyDoi: string | null;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<GlobalPoolHit[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function runSearch() {
+    const q = query.trim();
+    if (!q) return;
+    setLoading(true);
+    setError(null);
+    setSearched(true);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/global/search?q=${encodeURIComponent(q)}&limit=30`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Fehler bei der Suche" })) as { detail?: string };
+        setError(err.detail || "Fehler bei der Suche");
+        setResults([]);
+      } else {
+        const data = await res.json() as { results: GlobalPoolHit[] };
+        setResults(data.results || []);
+      }
+    } catch {
+      setError("Netzwerk-Fehler");
+      setResults([]);
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <div className="flex-1 overflow-auto px-3 py-2 flex flex-col gap-2">
+      <div className="text-[11px] text-blue-300/90 bg-blue-950/30 border border-blue-800/30 rounded-lg px-3 py-2 shrink-0">
+        Durchsuche den globalen Wissenspool (Crossref + Unpaywall). Treffer können
+        mit einem Klick deiner Library hinzugefügt werden, bei Open-Access-Papern
+        wird auf Wunsch das offizielle PDF gleich heruntergeladen.
+      </div>
+
+      <div className="flex gap-2 shrink-0">
+        <input
+          autoFocus
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") runSearch(); }}
+          placeholder="Suche nach Titel, Thema, Autor… (Volltext über Titel + Abstract)"
+          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50"
+        />
+        <button onClick={runSearch} disabled={loading || !query.trim()}
+          className="px-3 py-1.5 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-xs font-medium disabled:opacity-40 flex items-center gap-1.5">
+          {loading ? <IconSpinner /> : null}
+          Suchen
+        </button>
+      </div>
+
+      {error && (
+        <div className="text-[11px] text-red-300 bg-red-950/40 border border-red-800/40 rounded-lg px-3 py-2 shrink-0">
+          ⚠️ {error}
+        </div>
+      )}
+
+      {!searched && !loading && (
+        <div className="flex flex-col items-center justify-center flex-1 gap-2 text-center py-8">
+          <span className="text-4xl opacity-20">🌐</span>
+          <p className="text-gray-500 text-xs">Tippe einen Suchbegriff ein</p>
+          <p className="text-[10px] text-gray-700 max-w-md">
+            Der Pool enthält alle DOIs aus den Bibliotheken aller Baddi-Nutzer
+            mit Crossref-Metadaten und Open-Access-Verfügbarkeit.
+          </p>
+        </div>
+      )}
+
+      {searched && !loading && results.length === 0 && !error && (
+        <div className="flex flex-col items-center justify-center flex-1 gap-2 text-center py-8">
+          <span className="text-3xl opacity-20">🔍</span>
+          <p className="text-gray-500 text-xs">Keine Treffer — der Pool wächst mit jeder neuen Bibliothek</p>
+        </div>
+      )}
+
+      {results.map(hit => {
+        const isBusy = busyDoi === hit.doi;
+        return (
+          <div key={hit.doi} className="rounded-lg border border-white/10 bg-white/3 hover:bg-white/5 transition-colors">
+            <div className="px-3 py-2 flex flex-col gap-1">
+              <div className="flex items-start gap-2">
+                <span className="text-base shrink-0 mt-0.5">📄</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-white font-medium break-words">{hit.title || hit.doi}</p>
+                  {(hit.authors?.length || hit.year || hit.journal) && (
+                    <p className="text-[10px] text-gray-500 mt-0.5">
+                      {(hit.authors || []).slice(0, 4).join("; ")}
+                      {hit.authors && hit.authors.length > 4 && " …"}
+                      {hit.year ? ` · ${hit.year}` : ""}
+                      {hit.journal ? ` · ${hit.journal}` : ""}
+                    </p>
+                  )}
+                </div>
+                <span className="shrink-0 text-[9px] text-gray-600 font-mono">{hit.doi}</span>
+              </div>
+              {hit.abstract && (
+                <p className="text-[11px] text-gray-400 leading-relaxed line-clamp-3 ml-7">{hit.abstract}</p>
+              )}
+            </div>
+            <div className="px-3 py-1.5 border-t border-white/6 flex items-center gap-3 text-[11px]">
+              {hit.in_my_library ? (
+                <span className="text-emerald-400 flex items-center gap-1">
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  Bereits in deiner Library
+                </span>
+              ) : (
+                <>
+                  <button onClick={() => onAdd(hit)} disabled={isBusy}
+                    className="text-[var(--accent-light)] hover:underline disabled:opacity-40">
+                    Zur Library hinzufügen
+                  </button>
+                  {hit.oa_url && (
+                    <button onClick={() => onAddWithOa(hit)} disabled={isBusy}
+                      className="text-blue-300 hover:underline disabled:opacity-40 flex items-center gap-1"
+                      title={`Open Access (${hit.oa_status ?? "OA"}) — PDF wird automatisch geladen`}>
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
+                      + OA-PDF
+                    </button>
+                  )}
+                </>
+              )}
+              <span className="flex-1" />
+              {hit.oa_status && (
+                <span className="text-[9px] uppercase tracking-wider text-gray-500"
+                  title={hit.oa_status === "closed" ? "Kein Open Access" : `Open Access: ${hit.oa_status}`}>
+                  {hit.oa_status === "closed" ? "closed" : `OA · ${hit.oa_status}`}
+                </span>
+              )}
+              {isBusy && <IconSpinner />}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 
 // ── Orphan-PDF Liste & Assign-Dialog ──────────────────────────────────────────
 
@@ -1547,6 +1742,58 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       setApplyMetaError(msg === "ERR_NETWORK" ? t("err.network") : msg || t("err.generic"));
     } finally {
       setApplyingMeta(false);
+    }
+  }
+
+  // Open-Access PDF abholen (Phase A.2)
+  const [fetchingOaPdf, setFetchingOaPdf] = useState<string | null>(null);
+  const [discoveryBusyDoi, setDiscoveryBusyDoi] = useState<string | null>(null);
+
+  async function handleAddFromGlobalPool(hit: GlobalPoolHit, withOa: boolean) {
+    if (hit.in_my_library) return;
+    setDiscoveryBusyDoi(hit.doi);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/global/add-to-library`, {
+        method: "POST",
+        body: JSON.stringify({ doi: hit.doi, fetch_oa_pdf: withOa }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
+        setImportMsg({ type: "err", text: err.detail || t("err.generic") });
+        return;
+      }
+      const created: LitEntry = await res.json();
+      setEntries(prev => [created, ...prev]);
+      const pdfNote = created.pdf_s3_key ? " · PDF angehängt" : "";
+      setImportMsg({ type: "ok", text: `"${created.title.slice(0, 60)}" zur Library hinzugefügt${pdfNote}` });
+    } catch {
+      setImportMsg({ type: "err", text: t("err.network") });
+    } finally { setDiscoveryBusyDoi(null); }
+  }
+
+  async function handleFetchOaPdf(entry: LitEntry) {
+    if (entry.pdf_s3_key) return;
+    if (!confirm("Offizielles Open-Access-PDF von der Verlags-Seite herunterladen und an diesen Eintrag anhängen?")) return;
+    setFetchingOaPdf(entry.id);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/${entry.id}/fetch-oa-pdf`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
+        setImportMsg({ type: "err", text: err.detail || t("err.generic") });
+        return;
+      }
+      const updated: LitEntry = await res.json();
+      setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
+      if (selected?.id === updated.id) setSelected(updated);
+      const sizeMb = (updated.pdf_size_bytes / (1024 * 1024)).toFixed(1);
+      setImportMsg({ type: "ok", text: `Open-Access-PDF angehängt (${sizeMb} MB)` });
+    } catch {
+      setImportMsg({ type: "err", text: t("err.network") });
+    } finally {
+      setFetchingOaPdf(null);
     }
   }
 
@@ -2683,6 +2930,14 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
             {readLaterEntries.length > 0 && <span className="text-[10px] text-gray-600">{readLaterEntries.length}</span>}
           </button>
 
+          {/* Wissenspool / Discovery — Phase A */}
+          <button onClick={() => { setTypeFilter("discovery"); setGroupFilter(null); setSelectedIds(new Set()); }}
+            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors mt-0.5 ${typeFilter === "discovery" ? "bg-blue-500/20 text-blue-300" : "text-blue-400/80 hover:bg-blue-500/10 hover:text-blue-200"}`}
+            title="Globaler Wissenspool — Crossref + Unpaywall">
+            <span className="text-[11px]">🌐</span>
+            <span className="flex-1 text-left">Wissenspool</span>
+          </button>
+
           {/* Unbekannte PDFs (Orphans) — nur wenn vorhanden */}
           {orphans.length > 0 && (
             <button onClick={() => { setTypeFilter("orphans"); setGroupFilter(null); }}
@@ -2749,7 +3004,13 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
             );
           })()}
 
-          {typeFilter === "orphans" ? (
+          {typeFilter === "discovery" ? (
+            <DiscoveryPanel
+              busyDoi={discoveryBusyDoi}
+              onAdd={(hit) => handleAddFromGlobalPool(hit, false)}
+              onAddWithOa={(hit) => handleAddFromGlobalPool(hit, true)}
+            />
+          ) : typeFilter === "orphans" ? (
             <OrphansList
               orphans={orphans}
               busy={orphanBusy}
@@ -2897,7 +3158,9 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                     onPdfOpen={handlePdfOpen}
                     onRefreshMeta={handleRefreshMeta}
                     onRestoreMeta={handleRestoreMeta}
+                    onFetchOaPdf={handleFetchOaPdf}
                     refreshingMeta={refreshingMeta}
+                    fetchingOaPdf={fetchingOaPdf === selected?.id}
                     onToggleFavorite={e => handleToggleFlag(e, "is_favorite")}
                     onToggleReadLater={e => handleToggleFlag(e, "read_later")}
                     deleting={deleting}

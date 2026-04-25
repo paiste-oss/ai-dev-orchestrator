@@ -1450,6 +1450,100 @@ async def get_global_entry(
     return out
 
 
+class AddFromGlobalRequest(BaseModel):
+    doi: str
+    fetch_oa_pdf: bool = False  # wenn True und oa_url vorhanden → PDF gleich mitziehen
+
+
+@router.post("/global/add-to-library", response_model=LiteratureEntryOut, status_code=201)
+async def add_global_entry_to_library(
+    req: AddFromGlobalRequest,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Erstellt einen Library-Eintrag aus einem globalen Pool-Treffer.
+    Mit fetch_oa_pdf=True wird das offizielle OA-PDF gleich angehängt (falls verfügbar).
+    Wirft 409 wenn der Kunde diese DOI bereits hat.
+    """
+    from models.literature_global_index import LiteratureGlobalIndex
+    from services.literature_enrichment import enrich_doi, normalize_doi
+
+    norm = normalize_doi(req.doi)
+    if not norm:
+        raise HTTPException(status_code=422, detail="Ungültige DOI")
+
+    # Duplikat-Check
+    dup = await db.execute(
+        select(LiteratureEntry.id).where(
+            LiteratureEntry.customer_id == user.id,
+            LiteratureEntry.is_active.is_(True),
+            LiteratureEntry.doi == norm,
+        ).limit(1)
+    )
+    if dup.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Eintrag mit dieser DOI bereits in deiner Library")
+
+    rec = await db.get(LiteratureGlobalIndex, norm)
+    if not rec or rec.enrichment_status != "enriched":
+        rec = await enrich_doi(db, norm)
+        await db.commit()
+    if not rec or rec.enrichment_status == "failed_404":
+        raise HTTPException(status_code=404, detail="DOI in Crossref/Unpaywall nicht gefunden")
+
+    data: dict[str, Any] = {
+        "entry_type": rec.entry_type or "paper",
+        "title": rec.title or norm,
+        "authors": rec.authors,
+        "year": rec.year,
+        "abstract": rec.abstract,
+        "journal": rec.journal,
+        "volume": rec.volume,
+        "issue": rec.issue,
+        "pages": rec.pages,
+        "doi": norm,
+        "publisher": rec.publisher,
+        "isbn": rec.isbn,
+        "import_source": "global_pool",
+    }
+    entry = await _create_entry_from_dict(data, user.id, db, index=False)
+    await db.flush()
+
+    # Optional: OA-PDF gleich mitziehen
+    if req.fetch_oa_pdf and rec.oa_url:
+        import httpx
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
+                r = await client.get(rec.oa_url, headers={"User-Agent": "Baddi-Literature/1.0"})
+            content_type = r.headers.get("content-type", "").lower()
+            if r.status_code == 200 and ("pdf" in content_type or r.content[:4] == b"%PDF"):
+                pdf_bytes = r.content
+                if len(pdf_bytes) <= _MAX_PDF_SIZE:
+                    safe_filename = re.sub(r"[^\w\-. ]", "_", entry.title)[:120].strip() or "oa-paper"
+                    s3_key = await s3_upload(
+                        customer_id=user.id, doc_id=entry.id,
+                        filename=f"{safe_filename}.pdf",
+                        content=pdf_bytes, content_type="application/pdf",
+                    )
+                    entry.pdf_s3_key = s3_key
+                    entry.pdf_size_bytes = len(pdf_bytes)
+                    try:
+                        from services.file_parser import parse_file
+                        parsed = parse_file(pdf_bytes, f"{safe_filename}.pdf", "application/pdf")
+                        if parsed.text.strip():
+                            entry.extracted_text = _sanitize_pg_text(_build_extracted_text(entry) + "\n\n" + parsed.text[:8000])
+                    except Exception as exc:
+                        _log.warning("[Add-Global/OA] PDF-Parse fehlgeschlagen: %s", exc)
+        except httpx.HTTPError as exc:
+            _log.info("[Add-Global/OA] %s nicht erreichbar: %s", rec.oa_url, exc)
+            # PDF-Fail bricht das Hinzufügen nicht — Eintrag ist schon erstellt
+
+    _index_entry(entry)
+    await db.commit()
+    await db.refresh(entry)
+    _log.info("[Add-Global] %s → Eintrag %s (mit_pdf=%s)", norm, entry.id, bool(entry.pdf_s3_key))
+    return entry
+
+
 @router.post("/global/backfill", response_model=BackfillResponse)
 async def trigger_global_backfill(
     user: Customer = Depends(get_current_user),
@@ -1473,6 +1567,124 @@ async def trigger_global_backfill(
     except Exception as exc:
         _log.error("[Global-Backfill] Trigger fehlgeschlagen: %s", exc)
         raise HTTPException(status_code=503, detail="Celery-Worker nicht erreichbar")
+
+
+@router.post("/{entry_id}/fetch-oa-pdf", response_model=LiteratureEntryOut)
+async def fetch_oa_pdf(
+    entry_id: uuid.UUID,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Holt das offizielle Open-Access-PDF von Unpaywall (oa_url im globalen Index)
+    und hängt es an den Eintrag. Ersetzt ein bereits vorhandenes PDF nicht — User
+    muss erst löschen wenn er das will.
+    Funktioniert nur wenn:
+      - Eintrag eine DOI hat
+      - Diese DOI im globalen Index steht und enriched ist
+      - oa_url gesetzt ist
+    """
+    entry = await db.get(LiteratureEntry, entry_id)
+    if not entry or not entry.is_active or entry.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+    if entry.pdf_s3_key:
+        raise HTTPException(status_code=409, detail="Eintrag hat bereits ein PDF — bitte zuerst entfernen")
+    if not entry.doi:
+        raise HTTPException(status_code=422, detail="Eintrag hat keine DOI")
+
+    from models.literature_global_index import LiteratureGlobalIndex
+    from services.literature_enrichment import enrich_doi, normalize_doi
+
+    norm = normalize_doi(entry.doi)
+    if not norm:
+        raise HTTPException(status_code=422, detail="DOI ungültig")
+
+    rec = await db.get(LiteratureGlobalIndex, norm)
+    if not rec or rec.enrichment_status not in ("enriched", "failed_other"):
+        # On-demand-Anreicherung bei Bedarf
+        rec = await enrich_doi(db, norm)
+        await db.commit()
+    if not rec or not rec.oa_url:
+        raise HTTPException(status_code=404, detail="Kein Open-Access-PDF für diese DOI verfügbar")
+
+    # PDF von Unpaywall-OA-URL ziehen
+    import httpx
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
+            r = await client.get(rec.oa_url, headers={"User-Agent": "Baddi-Literature/1.0"})
+        if r.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"OA-Server lieferte HTTP {r.status_code}")
+        content_type = r.headers.get("content-type", "").lower()
+        if "pdf" not in content_type and not r.content[:4] == b"%PDF":
+            raise HTTPException(status_code=415, detail="OA-URL liefert kein PDF (vermutlich HTML-Landingpage)")
+        pdf_bytes = r.content
+    except httpx.HTTPError as exc:
+        _log.error("[OA-Fetch] HTTP-Fehler %s: %s", entry_id, exc)
+        raise HTTPException(status_code=502, detail=f"OA-Server nicht erreichbar: {exc}")
+
+    if len(pdf_bytes) > _MAX_PDF_SIZE:
+        raise HTTPException(status_code=413, detail=f"PDF zu gross ({len(pdf_bytes) // (1024*1024)} MB > 50 MB)")
+
+    # In S3 hochladen + Eintrag verlinken
+    safe_filename = re.sub(r"[^\w\-. ]", "_", entry.title or norm)[:120].strip() or "oa-paper"
+    s3_key = await s3_upload(
+        customer_id=user.id, doc_id=entry_id,
+        filename=f"{safe_filename}.pdf",
+        content=pdf_bytes, content_type="application/pdf",
+    )
+    entry.pdf_s3_key = s3_key
+    entry.pdf_size_bytes = len(pdf_bytes)
+
+    # Text aus PDF extrahieren für Volltext-Suche
+    try:
+        from services.file_parser import parse_file
+        parsed = parse_file(pdf_bytes, f"{safe_filename}.pdf", "application/pdf")
+        if parsed.text.strip():
+            entry.extracted_text = _sanitize_pg_text(_build_extracted_text(entry) + "\n\n" + parsed.text[:8000])
+    except Exception as exc:
+        _log.warning("[OA-Fetch] PDF-Text-Extraktion fehlgeschlagen %s: %s", entry_id, exc)
+
+    _deindex_entry(entry)
+    _index_entry(entry)
+    await db.commit()
+    await db.refresh(entry)
+    _log.info("[OA-Fetch] %s (%d bytes) → %s", norm, len(pdf_bytes), entry_id)
+    return entry
+
+
+@router.get("/{entry_id}/oa-info")
+async def get_entry_oa_info(
+    entry_id: uuid.UUID,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Gibt Open-Access-Info für einen Eintrag zurück (für Frontend-Button-Anzeige).
+    {available: bool, oa_url, oa_status, oa_license} oder {available: false, reason}.
+    """
+    entry = await db.get(LiteratureEntry, entry_id)
+    if not entry or not entry.is_active or entry.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+    if not entry.doi:
+        return {"available": False, "reason": "no_doi"}
+
+    from models.literature_global_index import LiteratureGlobalIndex
+    from services.literature_enrichment import normalize_doi
+    norm = normalize_doi(entry.doi)
+    if not norm:
+        return {"available": False, "reason": "invalid_doi"}
+
+    rec = await db.get(LiteratureGlobalIndex, norm)
+    if not rec:
+        return {"available": False, "reason": "not_indexed_yet"}
+    if rec.enrichment_status != "enriched":
+        return {"available": False, "reason": rec.enrichment_status}
+    if not rec.oa_url:
+        return {"available": False, "reason": "no_oa_version"}
+    return {
+        "available": True,
+        "oa_url": rec.oa_url,
+        "oa_status": rec.oa_status,
+        "oa_license": rec.oa_license,
+    }
 
 
 # ── Orphan PDFs (Stufe 3 — Postfach für nicht-zugeordnete PDFs) ───────────────
