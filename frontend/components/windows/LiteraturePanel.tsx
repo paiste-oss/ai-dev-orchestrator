@@ -157,14 +157,14 @@ function DetailPanel({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header — nur Titel + Close, Action-Buttons sind in der PDF-Vorschau */}
-      <div className="flex items-start gap-2 px-3 py-2 border-b border-white/6 shrink-0">
-        <span className="text-sm shrink-0 mt-0.5">{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
+      {/* Header — Titel prominent + Close */}
+      <div className="flex items-start gap-3 px-4 py-3 border-b border-white/6 shrink-0">
+        <span className="text-2xl shrink-0">{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-white font-medium leading-tight">{entry.title}</p>
-          {entry.authors && entry.authors.length > 0 && (
-            <p className="text-[10px] text-gray-500 mt-0.5">{entry.authors.join("; ")}</p>
-          )}
+          <p className="text-sm text-white font-semibold leading-snug">{entry.title}</p>
+          <p className="text-[10px] text-gray-600 mt-1 uppercase tracking-wider">
+            {entry.entry_type === "paper" ? "Paper" : entry.entry_type === "patent" ? "Patent" : "Buch"}
+          </p>
         </div>
         <button onClick={onClose} className="p-1 text-gray-600 hover:text-gray-400 transition-colors shrink-0" title="Schliessen">
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -173,43 +173,82 @@ function DetailPanel({
         </button>
       </div>
 
-      {/* Meta chips */}
-      <div className="flex flex-wrap gap-1 px-3 py-1.5 border-b border-white/4 shrink-0">
-        {entry.year && <span className="text-[10px] bg-white/6 text-gray-400 px-1.5 py-0.5 rounded">{entry.year}</span>}
-        {entry.entry_type === "patent" ? (
-          <>
-            {entry.isbn && <span className="text-[10px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded font-mono">{entry.isbn}</span>}
-            {entry.journal && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded">{entry.journal}</span>}
-            {entry.publisher && <span className="text-[10px] text-gray-600 truncate max-w-[120px]">{entry.publisher}</span>}
-            {entry.volume && <span className="text-[10px] text-gray-600">IPC {entry.volume}</span>}
-          </>
-        ) : (
-          <>
-            {entry.journal && <span className="text-[10px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded truncate max-w-[120px]">{entry.journal}</span>}
-            {entry.publisher && <span className="text-[10px] bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded truncate max-w-[120px]">{entry.publisher}</span>}
-            {entry.volume && <span className="text-[10px] text-gray-600">Vol.{entry.volume}</span>}
-            {entry.issue && <span className="text-[10px] text-gray-600">Nr.{entry.issue}</span>}
-            {entry.pages && <span className="text-[10px] text-gray-600">S.{entry.pages}</span>}
-            {entry.isbn && <span className="text-[10px] text-gray-600">ISBN {entry.isbn}</span>}
-          </>
-        )}
-        {(entry.tags || []).map(tag => (
-          <span key={tag} className="text-[10px] bg-white/5 text-gray-500 px-1.5 py-0.5 rounded">#{tag}</span>
-        ))}
-      </div>
+      {/* Content — strukturierte Felder */}
+      <div className="flex-1 overflow-auto min-h-0 p-4 space-y-4 text-xs">
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto min-h-0 p-3 space-y-3 text-xs">
+        {/* Autoren */}
+        {entry.authors && entry.authors.length > 0 && (
+          <div>
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Autoren</p>
+            <p className="text-sm text-gray-200 leading-relaxed">{entry.authors.join("; ")}</p>
+          </div>
+        )}
+
+        {/* Publikations-Daten als Grid mit Labels */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          {entry.year && (
+            <div>
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Jahr</p>
+              <p className="text-sm text-white tabular-nums">{entry.year}</p>
+            </div>
+          )}
+          {entry.journal && (
+            <div className="col-span-2">
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">{entry.entry_type === "patent" ? "Patentamt" : "Journal"}</p>
+              <p className="text-sm text-white">{entry.journal}</p>
+            </div>
+          )}
+          {entry.publisher && (
+            <div className="col-span-2">
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Verlag</p>
+              <p className="text-sm text-white">{entry.publisher}</p>
+            </div>
+          )}
+          {entry.entry_type !== "patent" && (entry.volume || entry.issue || entry.pages) && (
+            <div className="col-span-2">
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Ausgabe</p>
+              <p className="text-sm text-gray-300">
+                {entry.volume && <>Vol. <span className="text-white">{entry.volume}</span></>}
+                {entry.issue && <>{entry.volume ? " · " : ""}Nr. <span className="text-white">{entry.issue}</span></>}
+                {entry.pages && <>{(entry.volume || entry.issue) ? " · " : ""}S. <span className="text-white">{entry.pages}</span></>}
+              </p>
+            </div>
+          )}
+          {entry.isbn && (
+            <div>
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">{entry.entry_type === "patent" ? "Patentnummer" : "ISBN"}</p>
+              <p className="text-sm text-white font-mono">{entry.isbn}</p>
+            </div>
+          )}
+          {entry.edition && (
+            <div>
+              <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Auflage</p>
+              <p className="text-sm text-white">{entry.edition}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Tags */}
+        {entry.tags && entry.tags.length > 0 && (
+          <div>
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Tags</p>
+            <div className="flex flex-wrap gap-1.5">
+              {entry.tags.map(tag => (
+                <span key={tag} className="text-xs bg-white/5 text-gray-300 px-2 py-0.5 rounded-full border border-white/10">#{tag}</span>
+              ))}
+            </div>
+          </div>
+        )}
         {entry.abstract && (
           <div>
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">Abstract</p>
-            <p className="text-gray-300 leading-relaxed">{entry.abstract}</p>
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Abstract</p>
+            <p className="text-sm text-gray-300 leading-relaxed">{entry.abstract}</p>
           </div>
         )}
         {entry.notes && (
           <div>
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">Notizen</p>
-            <p className="text-gray-400 leading-relaxed whitespace-pre-wrap">{entry.notes}</p>
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Notizen</p>
+            <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{entry.notes}</p>
           </div>
         )}
 
@@ -377,13 +416,15 @@ function PdfPreview({
 
 // ── Grid-Header (sortierbar) ──────────────────────────────────────────────────
 
-function SortableGrid({ sortKey, sortDir, onSort, allSelected, someSelected, onToggleAll }: {
+function SortableGrid({ sortKey, sortDir, onSort, allSelected, someSelected, onToggleAll, titleColWidth, onStartTitleResize }: {
   sortKey: "title" | "authors" | "year" | "journal" | "type";
   sortDir: "asc" | "desc";
   onSort: (k: "title" | "authors" | "year" | "journal" | "type") => void;
   allSelected: boolean;
   someSelected: boolean;
   onToggleAll: () => void;
+  titleColWidth: number;
+  onStartTitleResize: (e: React.MouseEvent) => void;
 }) {
   const headerRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -399,16 +440,22 @@ function SortableGrid({ sortKey, sortDir, onSort, allSelected, someSelected, onT
   );
 
   return (
-    <div className="grid items-center gap-2 px-3 py-1.5 border-b border-white/8 sticky top-0 bg-black/40 backdrop-blur-sm z-10"
-      style={{ gridTemplateColumns: "32px 28px 1fr 60px 180px 180px 32px 60px" }}>
+    <div data-lit-grid="1"
+      className="grid items-center gap-2 px-3 py-1.5 border-b border-white/8 sticky top-0 bg-black/40 backdrop-blur-sm z-10"
+      style={{ gridTemplateColumns: `32px 28px ${titleColWidth}px 56px 180px 180px 60px` }}>
       <input ref={headerRef} type="checkbox" checked={allSelected} onChange={onToggleAll}
         className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" title="Alle (de-)selektieren" />
       <Th k="type" label="" className="text-center" />
-      <Th k="title" label="Titel" />
+      <div className="relative">
+        <Th k="title" label="Titel" />
+        {/* Resize-Handle für die Titel-Spalte */}
+        <div onMouseDown={onStartTitleResize}
+          className="absolute -right-1 top-0 bottom-0 w-2 cursor-col-resize hover:bg-[var(--accent)]/40 transition-colors"
+          title="Spaltenbreite ziehen" />
+      </div>
       <Th k="year" label="Jahr" />
       <Th k="authors" label="Autoren" />
       <Th k="journal" label="Journal" />
-      <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500 text-center">PDF</span>
       <span></span>
     </div>
   );
@@ -767,6 +814,8 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   }, []);
   const [topPercent, setTopPercent] = useState(45);
   const [leftPercent, setLeftPercent] = useState(45);
+  const [titleColWidth, setTitleColWidth] = useState(320); // px, resizable
+  const titleColRef = useRef(320);
   const layoutLoaded = useRef(false);
   const tBodyRef = useRef<HTMLDivElement>(null);
   const tBottomRef = useRef<HTMLDivElement>(null);
@@ -780,12 +829,16 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
     try {
       const raw = localStorage.getItem(layoutKey);
       if (raw) {
-        const parsed = JSON.parse(raw) as { topPercent?: number; leftPercent?: number };
+        const parsed = JSON.parse(raw) as { topPercent?: number; leftPercent?: number; titleColWidth?: number };
         if (typeof parsed.topPercent === "number" && parsed.topPercent >= 15 && parsed.topPercent <= 80) {
           setTopPercent(parsed.topPercent);
         }
         if (typeof parsed.leftPercent === "number" && parsed.leftPercent >= 15 && parsed.leftPercent <= 85) {
           setLeftPercent(parsed.leftPercent);
+        }
+        if (typeof parsed.titleColWidth === "number" && parsed.titleColWidth >= 150 && parsed.titleColWidth <= 800) {
+          setTitleColWidth(parsed.titleColWidth);
+          titleColRef.current = parsed.titleColWidth;
         }
       }
     } catch { /* ignore */ }
@@ -796,9 +849,34 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   useEffect(() => {
     if (!layoutKey || !layoutLoaded.current) return;
     try {
-      localStorage.setItem(layoutKey, JSON.stringify({ topPercent, leftPercent }));
+      localStorage.setItem(layoutKey, JSON.stringify({ topPercent, leftPercent, titleColWidth }));
     } catch { /* QuotaExceeded etc. */ }
-  }, [topPercent, leftPercent, layoutKey]);
+  }, [topPercent, leftPercent, titleColWidth, layoutKey]);
+
+  // Drag-Handler für Title-Spaltenbreite (direkte DOM-Manipulation während Drag)
+  const startDragTitleCol = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidth = titleColRef.current;
+    document.body.classList.add("splitter-dragging-v");
+    const onMove = (ev: MouseEvent) => {
+      const w = Math.max(150, Math.min(800, startWidth + (ev.clientX - startX)));
+      titleColRef.current = w;
+      // Direkt alle Grid-Templates im DOM updaten — kein React-Re-Render
+      document.querySelectorAll<HTMLElement>("[data-lit-grid='1']").forEach(el => {
+        el.style.gridTemplateColumns = `32px 28px ${w}px 56px 180px 180px 60px`;
+      });
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.classList.remove("splitter-dragging-v");
+      setTitleColWidth(titleColRef.current);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
 
   const startDragH = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -1496,11 +1574,13 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
             </div>
           ) : (
             <div className="flex-1 overflow-auto">
-              <div className="min-w-[820px]">
+              <div style={{ minWidth: `${32 + 28 + titleColWidth + 56 + 180 + 180 + 60 + 24}px` }}>
                 {/* Grid-Header */}
                 <SortableGrid sortKey={sortKey} sortDir={sortDir} onSort={toggleSort}
                   allSelected={selectedIds.size > 0 && sorted.every(e => selectedIds.has(e.id))}
                   someSelected={selectedIds.size > 0}
+                  titleColWidth={titleColWidth}
+                  onStartTitleResize={startDragTitleCol}
                   onToggleAll={() => {
                     setSelectedIds(prev => {
                       const allOn = sorted.every(e => prev.has(e.id));
@@ -1535,37 +1615,27 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                     : (entry.journal ?? entry.publisher ?? "");
                   return (
                     <div key={entry.id}
+                      data-lit-grid="1"
                       draggable
                       onDragStart={e => handleDragStart(e, entry.id)}
                       onClick={() => selectEntry(entry)}
                       title={hasPdf ? undefined : "Kein PDF hinterlegt"}
                       className={`group grid items-center gap-2 px-3 py-1.5 border-b border-white/4 cursor-pointer transition-colors border-l-2 ${isActive ? "bg-[var(--accent-10)]" : isChecked ? "bg-white/3" : "hover:bg-white/3"} ${hasPdf ? "border-l-transparent" : "border-l-amber-500/50"}`}
-                      style={{ gridTemplateColumns: "32px 28px 1fr 60px 180px 180px 32px 60px" }}>
-                      {/* Checkbox */}
+                      style={{ gridTemplateColumns: `32px 28px ${titleColWidth}px 56px 180px 180px 60px` }}>
                       <input type="checkbox" checked={isChecked} onClick={e => toggleRowSelect(entry.id, e)} onChange={() => {}}
                         className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" />
-                      {/* Type icon */}
                       <span className={`text-base ${hasPdf ? "" : "opacity-50"}`}>{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
-                      {/* Title */}
                       <div className="min-w-0">
                         <p className={`text-xs font-medium truncate ${hasPdf ? "text-white" : "text-gray-500"}`}>{entry.title}</p>
                         {entryGroup && (
                           <span className="text-[9px] text-amber-600/80 flex items-center gap-0.5"><IconFolder />{entryGroup.name}</span>
                         )}
                       </div>
-                      {/* Year */}
                       <span className="text-[11px] text-gray-400 tabular-nums">{yearStr}</span>
-                      {/* Authors */}
                       <span className="text-[11px] text-gray-400 truncate" title={(entry.authors ?? []).join("; ")}>{fmtAuthors(entry.authors)}</span>
-                      {/* Journal/Publisher */}
                       <span className="text-[11px] text-gray-400 truncate" title={journalStr}>{journalStr}</span>
-                      {/* PDF-Indicator */}
-                      <span className="text-center">
-                        {entry.pdf_s3_key ? <span className="text-[9px] text-gray-500" title="PDF angehängt">PDF</span> : null}
-                        {uploadingPdf === entry.id && <IconSpinner />}
-                      </span>
-                      {/* Flags (Favorit + Lesezeichen) */}
                       <div className="flex items-center justify-end gap-0.5" onClick={e => e.stopPropagation()}>
+                        {uploadingPdf === entry.id && <IconSpinner />}
                         <button onClick={() => handleToggleFlag(entry, "is_favorite")}
                           title={entry.is_favorite ? "Favorit entfernen" : "Favorit"}
                           className="p-0.5 rounded transition-colors">
