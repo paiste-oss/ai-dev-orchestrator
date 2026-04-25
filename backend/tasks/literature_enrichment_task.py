@@ -157,6 +157,29 @@ def backfill_books_index(self, limit: int | None = None, force: bool = False) ->
 
 
 @celery_app.task(
+    name="tasks.literature_enrichment_task.bulk_meta_refresh",
+    bind=True,
+    ignore_result=False,
+    time_limit=12 * 3600,  # 3000+ Einträge bei ~3-5s/PDF (Haiku) brauchen Stunden
+    soft_time_limit=12 * 3600 - 60,
+)
+def bulk_meta_refresh(self, entry_ids: list[str], customer_id_str: str, job_id: str) -> dict:
+    """Phase A.2 (Bulk-Refresh) als Celery-Task. Überlebt Backend-Restarts —
+    kann von einem dedizierten Celery-Worker stundenlang laufen ohne FastAPI
+    zu blockieren.
+
+    Lazy-Import von _bulk_meta_refresh_task aus dem Router-Modul, damit's
+    keine zirkulären Imports gibt (literature.py importiert enrich_doi_async
+    aus diesem Modul).
+    """
+    async def _run() -> dict:
+        from api.v1.literature import _bulk_meta_refresh_task
+        await _bulk_meta_refresh_task(entry_ids, customer_id_str, job_id)
+        return {"job_id": job_id, "total": len(entry_ids), "status": "done"}
+    return asyncio.run(_run())
+
+
+@celery_app.task(
     name="tasks.literature_enrichment_task.bulk_fetch_oa_pdfs",
     bind=True,
     ignore_result=False,

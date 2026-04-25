@@ -1264,9 +1264,16 @@ async def start_bulk_refresh_meta(
     finally:
         await r.aclose()
 
-    background_tasks.add_task(_bulk_meta_refresh_task, valid_ids, str(user.id), job_id)
+    # Celery-Task statt FastAPI-BackgroundTask: überlebt Backend-Restarts und
+    # blockiert nicht den HTTP-Server bei stundenlangen Bulk-Läufen.
+    try:
+        from tasks.literature_enrichment_task import bulk_meta_refresh
+        bulk_meta_refresh.delay(valid_ids, str(user.id), job_id)
+    except Exception as exc:
+        _log.error("[Literatur/Bulk-Meta] Celery-Trigger fehlgeschlagen: %s", exc)
+        raise HTTPException(status_code=503, detail="Worker nicht erreichbar")
     _log.info(
-        "[Literatur/Bulk-Meta] Job %s gestartet (%d Einträge, %d übersprungen) für Kunde %s",
+        "[Literatur/Bulk-Meta] Job %s an Celery delegiert (%d Einträge, %d übersprungen) für Kunde %s",
         job_id, len(valid_ids), skipped, user.id,
     )
     return BulkRefreshStartResponse(
