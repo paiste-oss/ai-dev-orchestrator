@@ -50,25 +50,25 @@ def _user_agent() -> str:
 async def _fetch_fedlex(client: httpx.AsyncClient, sr_number: str) -> dict[str, Any] | None:
     """Holt Gesetzes-Metadaten aus Fedlex via SPARQL.
 
-    Fedlex serviert die Web-UI als SPA (HTML-Parsing nutzlos). Daten kommen
-    aus dem Linked-Data-Endpoint via SPARQL. Wir suchen die ConsolidationAbstract
-    zur SR-Nummer und holen Titel + Abkürzung in DE.
+    Fedlex serviert die Web-UI als SPA (HTML-Parsing nutzlos). Daten liegen in
+    tausenden Named Graphs auf https://fedlex.data.admin.ch/sparqlendpoint.
+
+    Datenmodell:
+      - SR-Nummer ist eine `skos:notation` mit Datentyp `id-systematique`
+        an einem `jolux:LegalTaxonomy`-Concept
+      - Title in mehreren Sprachen direkt als `skos:prefLabel` am Concept
+      - Das `jolux:Work` ist via `jolux:classifiedByTaxonomyEntry` verlinkt
     """
     sparql_query = f"""PREFIX jolux: <http://data.legilux.public.lu/resource/ontology/jolux#>
 PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
-SELECT ?cc ?title ?titleShort ?abbreviation ?dateApplicability WHERE {{
-  ?cc a jolux:ConsolidationAbstract ;
-       jolux:classifiedByTaxonomyEntry ?tax .
-  ?tax skos:notation "{sr_number}" .
-  OPTIONAL {{
-    ?expression jolux:isRealizedBy ?cc ;
-                jolux:language <http://publications.europa.eu/resource/authority/language/DEU> ;
-                jolux:title ?title .
-    OPTIONAL {{ ?expression jolux:titleShort ?titleShort . }}
-    OPTIONAL {{ ?expression jolux:titleAlternative ?abbreviation . }}
+SELECT ?tax ?title ?work WHERE {{
+  GRAPH ?g {{
+    ?tax skos:notation "{sr_number}"^^<https://fedlex.data.admin.ch/vocabulary/notation-type/id-systematique> ;
+         skos:prefLabel ?title .
+    FILTER(LANG(?title) = "de")
+    OPTIONAL {{ ?work jolux:classifiedByTaxonomyEntry ?tax . }}
   }}
-  OPTIONAL {{ ?cc jolux:dateApplicability ?dateApplicability . }}
 }}
 LIMIT 1"""
 
@@ -92,37 +92,48 @@ LIMIT 1"""
         body = r.json()
         bindings = (body.get("results") or {}).get("bindings") or []
         if not bindings:
-            # Kein SPARQL-Treffer — Landing-URL bleibt verfügbar (User landet auf Fedlex-Detailseite)
+            # SR-Nummer existiert nicht in Fedlex (z. B. Tippfehler oder veraltet) —
+            # trotzdem Landing-URL liefern, Fedlex zeigt dem User dort eine 404-Seite.
             return {"sr_number": sr_number, "html_url": landing_url, "fedlex_data": {"sparql_empty": True}}
 
         b = bindings[0]
-        cc_uri = (b.get("cc") or {}).get("value")
+        tax_uri = (b.get("tax") or {}).get("value")
         title = (b.get("title") or {}).get("value")
-        title_short = (b.get("titleShort") or {}).get("value")
-        abbreviation = (b.get("abbreviation") or {}).get("value")
-        date_app = (b.get("dateApplicability") or {}).get("value")
+        work_uri = (b.get("work") or {}).get("value")
 
-        # PDF/HTML-URLs aus dem CC-URI ableiten
-        # cc_uri sieht so aus: https://fedlex.data.admin.ch/eli/cc/27/317_321_377
+        # Abkürzung aus Title in Klammern extrahieren falls vorhanden
+        # z. B. "Bundesgesetz ... (Fünfter Teil: Obligationenrecht)" — Klammer-Inhalt
+        abbreviation = None
+        if title:
+            paren_match = re.search(r"\(([^()]{2,80})\)\s*$", title)
+            if paren_match:
+                inner = paren_match.group(1)
+                # Letzten Token wenn Komma drin (z. B. "Verfassung, BV") = Abkürzung
+                if "," in inner:
+                    parts = [p.strip() for p in inner.rsplit(",", 1)]
+                    if len(parts) == 2 and len(parts[1]) <= 16 and parts[1].isupper():
+                        abbreviation = parts[1]
+
+        # PDF/HTML-URLs aus dem Work-URI ableiten — Format:
+        # https://fedlex.data.admin.ch/eli/cc/27/317_321_377  →
+        # https://www.fedlex.admin.ch/eli/cc/27/317_321_377/de(.pdf)
         pdf_url = None
-        eli_uri = cc_uri
-        if cc_uri:
-            # ELI-konformer Pfad → fedlex.admin.ch hat PDF unter .../de.pdf
-            html_url = cc_uri.replace("fedlex.data.admin.ch", "www.fedlex.admin.ch") + "/de"
-            pdf_url = html_url + ".pdf"
+        eli_uri = work_uri
+        if work_uri and work_uri.startswith("https://fedlex.data.admin.ch/eli/"):
+            web_url = work_uri.replace("fedlex.data.admin.ch", "www.fedlex.admin.ch") + "/de"
+            html_url = web_url
+            pdf_url = web_url + ".pdf"
         else:
             html_url = landing_url
 
         return {
             "sr_number": sr_number,
             "title": title,
-            "short_title": title_short[:512] if title_short else None,
-            "abbreviation": abbreviation[:64] if abbreviation else None,
+            "abbreviation": abbreviation,
             "html_url": html_url,
             "pdf_url": pdf_url,
             "eli_uri": eli_uri,
-            "in_force_date": date_app,
-            "fedlex_data": {"cc_uri": cc_uri, "binding": {k: v.get("value") for k, v in b.items()}},
+            "fedlex_data": {"tax_uri": tax_uri, "work_uri": work_uri},
         }
     except (httpx.HTTPError, ValueError) as exc:
         _log.info("[LawEnrich/Fedlex-SPARQL] SR %s → %s", sr_number, exc)
