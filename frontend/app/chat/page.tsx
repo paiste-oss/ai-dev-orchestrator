@@ -426,12 +426,25 @@ export default function ChatPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openArtifact]);
 
-  const handleOpenFile = useCallback(({ url, filename, fileType }: { url: string; filename: string; fileType: string }) => {
+  const handleOpenFile = useCallback(({ url, filename, fileType, literatureEntryId, literatureTitle, documentEntryId }: {
+    url: string;
+    filename: string;
+    fileType: string;
+    literatureEntryId?: string;
+    literatureTitle?: string;
+    documentEntryId?: string;
+  }) => {
     const isImage = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes((fileType ?? "").toLowerCase());
     if (isImage) {
       openArtifact("image_gallery", `🖼 ${filename}`, { images: [{ image_url: url, filename }] });
     } else {
-      openArtifact("file_viewer", `📄 ${filename}`, { url, filename, fileType });
+      const data: Record<string, unknown> = { url, filename, fileType };
+      // IDs werden vom Backend in den Canvas-Hint übernommen, damit Baddi via
+      // library_read den Volltext lesen kann statt auf die blob:-URL zu starren.
+      if (literatureEntryId) data.literatureEntryId = literatureEntryId;
+      if (literatureTitle) data.literatureTitle = literatureTitle;
+      if (documentEntryId) data.documentEntryId = documentEntryId;
+      openArtifact("file_viewer", `📄 ${filename}`, data);
     }
   }, [openArtifact]);
 

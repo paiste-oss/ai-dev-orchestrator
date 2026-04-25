@@ -60,17 +60,55 @@ class LLMResult(TypedDict):
 # ── Phase 2: LLM ausführen ────────────────────────────────────────────────────
 
 def _build_canvas_note(canvas: list[dict[str, Any]]) -> str:
+    """Erzeugt einen kompakten Hint für das LLM über das Artifact-Panel.
+
+    Wichtig: blob:-URLs sind nutzlos für das Backend. Wenn ein FileViewer
+    eine literatureEntryId / documentEntryId trägt, schreiben wir stattdessen
+    eine Anweisung wie 'nutze library_read({id, type})'.
+    """
     import json as _json
     lines = ["[Artifact-Panel — aktuell geöffnet:]"]
     for a in canvas:
         mark = " ◀ aktiv" if a.get("active") else ""
-        line = f"  • {a.get('title', a.get('type', '?'))} [Typ: {a.get('type', '?')}]{mark}"
-        data = a.get("data")
-        if data:
-            summary = _json.dumps(data, ensure_ascii=False, default=str)
-            if len(summary) > 400:
-                summary = summary[:400] + "…"
-            line += f"\n    Daten: {summary}"
+        title = a.get("title") or a.get("type") or "?"
+        atype = a.get("type") or "?"
+        line = f"  • {title} [Typ: {atype}]{mark}"
+        data = a.get("data") or {}
+
+        # Spezialfall: FileViewer mit Bibliotheks-Bezug
+        lit_id = data.get("literatureEntryId") if isinstance(data, dict) else None
+        doc_id = data.get("documentEntryId") if isinstance(data, dict) else None
+        if atype == "file_viewer" and (lit_id or doc_id):
+            if lit_id:
+                line += (
+                    f"\n    → Dies ist ein Literatur-Eintrag (id={lit_id}). "
+                    f"Wenn der Nutzer auf 'das PDF', 'dieses Paper' o.ä. verweist, "
+                    f"nutze library_read mit id='{lit_id}', type='literature' um den Volltext zu lesen."
+                )
+            elif doc_id:
+                line += (
+                    f"\n    → Dies ist ein Dokument (id={doc_id}). "
+                    f"Wenn der Nutzer auf 'das Dokument' o.ä. verweist, "
+                    f"nutze library_read mit id='{doc_id}', type='document' um den Volltext zu lesen."
+                )
+            filename = data.get("filename")
+            if filename:
+                line += f" Dateiname: {filename}."
+        elif data:
+            # Generische Darstellung — aber blob:-URLs filtern (sind für das Backend wertlos)
+            if isinstance(data, dict):
+                cleaned = {k: v for k, v in data.items()
+                           if not (isinstance(v, str) and v.startswith("blob:"))}
+                if cleaned:
+                    summary = _json.dumps(cleaned, ensure_ascii=False, default=str)
+                    if len(summary) > 400:
+                        summary = summary[:400] + "…"
+                    line += f"\n    Daten: {summary}"
+            else:
+                summary = _json.dumps(data, ensure_ascii=False, default=str)
+                if len(summary) > 400:
+                    summary = summary[:400] + "…"
+                line += f"\n    Daten: {summary}"
         lines.append(line)
     return "\n".join(lines)
 

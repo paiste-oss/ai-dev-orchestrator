@@ -45,7 +45,7 @@ interface Folder {
 type SortKey = "name" | "category" | "date" | "size";
 type ViewMode = "list" | "grid";
 
-interface OpenFileInfo { url: string; filename: string; fileType: string; }
+interface OpenFileInfo { url: string; filename: string; fileType: string; literatureEntryId?: string; literatureTitle?: string; documentEntryId?: string; }
 interface Props { onOpenFile?: (info: OpenFileInfo) => void; }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -457,7 +457,7 @@ export default function DocumentsWindow({ onOpenFile }: Props) {
       if (!res.ok) return;
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      onOpenFile({ url, filename: doc.original_filename, fileType: doc.file_type });
+      onOpenFile({ url, filename: doc.original_filename, fileType: doc.file_type, documentEntryId: doc.id });
     } catch { /* silent */ }
   }
 

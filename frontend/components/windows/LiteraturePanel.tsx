@@ -575,7 +575,7 @@ function EntryForm({
 // ── Main Component ────────────────────────────────────────────────────────────
 
 interface LiteraturePanelProps {
-  onOpenFile?: (args: { url: string; filename: string; fileType: string }) => void;
+  onOpenFile?: (args: { url: string; filename: string; fileType: string; literatureEntryId?: string; literatureTitle?: string }) => void;
 }
 
 export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {}) {
@@ -839,7 +839,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       const blobUrl = URL.createObjectURL(blob);
       const filename = entry.pdf_s3_key.split("/").pop() || `${entry.title}.pdf`;
       if (onOpenFile) {
-        onOpenFile({ url: blobUrl, filename, fileType: "pdf" });
+        onOpenFile({ url: blobUrl, filename, fileType: "pdf", literatureEntryId: entry.id, literatureTitle: entry.title });
       } else {
         // Fallback: kein Callback verfügbar → in neuem Tab öffnen (Blob-URL umgeht Auth-Problem)
         window.open(blobUrl, "_blank", "noopener");
