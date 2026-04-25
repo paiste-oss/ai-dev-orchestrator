@@ -173,6 +173,12 @@ def bulk_meta_refresh(self, entry_ids: list[str], customer_id_str: str, job_id: 
     aus diesem Modul).
     """
     async def _run() -> dict:
+        # Celery-Worker startet ohne /app im sys.path — explizit hinzufügen,
+        # damit der Import des Router-Moduls funktioniert.
+        import sys as _sys
+        for p in ("/app", "/app/backend"):
+            if p not in _sys.path:
+                _sys.path.insert(0, p)
         from api.v1.literature import _bulk_meta_refresh_task
         await _bulk_meta_refresh_task(entry_ids, customer_id_str, job_id)
         return {"job_id": job_id, "total": len(entry_ids), "status": "done"}
