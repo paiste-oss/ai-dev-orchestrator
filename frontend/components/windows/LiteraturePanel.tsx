@@ -277,6 +277,97 @@ function DetailPanel({
   );
 }
 
+// ── PDF Preview ───────────────────────────────────────────────────────────────
+
+function PdfPreview({
+  entry,
+  onOpenFullView,
+}: {
+  entry: LitEntry | null;
+  onOpenFullView: (entry: LitEntry) => void;
+}) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!entry?.pdf_s3_key) {
+      setBlobUrl(null);
+      setError(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(false);
+    apiFetch(`${BACKEND_URL}/v1/literature/${entry.id}/pdf`)
+      .then(async res => res.ok ? res.blob() : null)
+      .then(blob => {
+        if (cancelled) return;
+        if (blob) {
+          setBlobUrl(URL.createObjectURL(blob));
+        } else {
+          setError(true);
+        }
+      })
+      .catch(() => { if (!cancelled) setError(true); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [entry?.id, entry?.pdf_s3_key]);
+
+  // Alte Blob-URL freigeben wenn neue gesetzt wird
+  useEffect(() => {
+    return () => {
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+    };
+  }, [blobUrl]);
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-b window-border-soft">
+        <span className="text-[10px] window-text-subtle uppercase tracking-wider">PDF-Vorschau</span>
+        {entry && (
+          <span className="text-[10px] window-text-subtle truncate flex-1">{entry.title}</span>
+        )}
+        {entry?.pdf_s3_key && (
+          <button onClick={() => onOpenFullView(entry)}
+            className="text-[11px] text-[var(--accent-light)] hover:underline shrink-0 flex items-center gap-1">
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 3h6v6"/><path d="M10 14L21 3"/><path d="M21 14v7H3V3h7"/>
+            </svg>
+            Gesamtansicht
+          </button>
+        )}
+      </div>
+      <div className="flex-1 min-h-0 bg-black/20 relative">
+        {!entry && (
+          <div className="flex flex-col items-center justify-center h-full gap-2 window-text-subtle text-xs px-4 text-center">
+            <span className="text-3xl opacity-40">📄</span>
+            <span>Kein Eintrag ausgewählt</span>
+          </div>
+        )}
+        {entry && !entry.pdf_s3_key && (
+          <div className="flex flex-col items-center justify-center h-full gap-2 window-text-subtle text-xs px-4 text-center">
+            <span className="text-3xl opacity-40">📎</span>
+            <span>Kein PDF angehängt</span>
+          </div>
+        )}
+        {entry?.pdf_s3_key && loading && (
+          <div className="flex items-center justify-center h-full window-text-subtle text-xs">PDF wird geladen…</div>
+        )}
+        {entry?.pdf_s3_key && error && !loading && (
+          <div className="flex flex-col items-center justify-center h-full gap-2 window-text-subtle text-xs px-4 text-center">
+            <span className="text-2xl">⚠️</span>
+            <span>PDF konnte nicht geladen werden</span>
+          </div>
+        )}
+        {entry?.pdf_s3_key && blobUrl && !loading && !error && (
+          <iframe src={blobUrl} title={entry.title} className="w-full h-full border-0 block" />
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Entry Form ────────────────────────────────────────────────────────────────
 
 function EntryForm({
@@ -597,6 +688,54 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   const [addingGroupFor, setAddingGroupFor] = useState<{ type: "paper" | "book" | "patent"; parentId: string | null } | null>(null);
   const [newGroupName, setNewGroupName] = useState("");
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
+
+  // T-Layout: Splitter-Positionen (Prozent)
+  const [topPercent, setTopPercent] = useState(45);   // Liste oben — 45% Höhe
+  const [leftPercent, setLeftPercent] = useState(45); // Detail unten links — 45% Breite
+  const tBodyRef = useRef<HTMLDivElement>(null);
+  const tBottomRef = useRef<HTMLDivElement>(null);
+
+  const startDragH = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const container = tBodyRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const onMove = (ev: MouseEvent) => {
+      const pct = ((ev.clientY - rect.top) / rect.height) * 100;
+      setTopPercent(Math.max(15, Math.min(80, pct)));
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+  }, []);
+
+  const startDragV = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const container = tBottomRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const onMove = (ev: MouseEvent) => {
+      const pct = ((ev.clientX - rect.left) / rect.width) * 100;
+      setLeftPercent(Math.max(15, Math.min(85, pct)));
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, []);
   const [selected, setSelected] = useState<LitEntry | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -1191,8 +1330,11 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
           </button>
         </div>
 
-        {/* List */}
-        <div className="flex-1 min-w-0 overflow-hidden flex flex-col">
+        {/* T-Layout: oben Liste, unten Detail | PDF */}
+        <div ref={tBodyRef} className="flex-1 min-w-0 flex flex-col overflow-hidden">
+
+        {/* List (oben) */}
+        <div className="overflow-hidden flex flex-col" style={{ height: `${topPercent}%` }}>
           {loading ? (
             <div className="flex items-center justify-center flex-1 text-gray-600 text-xs">Lade…</div>
           ) : filtered.length === 0 ? (
@@ -1265,35 +1407,50 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
           )}
         </div>
 
-        {/* Detail / Form panel */}
-        {(showDetail || showForm) && (
-          <>
-            <div className="w-[4px] shrink-0 bg-white/5" />
-            <div className="w-72 shrink-0 border-l border-white/6 overflow-hidden h-full">
-              {showForm ? (
-                <EntryForm
-                  initial={editEntry}
-                  onSave={handleSave}
-                  onCancel={() => { setShowForm(false); if (selected) setShowDetail(true); }}
-                  saving={saving}
-                  onExtractPdf={!editEntry.id ? handleExtractPdf : undefined}
-                />
-              ) : (
-                <DetailPanel
-                  entry={selected}
-                  onClose={() => { setShowDetail(false); setSelected(null); }}
-                  onDelete={handleDelete}
-                  onEdit={openEdit}
-                  onPdfUpload={handlePdfUpload}
-                  onPdfOpen={handlePdfOpen}
-                  onToggleFavorite={e => handleToggleFlag(e, "is_favorite")}
-                  onToggleReadLater={e => handleToggleFlag(e, "read_later")}
-                  deleting={deleting}
-                />
-              )}
-            </div>
-          </>
-        )}
+        {/* Horizontaler Splitter zwischen Liste und Detail/Vorschau */}
+        <div onMouseDown={startDragH}
+          className="h-[5px] shrink-0 bg-white/5 hover:bg-[var(--accent)]/40 cursor-row-resize transition-colors"
+          title="Ziehen um Höhe zu ändern" />
+
+        {/* Bottom: Detail (links) | PDF Preview (rechts) */}
+        <div ref={tBottomRef} className="flex flex-1 min-h-0 overflow-hidden">
+          {/* Detail / Form */}
+          <div className="overflow-hidden h-full" style={{ width: `${leftPercent}%` }}>
+            {showForm ? (
+              <EntryForm
+                initial={editEntry}
+                onSave={handleSave}
+                onCancel={() => { setShowForm(false); if (selected) setShowDetail(true); }}
+                saving={saving}
+                onExtractPdf={!editEntry.id ? handleExtractPdf : undefined}
+              />
+            ) : (
+              <DetailPanel
+                entry={selected}
+                onClose={() => { setShowDetail(false); setSelected(null); }}
+                onDelete={handleDelete}
+                onEdit={openEdit}
+                onPdfUpload={handlePdfUpload}
+                onPdfOpen={handlePdfOpen}
+                onToggleFavorite={e => handleToggleFlag(e, "is_favorite")}
+                onToggleReadLater={e => handleToggleFlag(e, "read_later")}
+                deleting={deleting}
+              />
+            )}
+          </div>
+
+          {/* Vertikaler Splitter zwischen Detail und Vorschau */}
+          <div onMouseDown={startDragV}
+            className="w-[5px] shrink-0 bg-white/5 hover:bg-[var(--accent)]/40 cursor-col-resize transition-colors"
+            title="Ziehen um Breite zu ändern" />
+
+          {/* PDF Preview */}
+          <div className="flex-1 overflow-hidden border-l window-border-soft">
+            <PdfPreview entry={selected} onOpenFullView={handlePdfOpen} />
+          </div>
+        </div>
+
+        </div> {/* /T-Layout */}
       </div>
     </WindowFrame>
   );
