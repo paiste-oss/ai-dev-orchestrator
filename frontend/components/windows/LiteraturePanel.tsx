@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { apiFetch, apiFetchForm } from "@/lib/auth";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { apiFetch, apiFetchForm, getSession } from "@/lib/auth";
 import { BACKEND_URL } from "@/lib/config";
 import { useT } from "@/lib/i18n";
 import { useLiteratureUpload } from "@/lib/literature-upload-context";
@@ -157,7 +157,7 @@ function DetailPanel({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Header — nur Titel + Close, Action-Buttons sind in der PDF-Vorschau */}
       <div className="flex items-start gap-2 px-3 py-2 border-b border-white/6 shrink-0">
         <span className="text-sm shrink-0 mt-0.5">{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
         <div className="flex-1 min-w-0">
@@ -166,29 +166,11 @@ function DetailPanel({
             <p className="text-[10px] text-gray-500 mt-0.5">{entry.authors.join("; ")}</p>
           )}
         </div>
-        <div className="flex items-center gap-0.5 shrink-0">
-          <button onClick={() => onToggleFavorite(entry)} title={entry.is_favorite ? "Aus Favoriten entfernen" : "Zu Favoriten"}
-            className="p-1 rounded transition-colors hover:scale-110">
-            {entry.is_favorite ? <IconStarFilled /> : <span className="text-gray-600 hover:text-yellow-400 block transition-colors"><IconStar /></span>}
-          </button>
-          <button onClick={() => onToggleReadLater(entry)} title={entry.read_later ? "Aus 'Zu lesen' entfernen" : "Zu lesen vormerken"}
-            className="p-1 rounded transition-colors hover:scale-110">
-            {entry.read_later ? <IconBookmarkFilled /> : <span className="text-gray-600 hover:text-blue-400 block transition-colors"><IconBookmarkOutline /></span>}
-          </button>
-          <button onClick={() => onEdit(entry)} title="Bearbeiten"
-            className="p-1 rounded text-gray-600 hover:text-[var(--accent-light)] transition-colors">
-            <IconEdit />
-          </button>
-          <button onClick={() => onDelete(entry.id)} disabled={deleting === entry.id} title="Löschen"
-            className="p-1 rounded text-gray-600 hover:text-red-400 transition-colors disabled:opacity-30">
-            {deleting === entry.id ? <IconSpinner /> : <IconTrash />}
-          </button>
-          <button onClick={onClose} className="p-1 text-gray-600 hover:text-gray-400 transition-colors">
-            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
+        <button onClick={onClose} className="p-1 text-gray-600 hover:text-gray-400 transition-colors shrink-0" title="Schliessen">
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
       </div>
 
       {/* Meta chips */}
@@ -282,9 +264,19 @@ function DetailPanel({
 function PdfPreview({
   entry,
   onOpenFullView,
+  onToggleFavorite,
+  onToggleReadLater,
+  onEdit,
+  onDelete,
+  deleting,
 }: {
   entry: LitEntry | null;
   onOpenFullView: (entry: LitEntry) => void;
+  onToggleFavorite: (entry: LitEntry) => void;
+  onToggleReadLater: (entry: LitEntry) => void;
+  onEdit: (entry: LitEntry) => void;
+  onDelete: (id: string) => void;
+  deleting: string | null;
 }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -323,19 +315,34 @@ function PdfPreview({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 border-b window-border-soft">
-        <span className="text-[10px] window-text-subtle uppercase tracking-wider">PDF-Vorschau</span>
+      <div className="shrink-0 flex items-center justify-end gap-0.5 px-3 py-1.5 border-b window-border-soft">
         {entry && (
-          <span className="text-[10px] window-text-subtle truncate flex-1">{entry.title}</span>
-        )}
-        {entry?.pdf_s3_key && (
-          <button onClick={() => onOpenFullView(entry)}
-            className="text-[11px] text-[var(--accent-light)] hover:underline shrink-0 flex items-center gap-1">
-            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 3h6v6"/><path d="M10 14L21 3"/><path d="M21 14v7H3V3h7"/>
-            </svg>
-            Gesamtansicht
-          </button>
+          <>
+            <button onClick={() => onToggleFavorite(entry)} title={entry.is_favorite ? "Aus Favoriten entfernen" : "Zu Favoriten"}
+              className="p-1 rounded transition-colors hover:scale-110">
+              {entry.is_favorite ? <IconStarFilled /> : <span className="text-gray-600 hover:text-yellow-400 block transition-colors"><IconStar /></span>}
+            </button>
+            <button onClick={() => onToggleReadLater(entry)} title={entry.read_later ? "Aus 'Zu lesen' entfernen" : "Zu lesen vormerken"}
+              className="p-1 rounded transition-colors hover:scale-110">
+              {entry.read_later ? <IconBookmarkFilled /> : <span className="text-gray-600 hover:text-blue-400 block transition-colors"><IconBookmarkOutline /></span>}
+            </button>
+            <button onClick={() => onEdit(entry)} title="Bearbeiten"
+              className="p-1 rounded text-gray-600 hover:text-[var(--accent-light)] transition-colors">
+              <IconEdit />
+            </button>
+            <button onClick={() => onDelete(entry.id)} disabled={deleting === entry.id} title="Löschen"
+              className="p-1 rounded text-gray-600 hover:text-red-400 transition-colors disabled:opacity-30">
+              {deleting === entry.id ? <IconSpinner /> : <IconTrash />}
+            </button>
+            {entry.pdf_s3_key && (
+              <button onClick={() => onOpenFullView(entry)} title="Gesamtansicht"
+                className="p-1 rounded text-gray-600 hover:text-[var(--accent-light)] transition-colors">
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 3h6v6"/><path d="M10 14L21 3"/><path d="M21 14v7H3V3h7"/>
+                </svg>
+              </button>
+            )}
+          </>
         )}
       </div>
       <div className="flex-1 min-h-0 bg-black/20 relative">
@@ -690,11 +697,42 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   const [newGroupName, setNewGroupName] = useState("");
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
 
-  // T-Layout: Splitter-Positionen (Prozent)
-  const [topPercent, setTopPercent] = useState(45);   // Liste oben — 45% Höhe
-  const [leftPercent, setLeftPercent] = useState(45); // Detail unten links — 45% Breite
+  // T-Layout: Splitter-Positionen (Prozent) — werden user-scoped persistiert
+  const layoutKey = useMemo(() => {
+    const email = getSession()?.email;
+    return email ? `baddi:lit_layout:${encodeURIComponent(email)}` : null;
+  }, []);
+  const [topPercent, setTopPercent] = useState(45);
+  const [leftPercent, setLeftPercent] = useState(45);
+  const layoutLoaded = useRef(false);
   const tBodyRef = useRef<HTMLDivElement>(null);
   const tBottomRef = useRef<HTMLDivElement>(null);
+
+  // Beim Mount: gespeicherte Layout-Werte laden
+  useEffect(() => {
+    if (!layoutKey || layoutLoaded.current) return;
+    try {
+      const raw = localStorage.getItem(layoutKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { topPercent?: number; leftPercent?: number };
+        if (typeof parsed.topPercent === "number" && parsed.topPercent >= 15 && parsed.topPercent <= 80) {
+          setTopPercent(parsed.topPercent);
+        }
+        if (typeof parsed.leftPercent === "number" && parsed.leftPercent >= 15 && parsed.leftPercent <= 85) {
+          setLeftPercent(parsed.leftPercent);
+        }
+      }
+    } catch { /* ignore */ }
+    layoutLoaded.current = true;
+  }, [layoutKey]);
+
+  // Bei Änderung: persistieren (nur nach initialem Laden, sonst überschreiben wir)
+  useEffect(() => {
+    if (!layoutKey || !layoutLoaded.current) return;
+    try {
+      localStorage.setItem(layoutKey, JSON.stringify({ topPercent, leftPercent }));
+    } catch { /* QuotaExceeded etc. */ }
+  }, [topPercent, leftPercent, layoutKey]);
 
   const startDragH = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -1447,7 +1485,15 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
 
           {/* PDF Preview */}
           <div className="flex-1 overflow-hidden border-l window-border-soft">
-            <PdfPreview entry={selected} onOpenFullView={handlePdfOpen} />
+            <PdfPreview
+              entry={selected}
+              onOpenFullView={handlePdfOpen}
+              onToggleFavorite={e => handleToggleFlag(e, "is_favorite")}
+              onToggleReadLater={e => handleToggleFlag(e, "read_later")}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+              deleting={deleting}
+            />
           </div>
         </div>
 
