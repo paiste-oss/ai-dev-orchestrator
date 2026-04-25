@@ -434,18 +434,17 @@ export default function ChatPage() {
     literatureTitle?: string;
     documentEntryId?: string;
   }) => {
+    // Alle Einzeldateien (PDF, Bild, Text, Audio …) gehen ins gleiche
+    // singleton FileViewer-Fenster — innen entstehen Sub-Tabs. Dadurch
+    // belegt der Hauptfenster-Tab nicht 20 Slots wenn der User durch
+    // Literatur klickt.
+    const data: Record<string, unknown> = { url, filename, fileType };
+    if (literatureEntryId) data.literatureEntryId = literatureEntryId;
+    if (literatureTitle) data.literatureTitle = literatureTitle;
+    if (documentEntryId) data.documentEntryId = documentEntryId;
     const isImage = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes((fileType ?? "").toLowerCase());
-    if (isImage) {
-      openArtifact("image_gallery", `🖼 ${filename}`, { images: [{ image_url: url, filename }] });
-    } else {
-      const data: Record<string, unknown> = { url, filename, fileType };
-      // IDs werden vom Backend in den Canvas-Hint übernommen, damit Baddi via
-      // library_read den Volltext lesen kann statt auf die blob:-URL zu starren.
-      if (literatureEntryId) data.literatureEntryId = literatureEntryId;
-      if (literatureTitle) data.literatureTitle = literatureTitle;
-      if (documentEntryId) data.documentEntryId = documentEntryId;
-      openArtifact("file_viewer", `📄 ${filename}`, data);
-    }
+    const icon = isImage ? "🖼" : "📄";
+    openArtifact("file_viewer", `${icon} ${filename}`, data);
   }, [openArtifact]);
 
   const handleRemoveGeneratedImage = useCallback((msgId: string) => {
@@ -674,6 +673,9 @@ export default function ChatPage() {
           filename={(d?.filename as string | undefined) ?? "Datei"}
           fileType={d?.fileType as string | undefined}
           mimeType={d?.mimeType as string | undefined}
+          literatureEntryId={d?.literatureEntryId as string | undefined}
+          literatureTitle={d?.literatureTitle as string | undefined}
+          documentEntryId={d?.documentEntryId as string | undefined}
         />
       );
       case "stock_card": return (

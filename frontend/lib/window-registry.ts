@@ -69,7 +69,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
     defaultHeight: 560,
     status: "hidden",
     canvasType: "file_viewer",
-    singleton: false,
+    singleton: true,
   },
   {
     id: "documents",
