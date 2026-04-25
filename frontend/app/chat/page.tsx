@@ -435,17 +435,23 @@ export default function ChatPage() {
     documentEntryId?: string;
   }) => {
     // Alle Einzeldateien (PDF, Bild, Text, Audio …) gehen ins gleiche
-    // singleton FileViewer-Fenster — innen entstehen Sub-Tabs. Dadurch
-    // belegt der Hauptfenster-Tab nicht 20 Slots wenn der User durch
-    // Literatur klickt.
-    const data: Record<string, unknown> = { url, filename, fileType };
-    if (literatureEntryId) data.literatureEntryId = literatureEntryId;
-    if (literatureTitle) data.literatureTitle = literatureTitle;
-    if (documentEntryId) data.documentEntryId = documentEntryId;
+    // singleton FileViewer-Fenster. Tab-Liste lebt in artifact.data, damit
+    // sie Component-Mount/Unmount übersteht (z.B. beim Wechsel auf andere Tabs).
     const isImage = ["png", "jpg", "jpeg", "webp", "gif", "svg"].includes((fileType ?? "").toLowerCase());
     const icon = isImage ? "🖼" : "📄";
-    openArtifact("file_viewer", `${icon} ${filename}`, data);
-  }, [openArtifact]);
+    const newKey = literatureEntryId || documentEntryId || url;
+    const newTab: Record<string, unknown> = { key: newKey, url, filename, fileType };
+    if (literatureEntryId) newTab.literatureEntryId = literatureEntryId;
+    if (literatureTitle) newTab.literatureTitle = literatureTitle;
+    if (documentEntryId) newTab.documentEntryId = documentEntryId;
+
+    const existing = artifacts.find(a => a.type === "file_viewer");
+    const existingTabs = ((existing?.data as { tabs?: Array<{ key: string }> } | undefined)?.tabs) ?? [];
+    // Dedupe (gleiche key wird ersetzt) und auf 12 Tabs limitieren
+    const filtered = existingTabs.filter(t => t.key !== newKey);
+    const tabs = [...filtered, newTab].slice(-12);
+    openArtifact("file_viewer", `${icon} ${filename}`, { tabs, activeKey: newKey });
+  }, [openArtifact, artifacts]);
 
   const handleRemoveGeneratedImage = useCallback((msgId: string) => {
     setMessages(prev => prev.map(m => m.id === msgId ? { ...m, generatedImages: undefined } : m));
@@ -669,12 +675,16 @@ export default function ChatPage() {
       );
       case "file_viewer": return (
         <FileViewerWindow
+          // Controlled mode (Frontend handleOpenFile setzt diese):
+          tabs={d?.tabs as Parameters<typeof FileViewerWindow>[0]["tabs"]}
+          activeKey={d?.activeKey as string | undefined}
+          onUpdateData={(patch) => updateArtifact(artifact.id, patch)}
+          // Legacy fallback (z.B. wenn Baddi via open_artifact ohne tabs öffnet):
           url={(d?.url as string | undefined) ?? ""}
           filename={(d?.filename as string | undefined) ?? "Datei"}
           fileType={d?.fileType as string | undefined}
           mimeType={d?.mimeType as string | undefined}
           literatureEntryId={d?.literatureEntryId as string | undefined}
-          literatureTitle={d?.literatureTitle as string | undefined}
           documentEntryId={d?.documentEntryId as string | undefined}
         />
       );

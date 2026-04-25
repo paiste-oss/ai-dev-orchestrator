@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
 import { useT } from "@/lib/i18n";
 import WindowFrame from "./WindowFrame";
 
-interface Props {
+interface Tab {
+  key: string;
   url: string;
   filename: string;
   fileType?: string;
@@ -14,10 +14,14 @@ interface Props {
   documentEntryId?: string;
 }
 
-interface Tab {
-  key: string;
-  url: string;
-  filename: string;
+interface Props {
+  // Controlled: tabs + activeKey leben in artifact.data (überlebt Mount/Unmount)
+  tabs?: Tab[];
+  activeKey?: string;
+  onUpdateData?: (patch: { tabs?: Tab[]; activeKey?: string }) => void;
+  // Legacy single-file mode (z.B. wenn Baddi das Fenster via Tool öffnet)
+  url?: string;
+  filename?: string;
   fileType?: string;
   mimeType?: string;
   literatureEntryId?: string;
@@ -36,59 +40,55 @@ function fileIcon(ext: string, mimeType: string | undefined): string {
   return "📎";
 }
 
-export default function FileViewerWindow({ url, filename, fileType, mimeType, literatureEntryId, documentEntryId }: Props) {
+export default function FileViewerWindow(props: Props) {
   const t = useT();
-  const [tabs, setTabs] = useState<Tab[]>([]);
-  const [activeKey, setActiveKey] = useState<string | null>(null);
 
-  // Wenn neue Datei via Props ankommt: zu Tabs hinzufügen oder vorhandenen Tab updaten
-  useEffect(() => {
-    if (!url) return;
-    const key = literatureEntryId || documentEntryId || url;
-    setTabs(prev => {
-      const idx = prev.findIndex(t => t.key === key);
-      if (idx >= 0) {
-        // Bestehender Eintrag — URL aktualisieren (z.B. neue Blob-URL)
-        const next = [...prev];
-        next[idx] = { ...next[idx], url, filename, fileType, mimeType, literatureEntryId, documentEntryId };
-        return next;
-      }
-      return [...prev, { key, url, filename, fileType, mimeType, literatureEntryId, documentEntryId }];
-    });
-    setActiveKey(key);
-  }, [url, filename, fileType, mimeType, literatureEntryId, documentEntryId]);
+  // Controlled mode bevorzugt; sonst Legacy-Single-File aus den Einzelprops bauen
+  const effectiveTabs: Tab[] = props.tabs && props.tabs.length > 0
+    ? props.tabs
+    : (props.url ? [{
+        key: props.literatureEntryId || props.documentEntryId || props.url,
+        url: props.url,
+        filename: props.filename ?? "Datei",
+        fileType: props.fileType,
+        mimeType: props.mimeType,
+        literatureEntryId: props.literatureEntryId,
+        documentEntryId: props.documentEntryId,
+      }] : []);
 
-  const closeTab = useCallback((key: string) => {
-    setTabs(prev => {
-      const idx = prev.findIndex(t => t.key === key);
-      if (idx < 0) return prev;
-      const closed = prev[idx];
-      // Blob-URL freigeben
-      if (closed.url.startsWith("blob:")) {
-        try { URL.revokeObjectURL(closed.url); } catch { /* ignore */ }
-      }
-      const next = prev.filter(t => t.key !== key);
-      // Wenn aktiver Tab geschlossen → auf Nachbar wechseln
-      setActiveKey(currentActive => {
-        if (currentActive !== key) return currentActive;
-        return next[idx]?.key ?? next[idx - 1]?.key ?? next[0]?.key ?? null;
-      });
-      return next;
-    });
-  }, []);
+  const activeKey = props.activeKey ?? effectiveTabs[0]?.key ?? null;
+  const active = effectiveTabs.find(t => t.key === activeKey) ?? effectiveTabs[0] ?? null;
 
-  const active = tabs.find(t => t.key === activeKey) ?? tabs[0] ?? null;
+  function setActive(key: string) {
+    if (props.onUpdateData) props.onUpdateData({ activeKey: key });
+  }
+
+  function closeTab(key: string) {
+    if (!props.onUpdateData) return;
+    const idx = effectiveTabs.findIndex(t => t.key === key);
+    if (idx < 0) return;
+    const closed = effectiveTabs[idx];
+    if (closed.url.startsWith("blob:")) {
+      try { URL.revokeObjectURL(closed.url); } catch { /* ignore */ }
+    }
+    const nextTabs = effectiveTabs.filter(t => t.key !== key);
+    let nextActive: string | undefined = activeKey ?? undefined;
+    if (activeKey === key) {
+      nextActive = nextTabs[idx]?.key ?? nextTabs[idx - 1]?.key ?? nextTabs[0]?.key;
+    }
+    props.onUpdateData({ tabs: nextTabs, activeKey: nextActive });
+  }
 
   return (
     <WindowFrame noBackground>
-      {tabs.length > 1 && (
+      {effectiveTabs.length > 1 && (
         <div className="shrink-0 flex items-center gap-1 px-2 py-1 border-b window-border-soft overflow-x-auto scrollbar-hide bg-black/30">
-          {tabs.map(tab => {
+          {effectiveTabs.map(tab => {
             const isActive = tab.key === activeKey;
             const ext = (tab.fileType ?? tab.filename.split(".").pop() ?? "").toLowerCase();
             return (
               <div key={tab.key}
-                onClick={() => setActiveKey(tab.key)}
+                onClick={() => setActive(tab.key)}
                 className={`group shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md cursor-pointer text-xs select-none transition-colors ${
                   isActive ? "bg-white/15 text-white" : "text-gray-400 hover:text-white hover:bg-white/5"
                 }`}
