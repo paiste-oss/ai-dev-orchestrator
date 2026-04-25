@@ -157,6 +157,165 @@ def backfill_books_index(self, limit: int | None = None, force: bool = False) ->
 
 
 @celery_app.task(
+    name="tasks.literature_enrichment_task.bulk_fetch_oa_pdfs",
+    bind=True,
+    ignore_result=False,
+    time_limit=6 * 3600,
+    soft_time_limit=6 * 3600 - 60,
+)
+def bulk_fetch_oa_pdfs(self, limit: int | None = None) -> dict:
+    """Phase A.2/3 — automatischer OA-PDF-Bulk-Download.
+
+    Findet alle Einträge:
+      - is_active = True
+      - pdf_s3_key IS NULL  (kein PDF angehängt)
+      - hat eine DOI mit globalen Pool-Eintrag, der `oa_url` gesetzt hat
+    Lädt für jeden das OA-PDF herunter und hängt es an.
+
+    Status wird in Redis getrackt (analog Bulk-Meta-Refresh).
+    Defensiv: per-Eintrag-Transaktion, prüft Content-Type + %PDF-Magic-Bytes.
+    """
+    async def _run() -> dict:
+        import json as _json
+        import re as _re
+        import uuid as _uuid
+        import httpx
+        import redis.asyncio as aioredis
+        from sqlalchemy import select
+        from core.config import settings
+        from core.database import AsyncSessionLocal
+        from models.literature_entry import LiteratureEntry
+        from models.literature_global_index import LiteratureGlobalIndex
+        from services.literature_enrichment import normalize_doi
+        from services.s3_storage import upload_file as s3_upload
+
+        MAX_PDF_SIZE = 50 * 1024 * 1024
+        STATUS_KEY = "lit_oa_bulk:status"
+        TTL = 24 * 3600
+
+        from datetime import datetime as _dt
+
+        r = aioredis.from_url(settings.redis_url)
+        state = {
+            "status": "running", "total": 0, "processed": 0,
+            "downloaded": 0, "skipped": 0, "errors": 0,
+            "started_at": _dt.utcnow().isoformat(),
+            "completed_at": None,
+        }
+
+        async def _publish() -> None:
+            await r.set(STATUS_KEY, _json.dumps(state), ex=TTL)
+
+        async def _sanitize_pg(text: str | None) -> str | None:
+            if text is None: return None
+            cleaned = text.replace("\x00", "")
+            return "".join(c for c in cleaned if c >= " " or c in "\t\n\r")
+
+        try:
+            # 1) Kandidaten ermitteln: Einträge ohne PDF + DOI + OA-URL im Pool
+            async with AsyncSessionLocal() as db:
+                stmt = (
+                    select(LiteratureEntry, LiteratureGlobalIndex.oa_url)
+                    .join(
+                        LiteratureGlobalIndex,
+                        LiteratureGlobalIndex.doi == LiteratureEntry.doi,
+                    )
+                    .where(
+                        LiteratureEntry.is_active.is_(True),
+                        LiteratureEntry.pdf_s3_key.is_(None),
+                        LiteratureEntry.doi.isnot(None),
+                        LiteratureGlobalIndex.oa_url.isnot(None),
+                        LiteratureGlobalIndex.enrichment_status == "enriched",
+                    )
+                )
+                if limit:
+                    stmt = stmt.limit(limit)
+                rows = (await db.execute(stmt)).all()
+            candidates = [(e.id, e.customer_id, e.title, oa) for (e, oa) in rows]
+            state["total"] = len(candidates)
+            await _publish()
+            _log.info("[OA-Bulk] %d Kandidaten zum OA-PDF-Anhängen", len(candidates))
+
+            # 2) Pro Kandidat: OA-PDF ziehen, validieren, zu S3 hochladen, DB-Eintrag updaten
+            for entry_id, customer_id, title, oa_url in candidates:
+                try:
+                    async with httpx.AsyncClient(follow_redirects=True, timeout=60.0) as client:
+                        resp = await client.get(oa_url, headers={"User-Agent": "Baddi-Literature/1.0"})
+                    state["processed"] += 1
+
+                    if resp.status_code != 200:
+                        state["skipped"] += 1
+                        await _publish()
+                        continue
+
+                    content_type = (resp.headers.get("content-type") or "").lower()
+                    pdf_bytes = resp.content
+                    is_pdf = ("pdf" in content_type) or pdf_bytes[:4] == b"%PDF"
+                    if not is_pdf or len(pdf_bytes) < 1024 or len(pdf_bytes) > MAX_PDF_SIZE:
+                        state["skipped"] += 1
+                        await _publish()
+                        continue
+
+                    # S3-Upload + DB-Update
+                    safe_filename = _re.sub(r"[^\w\-. ]", "_", (title or str(entry_id)))[:120].strip() or "oa-paper"
+                    s3_key = await s3_upload(
+                        customer_id=customer_id, doc_id=entry_id,
+                        filename=f"{safe_filename}.pdf",
+                        content=pdf_bytes, content_type="application/pdf",
+                    )
+
+                    async with AsyncSessionLocal() as db:
+                        entry = await db.get(LiteratureEntry, entry_id)
+                        if not entry or entry.pdf_s3_key:  # zwischenzeitlich verändert?
+                            state["skipped"] += 1
+                            await _publish()
+                            continue
+                        import hashlib as _hashlib
+                        entry.pdf_s3_key = s3_key
+                        entry.pdf_size_bytes = len(pdf_bytes)
+                        entry.pdf_sha256 = _hashlib.sha256(pdf_bytes).hexdigest()
+                        # Volltext für Qdrant
+                        try:
+                            from services.file_parser import parse_file
+                            parsed = parse_file(pdf_bytes, f"{safe_filename}.pdf", "application/pdf")
+                            if parsed.text.strip():
+                                base = (entry.title or "") + "\n" + (entry.abstract or "")
+                                entry.extracted_text = await _sanitize_pg(base + "\n\n" + parsed.text[:8000])
+                        except Exception:
+                            pass
+                        await db.commit()
+                    state["downloaded"] += 1
+                    _log.info("[OA-Bulk] ✓ %s (%d bytes)", entry_id, len(pdf_bytes))
+
+                except Exception as exc:
+                    state["errors"] += 1
+                    _log.warning("[OA-Bulk] ✗ %s: %s", entry_id, exc)
+
+                # Höflichkeit: 0.5s zwischen Calls (Verlage sind streng mit Bulk-Downloads)
+                import asyncio as _asyncio
+                await _asyncio.sleep(0.5)
+                if state["processed"] % 25 == 0:
+                    await _publish()
+
+            state["status"] = "done"
+            state["completed_at"] = _dt.utcnow().isoformat()
+            await _publish()
+            _log.info("[OA-Bulk] fertig: %s", state)
+            return state
+        except Exception as exc:
+            _log.error("[OA-Bulk] abgebrochen: %s", exc)
+            state["status"] = "error"
+            state["completed_at"] = _dt.utcnow().isoformat()
+            state["error"] = str(exc)[:300]
+            await _publish()
+            return state
+        finally:
+            await r.aclose()
+
+    return asyncio.run(_run())
+
+
+@celery_app.task(
     name="tasks.literature_enrichment_task.backfill_global_index",
     bind=True,
     ignore_result=False,

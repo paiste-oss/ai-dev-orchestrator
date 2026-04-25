@@ -1704,6 +1704,59 @@ async def add_global_entry_to_library(
     return entry
 
 
+class OABulkResponse(BaseModel):
+    enqueued: bool
+    estimated_candidates: int
+    task_id: str | None = None
+
+
+@router.post("/global/bulk-fetch-oa", response_model=OABulkResponse)
+async def trigger_bulk_oa_fetch(
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Stösst das automatische Anhängen aller verfügbaren OA-PDFs an Einträge
+    ohne PDF an. Läuft als Celery-Task; Status via Redis-Key 'lit_oa_bulk:status'."""
+    from models.literature_global_index import LiteratureGlobalIndex
+    count_q = await db.execute(
+        select(func.count(LiteratureEntry.id))
+        .join(LiteratureGlobalIndex, LiteratureGlobalIndex.doi == LiteratureEntry.doi)
+        .where(
+            LiteratureEntry.is_active.is_(True),
+            LiteratureEntry.pdf_s3_key.is_(None),
+            LiteratureEntry.doi.isnot(None),
+            LiteratureGlobalIndex.oa_url.isnot(None),
+            LiteratureGlobalIndex.enrichment_status == "enriched",
+        )
+    )
+    estimated = int(count_q.scalar() or 0)
+
+    try:
+        from tasks.literature_enrichment_task import bulk_fetch_oa_pdfs
+        result = bulk_fetch_oa_pdfs.delay()
+        return OABulkResponse(enqueued=True, estimated_candidates=estimated, task_id=result.id)
+    except Exception as exc:
+        _log.error("[OA-Bulk-Trigger] fehlgeschlagen: %s", exc)
+        raise HTTPException(status_code=503, detail="Celery-Worker nicht erreichbar")
+
+
+@router.get("/global/bulk-fetch-oa/status")
+async def get_bulk_oa_status(
+    user: Customer = Depends(get_current_user),
+):
+    """Aktueller Status des laufenden/letzten OA-Bulk-Downloads."""
+    import redis.asyncio as aioredis
+    from core.config import settings as _settings
+    r = aioredis.from_url(_settings.redis_url)
+    try:
+        raw = await r.get("lit_oa_bulk:status")
+    finally:
+        await r.aclose()
+    if not raw:
+        return {"status": "idle"}
+    return _json.loads(raw)
+
+
 @router.post("/global/backfill", response_model=BackfillResponse)
 async def trigger_global_backfill(
     user: Customer = Depends(get_current_user),
