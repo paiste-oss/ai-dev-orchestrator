@@ -9,6 +9,10 @@ Celery Tasks für Phase A — Wissenspool-Anreicherung.
 import asyncio
 import logging
 
+# Eager-Import aller Models — nötig damit SQLAlchemy-Mapper im Celery-Worker
+# alle Forward-Referenzen auflösen kann (z. B. Customer.device_tokens).
+import models  # noqa: F401
+
 from tasks.celery_app import celery_app
 
 _log = logging.getLogger(__name__)
