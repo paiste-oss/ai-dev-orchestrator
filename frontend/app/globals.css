@@ -150,6 +150,12 @@ body {
   0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
+
+/* Indeterminate Progress-Bar (z. B. PDF wird geladen, Bytes noch nicht angekommen) */
+@keyframes indeterminate {
+  0%   { left: -33%; }
+  100% { left: 100%; }
+}
 .animate-shimmer {
   background: linear-gradient(90deg,
     rgba(255,255,255,0.04) 25%,

@@ -376,9 +376,13 @@ function PdfPreview({
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [loadedBytes, setLoadedBytes] = useState(0);
+  const [totalBytes, setTotalBytes] = useState(0);
 
   useEffect(() => {
     setError(false);
+    setLoadedBytes(0);
+    setTotalBytes(0);
 
     // Vorrang: hochgeladene aber noch nicht gespeicherte Datei (Neu-Modus)
     if (pendingFile) {
@@ -394,20 +398,44 @@ function PdfPreview({
     }
     let cancelled = false;
     setLoading(true);
-    apiFetch(`${BACKEND_URL}/v1/literature/${entry.id}/pdf`)
-      .then(async res => res.ok ? res.blob() : null)
-      .then(blob => {
-        if (cancelled) return;
-        if (blob) {
-          setBlobUrl(URL.createObjectURL(blob));
-        } else {
-          setError(true);
+    setTotalBytes(entry.pdf_size_bytes || 0);
+
+    (async () => {
+      try {
+        const res = await apiFetch(`${BACKEND_URL}/v1/literature/${entry.id}/pdf`);
+        if (!res.ok || !res.body) {
+          if (!cancelled) { setError(true); setLoading(false); }
+          return;
         }
-      })
-      .catch(() => { if (!cancelled) setError(true); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+        const lenHeader = res.headers.get("content-length");
+        const total = lenHeader ? parseInt(lenHeader, 10) : (entry.pdf_size_bytes || 0);
+        if (!cancelled && total > 0) setTotalBytes(total);
+
+        const reader = res.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let received = 0;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (cancelled) { reader.cancel(); return; }
+          if (value) {
+            chunks.push(value);
+            received += value.byteLength;
+            setLoadedBytes(received);
+          }
+        }
+        if (cancelled) return;
+        const blob = new Blob(chunks as BlobPart[], { type: "application/pdf" });
+        setBlobUrl(URL.createObjectURL(blob));
+      } catch {
+        if (!cancelled) setError(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
     return () => { cancelled = true; };
-  }, [entry?.id, entry?.pdf_s3_key, pendingFile]);
+  }, [entry?.id, entry?.pdf_s3_key, entry?.pdf_size_bytes, pendingFile]);
 
   // Alte Blob-URL freigeben wenn neue gesetzt wird
   useEffect(() => {
@@ -457,9 +485,33 @@ function PdfPreview({
             <span>Kein PDF angehängt</span>
           </div>
         )}
-        {entry?.pdf_s3_key && !pendingFile && loading && (
-          <div className="flex items-center justify-center h-full window-text-subtle text-xs">PDF wird geladen…</div>
-        )}
+        {entry?.pdf_s3_key && !pendingFile && loading && (() => {
+          const fmtMB = (n: number) => (n / (1024 * 1024)).toFixed(1);
+          const pct = totalBytes > 0 ? Math.min(100, Math.round((loadedBytes / totalBytes) * 100)) : 0;
+          return (
+            <div className="flex flex-col items-center justify-center h-full gap-3 window-text-subtle text-xs px-6">
+              <IconSpinner />
+              <div className="text-center">
+                <p>PDF wird geladen…</p>
+                {totalBytes > 0 && (
+                  <p className="mt-1 text-[10px] opacity-70 tabular-nums">
+                    {fmtMB(loadedBytes)} / {fmtMB(totalBytes)} MB · {pct}%
+                  </p>
+                )}
+              </div>
+              {totalBytes > 0 ? (
+                <div className="w-48 h-1 rounded-full bg-white/10 overflow-hidden">
+                  <div className="h-full bg-[var(--accent)] transition-all duration-150" style={{ width: `${pct}%` }} />
+                </div>
+              ) : (
+                // Indeterminate Bar — Bytes-Stream noch nicht angekommen
+                <div className="w-48 h-1 rounded-full bg-white/10 overflow-hidden relative">
+                  <div className="absolute inset-y-0 w-1/3 bg-[var(--accent)] rounded-full animate-[indeterminate_1.4s_ease-in-out_infinite]" />
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {entry?.pdf_s3_key && !pendingFile && error && !loading && (
           <div className="flex flex-col items-center justify-center h-full gap-2 window-text-subtle text-xs px-4 text-center">
             <span className="text-2xl">⚠️</span>
