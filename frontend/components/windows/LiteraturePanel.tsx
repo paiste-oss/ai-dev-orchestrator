@@ -472,7 +472,7 @@ function PdfPreview({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="shrink-0 flex items-center justify-end gap-0.5 px-3 py-1.5 border-b window-border-soft">
+      <div className="shrink-0 flex items-center justify-end gap-0.5 px-3 py-1.5 border-b window-border-soft min-h-[34px]">
         {entry && (
           <>
             <button onClick={() => onToggleFavorite(entry)} title={entry.is_favorite ? "Aus Favoriten entfernen" : "Zu Favoriten"}
