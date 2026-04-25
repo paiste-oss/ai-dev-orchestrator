@@ -790,6 +790,30 @@ _META_FIELDS = {
     "journal", "volume", "issue", "pages", "doi",
     "publisher", "isbn", "edition",
 }
+# Felder, die in der DB als VARCHAR/TEXT liegen — falls Haiku/Crossref einen
+# Integer (z.B. volume=12) liefert, müssen wir ihn vor dem Schreiben zu str casten.
+_META_STRING_FIELDS = {
+    "entry_type", "title", "abstract",
+    "journal", "volume", "issue", "pages", "doi",
+    "publisher", "isbn", "edition",
+}
+
+
+def _coerce_meta_value(field: str, value: Any) -> Any:
+    """Bereinigt einen einzelnen Meta-Wert vor dem Schreiben in die DB.
+    String-Spalten dürfen keine Integers/Floats halten — Haiku liefert manchmal
+    `volume: 12` als Number statt "12"."""
+    if value is None:
+        return None
+    if field in _META_STRING_FIELDS and not isinstance(value, str):
+        return str(value)[:512]  # konservativ, längste String-Spalte
+    if field == "year" and isinstance(value, str):
+        try: return int(value)
+        except (ValueError, TypeError): return None
+    if field == "authors" and isinstance(value, str):
+        # Crossref liefert ggf. einen einzelnen String — als 1-Liste verpacken
+        return [value]
+    return value
 
 
 async def _extract_pdf_meta_from_bytes(
@@ -980,7 +1004,7 @@ async def apply_entry_meta(
     entry.metadata_backup_at = datetime.utcnow()
 
     for k, v in fields.items():
-        setattr(entry, k, v)
+        setattr(entry, k, _coerce_meta_value(k, v))
 
     # Counter — Eintrag hat das Refresh-Prozedere durchlaufen
     entry.meta_refreshed_count = (entry.meta_refreshed_count or 0) + 1
@@ -1010,7 +1034,7 @@ async def restore_entry_meta(
     backup = entry.metadata_backup
     for k, v in backup.items():
         if k in _META_FIELDS:
-            setattr(entry, k, v)
+            setattr(entry, k, _coerce_meta_value(k, v))
     entry.metadata_backup = None
     entry.metadata_backup_at = None
     entry.metadata_backup_job_id = None
@@ -1139,7 +1163,7 @@ async def _bulk_meta_refresh_task(
                     entry.metadata_backup_job_id = job_id
 
                     for k, v in proposed.items():
-                        setattr(entry, k, v)
+                        setattr(entry, k, _coerce_meta_value(k, v))
                         state["field_counts"][k] = state["field_counts"].get(k, 0) + 1
 
                     entry.meta_refreshed_count = (entry.meta_refreshed_count or 0) + 1
@@ -1300,7 +1324,7 @@ async def undo_bulk_refresh_meta(
             continue
         for k, v in entry.metadata_backup.items():
             if k in _META_FIELDS:
-                setattr(entry, k, v)
+                setattr(entry, k, _coerce_meta_value(k, v))
         entry.metadata_backup = None
         entry.metadata_backup_at = None
         entry.metadata_backup_job_id = None
