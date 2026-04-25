@@ -2222,9 +2222,9 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
           {importingZip ? <IconSpinner /> : <span className="text-[11px]">🗜</span>}
           PDFs (ZIP)
           {importingZip && zipProgress && (
-            <span className="text-[9px] text-blue-400 font-mono">
+            <span className="text-[9px] text-blue-400 font-mono tabular-nums">
               {zipProgress.phase === "uploading"
-                ? `${zipProgress.sent}/${zipProgress.total}`
+                ? `${Math.round((zipProgress.sent / Math.max(1, zipProgress.total)) * 100)}%`
                 : "⏳"}
             </span>
           )}

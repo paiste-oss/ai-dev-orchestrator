@@ -12,12 +12,12 @@ export default function LiteratureUploadBanner() {
 
   if (!importingZip || !zipProgress) return null;
 
-  const label = zipProgress.phase === "uploading"
-    ? `Upload ${zipProgress.sent}/${zipProgress.total}`
-    : "PDFs werden verarbeitet…";
   const progress = zipProgress.phase === "uploading"
     ? Math.round((zipProgress.sent / Math.max(1, zipProgress.total)) * 100)
     : null;
+  const label = zipProgress.phase === "uploading"
+    ? `PDFs werden hochgeladen — ${progress}%`
+    : "PDFs werden verarbeitet…";
 
   return (
     <div className="fixed top-16 right-4 z-40 bg-zinc-900/95 backdrop-blur-md border border-white/10 rounded-lg shadow-xl px-4 py-2.5 flex items-center gap-3 min-w-[220px] pointer-events-none">
