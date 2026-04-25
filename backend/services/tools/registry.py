@@ -21,6 +21,7 @@ from services.tools.defs import (
     GEO_MAP_TOOL_DEFS,
     DOCUMENT_SEARCH_TOOL_DEFS,
     ARTIFACT_TOOL_DEFS,
+    LIBRARY_TOOL_DEFS,
 )
 from services.tools.handlers.transport import _handle_sbb
 from services.tools.handlers.web import _handle_web_fetch, _handle_web_search
@@ -33,6 +34,7 @@ from services.tools.handlers.dashboard import _handle_dashboard
 from services.tools.handlers.portfolio import _handle_portfolio
 from services.tools.handlers.geo import _handle_geo_map
 from services.tools.handlers.documents import _handle_documents
+from services.tools.handlers.library import _handle_library
 from services.tools.handlers.artifact import _handle_artifact
 from services.tools.handlers.flights import _handle_flights
 from services.tools.handlers.calendar import _handle_calendar
@@ -204,6 +206,18 @@ TOOL_CATALOG: dict[str, dict] = {
         "tool_defs": DOCUMENT_SEARCH_TOOL_DEFS,
         "tool_names": {"search_documents", "list_documents"},
         "handler": _handle_documents,
+        "needs_customer_id": True,
+    },
+    "library": {
+        "key": "library",
+        "name": "Persönliche Bibliothek (Literatur + Dokumente)",
+        "description": "Semantische Suche & Volltext-Abruf für Literatur (Paper/Bücher/Patente) und Dokumente.",
+        "prompt_hint": "Semantische Suche in der persönlichen Literatur- und Dokumenten-Bibliothek (Vector-basiert)",
+        "category": "data",
+        "tier": "free",
+        "tool_defs": LIBRARY_TOOL_DEFS,
+        "tool_names": {"library_search", "library_read", "library_recent"},
+        "handler": _handle_library,
         "needs_customer_id": True,
     },
     "flight_data": {

@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.redis_client import get_async_redis
@@ -21,6 +21,7 @@ from models.window import WindowBoard
 from services.chat_system_prompt import build_system_prompt
 from services.knowledge_store import search_global_knowledge, fetch_topic_chunks
 from services.memory_vector_store import search_memories, get_style_memories
+from services.vector_store import search_customer_documents
 
 _log = logging.getLogger(__name__)
 
@@ -94,39 +95,16 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
             .limit(5)
         )
         netz_boards = netz_result.scalars().all()
-        netzwerk_context = _format_netzwerk(netz_boards, first_name)
+        netzwerk_context = _format_netzwerk(netz_boards, first_name, message=message)
     except Exception as e:
         _log.warning("Netzwerk-Kontext konnte nicht geladen werden: %s", e)
 
-    doc_result = await db.execute(
-        select(CustomerDocument)
-        .where(
-            CustomerDocument.customer_id == customer.id,
-            CustomerDocument.is_active.is_(True),
-        )
-        .order_by(CustomerDocument.created_at.desc())
-        .limit(20)
+    documents_context, doc_cache, private_doc_names = await _load_documents_context(
+        customer_id_uuid=customer.id, message=message, db=db,
     )
-    all_docs = doc_result.scalars().all()
-    readable_docs = [d for d in all_docs if d.baddi_readable and d.extracted_text]
-    private_docs = [d for d in all_docs if not d.baddi_readable]
-    doc_cache: dict[str, Any] = {str(d.id): d for d in all_docs}
-
-    literature_entries: list[LiteratureEntry] = []
-    try:
-        lit_result = await db.execute(
-            select(LiteratureEntry)
-            .where(
-                LiteratureEntry.customer_id == customer.id,
-                LiteratureEntry.is_active.is_(True),
-                LiteratureEntry.baddi_readable.is_(True),
-            )
-            .order_by(LiteratureEntry.created_at.desc())
-            .limit(500)  # Kompakte Liste — bei vielen Einträgen wird die Darstellung im Prompt verkürzt
-        )
-        literature_entries = lit_result.scalars().all()
-    except Exception as e:
-        _log.warning("Literatur-Kontext konnte nicht geladen werden: %s", e)
+    literature_context = await _load_literature_context(
+        customer_id_uuid=customer.id, message=message, db=db,
+    )
 
     knowledge_chunks: list[dict] = []
     if baddi_config.get("knowledge_enabled", True):
@@ -158,10 +136,10 @@ async def load_context(customer: Customer, message: str, db: AsyncSession) -> di
         relevant_memories=relevant,
         ui_prefs=customer.ui_preferences or {},
         knowledge_chunks=knowledge_chunks or None,
-        readable_docs=readable_docs,
-        private_doc_names=[d.original_filename for d in private_docs],
+        documents_context=documents_context,
+        private_doc_names=private_doc_names,
         netzwerk_context=netzwerk_context,
-        literature_entries=literature_entries or None,
+        literature_context=literature_context,
     )
     system_prompt_blocks: list[dict[str, Any]] = [
         {"type": "text", "text": static_block, "cache_control": {"type": "ephemeral"}},
@@ -187,7 +165,159 @@ async def _load_global_baddi_config() -> dict:
         return {}
 
 
-def _format_netzwerk(boards: list[Any], first_name: str) -> str | None:
+async def _load_literature_context(customer_id_uuid: Any, message: str, db: AsyncSession) -> dict | None:
+    """Lädt Literatur-Kontext: Statistik + relevante (Vector-Search) + neueste Einträge.
+
+    Bei kleinen Bibliotheken (< 30 Einträge) gibt komplette Liste zurück (volle Details).
+    Bei grossen Bibliotheken: Stats + Top-K nach Vector-Relevanz + Neueste 5.
+    """
+    try:
+        # Statistik pro entry_type
+        stats_result = await db.execute(
+            select(LiteratureEntry.entry_type, sa_func.count(LiteratureEntry.id))
+            .where(
+                LiteratureEntry.customer_id == customer_id_uuid,
+                LiteratureEntry.is_active.is_(True),
+                LiteratureEntry.baddi_readable.is_(True),
+            )
+            .group_by(LiteratureEntry.entry_type)
+        )
+        stats: dict[str, int] = {row[0]: int(row[1]) for row in stats_result.all()}
+        total = sum(stats.values())
+        if total == 0:
+            return None
+
+        # Bei kleiner Bibliothek: alle laden, volle Details
+        if total < 30:
+            full_result = await db.execute(
+                select(LiteratureEntry)
+                .where(
+                    LiteratureEntry.customer_id == customer_id_uuid,
+                    LiteratureEntry.is_active.is_(True),
+                    LiteratureEntry.baddi_readable.is_(True),
+                )
+                .order_by(LiteratureEntry.created_at.desc())
+            )
+            return {"mode": "full", "stats": stats, "total": total, "entries": list(full_result.scalars().all())}
+
+        # Grosse Bibliothek: Vector-Search für relevante + Recent für neueste
+        relevant_entries: list[tuple[LiteratureEntry, str]] = []
+        try:
+            hits = search_customer_documents(
+                customer_id=str(customer_id_uuid), query=message,
+                collection_name="literature", top_k=12,
+            )
+            # Eindeutige entry_ids in Reihenfolge der Score
+            seen_ids: set[str] = set()
+            best_chunks: dict[str, str] = {}
+            for h in hits:
+                eid = h.get("document_id")
+                if not eid or eid in seen_ids:
+                    continue
+                seen_ids.add(eid)
+                best_chunks[eid] = (h.get("text") or "")[:280]
+                if len(seen_ids) >= 5:
+                    break
+            if seen_ids:
+                import uuid as _u
+                rel_result = await db.execute(
+                    select(LiteratureEntry)
+                    .where(LiteratureEntry.id.in_([_u.UUID(i) for i in seen_ids]))
+                )
+                rel_entries = {str(e.id): e for e in rel_result.scalars().all()}
+                # Reihenfolge erhalten (nach Score)
+                for eid in seen_ids:
+                    e = rel_entries.get(eid)
+                    if e:
+                        relevant_entries.append((e, best_chunks.get(eid, "")))
+        except Exception as e:
+            _log.warning("Literatur-Vector-Search fehlgeschlagen: %s", e)
+
+        recent_result = await db.execute(
+            select(LiteratureEntry)
+            .where(
+                LiteratureEntry.customer_id == customer_id_uuid,
+                LiteratureEntry.is_active.is_(True),
+                LiteratureEntry.baddi_readable.is_(True),
+            )
+            .order_by(LiteratureEntry.created_at.desc())
+            .limit(5)
+        )
+        recent_entries = list(recent_result.scalars().all())
+
+        return {
+            "mode": "compact",
+            "stats": stats,
+            "total": total,
+            "relevant": relevant_entries,
+            "recent": recent_entries,
+        }
+    except Exception as e:
+        _log.warning("Literatur-Kontext konnte nicht geladen werden: %s", e)
+        return None
+
+
+async def _load_documents_context(customer_id_uuid: Any, message: str, db: AsyncSession) -> tuple[dict | None, dict[str, Any], list[str]]:
+    """Lädt Dokumenten-Kontext: Statistik + relevante (Vector-Search) + neueste.
+
+    Bei < 10 Dokumenten: alle Details. Bei mehr: Stats + Top-K + Recent.
+    Returnt (context_dict, doc_cache, private_doc_names).
+    """
+    try:
+        all_result = await db.execute(
+            select(CustomerDocument)
+            .where(CustomerDocument.customer_id == customer_id_uuid, CustomerDocument.is_active.is_(True))
+            .order_by(CustomerDocument.created_at.desc())
+        )
+        all_docs = list(all_result.scalars().all())
+        doc_cache: dict[str, Any] = {str(d.id): d for d in all_docs}
+        private_doc_names = [d.original_filename for d in all_docs if not d.baddi_readable]
+        readable = [d for d in all_docs if d.baddi_readable and d.extracted_text]
+
+        if not readable:
+            return (None, doc_cache, private_doc_names)
+
+        total = len(readable)
+
+        # Bei wenigen: alle volle Details (wie bisher)
+        if total <= 10:
+            return ({"mode": "full", "total": total, "docs": readable}, doc_cache, private_doc_names)
+
+        # Bei vielen: Vector-Search relevant + neueste
+        relevant: list[tuple[Any, str]] = []
+        try:
+            hits = search_customer_documents(
+                customer_id=str(customer_id_uuid), query=message,
+                collection_name="customer_documents", top_k=10,
+            )
+            seen: set[str] = set()
+            best_chunks: dict[str, str] = {}
+            for h in hits:
+                did = h.get("document_id")
+                if not did or did in seen:
+                    continue
+                seen.add(did)
+                best_chunks[did] = (h.get("text") or "")[:280]
+                if len(seen) >= 3:
+                    break
+            for did in seen:
+                d = doc_cache.get(did)
+                if d and d.baddi_readable:
+                    relevant.append((d, best_chunks.get(did, "")))
+        except Exception as e:
+            _log.warning("Dokumenten-Vector-Search fehlgeschlagen: %s", e)
+
+        return (
+            {"mode": "compact", "total": total, "relevant": relevant, "recent": readable[:5]},
+            doc_cache,
+            private_doc_names,
+        )
+    except Exception as e:
+        _log.warning("Dokumenten-Kontext konnte nicht geladen werden: %s", e)
+        return (None, {}, [])
+
+
+def _format_netzwerk(boards: list[Any], first_name: str, message: str = "") -> str | None:
     """Formatiert Namensnetz-Boards als lesbaren Kontext für den System-Prompt."""
     import time as _t
     now_ms = int(_t.time() * 1000)
@@ -217,11 +347,40 @@ def _format_netzwerk(boards: list[Any], first_name: str) -> str | None:
         return None
 
     person_map_all = {p["id"]: p for p in all_persons}
+
+    # Phase 3: Bei vielen Personen nach in der Message erwähnten Namen filtern
+    msg_lower = (message or "").lower()
+    mentioned_ids: set[str] = set()
+    if msg_lower and len(all_persons) > 15:
+        for p in all_persons:
+            name = (p.get("name") or p.get("fullName") or "").strip()
+            if not name:
+                continue
+            # First-Name oder voller Name muss als ganzes Wort matchen
+            for token in name.split():
+                if len(token) >= 3 and f" {token.lower()} " in f" {msg_lower} ":
+                    mentioned_ids.add(p.get("id", ""))
+                    break
+
+        # Erweitern: direkt verbundene Personen mit aufnehmen
+        if mentioned_ids:
+            for c in all_connections:
+                a, b = c.get("a", ""), c.get("b", "")
+                if a in mentioned_ids:
+                    mentioned_ids.add(b)
+                elif b in mentioned_ids:
+                    mentioned_ids.add(a)
+
+    use_filter = bool(mentioned_ids)
+    persons_to_show = [p for p in all_persons if p.get("id") in mentioned_ids] if use_filter else all_persons
+
     lines = [f"\nNAMENSNETZ von {first_name} (persönliche Kontakte — nutze dieses Wissen proaktiv):"]
+    if use_filter:
+        lines.append(f"Insgesamt {len(all_persons)} Personen in der Liste — gezeigt werden {len(persons_to_show)} aus dem Kontext der Anfrage:")
     reminders: list[str] = []
 
-    lines.append(f"Personen ({len(all_persons)}):")
-    for p in all_persons:
+    lines.append(f"Personen ({len(persons_to_show)}):")
+    for p in persons_to_show:
         name = p.get("name") or p.get("fullName") or "?"
         note = (p.get("note") or "").strip()
         entry = f"  - {name}"
@@ -249,8 +408,11 @@ def _format_netzwerk(boards: list[Any], first_name: str) -> str | None:
     if all_connections:
         conn_lines: list[str] = []
         for c in all_connections:
-            pa = person_map_all.get(c.get("a", ""), {})
-            pb = person_map_all.get(c.get("b", ""), {})
+            a, b = c.get("a", ""), c.get("b", "")
+            if use_filter and a not in mentioned_ids and b not in mentioned_ids:
+                continue
+            pa = person_map_all.get(a, {})
+            pb = person_map_all.get(b, {})
             na = pa.get("name") or "?"
             nb = pb.get("name") or "?"
             label = (c.get("label") or "").strip()

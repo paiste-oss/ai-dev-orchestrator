@@ -20,10 +20,10 @@ def build_system_prompt(
     relevant_memories: list[str],
     ui_prefs: dict,
     knowledge_chunks: list[dict] | None = None,
-    readable_docs: list | None = None,
+    documents_context: dict | None = None,
     private_doc_names: list[str] | None = None,
     netzwerk_context: str | None = None,
-    literature_entries: list | None = None,
+    literature_context: dict | None = None,
 ) -> tuple[str, str]:
     from services.chat_prompt_static import build_static_block
     from services.tool_registry import TOOL_CATALOG
@@ -36,10 +36,10 @@ def build_system_prompt(
         relevant_memories=relevant_memories,
         ui_prefs=ui_prefs,
         knowledge_chunks=knowledge_chunks,
-        readable_docs=readable_docs,
+        documents_context=documents_context,
         private_doc_names=private_doc_names,
         netzwerk_context=netzwerk_context,
-        literature_entries=literature_entries,
+        literature_context=literature_context,
     )
     return static_block, dynamic_block
 
@@ -51,10 +51,10 @@ def _build_dynamic_block(
     relevant_memories: list[str],
     ui_prefs: dict,
     knowledge_chunks: list[dict] | None = None,
-    readable_docs: list | None = None,
+    documents_context: dict | None = None,
     private_doc_names: list[str] | None = None,
     netzwerk_context: str | None = None,
-    literature_entries: list | None = None,
+    literature_context: dict | None = None,
 ) -> str:
     parts: list[str] = []
 
@@ -220,60 +220,128 @@ def _build_dynamic_block(
     _MAX_CHARS_PER_DOC = 4000
     _MAX_TOTAL_CHARS = 12000
 
-    if readable_docs:
-        doc_parts = []
-        total = 0
-        for doc in readable_docs:
-            text = (doc.extracted_text or "").strip()
-            if not text:
-                continue
-            truncated = text[:_MAX_CHARS_PER_DOC]
-            suffix = "\n[… Inhalt gekürzt]" if len(text) > _MAX_CHARS_PER_DOC else ""
-            entry = f'[Datei: "{doc.original_filename}"]\n{truncated}{suffix}'
-            if total + len(entry) > _MAX_TOTAL_CHARS:
-                break
-            doc_parts.append(entry)
-            total += len(entry)
-        if doc_parts:
-            parts.append(
-                f"\nDOKUMENTE VON {first_name.upper()} (automatisch verfügbar, lesbar für dich):\n"
-                + "\n\n---\n".join(doc_parts)
-                + "\nDu kannst diese Dokumente direkt lesen und darauf eingehen — der Nutzer muss sie nicht anhängen."
-            )
+    # ── Dokumente: Auto-Inject mit Vector-Search bei vielen, voll bei wenigen ──
+    if documents_context:
+        mode = documents_context.get("mode")
+        total_docs = documents_context.get("total", 0)
 
-    if literature_entries:
-        lit_parts: list[str] = []
-        total = len(literature_entries)
-        # Bei vielen Einträgen kompakte Darstellung (nur Titel/Autor/Jahr) —
-        # Abstract/Notizen würden den Prompt sprengen. Bis ~30 Einträge volle Details.
-        compact = total > 30
-        max_entries = total  # alle anzeigen, kein Cut-Off
-        for e in literature_entries[:max_entries]:
-            authors_str = ", ".join(e.authors[:3]) if e.authors else ""
-            year_str = f" ({e.year})" if e.year else ""
-            type_label = "Paper" if e.entry_type == "paper" else "Buch"
-            header = f"[{type_label}] {e.title}{year_str}"
-            if authors_str:
-                header += f" — {authors_str}"
-            if e.journal:
-                header += f" — {e.journal}"
-            if e.publisher:
-                header += f" — {e.publisher}"
-            if not compact:
+        if mode == "full":
+            doc_parts = []
+            char_total = 0
+            for doc in documents_context.get("docs", []):
+                text = (doc.extracted_text or "").strip()
+                if not text:
+                    continue
+                truncated = text[:_MAX_CHARS_PER_DOC]
+                suffix = "\n[… Inhalt gekürzt]" if len(text) > _MAX_CHARS_PER_DOC else ""
+                entry = f'[Datei: "{doc.original_filename}"]\n{truncated}{suffix}'
+                if char_total + len(entry) > _MAX_TOTAL_CHARS:
+                    break
+                doc_parts.append(entry)
+                char_total += len(entry)
+            if doc_parts:
+                parts.append(
+                    f"\nDOKUMENTE VON {first_name.upper()} (automatisch verfügbar, lesbar für dich):\n"
+                    + "\n\n---\n".join(doc_parts)
+                    + "\nDu kannst diese Dokumente direkt lesen und darauf eingehen — der Nutzer muss sie nicht anhängen."
+                )
+
+        elif mode == "compact":
+            block = [f"\nDOKUMENTE VON {first_name.upper()}:"]
+            block.append(f"Insgesamt {total_docs} lesbare Dokumente.")
+            relevant = documents_context.get("relevant") or []
+            if relevant:
+                block.append(f"\nRelevant zur aktuellen Anfrage ({len(relevant)} Treffer):")
+                for doc, snippet in relevant:
+                    snippet_part = f"\n  Auszug: {snippet}" if snippet else ""
+                    block.append(f'- "{doc.original_filename}" (id={doc.id}){snippet_part}')
+            recent = documents_context.get("recent") or []
+            if recent:
+                block.append(f"\nZuletzt hinzugefügt:")
+                for doc in recent:
+                    block.append(f"- {doc.original_filename} (id={doc.id})")
+            block.append(
+                "\nFür weitere Suche nutze Tool 'library_search', "
+                "für Volltext eines Dokuments 'library_read' (mit type='document')."
+            )
+            parts.append("\n".join(block))
+
+    # ── Literatur: Auto-Inject mit Vector-Search bei vielen, voll bei wenigen ──
+    if literature_context:
+        mode = literature_context.get("mode")
+        stats = literature_context.get("stats", {})
+        total_lit = literature_context.get("total", 0)
+
+        def _stats_line() -> str:
+            stat_parts = []
+            for key, label in [("paper", "Paper"), ("book", "Bücher"), ("patent", "Patente")]:
+                if stats.get(key):
+                    stat_parts.append(f"{stats[key]} {label}")
+            return ", ".join(stat_parts) if stat_parts else f"{total_lit} Einträge"
+
+        if mode == "full":
+            entries = literature_context.get("entries", [])
+            lit_parts: list[str] = []
+            for e in entries:
+                authors_str = ", ".join(e.authors[:3]) if e.authors else ""
+                year_str = f" ({e.year})" if e.year else ""
+                type_label = "Paper" if e.entry_type == "paper" else "Buch" if e.entry_type == "book" else "Patent"
+                header = f"[{type_label}] {e.title}{year_str}"
+                if authors_str:
+                    header += f" — {authors_str}"
+                if e.journal:
+                    header += f" — {e.journal}"
+                if e.publisher:
+                    header += f" — {e.publisher}"
                 abstract = (e.abstract or "")[:400]
                 if abstract:
                     header += f"\nAbstract: {abstract}"
                 if e.notes:
                     header += f"\nNotizen: {e.notes[:200]}"
-            lit_parts.append(header)
-        sep = "\n" if compact else "\n\n"
-        count_note = f"\nDie Bibliothek umfasst {total} Einträge (alle hier aufgelistet)." if compact else ""
-        parts.append(
-            f"\nLITERATUR VON {first_name.upper()} (Bibliothek — für Recherche nutzbar):\n"
-            + sep.join(lit_parts)
-            + count_note
-            + "\nDu kannst auf diese Literatur eingehen und darauf verweisen."
-        )
+                lit_parts.append(header)
+            parts.append(
+                f"\nLITERATUR VON {first_name.upper()} (Bibliothek — für Recherche nutzbar):\n"
+                f"Bibliothek-Übersicht: {_stats_line()}\n\n"
+                + "\n\n".join(lit_parts)
+                + "\nDu kannst auf diese Literatur eingehen und darauf verweisen."
+            )
+
+        elif mode == "compact":
+            block = [f"\nLITERATUR VON {first_name.upper()}:"]
+            block.append(f"Bibliothek-Übersicht: {_stats_line()} (insgesamt {total_lit}).")
+
+            relevant = literature_context.get("relevant") or []
+            if relevant:
+                block.append(f"\nRelevant zur aktuellen Anfrage ({len(relevant)} Treffer):")
+                for entry, snippet in relevant:
+                    authors_str = ", ".join(entry.authors[:3]) if entry.authors else ""
+                    year_str = f" ({entry.year})" if entry.year else ""
+                    type_label = "Paper" if entry.entry_type == "paper" else "Buch" if entry.entry_type == "book" else "Patent"
+                    line = f"- [{type_label}] {entry.title}{year_str}"
+                    if authors_str:
+                        line += f" — {authors_str}"
+                    line += f" (id={entry.id})"
+                    if snippet:
+                        line += f"\n  Auszug: {snippet}"
+                    block.append(line)
+
+            recent = literature_context.get("recent") or []
+            if recent:
+                block.append(f"\nZuletzt hinzugefügt:")
+                for e in recent:
+                    authors_str = ", ".join(e.authors[:2]) if e.authors else ""
+                    year_str = f" ({e.year})" if e.year else ""
+                    type_label = "Paper" if e.entry_type == "paper" else "Buch" if e.entry_type == "book" else "Patent"
+                    line = f"- [{type_label}] {e.title}{year_str}"
+                    if authors_str:
+                        line += f" — {authors_str}"
+                    block.append(line)
+
+            block.append(
+                "\nFür weitere Suche nutze Tool 'library_search' (type='paper'/'book'/'patent'), "
+                "für Volltext eines Eintrags 'library_read' (mit type='literature')."
+            )
+            parts.append("\n".join(block))
 
     if private_doc_names:
         parts.append(

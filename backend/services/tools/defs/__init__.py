@@ -13,6 +13,7 @@ from services.tools.defs.artifact import ARTIFACT_TOOL_DEFS
 from services.tools.defs.flights import FLIGHT_TOOL_DEFS
 from services.tools.defs.calendar import CALENDAR_TOOL_DEFS
 from services.tools.defs.email_tools import SEND_TO_MY_EMAIL_TOOL_DEFS
+from services.tools.defs.library import LIBRARY_TOOL_DEFS
 
 __all__ = [
     "SBB_TOOL_DEFS",
@@ -26,4 +27,5 @@ __all__ = [
     "FLIGHT_TOOL_DEFS",
     "CALENDAR_TOOL_DEFS",
     "SEND_TO_MY_EMAIL_TOOL_DEFS",
+    "LIBRARY_TOOL_DEFS",
 ]
