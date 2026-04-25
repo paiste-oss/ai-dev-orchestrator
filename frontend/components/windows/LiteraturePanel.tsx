@@ -7,9 +7,31 @@ import { useT } from "@/lib/i18n";
 import { useLiteratureUpload } from "@/lib/literature-upload-context";
 import WindowFrame from "./WindowFrame";
 
+// ── Eintragstypen — zentral definiert ─────────────────────────────────────────
+type EntryType = "paper" | "book" | "patent" | "norm" | "law" | "regulatory" | "manual";
+
+const ENTRY_TYPES: EntryType[] = ["paper", "book", "patent", "norm", "law", "regulatory", "manual"];
+
+const TYPE_ICON: Record<EntryType, string> = {
+  paper: "📄", book: "📖", patent: "🏛",
+  norm: "📐", law: "⚖️", regulatory: "📋", manual: "📘",
+};
+const TYPE_LABEL_SINGULAR: Record<EntryType, string> = {
+  paper: "Paper", book: "Buch", patent: "Patent",
+  norm: "Norm", law: "Gesetz", regulatory: "Regulatorie", manual: "Manual",
+};
+const TYPE_LABEL_PLURAL: Record<EntryType, string> = {
+  paper: "Paper", book: "Bücher", patent: "Patente",
+  norm: "Normen", law: "Gesetze", regulatory: "Regulatorien", manual: "Manuals",
+};
+
+function typeIcon(t: string): string { return TYPE_ICON[t as EntryType] ?? "📄"; }
+function typeLabel(t: string): string { return TYPE_LABEL_SINGULAR[t as EntryType] ?? t; }
+function typeLabelPlural(t: string): string { return TYPE_LABEL_PLURAL[t as EntryType] ?? t; }
+
 interface LitEntry {
   id: string;
-  entry_type: "paper" | "book" | "patent";
+  entry_type: EntryType;
   title: string;
   authors: string[] | null;
   year: number | null;
@@ -37,13 +59,13 @@ interface LitEntry {
 
 interface LitGroup {
   id: string;
-  entry_type: "paper" | "book" | "patent";
+  entry_type: EntryType;
   name: string;
   parent_id: string | null;
   position: number;
 }
 
-type SidebarFilter = "all" | "new" | "paper" | "book" | "patent" | "favorites" | "read_later";
+type SidebarFilter = "all" | "new" | EntryType | "favorites" | "read_later";
 
 const EMPTY_FORM: Partial<LitEntry> = {
   entry_type: "paper",
@@ -186,11 +208,11 @@ function DetailPanel({
 
       {/* Titel-Section unter dem Header */}
       <div className="flex items-start gap-3 px-4 py-3 border-b border-white/6 shrink-0">
-        <span className="text-2xl shrink-0">{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
+        <span className="text-2xl shrink-0">{typeIcon(entry.entry_type)}</span>
         <div className="flex-1 min-w-0">
           <p className="text-sm text-white font-semibold leading-snug">{entry.title}</p>
           <p className="text-[10px] text-gray-600 mt-1 uppercase tracking-wider">
-            {entry.entry_type === "paper" ? "Paper" : entry.entry_type === "patent" ? "Patent" : "Buch"}
+            {typeLabel(entry.entry_type)}
           </p>
         </div>
       </div>
@@ -634,14 +656,18 @@ function EntryForm({
         {/* Alle Felder — während Extraktion gesperrt */}
         <div className={`space-y-3 ${extracting ? "opacity-40 pointer-events-none select-none" : ""}`}>
 
-        {/* Typ */}
-        <div className="flex gap-2">
-          {([["paper", "📄 Paper"], ["book", "📖 Buch"], ["patent", "🏛 Patent"]] as const).map(([val, label]) => (
-            <button key={val} onClick={() => set("entry_type", val)}
-              className={`flex-1 text-xs py-1.5 rounded-lg border transition-colors ${form.entry_type === val ? "bg-[var(--accent)] border-[var(--accent)] text-white" : "bg-white/5 border-white/10 text-gray-400 hover:text-white"}`}>
-              {label}
-            </button>
-          ))}
+        {/* Typ — Grid mit 7 Optionen */}
+        <div>
+          <label className={labelClass}>Typ</label>
+          <div className="grid grid-cols-4 gap-1.5 mt-1">
+            {ENTRY_TYPES.map(val => (
+              <button key={val} onClick={() => set("entry_type", val)}
+                className={`text-[11px] py-1.5 px-1 rounded-lg border transition-colors flex items-center justify-center gap-1 ${form.entry_type === val ? "bg-[var(--accent)] border-[var(--accent)] text-white" : "bg-white/5 border-white/10 text-gray-400 hover:text-white"}`}>
+                <span>{TYPE_ICON[val]}</span>
+                <span className="truncate">{TYPE_LABEL_SINGULAR[val]}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Gruppe / Ordner */}
@@ -839,16 +865,20 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<SidebarFilter>("all");
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
-  const [paperOpen, setPaperOpen] = useState(true);
-  const [bookOpen, setBookOpen] = useState(true);
-  const [patentOpen, setPatentOpen] = useState(true);
+  const [openTypes, setOpenTypes] = useState<Record<EntryType, boolean>>({
+    paper: true, book: true, patent: true,
+    norm: true, law: true, regulatory: true, manual: true,
+  });
+  const toggleType = useCallback((t: EntryType) => {
+    setOpenTypes(prev => ({ ...prev, [t]: !prev[t] }));
+  }, []);
 
   // Groups state
   const [groups, setGroups] = useState<LitGroup[]>([]);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState("");
-  const [addingGroupFor, setAddingGroupFor] = useState<{ type: "paper" | "book" | "patent"; parentId: string | null } | null>(null);
+  const [addingGroupFor, setAddingGroupFor] = useState<{ type: EntryType; parentId: string | null } | null>(null);
   const [newGroupName, setNewGroupName] = useState("");
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
 
@@ -1036,7 +1066,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
     if (reloadKey !== firstReloadKey.current) loadAll();
   }, [reloadKey, loadAll]);
 
-  async function handleCreateGroup(type: "paper" | "book" | "patent", parentId: string | null, name: string) {
+  async function handleCreateGroup(type: EntryType, parentId: string | null, name: string) {
     const res = await apiFetch(`${BACKEND_URL}/v1/literature/groups`, {
       method: "POST",
       body: JSON.stringify({ entry_type: type, name, parent_id: parentId, position: 0 }),
@@ -1106,9 +1136,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
 
   const now = Date.now();
   const _24h = 24 * 60 * 60 * 1000;
-  const papers = entries.filter(e => e.entry_type === "paper");
-  const books = entries.filter(e => e.entry_type === "book");
-  const patents = entries.filter(e => e.entry_type === "patent");
+  const countByType = (t: EntryType) => entries.filter(e => e.entry_type === t).length;
   const newEntries = entries.filter(e => now - new Date(e.created_at).getTime() < _24h);
   const favorites = entries.filter(e => e.is_favorite);
   const readLaterEntries = entries.filter(e => e.read_later);
@@ -1408,7 +1436,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
     type: SidebarFilter; label: string; icon: string;
     count: number; open: boolean; onToggle: () => void;
   }) {
-    const entryType = type as "paper" | "book" | "patent";
+    const entryType = type as EntryType;
     const topGroups = groups.filter(g => g.entry_type === entryType && g.parent_id === null)
       .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
 
@@ -1658,9 +1686,10 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
 
           <div className="border-t border-white/6 my-1.5" />
 
-          <SidebarGroup type="paper" label="Paper" icon="📄" count={papers.length} open={paperOpen} onToggle={() => setPaperOpen(v => !v)} />
-          <SidebarGroup type="book" label="Bücher" icon="📖" count={books.length} open={bookOpen} onToggle={() => setBookOpen(v => !v)} />
-          <SidebarGroup type="patent" label="Patente" icon="🏛" count={patents.length} open={patentOpen} onToggle={() => setPatentOpen(v => !v)} />
+          {ENTRY_TYPES.map(t => (
+            <SidebarGroup key={t} type={t} label={typeLabelPlural(t)} icon={typeIcon(t)}
+              count={countByType(t)} open={openTypes[t]} onToggle={() => toggleType(t)} />
+          ))}
 
           <div className="border-t border-white/6 my-1.5" />
 
@@ -1771,7 +1800,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                       style={{ gridTemplateColumns: `32px 28px ${titleColWidth}px 56px 180px 180px 60px` }}>
                       <input type="checkbox" checked={isChecked} onClick={e => toggleRowSelect(entry.id, e)} onChange={() => {}}
                         className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" />
-                      <span className={`text-base ${hasPdf ? "" : "opacity-50"}`}>{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
+                      <span className={`text-base ${hasPdf ? "" : "opacity-50"}`}>{typeIcon(entry.entry_type)}</span>
                       <div className="min-w-0">
                         <p className={`text-xs font-medium truncate ${hasPdf ? "text-white" : "text-gray-500"}`}>{entry.title}</p>
                         {entryGroup && (

@@ -58,6 +58,9 @@ def _build_dynamic_block(
 ) -> str:
     parts: list[str] = []
 
+    _LIT_TYPE_LABELS = {"paper": "Paper", "book": "Buch", "patent": "Patent",
+                        "norm": "Norm", "law": "Gesetz", "regulatory": "Regulatorie", "manual": "Manual"}
+
     _buddy_name = ui_prefs.get("buddyName", "Baddi")
     _language = ui_prefs.get("language", "de")
     _lang_map = {"de": "Deutsch", "en": "English", "fr": "Français", "it": "Italiano", "gsw": "Schweizerdeutsch (Dialekt)"}
@@ -285,7 +288,7 @@ def _build_dynamic_block(
             for e in entries:
                 authors_str = ", ".join(e.authors[:3]) if e.authors else ""
                 year_str = f" ({e.year})" if e.year else ""
-                type_label = "Paper" if e.entry_type == "paper" else "Buch" if e.entry_type == "book" else "Patent"
+                type_label = _LIT_TYPE_LABELS.get(e.entry_type, e.entry_type.title())
                 header = f"[{type_label}] {e.title}{year_str}"
                 if authors_str:
                     header += f" — {authors_str}"
@@ -316,7 +319,7 @@ def _build_dynamic_block(
                 for entry, snippet in relevant:
                     authors_str = ", ".join(entry.authors[:3]) if entry.authors else ""
                     year_str = f" ({entry.year})" if entry.year else ""
-                    type_label = "Paper" if entry.entry_type == "paper" else "Buch" if entry.entry_type == "book" else "Patent"
+                    type_label = _LIT_TYPE_LABELS.get(entry.entry_type, entry.entry_type.title())
                     line = f"- [{type_label}] {entry.title}{year_str}"
                     if authors_str:
                         line += f" — {authors_str}"
@@ -331,7 +334,7 @@ def _build_dynamic_block(
                 for e in recent:
                     authors_str = ", ".join(e.authors[:2]) if e.authors else ""
                     year_str = f" ({e.year})" if e.year else ""
-                    type_label = "Paper" if e.entry_type == "paper" else "Buch" if e.entry_type == "book" else "Patent"
+                    type_label = _LIT_TYPE_LABELS.get(e.entry_type, e.entry_type.title())
                     line = f"- [{type_label}] {e.title}{year_str}"
                     if authors_str:
                         line += f" — {authors_str}"

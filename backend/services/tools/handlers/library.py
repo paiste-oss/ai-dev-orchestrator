@@ -10,7 +10,9 @@ _log = logging.getLogger(__name__)
 
 
 def _format_lit_entry(e: Any, with_text: bool = False) -> dict:
-    type_label = "Paper" if e.entry_type == "paper" else "Buch" if e.entry_type == "book" else "Patent"
+    _LABELS = {"paper": "Paper", "book": "Buch", "patent": "Patent",
+               "norm": "Norm", "law": "Gesetz", "regulatory": "Regulatorie", "manual": "Manual"}
+    type_label = _LABELS.get(e.entry_type, e.entry_type.title())
     out: dict[str, Any] = {
         "id": str(e.id),
         "type": e.entry_type,
@@ -65,7 +67,7 @@ async def _handle_library(tool_name: str, tool_input: dict, customer_id: str | N
         type_filter = (tool_input.get("type") or "all").lower()
         top_k = max(1, min(int(tool_input.get("top_k") or 8), 20))
 
-        wants_lit = type_filter in ("all", "literature", "paper", "book", "patent")
+        wants_lit = type_filter in ("all", "literature", "paper", "book", "patent", "norm", "law", "regulatory", "manual")
         wants_doc = type_filter in ("all", "document")
 
         results: list[dict] = []
@@ -101,7 +103,7 @@ async def _handle_library(tool_name: str, tool_input: dict, customer_id: str | N
                         e = entries.get(eid)
                         if not e:
                             continue
-                        if type_filter in ("paper", "book", "patent") and e.entry_type != type_filter:
+                        if type_filter in ("paper", "book", "patent", "norm", "law", "regulatory", "manual") and e.entry_type != type_filter:
                             continue
                         formatted = _format_lit_entry(e, with_text=False)
                         formatted["snippet"] = best_chunks.get(eid, "")
@@ -182,7 +184,7 @@ async def _handle_library(tool_name: str, tool_input: dict, customer_id: str | N
         limit = max(1, min(int(tool_input.get("limit") or 15), 30))
         cutoff = datetime.utcnow() - timedelta(days=days)
 
-        wants_lit = type_filter in ("all", "literature", "paper", "book", "patent")
+        wants_lit = type_filter in ("all", "literature", "paper", "book", "patent", "norm", "law", "regulatory", "manual")
         wants_doc = type_filter in ("all", "document")
 
         items: list[dict] = []
@@ -200,7 +202,7 @@ async def _handle_library(tool_name: str, tool_input: dict, customer_id: str | N
                     .order_by(LiteratureEntry.created_at.desc())
                     .limit(limit)
                 )
-                if type_filter in ("paper", "book", "patent"):
+                if type_filter in ("paper", "book", "patent", "norm", "law", "regulatory", "manual"):
                     stmt = stmt.where(LiteratureEntry.entry_type == type_filter)
                 lit_result = await db.execute(stmt)
                 for e in lit_result.scalars().all():

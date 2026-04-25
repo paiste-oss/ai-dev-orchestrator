@@ -54,6 +54,7 @@ router = APIRouter(prefix="/literature", tags=["literature"])
 _QDRANT_COLLECTION = "literature"
 _MAX_PDF_SIZE = 50 * 1024 * 1024
 _CHUNK_TMP_BASE = pathlib.Path(tempfile.gettempdir()) / "lit_bulk"
+_VALID_ENTRY_TYPES = ("paper", "book", "patent", "norm", "law", "regulatory", "manual")
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -381,8 +382,8 @@ async def update_literature_entry(
     if not entry or not entry.is_active or entry.customer_id != user.id:
         raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
 
-    if req.entry_type is not None and req.entry_type not in ("paper", "book", "patent"):
-        raise HTTPException(status_code=422, detail="entry_type muss paper, book oder patent sein")
+    if req.entry_type is not None and req.entry_type not in _VALID_ENTRY_TYPES:
+        raise HTTPException(status_code=422, detail=f"entry_type muss einer von {', '.join(_VALID_ENTRY_TYPES)} sein")
 
     for field, value in req.model_dump(exclude_none=True).items():
         setattr(entry, field, value)
@@ -478,8 +479,8 @@ async def create_group(
     user: Customer = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if req.entry_type not in ("paper", "book", "patent"):
-        raise HTTPException(status_code=422, detail="entry_type muss paper, book oder patent sein")
+    if req.entry_type not in _VALID_ENTRY_TYPES:
+        raise HTTPException(status_code=422, detail=f"entry_type muss einer von {', '.join(_VALID_ENTRY_TYPES)} sein")
     if req.parent_id is not None:
         parent = await db.get(LiteratureGroup, req.parent_id)
         if not parent or parent.customer_id != user.id:

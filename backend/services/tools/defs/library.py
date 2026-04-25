@@ -20,7 +20,7 @@ LIBRARY_TOOL_DEFS = [
                 },
                 "type": {
                     "type": "string",
-                    "enum": ["paper", "book", "patent", "literature", "document", "all"],
+                    "enum": ["paper", "book", "patent", "norm", "law", "regulatory", "manual", "literature", "document", "all"],
                     "description": (
                         "Was durchsucht werden soll: paper/book/patent (nur dieser Literatur-Typ), "
                         "literature (alle Literatur-Typen), document (Datei-Dokumente), "
@@ -73,7 +73,7 @@ LIBRARY_TOOL_DEFS = [
                 },
                 "type": {
                     "type": "string",
-                    "enum": ["paper", "book", "patent", "literature", "document", "all"],
+                    "enum": ["paper", "book", "patent", "norm", "law", "regulatory", "manual", "literature", "document", "all"],
                     "description": "Filter nach Typ. Default: all.",
                 },
                 "limit": {
