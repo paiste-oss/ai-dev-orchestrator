@@ -829,11 +829,28 @@ def _compute_proposed_changes(entry: LiteratureEntry, extracted: dict) -> dict:
     if new_title:
         cur = (entry.title or "").strip()
         new = new_title.strip()
+        cur_low, new_low = cur.lower(), new.lower()
         if not cur:
             proposed["title"] = new
-        elif len(new) > len(cur) * 1.2:
-            cur_low, new_low = cur.lower(), new.lower()
-            if cur_low in new_low or new_low.startswith(cur_low[:30]):
+        elif cur_low == new_low:
+            pass  # identisch
+        # Fall A: XML truncated — PDF deutlich länger und alt steckt im neuen drin
+        elif len(new) > len(cur) * 1.2 and (cur_low in new_low or new_low.startswith(cur_low[:30])):
+            proposed["title"] = new
+        # Fall B: XML hat 'Autor - Titel'-Präfix — PDF ist sauberer und steckt im alten
+        # z.B. cur='Abdel-Fattah - Surface ...' → new='Surface ...'
+        elif new_low in cur_low and len(new) >= 20 and (len(cur) - len(new)) < 80:
+            proposed["title"] = new
+        # Fall C: erste Zeichen abweichen aber grosses gemeinsames Suffix (>60% von cur)
+        elif len(new) >= 20 and len(new) >= len(cur) * 0.7:
+            # Suche längste gemeinsame Suffix-Sequenz (case-insensitive)
+            common = 0
+            for i in range(1, min(len(cur), len(new)) + 1):
+                if cur_low[-i:] == new_low[-i:]:
+                    common = i
+                else:
+                    break
+            if common >= len(new) * 0.7:
                 proposed["title"] = new
 
     new_authors = extracted.get("authors")

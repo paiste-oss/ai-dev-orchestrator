@@ -551,6 +551,15 @@ function formatMetaValue(v: unknown): string {
   return String(v);
 }
 
+function valuesEqual(a: unknown, b: unknown): boolean {
+  const norm = (v: unknown): string => {
+    if (v === null || v === undefined || v === "") return "";
+    if (Array.isArray(v)) return v.map(x => String(x).trim()).filter(Boolean).join("|").toLowerCase();
+    return String(v).trim().toLowerCase();
+  };
+  return norm(a) === norm(b);
+}
+
 function RefreshMetaModal({
   data,
   onApply,
@@ -562,7 +571,17 @@ function RefreshMetaModal({
   onCancel: () => void;
   applying: boolean;
 }) {
-  // Default: alle vorgeschlagenen Felder sind angehakt
+  // Zeige ALLE Felder wo PDF-Extraktion einen anderen Wert hat (auch jene
+  // die smart-merge nicht von sich aus vorschlägt — User kann manuell wählen).
+  // Vor-angehakt: nur die smart-empfohlenen.
+  const ALL_FIELDS = ["entry_type", "title", "authors", "year", "abstract",
+    "journal", "volume", "issue", "pages", "doi", "publisher", "isbn", "edition"];
+  const diffKeys = ALL_FIELDS.filter(k => {
+    const ext = data.extracted[k];
+    if (ext === null || ext === undefined || ext === "") return false;
+    if (Array.isArray(ext) && ext.length === 0) return false;
+    return !valuesEqual(data.current[k], ext);
+  });
   const proposedKeys = Object.keys(data.proposed);
   const [selected, setSelected] = useState<Set<string>>(new Set(proposedKeys));
 
@@ -577,7 +596,8 @@ function RefreshMetaModal({
   const handleApply = () => {
     const fields: Record<string, unknown> = {};
     for (const k of selected) {
-      if (k in data.proposed) fields[k] = data.proposed[k];
+      // PDF-Extraktionswert nutzen (auch wenn nicht in proposed)
+      if (k in data.extracted) fields[k] = data.extracted[k];
     }
     onApply(fields);
   };
@@ -588,28 +608,31 @@ function RefreshMetaModal({
         <div className="shrink-0 px-5 py-3 border-b border-white/8">
           <h3 className="text-sm font-semibold text-white">Metadaten aus PDF</h3>
           <p className="text-[11px] text-gray-400 mt-1">
-            Vorgeschlagene Änderungen aus der Analyse des PDF-Inhalts.
-            Nur klare Verbesserungen sind angehakt.
+            Empfohlene Änderungen sind vor-angehakt. Andere Unterschiede kannst du manuell auswählen.
           </p>
         </div>
 
         <div className="flex-1 overflow-auto p-5 space-y-3">
-          {proposedKeys.length === 0 ? (
+          {diffKeys.length === 0 ? (
             <div className="py-8 text-center text-gray-400 text-sm">
-              Aus dem PDF konnten keine Verbesserungen abgeleitet werden — die aktuellen Daten scheinen vollständig.
+              Keine Unterschiede zwischen aktuellen Metadaten und PDF gefunden.
             </div>
           ) : (
-            proposedKeys.map(k => {
+            diffKeys.map(k => {
               const cur = data.current[k];
-              const prop = data.proposed[k];
+              const prop = data.extracted[k];
               const checked = selected.has(k);
+              const isRecommended = k in data.proposed;
               return (
                 <div key={k} className={`rounded-lg border p-3 transition-colors ${checked ? "bg-[var(--accent-10)] border-[var(--accent-30)]" : "bg-white/3 border-white/8"}`}>
                   <label className="flex items-start gap-2 cursor-pointer">
                     <input type="checkbox" checked={checked} onChange={() => toggle(k)}
                       className="mt-0.5 w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] uppercase tracking-wider text-gray-400 font-medium">{META_FIELD_LABELS[k] ?? k}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[11px] uppercase tracking-wider text-gray-400 font-medium">{META_FIELD_LABELS[k] ?? k}</p>
+                        {isRecommended && <span className="text-[9px] text-emerald-400 uppercase tracking-wider">empfohlen</span>}
+                      </div>
                       <div className="mt-1 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                         <div>
                           <p className="text-[10px] text-gray-500 mb-0.5">Aktuell</p>
@@ -629,7 +652,7 @@ function RefreshMetaModal({
         </div>
 
         <div className="shrink-0 flex items-center gap-2 px-5 py-3 border-t border-white/8">
-          <span className="text-[11px] text-gray-500">{selected.size} von {proposedKeys.length} ausgewählt</span>
+          <span className="text-[11px] text-gray-500">{selected.size} von {diffKeys.length} ausgewählt</span>
           <span className="flex-1" />
           <button onClick={onCancel} disabled={applying}
             className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-xs disabled:opacity-40">
