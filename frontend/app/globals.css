@@ -234,3 +234,24 @@ body {
     color: color-contrast(var(--window-bg, rgba(8,12,22,0.92)) vs #ffffff, #111111);
   }
 }
+
+/* ── Splitter-Drag: ruckfreie Bewegung über iframes hinweg ────────────────────
+ * Während ein Splitter gezogen wird, dürfen iframes (PDF-Viewer etc.) keine
+ * Mausereignisse einfangen — sonst friert der Drag ein wenn der Cursor das
+ * iframe überquert. Plus: Cursor und Text-Selection werden global fixiert.
+ */
+body.splitter-dragging-h,
+body.splitter-dragging-v {
+  user-select: none;
+}
+body.splitter-dragging-h *,
+body.splitter-dragging-v * {
+  cursor: inherit !important;
+}
+body.splitter-dragging-h { cursor: row-resize; }
+body.splitter-dragging-v { cursor: col-resize; }
+
+body.splitter-dragging-h iframe,
+body.splitter-dragging-v iframe {
+  pointer-events: none;
+}

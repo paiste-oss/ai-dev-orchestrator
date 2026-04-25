@@ -712,6 +712,9 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   const layoutLoaded = useRef(false);
   const tBodyRef = useRef<HTMLDivElement>(null);
   const tBottomRef = useRef<HTMLDivElement>(null);
+  // Direkte DOM-Refs für ruckfreies Drag (kein React-Re-Render während mousemove)
+  const topPanelRef = useRef<HTMLDivElement>(null);
+  const detailPanelRef = useRef<HTMLDivElement>(null);
 
   // Beim Mount: gespeicherte Layout-Werte laden
   useEffect(() => {
@@ -742,43 +745,53 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   const startDragH = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const container = tBodyRef.current;
-    if (!container) return;
+    const panel = topPanelRef.current;
+    if (!container || !panel) return;
     const rect = container.getBoundingClientRect();
+    let finalPct = parseFloat(panel.style.height) || 45;
+
+    document.body.classList.add("splitter-dragging-h");
+
     const onMove = (ev: MouseEvent) => {
-      const pct = ((ev.clientY - rect.top) / rect.height) * 100;
-      setTopPercent(Math.max(15, Math.min(80, pct)));
+      const pct = Math.max(15, Math.min(80, ((ev.clientY - rect.top) / rect.height) * 100));
+      finalPct = pct;
+      // Direkt im DOM setzen — kein React-Re-Render → keine Liste-Diff, keine iframe-Reflow-Kaskade
+      panel.style.height = `${pct}%`;
     };
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      document.body.classList.remove("splitter-dragging-h");
+      // Erst jetzt React-State committen → genau ein Render + ein localStorage-Write
+      setTopPercent(finalPct);
     };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
-    document.body.style.cursor = "row-resize";
-    document.body.style.userSelect = "none";
   }, []);
 
   const startDragV = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     const container = tBottomRef.current;
-    if (!container) return;
+    const panel = detailPanelRef.current;
+    if (!container || !panel) return;
     const rect = container.getBoundingClientRect();
+    let finalPct = parseFloat(panel.style.width) || 45;
+
+    document.body.classList.add("splitter-dragging-v");
+
     const onMove = (ev: MouseEvent) => {
-      const pct = ((ev.clientX - rect.left) / rect.width) * 100;
-      setLeftPercent(Math.max(15, Math.min(85, pct)));
+      const pct = Math.max(15, Math.min(85, ((ev.clientX - rect.left) / rect.width) * 100));
+      finalPct = pct;
+      panel.style.width = `${pct}%`;
     };
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      document.body.classList.remove("splitter-dragging-v");
+      setLeftPercent(finalPct);
     };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
   }, []);
   const [selected, setSelected] = useState<LitEntry | null>(null);
   const [showDetail, setShowDetail] = useState(false);
@@ -1380,7 +1393,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
         <div ref={tBodyRef} className="flex-1 min-w-0 flex flex-col overflow-hidden">
 
         {/* List (oben) */}
-        <div className="overflow-hidden flex flex-col" style={{ height: `${topPercent}%` }}>
+        <div ref={topPanelRef} className="overflow-hidden flex flex-col" style={{ height: `${topPercent}%` }}>
           {loading ? (
             <div className="flex items-center justify-center flex-1 text-gray-600 text-xs">Lade…</div>
           ) : filtered.length === 0 ? (
@@ -1461,7 +1474,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
         {/* Bottom: Detail (links) | PDF Preview (rechts) */}
         <div ref={tBottomRef} className="flex flex-1 min-h-0 overflow-hidden">
           {/* Detail / Form */}
-          <div className="overflow-hidden h-full" style={{ width: `${leftPercent}%` }}>
+          <div ref={detailPanelRef} className="overflow-hidden h-full" style={{ width: `${leftPercent}%` }}>
             {showForm ? (
               <EntryForm
                 initial={editEntry}
