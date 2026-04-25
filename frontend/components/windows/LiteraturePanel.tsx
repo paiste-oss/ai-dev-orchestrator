@@ -494,12 +494,14 @@ function EntryForm({
   onExtractPdf,
   pendingPdfFile,
   setPendingPdfFile,
+  groups,
 }: {
   initial: Partial<LitEntry>;
   onSave: (data: Partial<LitEntry>, pdfFile?: File) => void;
   onCancel: () => void;
   onCollapse: () => void;
   saving: boolean;
+  groups: LitGroup[];
   onExtractPdf?: (file: File) => Promise<Partial<LitEntry>>;
   pendingPdfFile: File | null;
   setPendingPdfFile: (f: File | null) => void;
@@ -640,6 +642,34 @@ function EntryForm({
               {label}
             </button>
           ))}
+        </div>
+
+        {/* Gruppe / Ordner */}
+        <div>
+          <label className={labelClass}>Gruppe / Ordner</label>
+          <select value={form.group_id ?? ""}
+            onChange={e => set("group_id", e.target.value || null)}
+            className={`${inputClass} mt-1 cursor-pointer`}>
+            <option value="">— Keine Gruppe —</option>
+            {(() => {
+              // Nur Gruppen des aktuellen Eintrag-Typs anzeigen
+              const type = form.entry_type ?? "paper";
+              const topGroups = groups.filter(g => g.entry_type === type && g.parent_id === null)
+                .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+              return topGroups.map(top => {
+                const subFolders = groups.filter(g => g.parent_id === top.id)
+                  .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+                return (
+                  <optgroup key={top.id} label={top.name}>
+                    <option value={top.id}>{top.name} (Gruppe)</option>
+                    {subFolders.map(f => (
+                      <option key={f.id} value={f.id}>↳ {f.name}</option>
+                    ))}
+                  </optgroup>
+                );
+              });
+            })()}
+          </select>
         </div>
 
         {/* Titel */}
@@ -1141,11 +1171,9 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       // (id, entry_type, pdf_*, is_favorite, read_later, group_id, etc. sind nicht
       // in LiteratureUpdateRequest — Pydantic ignoriert sie zwar, aber wir bleiben
       // explizit damit die Wartung einfacher ist und keine Daten ungewollt überschrieben werden)
-      const allowedFields: (keyof LitEntry)[] = isEdit
-        ? ["title", "authors", "year", "abstract", "journal", "volume", "issue", "pages",
-           "doi", "url", "publisher", "isbn", "edition", "tags", "notes", "baddi_readable"]
-        : ["entry_type", "title", "authors", "year", "abstract", "journal", "volume", "issue",
-           "pages", "doi", "url", "publisher", "isbn", "edition", "tags", "notes", "baddi_readable"];
+      const allowedFields: (keyof LitEntry)[] = ["entry_type", "title", "authors", "year",
+        "abstract", "journal", "volume", "issue", "pages", "doi", "url", "publisher",
+        "isbn", "edition", "tags", "notes", "baddi_readable"];
       const body: Record<string, unknown> = {};
       for (const k of allowedFields) {
         if (data[k] !== undefined) body[k] = data[k];
@@ -1173,6 +1201,18 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
         if (pdfRes.ok) saved = await pdfRes.json();
       }
 
+      // Gruppen-Zuordnung über separaten PATCH-Endpoint (akzeptiert auch null
+      // zum Entfernen — Update-Endpoint mit exclude_none=True kann das nicht)
+      const originalGroupId = isEdit ? entries.find(e => e.id === data.id)?.group_id ?? null : null;
+      const newGroupId = data.group_id ?? null;
+      if (newGroupId !== originalGroupId) {
+        const grpRes = await apiFetch(`${BACKEND_URL}/v1/literature/${saved.id}/group`, {
+          method: "PATCH",
+          body: JSON.stringify({ group_id: newGroupId }),
+        });
+        if (grpRes.ok) saved = await grpRes.json();
+      }
+
       setEntries(prev => isEdit ? prev.map(e => e.id === saved.id ? saved : e) : [saved, ...prev]);
       setSelected(saved);
       setShowForm(false);
@@ -1193,6 +1233,39 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
         if (selected?.id === id) { setSelected(null); setShowDetail(false); }
       }
     } finally { setDeleting(null); }
+  }
+
+  async function handleExportPdfs(ids: string[]) {
+    if (ids.length === 0) return;
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/export-pdfs`, {
+        method: "POST",
+        body: JSON.stringify({ entry_ids: ids }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
+        setImportMsg({ type: "err", text: errBody.detail || t("err.generic") });
+        return;
+      }
+      const blob = await res.blob();
+      // Dateiname aus Content-Disposition extrahieren, sonst Default
+      const cd = res.headers.get("Content-Disposition") || "";
+      const match = cd.match(/filename="([^"]+)"/);
+      const fallback = ids.length === 1 ? "literatur.pdf" : `literatur_export_${Date.now()}.zip`;
+      const filename = match ? match[1] : fallback;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setImportMsg({ type: "err", text: msg === "ERR_NETWORK" ? t("err.network") : msg || t("err.generic") });
+    }
   }
 
   async function handleToggleFlag(entry: LitEntry, flag: "is_favorite" | "read_later") {
@@ -1661,11 +1734,20 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                   <div className="flex items-center gap-3 px-3 py-1.5 bg-[var(--accent-10)] border-b border-[var(--accent-30)] text-[11px] text-[var(--accent-light)]">
                     <span>{selectedIds.size} ausgewählt</span>
                     <button onClick={() => setSelectedIds(new Set())} className="hover:underline">Auswahl aufheben</button>
-                    <button onClick={() => {
-                      if (!confirm(`${selectedIds.size} Einträge wirklich löschen?`)) return;
-                      Array.from(selectedIds).forEach(id => handleDelete(id));
-                      setSelectedIds(new Set());
-                    }} className="ml-auto text-red-400 hover:underline">Löschen</button>
+                    <span className="ml-auto flex items-center gap-3">
+                      <button onClick={() => handleExportPdfs(Array.from(selectedIds))}
+                        className="hover:underline flex items-center gap-1">
+                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        PDFs exportieren
+                      </button>
+                      <button onClick={() => {
+                        if (!confirm(`${selectedIds.size} Einträge wirklich löschen?`)) return;
+                        Array.from(selectedIds).forEach(id => handleDelete(id));
+                        setSelectedIds(new Set());
+                      }} className="text-red-400 hover:underline">Löschen</button>
+                    </span>
                   </div>
                 )}
 
@@ -1752,6 +1834,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                     pendingPdfFile={pendingPdfFile}
                     setPendingPdfFile={setPendingPdfFile}
                     onCollapse={() => setDetailCollapsed(true)}
+                    groups={groups}
                   />
                 ) : (
                   <DetailPanel

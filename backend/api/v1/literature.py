@@ -135,6 +135,7 @@ class LiteratureCreateRequest(BaseModel):
 
 
 class LiteratureUpdateRequest(BaseModel):
+    entry_type: str | None = None  # paper | book | patent
     title: str | None = None
     authors: list[str] | None = None
     year: int | None = None
@@ -151,6 +152,12 @@ class LiteratureUpdateRequest(BaseModel):
     tags: list[str] | None = None
     notes: str | None = None
     baddi_readable: bool | None = None
+    # group_id wird via separatem PATCH /{id}/group geändert (kann null sein
+    # zum Entfernen — exclude_none=True würde null-Werte hier verschlucken)
+
+
+class ExportPdfsRequest(BaseModel):
+    entry_ids: list[uuid.UUID]
 
 
 class FlagsUpdateRequest(BaseModel):
@@ -374,6 +381,9 @@ async def update_literature_entry(
     if not entry or not entry.is_active or entry.customer_id != user.id:
         raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
 
+    if req.entry_type is not None and req.entry_type not in ("paper", "book", "patent"):
+        raise HTTPException(status_code=422, detail="entry_type muss paper, book oder patent sein")
+
     for field, value in req.model_dump(exclude_none=True).items():
         setattr(entry, field, value)
 
@@ -522,6 +532,81 @@ async def delete_group(
     )
     await db.delete(grp)
     await db.commit()
+
+
+# ── PDF Export (Mehrfach-Auswahl) ─────────────────────────────────────────────
+
+@router.post("/export-pdfs")
+async def export_pdfs(
+    req: ExportPdfsRequest,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Exportiert die PDFs der ausgewählten Einträge.
+    Bei einem PDF: einzelne PDF-Datei. Bei mehreren: ZIP mit allen PDFs.
+    """
+    from fastapi.responses import StreamingResponse
+
+    if not req.entry_ids:
+        raise HTTPException(status_code=422, detail="Keine Einträge ausgewählt")
+    if len(req.entry_ids) > 500:
+        raise HTTPException(status_code=422, detail="Max. 500 Einträge pro Export")
+
+    result = await db.execute(
+        select(LiteratureEntry).where(
+            LiteratureEntry.id.in_(req.entry_ids),
+            LiteratureEntry.customer_id == user.id,
+            LiteratureEntry.is_active.is_(True),
+        )
+    )
+    entries = list(result.scalars().all())
+    with_pdf = [e for e in entries if e.pdf_s3_key]
+
+    if not with_pdf:
+        raise HTTPException(status_code=404, detail="Keiner der Einträge hat ein PDF angehängt")
+
+    # Einzeldatei: direkt streamen
+    if len(with_pdf) == 1:
+        e = with_pdf[0]
+        try:
+            content = await s3_download(e.pdf_s3_key)
+        except Exception as exc:
+            _log.error("[Export] PDF-Download fehlgeschlagen für %s: %s", e.id, exc)
+            raise HTTPException(status_code=500, detail="PDF konnte nicht abgerufen werden")
+        safe_title = re.sub(r"[^\w\-. ]", "_", e.title)[:120].strip() or "literatur"
+        filename = f"{safe_title}.pdf"
+        return StreamingResponse(
+            io.BytesIO(content), media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+
+    # ZIP mit allen PDFs
+    buf = io.BytesIO()
+    used_names: set[str] = set()
+    with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for e in with_pdf:
+            try:
+                content = await s3_download(e.pdf_s3_key)
+            except Exception as exc:
+                _log.warning("[Export] PDF-Download fehlgeschlagen für %s: %s — übersprungen", e.id, exc)
+                continue
+            safe_title = re.sub(r"[^\w\-. ]", "_", e.title)[:120].strip() or "eintrag"
+            base = f"{safe_title}.pdf"
+            # Dedupe
+            name = base
+            n = 1
+            while name in used_names:
+                name = f"{safe_title}_{n}.pdf"
+                n += 1
+            used_names.add(name)
+            zf.writestr(name, content)
+
+    buf.seek(0)
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    return StreamingResponse(
+        buf, media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="literatur_export_{timestamp}.zip"'}
+    )
 
 
 # ── Import ────────────────────────────────────────────────────────────────────
