@@ -361,7 +361,8 @@ function PdfPreview({
           </div>
         )}
         {entry?.pdf_s3_key && blobUrl && !loading && !error && (
-          <iframe src={blobUrl} title={entry.title} className="w-full h-full border-0 block" />
+          // PDF-Open-Parameter: view=FitH = Fenster-Breite, toolbar=0 spart Platz
+          <iframe src={`${blobUrl}#view=FitH&toolbar=0&navpanes=0`} title={entry.title} className="w-full h-full border-0 block" />
         )}
       </div>
     </div>

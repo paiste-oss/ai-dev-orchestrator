@@ -32,7 +32,9 @@ export default function FileViewerWindow({ url, filename, fileType, mimeType }: 
   }
 
   if (isPdf) {
-    return <iframe src={url} title={filename} className="w-full h-full border-none" style={{ display: "block" }} />;
+    // PDF-Open-Parameter: view=FitH passt automatisch an die Fenster-Breite an
+    const pdfSrc = url.includes("#") ? url : `${url}#view=FitH`;
+    return <iframe src={pdfSrc} title={filename} className="w-full h-full border-none" style={{ display: "block" }} />;
   }
 
   if (isAudio) {
