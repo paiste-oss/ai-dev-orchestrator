@@ -351,8 +351,15 @@ async def _handle_library(tool_name: str, tool_input: dict, customer_id: str | N
             if not rec or rec.enrichment_status == "pending":
                 rec = await enrich_sr(db, norm)
                 await db.commit()
-            if not rec or rec.enrichment_status == "failed_404":
+            if not rec or rec.enrichment_status in ("failed_404", "failed_other"):
                 return {"error": f"SR {norm} nicht via Fedlex auflösbar."}
+            # partial_url_only: nur Landing-URL verfügbar — trotzdem nützlich
+            if rec.enrichment_status == "partial_url_only":
+                return {
+                    "sr_number": rec.sr_number,
+                    "html_url": rec.html_url,
+                    "note": "Title via SPARQL nicht verfügbar — Landing-URL liefert die offizielle Fedlex-Seite",
+                }
         return {
             "sr_number": rec.sr_number,
             "title": rec.title,

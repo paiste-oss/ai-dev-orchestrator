@@ -48,109 +48,85 @@ def _user_agent() -> str:
 
 
 async def _fetch_fedlex(client: httpx.AsyncClient, sr_number: str) -> dict[str, Any] | None:
-    """Holt Gesetzes-Metadaten aus Fedlex.
+    """Holt Gesetzes-Metadaten aus Fedlex via SPARQL.
 
-    Strategie: Resolver-URL aufrufen, redirecten lassen, ELI aus Final-URL ablesen.
-    Direkter API-Endpunkt:
-      GET https://www.fedlex.admin.ch/eli/cc/{year}/{seq}/de
-    funktioniert aber nur wenn man Year/Seq kennt. Für eine SR-Nummer direkt:
-      GET https://www.fedlex.admin.ch/eli/oc/?_format=json&number={sr}
+    Fedlex serviert die Web-UI als SPA (HTML-Parsing nutzlos). Daten kommen
+    aus dem Linked-Data-Endpoint via SPARQL. Wir suchen die ConsolidationAbstract
+    zur SR-Nummer und holen Titel + Abkürzung in DE.
     """
-    # Variante 1: ELI-Resolver-URL (gibt HTML zurück, aber Final-URL hat ELI)
-    eli_url = f"https://www.fedlex.admin.ch/eli/cc/{sr_number}/de"
+    sparql_query = f"""PREFIX jolux: <http://data.legilux.public.lu/resource/ontology/jolux#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+SELECT ?cc ?title ?titleShort ?abbreviation ?dateApplicability WHERE {{
+  ?cc a jolux:ConsolidationAbstract ;
+       jolux:classifiedByTaxonomyEntry ?tax .
+  ?tax skos:notation "{sr_number}" .
+  OPTIONAL {{
+    ?expression jolux:isRealizedBy ?cc ;
+                jolux:language <http://publications.europa.eu/resource/authority/language/DEU> ;
+                jolux:title ?title .
+    OPTIONAL {{ ?expression jolux:titleShort ?titleShort . }}
+    OPTIONAL {{ ?expression jolux:titleAlternative ?abbreviation . }}
+  }}
+  OPTIONAL {{ ?cc jolux:dateApplicability ?dateApplicability . }}
+}}
+LIMIT 1"""
+
+    landing_url = f"https://www.fedlex.admin.ch/de/cc/{sr_number}"
+
     try:
-        r = await client.get(
-            eli_url, follow_redirects=True,
-            headers={"User-Agent": _user_agent(), "Accept": "text/html"},
+        r = await client.post(
+            "https://fedlex.data.admin.ch/sparqlendpoint",
+            data={"query": sparql_query},
+            headers={
+                "User-Agent": _user_agent(),
+                "Accept": "application/sparql-results+json",
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
             timeout=_HTTP_TIMEOUT,
         )
         if r.status_code != 200:
-            # Nicht jedes SR ist direkt unter /eli/cc/{sr}/ erreichbar — kann auch /eli/oc sein
-            return await _fallback_fedlex_search(client, sr_number)
-        # Aus HTML grundlegende Felder extrahieren — Fedlex setzt OpenGraph + Schema.org
-        html = r.text
-        return _parse_fedlex_html(sr_number, str(r.url), html)
+            _log.info("[LawEnrich/Fedlex-SPARQL] SR %s → HTTP %d", sr_number, r.status_code)
+            return {"sr_number": sr_number, "html_url": landing_url, "fedlex_data": {"sparql_status": r.status_code}}
+
+        body = r.json()
+        bindings = (body.get("results") or {}).get("bindings") or []
+        if not bindings:
+            # Kein SPARQL-Treffer — Landing-URL bleibt verfügbar (User landet auf Fedlex-Detailseite)
+            return {"sr_number": sr_number, "html_url": landing_url, "fedlex_data": {"sparql_empty": True}}
+
+        b = bindings[0]
+        cc_uri = (b.get("cc") or {}).get("value")
+        title = (b.get("title") or {}).get("value")
+        title_short = (b.get("titleShort") or {}).get("value")
+        abbreviation = (b.get("abbreviation") or {}).get("value")
+        date_app = (b.get("dateApplicability") or {}).get("value")
+
+        # PDF/HTML-URLs aus dem CC-URI ableiten
+        # cc_uri sieht so aus: https://fedlex.data.admin.ch/eli/cc/27/317_321_377
+        pdf_url = None
+        eli_uri = cc_uri
+        if cc_uri:
+            # ELI-konformer Pfad → fedlex.admin.ch hat PDF unter .../de.pdf
+            html_url = cc_uri.replace("fedlex.data.admin.ch", "www.fedlex.admin.ch") + "/de"
+            pdf_url = html_url + ".pdf"
+        else:
+            html_url = landing_url
+
+        return {
+            "sr_number": sr_number,
+            "title": title,
+            "short_title": title_short[:512] if title_short else None,
+            "abbreviation": abbreviation[:64] if abbreviation else None,
+            "html_url": html_url,
+            "pdf_url": pdf_url,
+            "eli_uri": eli_uri,
+            "in_force_date": date_app,
+            "fedlex_data": {"cc_uri": cc_uri, "binding": {k: v.get("value") for k, v in b.items()}},
+        }
     except (httpx.HTTPError, ValueError) as exc:
-        _log.info("[LawEnrich/Fedlex] SR %s → %s", sr_number, exc)
-        return None
-
-
-async def _fallback_fedlex_search(client: httpx.AsyncClient, sr_number: str) -> dict[str, Any] | None:
-    """Such-API als Fallback wenn Direkt-URL nicht klappt."""
-    try:
-        r = await client.get(
-            "https://fedlex.data.admin.ch/sparql",  # SPARQL Endpoint
-            timeout=_HTTP_TIMEOUT,
-            headers={"User-Agent": _user_agent()},
-        )
-        # SPARQL ist mächtig aber für hier overkill — wir geben einfach None zurück
-        # und der Caller markiert als failed_404
-        _ = r
-        return None
-    except httpx.HTTPError:
-        return None
-
-
-def _parse_fedlex_html(sr_number: str, final_url: str, html: str) -> dict[str, Any]:
-    """Extrahiert Felder aus dem HTML der Fedlex-Detail-Seite.
-    Fedlex setzt sauberes <meta>-Mark-up + JSON-LD im <head>.
-    """
-    # Title — sucht nach Erlass-Bezeichnung
-    title = None
-    short_title = None
-    abbreviation = None
-
-    # OpenGraph + Schema.org
-    og_title = re.search(r'<meta\s+property="og:title"\s+content="([^"]+)"', html)
-    if og_title:
-        title = og_title.group(1).strip()
-
-    # Kurztitel und Abkürzung kommen oft in Klammern: "Bundesgesetz ... (XYZ-Gesetz, ABC)"
-    if title:
-        m = re.search(r"\(([^()]*?)\)\s*$", title)
-        if m:
-            inner = m.group(1)
-            parts = [p.strip() for p in inner.split(",")]
-            if parts:
-                short_title = parts[0][:512] if parts else None
-                if len(parts) > 1:
-                    abbreviation = parts[-1][:64]
-
-    # Erlass-Datum / Inkrafttreten via JSON-LD
-    enacted = None
-    in_force = None
-    jsonld_match = re.search(r'<script\s+type="application/ld\+json">\s*(\{.*?\})\s*</script>', html, re.DOTALL)
-    if jsonld_match:
-        try:
-            import json as _json
-            obj = _json.loads(jsonld_match.group(1))
-            enacted = obj.get("dateCreated") or obj.get("datePublished")
-            in_force = obj.get("temporalCoverage")
-        except Exception:
-            pass
-
-    # PDF-URL — Fedlex bietet PDF unter abgeleiteter URL
-    # ELI-Pattern: /eli/cc/2023/100/de → /eli/cc/2023/100/de.pdf
-    pdf_url = None
-    eli_uri = None
-    eli_match = re.search(r"/eli/(cc|oc)/([^/]+)/(\d+)/(\w+)", final_url)
-    if eli_match:
-        eli_uri = final_url.split("?")[0]
-        # Fedlex unterstützt PDF-Variante über Content-Type-Verhandlung —
-        # aber direkter Pfad funktioniert auch:
-        pdf_url = eli_uri.rstrip("/") + ".pdf"
-
-    return {
-        "title": title,
-        "short_title": short_title,
-        "abbreviation": abbreviation,
-        "enacted_date": enacted,
-        "in_force_date": in_force,
-        "html_url": final_url,
-        "pdf_url": pdf_url,
-        "eli_uri": eli_uri,
-        "fedlex_data": {"raw_url": final_url, "title": title},
-    }
+        _log.info("[LawEnrich/Fedlex-SPARQL] SR %s → %s", sr_number, exc)
+        return {"sr_number": sr_number, "html_url": landing_url, "fedlex_data": {"sparql_error": str(exc)[:200]}}
 
 
 async def enrich_sr(db: AsyncSession, raw_sr: str, force: bool = False) -> LawGlobalIndex | None:
@@ -176,9 +152,10 @@ async def enrich_sr(db: AsyncSession, raw_sr: str, force: bool = False) -> LawGl
     if data:
         try:
             for k, v in data.items():
+                if k == "sr_number":
+                    continue  # primary key
                 if v not in (None, ""):
                     if k in ("enacted_date", "in_force_date") and isinstance(v, str):
-                        # ISO-Date-Parse
                         m = re.match(r"(\d{4})-(\d{2})-(\d{2})", v)
                         if m:
                             from datetime import date
@@ -186,9 +163,13 @@ async def enrich_sr(db: AsyncSession, raw_sr: str, force: bool = False) -> LawGl
                         else:
                             continue
                     setattr(existing, k, v)
-            existing.enrichment_status = "enriched"
+            # Erfolgsstatus: wenn ein Title da ist → enriched. Sonst → partial (URL only).
+            if existing.title:
+                existing.enrichment_status = "enriched"
+                existing.status = "in_force"
+            else:
+                existing.enrichment_status = "partial_url_only"
             existing.enrichment_error = None
-            existing.status = "in_force"
         except Exception as exc:
             _log.warning("[LawEnrich/parse] SR %s: %s", sr, exc)
             existing.enrichment_status = "failed_other"

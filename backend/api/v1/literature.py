@@ -1476,7 +1476,7 @@ async def get_law_entry(
     if not rec or rec.enrichment_status == "pending":
         rec = await enrich_sr(db, norm)
         await db.commit()
-    if not rec or rec.enrichment_status == "failed_404":
+    if not rec or rec.enrichment_status in ("failed_404", "failed_other"):
         raise HTTPException(status_code=404, detail=f"SR {norm} nicht via Fedlex auflösbar")
     return rec
 
