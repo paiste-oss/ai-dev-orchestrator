@@ -375,6 +375,45 @@ function PdfPreview({
   );
 }
 
+// ── Grid-Header (sortierbar) ──────────────────────────────────────────────────
+
+function SortableGrid({ sortKey, sortDir, onSort, allSelected, someSelected, onToggleAll }: {
+  sortKey: "title" | "authors" | "year" | "journal" | "type";
+  sortDir: "asc" | "desc";
+  onSort: (k: "title" | "authors" | "year" | "journal" | "type") => void;
+  allSelected: boolean;
+  someSelected: boolean;
+  onToggleAll: () => void;
+}) {
+  const headerRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (headerRef.current) headerRef.current.indeterminate = someSelected && !allSelected;
+  }, [allSelected, someSelected]);
+
+  const arrow = (k: typeof sortKey) => sortKey === k ? (sortDir === "asc" ? " ↑" : " ↓") : "";
+  const Th = ({ k, label, className = "" }: { k: typeof sortKey; label: string; className?: string }) => (
+    <button onClick={() => onSort(k)}
+      className={`text-left text-[10px] uppercase tracking-wider font-semibold py-1 hover:text-white transition-colors truncate ${sortKey === k ? "text-[var(--accent-light)]" : "text-gray-500"} ${className}`}>
+      {label}{arrow(k)}
+    </button>
+  );
+
+  return (
+    <div className="grid items-center gap-2 px-3 py-1.5 border-b border-white/8 sticky top-0 bg-black/40 backdrop-blur-sm z-10"
+      style={{ gridTemplateColumns: "32px 28px 1fr 60px 180px 180px 32px 60px" }}>
+      <input ref={headerRef} type="checkbox" checked={allSelected} onChange={onToggleAll}
+        className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" title="Alle (de-)selektieren" />
+      <Th k="type" label="" className="text-center" />
+      <Th k="title" label="Titel" />
+      <Th k="year" label="Jahr" />
+      <Th k="authors" label="Autoren" />
+      <Th k="journal" label="Journal" />
+      <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-500 text-center">PDF</span>
+      <span></span>
+    </div>
+  );
+}
+
 // ── Entry Form ────────────────────────────────────────────────────────────────
 
 function EntryForm({
@@ -702,6 +741,25 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   // PDF beim Neu-Erfassen — gehoben aus EntryForm, damit Vorschau es sofort zeigt
   const [pendingPdfFile, setPendingPdfFile] = useState<File | null>(null);
 
+  // Grid-Sortierung + Multi-Select
+  type SortKey = "title" | "authors" | "year" | "journal" | "type";
+  const [sortKey, setSortKey] = useState<SortKey>("title");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  function toggleSort(k: SortKey) {
+    if (sortKey === k) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(k); setSortDir("asc"); }
+  }
+  function toggleRowSelect(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
   // T-Layout: Splitter-Positionen (Prozent) — werden user-scoped persistiert
   const layoutKey = useMemo(() => {
     const email = getSession()?.email;
@@ -933,6 +991,26 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       (e.publisher || "").toLowerCase().includes(q) ||
       (e.tags || []).some(t => t.toLowerCase().includes(q))
     );
+  });
+
+  // Sortierung anwenden
+  const sorted = [...filtered].sort((a, b) => {
+    let av: string | number = "";
+    let bv: string | number = "";
+    if (sortKey === "title")     { av = a.title.toLowerCase(); bv = b.title.toLowerCase(); }
+    else if (sortKey === "year") { av = a.year ?? -Infinity; bv = b.year ?? -Infinity; }
+    else if (sortKey === "authors") {
+      av = (a.authors?.[0] ?? "").toLowerCase();
+      bv = (b.authors?.[0] ?? "").toLowerCase();
+    }
+    else if (sortKey === "journal") {
+      av = (a.journal ?? a.publisher ?? "").toLowerCase();
+      bv = (b.journal ?? b.publisher ?? "").toLowerCase();
+    }
+    else if (sortKey === "type") { av = a.entry_type; bv = b.entry_type; }
+    if (av < bv) return sortDir === "asc" ? -1 : 1;
+    if (av > bv) return sortDir === "asc" ? 1 : -1;
+    return 0;
   });
 
   async function handleSave(data: Partial<LitEntry>, pdfFile?: File) {
@@ -1256,10 +1334,8 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
 
   return (
     <WindowFrame>
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b window-border-soft shrink-0">
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche in Literatur…"
-          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50" />
+      {/* Toolbar — nur Aktions-Buttons; Suchfeld liegt oben in der Listenspalte */}
+      <div className="flex items-center justify-end gap-2 px-3 py-2 border-b window-border-soft shrink-0">
         <button onClick={() => importInputRef.current?.click()}
           disabled={importing}
           title="RIS / EndNote XML importieren"
@@ -1392,11 +1468,17 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
         {/* T-Layout: oben Liste, unten Detail | PDF */}
         <div ref={tBodyRef} className="flex-1 min-w-0 flex flex-col overflow-hidden">
 
-        {/* List (oben) */}
+        {/* List (oben) — Suchfeld + Grid mit sortierbaren Spalten */}
         <div ref={topPanelRef} className="overflow-hidden flex flex-col" style={{ height: `${topPercent}%` }}>
+          {/* Suchfeld — bündig zur Listenspalte (geht nicht über die Buttons rechts) */}
+          <div className="shrink-0 px-3 pt-2 pb-1.5">
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche in Literatur…"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50" />
+          </div>
+
           {loading ? (
             <div className="flex items-center justify-center flex-1 text-gray-600 text-xs">Lade…</div>
-          ) : filtered.length === 0 ? (
+          ) : sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 gap-2 text-center">
               <span className="text-4xl opacity-20">📚</span>
               <p className="text-gray-600 text-xs">{search ? "Keine Treffer" : "Noch keine Literatur"}</p>
@@ -1414,54 +1496,91 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
             </div>
           ) : (
             <div className="flex-1 overflow-auto">
-              {filtered.map(entry => {
-                const isActive = selected?.id === entry.id && (showDetail || showForm);
-                const entryGroup = entry.group_id ? groups.find(g => g.id === entry.group_id) : null;
-                const hasPdf = !!entry.pdf_s3_key;
-                return (
-                  <div key={entry.id}
-                    draggable
-                    onDragStart={e => handleDragStart(e, entry.id)}
-                    onClick={() => selectEntry(entry)}
-                    title={hasPdf ? undefined : "Kein PDF hinterlegt"}
-                    className={`group flex items-start gap-2 px-3 py-2.5 border-b border-white/4 cursor-pointer transition-colors border-l-2 ${isActive ? "bg-[var(--accent-10)]" : "hover:bg-white/3"} ${hasPdf ? "border-l-transparent" : "border-l-amber-500/50"}`}>
-                    <span className={`text-base shrink-0 mt-0.5 ${hasPdf ? "" : "opacity-50"}`}>{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-medium truncate ${hasPdf ? "text-white" : "text-gray-500"}`}>{entry.title}</p>
-                      <p className="text-[10px] text-gray-500 truncate mt-0.5">
-                        {fmtAuthors(entry.authors)}{entry.year ? ` · ${entry.year}` : ""}
-                        {entry.entry_type === "patent"
-                          ? (entry.isbn ? ` · ${entry.isbn}` : "") + (entry.journal ? ` · ${entry.journal}` : "")
-                          : (entry.journal ? ` · ${entry.journal}` : "") + (entry.publisher ? ` · ${entry.publisher}` : "")}
-                      </p>
-                      {entryGroup && (
-                        <span className="text-[9px] text-amber-600/80 mt-0.5 flex items-center gap-0.5">
-                          <IconFolder />
-                          {entryGroup.name}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      {/* Permanente Indikatoren */}
-                      {entry.pdf_s3_key && <span className="text-[9px] text-gray-600 group-hover:hidden" title="PDF angehängt">PDF</span>}
-                      {uploadingPdf === entry.id && <IconSpinner />}
-                      {/* Hover-Aktionen */}
-                      <div className="hidden group-hover:flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+              <div className="min-w-[820px]">
+                {/* Grid-Header */}
+                <SortableGrid sortKey={sortKey} sortDir={sortDir} onSort={toggleSort}
+                  allSelected={selectedIds.size > 0 && sorted.every(e => selectedIds.has(e.id))}
+                  someSelected={selectedIds.size > 0}
+                  onToggleAll={() => {
+                    setSelectedIds(prev => {
+                      const allOn = sorted.every(e => prev.has(e.id));
+                      if (allOn) return new Set();
+                      const next = new Set(prev);
+                      sorted.forEach(e => next.add(e.id));
+                      return next;
+                    });
+                  }} />
+
+                {/* Selektions-Aktionen wenn was markiert */}
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center gap-3 px-3 py-1.5 bg-[var(--accent-10)] border-b border-[var(--accent-30)] text-[11px] text-[var(--accent-light)]">
+                    <span>{selectedIds.size} ausgewählt</span>
+                    <button onClick={() => setSelectedIds(new Set())} className="hover:underline">Auswahl aufheben</button>
+                    <button onClick={() => {
+                      if (!confirm(`${selectedIds.size} Einträge wirklich löschen?`)) return;
+                      Array.from(selectedIds).forEach(id => handleDelete(id));
+                      setSelectedIds(new Set());
+                    }} className="ml-auto text-red-400 hover:underline">Löschen</button>
+                  </div>
+                )}
+
+                {sorted.map(entry => {
+                  const isActive = selected?.id === entry.id && (showDetail || showForm);
+                  const isChecked = selectedIds.has(entry.id);
+                  const entryGroup = entry.group_id ? groups.find(g => g.id === entry.group_id) : null;
+                  const hasPdf = !!entry.pdf_s3_key;
+                  const yearStr = entry.year ? String(entry.year) : "";
+                  const journalStr = entry.entry_type === "patent"
+                    ? (entry.journal ?? entry.isbn ?? "")
+                    : (entry.journal ?? entry.publisher ?? "");
+                  return (
+                    <div key={entry.id}
+                      draggable
+                      onDragStart={e => handleDragStart(e, entry.id)}
+                      onClick={() => selectEntry(entry)}
+                      title={hasPdf ? undefined : "Kein PDF hinterlegt"}
+                      className={`group grid items-center gap-2 px-3 py-1.5 border-b border-white/4 cursor-pointer transition-colors border-l-2 ${isActive ? "bg-[var(--accent-10)]" : isChecked ? "bg-white/3" : "hover:bg-white/3"} ${hasPdf ? "border-l-transparent" : "border-l-amber-500/50"}`}
+                      style={{ gridTemplateColumns: "32px 28px 1fr 60px 180px 180px 32px 60px" }}>
+                      {/* Checkbox */}
+                      <input type="checkbox" checked={isChecked} onClick={e => toggleRowSelect(entry.id, e)} onChange={() => {}}
+                        className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" />
+                      {/* Type icon */}
+                      <span className={`text-base ${hasPdf ? "" : "opacity-50"}`}>{entry.entry_type === "paper" ? "📄" : entry.entry_type === "patent" ? "🏛" : "📖"}</span>
+                      {/* Title */}
+                      <div className="min-w-0">
+                        <p className={`text-xs font-medium truncate ${hasPdf ? "text-white" : "text-gray-500"}`}>{entry.title}</p>
+                        {entryGroup && (
+                          <span className="text-[9px] text-amber-600/80 flex items-center gap-0.5"><IconFolder />{entryGroup.name}</span>
+                        )}
+                      </div>
+                      {/* Year */}
+                      <span className="text-[11px] text-gray-400 tabular-nums">{yearStr}</span>
+                      {/* Authors */}
+                      <span className="text-[11px] text-gray-400 truncate" title={(entry.authors ?? []).join("; ")}>{fmtAuthors(entry.authors)}</span>
+                      {/* Journal/Publisher */}
+                      <span className="text-[11px] text-gray-400 truncate" title={journalStr}>{journalStr}</span>
+                      {/* PDF-Indicator */}
+                      <span className="text-center">
+                        {entry.pdf_s3_key ? <span className="text-[9px] text-gray-500" title="PDF angehängt">PDF</span> : null}
+                        {uploadingPdf === entry.id && <IconSpinner />}
+                      </span>
+                      {/* Flags (Favorit + Lesezeichen) */}
+                      <div className="flex items-center justify-end gap-0.5" onClick={e => e.stopPropagation()}>
                         <button onClick={() => handleToggleFlag(entry, "is_favorite")}
                           title={entry.is_favorite ? "Favorit entfernen" : "Favorit"}
                           className="p-0.5 rounded transition-colors">
-                          {entry.is_favorite ? <IconStarFilled /> : <span className="text-gray-600 hover:text-yellow-400 block transition-colors"><IconStar /></span>}
+                          {entry.is_favorite ? <IconStarFilled /> : <span className="text-gray-600 hover:text-yellow-400 block opacity-0 group-hover:opacity-100 transition-opacity"><IconStar /></span>}
                         </button>
                         <button onClick={() => handleToggleFlag(entry, "read_later")}
                           title={entry.read_later ? "Aus 'Zu lesen' entfernen" : "Zu lesen"}
                           className="p-0.5 rounded transition-colors">
-                          {entry.read_later ? <IconBookmarkFilled /> : <span className="text-gray-600 hover:text-blue-400 block transition-colors"><IconBookmarkOutline /></span>}
+                          {entry.read_later ? <IconBookmarkFilled /> : <span className="text-gray-600 hover:text-blue-400 block opacity-0 group-hover:opacity-100 transition-opacity"><IconBookmarkOutline /></span>}
                         </button>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
