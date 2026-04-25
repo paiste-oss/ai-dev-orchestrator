@@ -22,6 +22,8 @@ class LiteratureOrphanPdf(Base):
     filename: Mapped[str] = mapped_column(String(512), nullable=False)
     s3_key: Mapped[str] = mapped_column(String(1024), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # SHA256 des PDF-Inhalts — Dedup beim nächsten ZIP-Upload
+    sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Aus PDF extrahierte Metadaten (Haiku) — Frontend zeigt sie zum Zuordnen
     extracted_meta: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

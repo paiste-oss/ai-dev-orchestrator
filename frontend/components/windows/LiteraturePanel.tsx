@@ -2838,7 +2838,13 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
           <div className="flex items-center gap-3 px-3 py-2">
             <span className="text-xs text-white font-medium">PDF-Import abgeschlossen</span>
             <span className="text-[10px] text-emerald-400">✓ {zipResult.matched} zugeordnet</span>
-            {zipResult.already_had_pdf > 0 && <span className="text-[10px] text-gray-500">{zipResult.already_had_pdf} hatten schon PDF</span>}
+            {zipResult.already_had_pdf > 0 && (
+              <span className="text-[10px] text-gray-500"
+                title={zipResult.skipped_by_hash ? `${zipResult.skipped_by_hash} davon per Hash-Fast-Skip erkannt` : undefined}>
+                {zipResult.already_had_pdf} hatten schon PDF
+                {zipResult.skipped_by_hash ? ` (${zipResult.skipped_by_hash}× ⚡)` : ""}
+              </span>
+            )}
             {(zipResult.orphans ?? 0) > 0 && (
               <button onClick={() => setTypeFilter("orphans")}
                 className="text-[10px] text-amber-300 hover:underline">

@@ -18,6 +18,7 @@ export interface BulkPdfResult {
   already_had_pdf: number;
   unmatched: number;
   orphans?: number;
+  skipped_by_hash?: number;
   details: PdfMatchDetail[];
 }
 

@@ -60,6 +60,9 @@ class LiteratureEntry(Base):
     # PDF Anhang (optional)
     pdf_s3_key: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     pdf_size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    # SHA256 des PDF-Inhalts — für Fast-Skip beim ZIP-Re-Upload (Hex, 64 Zeichen).
+    # NULL für Altdaten ohne berechneten Hash; werden beim nächsten Match populiert.
+    pdf_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Text für Baddi / Qdrant (Abstract + Titel + Notizen)
     extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)

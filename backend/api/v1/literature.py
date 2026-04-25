@@ -188,6 +188,7 @@ class BulkPdfResponse(BaseModel):
     already_had_pdf: int
     unmatched: int      # endgültig verloren (nur Lese-Fehler etc.)
     orphans: int = 0    # PDFs die nicht zugeordnet werden konnten, aber im Postfach liegen
+    skipped_by_hash: int = 0  # Subset von already_had_pdf: per SHA256-Fast-Skip übersprungen
     details: list[PdfMatchDetail]
 
 
@@ -233,6 +234,12 @@ class UploadStatusResponse(BaseModel):
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _sha256_bytes(data: bytes) -> str:
+    """SHA256-Hex eines Byte-Streams. ~30 MB/s, also ~50ms pro 1.5 MB-PDF."""
+    import hashlib
+    return hashlib.sha256(data).hexdigest()
+
 
 def _content_disposition(mode: str, raw_name: str, ext: str = "") -> str:
     """RFC-konformer Content-Disposition-Header.
@@ -1937,6 +1944,7 @@ async def attach_pdf(
     )
     entry.pdf_s3_key = s3_key
     entry.pdf_size_bytes = len(content)
+    entry.pdf_sha256 = _sha256_bytes(content)
 
     # Text aus PDF extrahieren und Qdrant updaten
     try:
@@ -2154,6 +2162,7 @@ async def _save_pdf_as_orphan(
     db: AsyncSession,
     extracted_meta: dict | None,
     pdf_text: str,
+    pdf_hash: str | None = None,
 ) -> "uuid.UUID | None":
     """Speichert ein nicht zuordenbares PDF im Postfach (S3 + DB-Eintrag).
     Gibt die Orphan-ID zurück oder None bei Fehler."""
@@ -2178,6 +2187,7 @@ async def _save_pdf_as_orphan(
             filename=basename[:512],
             s3_key=s3_key,
             size_bytes=len(pdf_bytes),
+            sha256=pdf_hash,
             extracted_meta=extracted_meta,
             extracted_text_preview=_sanitize_pg_text(pdf_text[:4000]) if pdf_text else None,
         )
@@ -2223,7 +2233,35 @@ async def _run_zip_entries(
     matched_count = 0
     already_count = 0
     orphan_count = 0
+    skipped_by_hash = 0
     llm_calls = 0
+
+    # Vor-Cache: alle bereits bekannten Hashes des Kunden in einer einzigen Query
+    # ziehen → in-memory dict für O(1)-Lookups statt N+1 SQL-Calls.
+    hash_to_entry_id: dict[str, uuid.UUID] = {}
+    orphan_hashes: set[str] = set()
+    try:
+        ent_q = await db.execute(
+            select(LiteratureEntry.id, LiteratureEntry.pdf_sha256).where(
+                LiteratureEntry.customer_id == user.id,
+                LiteratureEntry.is_active.is_(True),
+                LiteratureEntry.pdf_sha256.isnot(None),
+                LiteratureEntry.pdf_s3_key.isnot(None),
+            )
+        )
+        hash_to_entry_id = {h: i for (i, h) in ent_q.all() if h}
+
+        from models.literature_orphan_pdf import LiteratureOrphanPdf
+        orph_q = await db.execute(
+            select(LiteratureOrphanPdf.sha256).where(
+                LiteratureOrphanPdf.customer_id == user.id,
+                LiteratureOrphanPdf.is_active.is_(True),
+                LiteratureOrphanPdf.sha256.isnot(None),
+            )
+        )
+        orphan_hashes = {h for (h,) in orph_q.all() if h}
+    except Exception as exc:
+        _log.warning("[Literatur/ZIP] Hash-Cache laden fehlgeschlagen: %s", exc)
 
     pdf_names = [
         n for n in zf.namelist()
@@ -2239,6 +2277,25 @@ async def _run_zip_entries(
         except Exception as e:
             _log.warning("[Literatur/ZIP] Fehler beim Lesen von %s: %s", pdf_name, e)
             details.append(PdfMatchDetail(filename=basename, status="unmatched"))
+            continue
+
+        # Fast-Skip via SHA256: PDF schon einem Eintrag oder einem Orphan zugeordnet
+        pdf_hash = _sha256_bytes(pdf_bytes)
+        existing_entry_id = hash_to_entry_id.get(pdf_hash)
+        if existing_entry_id:
+            already_count += 1
+            skipped_by_hash += 1
+            details.append(PdfMatchDetail(
+                filename=basename, status="already_had_pdf",
+                match_method="sha256", entry_id=str(existing_entry_id),
+            ))
+            continue
+        if pdf_hash in orphan_hashes:
+            already_count += 1  # ist schon im Postfach gelandet, nicht erneut
+            skipped_by_hash += 1
+            details.append(PdfMatchDetail(
+                filename=basename, status="already_had_pdf", match_method="sha256_orphan",
+            ))
             continue
 
         pdf_text = ""
@@ -2267,9 +2324,11 @@ async def _run_zip_entries(
                 pdf_bytes, basename, user, db,
                 extracted_meta=extracted_meta_for_orphan,
                 pdf_text=pdf_text,
+                pdf_hash=pdf_hash,
             )
             if orphan_id:
                 orphan_count += 1
+                orphan_hashes.add(pdf_hash)  # Live-Cache: gleiches PDF erneut → skip
                 details.append(PdfMatchDetail(
                     filename=basename, status="orphan", orphan_id=str(orphan_id),
                 ))
@@ -2278,10 +2337,20 @@ async def _run_zip_entries(
             continue
 
         if matched_entry.pdf_s3_key:
+            # Optimistisch Hash am bestehenden Eintrag speichern (falls noch fehlt) —
+            # bei Heuristik-Match auf Titel/DOI gehen wir davon aus, dass das ZIP-PDF
+            # identisch zum bereits angehängten ist. Macht den nächsten Re-Upload schnell.
+            if not matched_entry.pdf_sha256:
+                matched_entry.pdf_sha256 = pdf_hash
+                try:
+                    await db.commit()
+                    hash_to_entry_id[pdf_hash] = matched_entry.id
+                except Exception:
+                    await db.rollback()
             already_count += 1
             details.append(PdfMatchDetail(
                 filename=basename,
-                status="already_has_pdf",
+                status="already_had_pdf",
                 match_method=method,
                 matched_title=matched_entry.title,
                 entry_id=str(matched_entry.id),
@@ -2298,6 +2367,7 @@ async def _run_zip_entries(
             )
             matched_entry.pdf_s3_key = s3_key
             matched_entry.pdf_size_bytes = len(pdf_bytes)
+            matched_entry.pdf_sha256 = pdf_hash
 
             if pdf_text.strip():
                 combined = _build_extracted_text(matched_entry) + "\n\n" + pdf_text[:8000]
@@ -2312,6 +2382,10 @@ async def _run_zip_entries(
                 await db.rollback()
                 details.append(PdfMatchDetail(filename=basename, status="unmatched"))
                 continue
+
+            # Live-Cache aktualisieren — falls dasselbe PDF im ZIP nochmal vorkommt,
+            # wird es jetzt sofort als "already_had_pdf" erkannt
+            hash_to_entry_id[pdf_hash] = matched_entry.id
 
             matched_count += 1
             details.append(PdfMatchDetail(
@@ -2329,14 +2403,16 @@ async def _run_zip_entries(
 
     unmatched = sum(1 for d in details if d.status == "unmatched")
     _log.info(
-        "[Literatur/ZIP] %d zugeordnet, %d hatte schon PDF, %d ins Postfach, %d Lese-Fehler, %d LLM-Aufrufe — Kunde %s",
-        matched_count, already_count, orphan_count, unmatched, llm_calls, user.id,
+        "[Literatur/ZIP] %d zugeordnet, %d hatte schon PDF (davon %d via Hash-Skip), "
+        "%d ins Postfach, %d Lese-Fehler, %d LLM-Aufrufe — Kunde %s",
+        matched_count, already_count, skipped_by_hash, orphan_count, unmatched, llm_calls, user.id,
     )
     return BulkPdfResponse(
         matched=matched_count,
         already_had_pdf=already_count,
         unmatched=unmatched,
         orphans=orphan_count,
+        skipped_by_hash=skipped_by_hash,
         details=details,
     )
 
