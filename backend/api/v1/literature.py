@@ -313,17 +313,18 @@ def _deindex_entry(entry: LiteratureEntry) -> None:
             _log.warning("Qdrant-Deindexierung fehlgeschlagen: %s", e)
 
 
-def _trigger_global_enrichment(doi: str | None) -> None:
-    """Feuer-und-vergiss: schickt eine DOI an den Celery-Worker, der sie in
-    den globalen Wissenspool indexiert. Fehler beim Trigger sind nicht
-    kritisch — Worker offline ist akzeptabel."""
-    if not doi:
-        return
+def _trigger_global_enrichment(doi: str | None, isbn: str | None = None) -> None:
+    """Feuer-und-vergiss: schickt DOI und/oder ISBN an Celery für Anreicherung.
+    Fehler beim Trigger sind nicht kritisch — Worker offline ist akzeptabel."""
     try:
-        from tasks.literature_enrichment_task import enrich_doi_async
-        enrich_doi_async.delay(doi)
+        if doi:
+            from tasks.literature_enrichment_task import enrich_doi_async
+            enrich_doi_async.delay(doi)
+        if isbn:
+            from tasks.literature_enrichment_task import enrich_isbn_async
+            enrich_isbn_async.delay(isbn)
     except Exception as exc:
-        _log.info("[Literatur/Global-Trigger] %s: %s — Worker evtl. offline", doi, exc)
+        _log.info("[Literatur/Global-Trigger] doi=%s isbn=%s: %s — Worker evtl. offline", doi, isbn, exc)
 
 
 async def _create_entry_from_dict(
@@ -361,7 +362,7 @@ async def _create_entry_from_dict(
         await db.flush()  # ID für sofortige Qdrant-Indexierung nötig
         _index_entry(entry)
     # Phase A — globale Anreicherung anstossen (asynchron via Celery)
-    _trigger_global_enrichment(entry.doi)
+    _trigger_global_enrichment(entry.doi, entry.isbn)
     return entry
 
 
@@ -1326,6 +1327,158 @@ async def undo_bulk_refresh_meta(
 
     _log.info("[Literatur/Bulk-Meta] Undo Job %s: %d wiederhergestellt", job_id, restored)
     return BulkRefreshUndoResponse(restored=restored)
+
+
+# ── Bücher (Phase A.3 — OpenLibrary + DOAB) ───────────────────────────────────
+
+class BookIndexEntry(BaseModel):
+    isbn: str
+    title: str | None
+    subtitle: str | None
+    authors: list[str] | None
+    year: int | None
+    publisher: str | None
+    edition: str | None
+    language: str | None
+    page_count: int | None
+    description: str | None
+    cover_url: str | None
+    oa_url: str | None
+    oa_license: str | None
+    enrichment_status: str
+    in_my_library: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class BookSearchResponse(BaseModel):
+    query: str
+    total: int
+    results: list[BookIndexEntry]
+
+
+@router.get("/books/search", response_model=BookSearchResponse)
+async def search_book_index(
+    q: str,
+    limit: int = 20,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Volltext-Suche im Bücher-Pool (Titel + Subtitle + Beschreibung)."""
+    from models.book_global_index import BookGlobalIndex
+    if not q.strip():
+        raise HTTPException(status_code=422, detail="Suchbegriff darf nicht leer sein")
+    limit = max(1, min(limit, 50))
+
+    tsv = func.to_tsvector("simple",
+        func.coalesce(BookGlobalIndex.title, "") + " " +
+        func.coalesce(BookGlobalIndex.subtitle, "") + " " +
+        func.coalesce(BookGlobalIndex.description, ""))
+    tsq = func.plainto_tsquery("simple", q)
+    rank = func.ts_rank(tsv, tsq)
+    stmt = (
+        select(BookGlobalIndex)
+        .where(tsv.op("@@")(tsq))
+        .where(BookGlobalIndex.enrichment_status == "enriched")
+        .order_by(rank.desc())
+        .limit(limit)
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+
+    my_isbns: set[str] = set()
+    if rows:
+        my_q = await db.execute(
+            select(LiteratureEntry.isbn).where(
+                LiteratureEntry.customer_id == user.id,
+                LiteratureEntry.is_active.is_(True),
+                LiteratureEntry.isbn.in_([r.isbn for r in rows]),
+            )
+        )
+        from services.book_enrichment import normalize_isbn
+        my_isbns = {n for raw in (i for (i,) in my_q.all() if i) if (n := normalize_isbn(raw))}
+
+    out = []
+    for r in rows:
+        item = BookIndexEntry.model_validate(r, from_attributes=True)
+        item.in_my_library = r.isbn in my_isbns
+        out.append(item)
+    return BookSearchResponse(query=q, total=len(out), results=out)
+
+
+@router.get("/books/{isbn}", response_model=BookIndexEntry)
+async def get_book_entry(
+    isbn: str,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Buch-Details via ISBN. On-demand-Enrichment bei Bedarf."""
+    from models.book_global_index import BookGlobalIndex
+    from services.book_enrichment import enrich_isbn, normalize_isbn
+
+    norm = normalize_isbn(isbn)
+    if not norm:
+        raise HTTPException(status_code=422, detail="Ungültige ISBN (erwarte 10 oder 13 Ziffern)")
+
+    rec = await db.get(BookGlobalIndex, norm)
+    if not rec or rec.enrichment_status == "pending":
+        rec = await enrich_isbn(db, norm)
+        await db.commit()
+    if not rec or rec.enrichment_status == "failed_404":
+        raise HTTPException(status_code=404, detail="ISBN in OpenLibrary/DOAB nicht gefunden")
+
+    my_q = await db.execute(
+        select(LiteratureEntry.id).where(
+            LiteratureEntry.customer_id == user.id,
+            LiteratureEntry.is_active.is_(True),
+            LiteratureEntry.isbn == norm,
+        ).limit(1)
+    )
+    in_my = my_q.scalar_one_or_none() is not None
+    out = BookIndexEntry.model_validate(rec, from_attributes=True)
+    out.in_my_library = in_my
+    return out
+
+
+# ── Schweizer Gesetze (Phase A.3 — Fedlex) ────────────────────────────────────
+
+class LawIndexEntry(BaseModel):
+    sr_number: str
+    title: str | None
+    short_title: str | None
+    abbreviation: str | None
+    language: str
+    enacted_date: datetime | None = None
+    in_force_date: datetime | None = None
+    status: str | None
+    html_url: str | None
+    pdf_url: str | None
+    eli_uri: str | None
+    enrichment_status: str
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/laws/{sr_number:path}", response_model=LawIndexEntry)
+async def get_law_entry(
+    sr_number: str,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Schweizer Gesetz via SR-Nummer (z. B. '220' für OR). On-demand-Enrichment."""
+    from models.law_global_index import LawGlobalIndex
+    from services.law_enrichment import enrich_sr, normalize_sr_number
+
+    norm = normalize_sr_number(sr_number)
+    if not norm:
+        raise HTTPException(status_code=422, detail="Ungültige SR-Nummer (erwarte z. B. '220' oder 'SR 220')")
+
+    rec = await db.get(LawGlobalIndex, norm)
+    if not rec or rec.enrichment_status == "pending":
+        rec = await enrich_sr(db, norm)
+        await db.commit()
+    if not rec or rec.enrichment_status == "failed_404":
+        raise HTTPException(status_code=404, detail=f"SR {norm} nicht via Fedlex auflösbar")
+    return rec
 
 
 # ── Globaler Wissenspool (Phase A) ────────────────────────────────────────────

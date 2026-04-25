@@ -274,6 +274,95 @@ async def _handle_library(tool_name: str, tool_input: dict, customer_id: str | N
             "in_my_library": in_my,
         }
 
+    # ── book_global_search ─────────────────────────────────────────────────
+    if tool_name == "book_global_search":
+        query = (tool_input.get("query") or "").strip()
+        if not query:
+            return {"error": "Suchbegriff fehlt."}
+        limit = max(1, min(int(tool_input.get("limit") or 10), 50))
+
+        from models.book_global_index import BookGlobalIndex
+        async with AsyncSessionLocal() as db:
+            tsv = sa_func.to_tsvector("simple",
+                sa_func.coalesce(BookGlobalIndex.title, "") + " " +
+                sa_func.coalesce(BookGlobalIndex.subtitle, "") + " " +
+                sa_func.coalesce(BookGlobalIndex.description, ""))
+            tsq = sa_func.plainto_tsquery("simple", query)
+            rank = sa_func.ts_rank(tsv, tsq)
+            stmt = (
+                select(BookGlobalIndex)
+                .where(tsv.op("@@")(tsq))
+                .where(BookGlobalIndex.enrichment_status == "enriched")
+                .order_by(rank.desc())
+                .limit(limit)
+            )
+            rows = (await db.execute(stmt)).scalars().all()
+
+        results = []
+        for r in rows:
+            results.append({
+                "isbn": r.isbn,
+                "title": r.title,
+                "subtitle": r.subtitle,
+                "authors": r.authors or [],
+                "year": r.year,
+                "publisher": r.publisher,
+                "description": (r.description or "")[:600] if r.description else None,
+                "cover_url": r.cover_url,
+                "oa_url": r.oa_url,
+                "oa_license": r.oa_license,
+            })
+        return {"query": query, "count": len(results), "results": results}
+
+    # ── book_get_by_isbn ───────────────────────────────────────────────────
+    if tool_name == "book_get_by_isbn":
+        raw = (tool_input.get("isbn") or "").strip()
+        from services.book_enrichment import normalize_isbn, enrich_isbn
+        from models.book_global_index import BookGlobalIndex
+        norm = normalize_isbn(raw)
+        if not norm:
+            return {"error": f"Ungültige ISBN: {raw}"}
+        async with AsyncSessionLocal() as db:
+            rec = await db.get(BookGlobalIndex, norm)
+            if not rec or rec.enrichment_status == "pending":
+                rec = await enrich_isbn(db, norm)
+                await db.commit()
+            if not rec or rec.enrichment_status == "failed_404":
+                return {"error": f"ISBN {norm} in OpenLibrary/DOAB nicht gefunden."}
+        return {
+            "isbn": rec.isbn, "title": rec.title, "subtitle": rec.subtitle,
+            "authors": rec.authors or [], "year": rec.year,
+            "publisher": rec.publisher, "edition": rec.edition,
+            "language": rec.language, "page_count": rec.page_count,
+            "description": rec.description, "cover_url": rec.cover_url,
+            "oa_url": rec.oa_url, "oa_license": rec.oa_license,
+        }
+
+    # ── law_get_by_sr ──────────────────────────────────────────────────────
+    if tool_name == "law_get_by_sr":
+        raw = (tool_input.get("sr_number") or "").strip()
+        from services.law_enrichment import normalize_sr_number, enrich_sr
+        from models.law_global_index import LawGlobalIndex
+        norm = normalize_sr_number(raw)
+        if not norm:
+            return {"error": f"Ungültige SR-Nummer: {raw} (erwartet z.B. '220' oder 'SR 220')"}
+        async with AsyncSessionLocal() as db:
+            rec = await db.get(LawGlobalIndex, norm)
+            if not rec or rec.enrichment_status == "pending":
+                rec = await enrich_sr(db, norm)
+                await db.commit()
+            if not rec or rec.enrichment_status == "failed_404":
+                return {"error": f"SR {norm} nicht via Fedlex auflösbar."}
+        return {
+            "sr_number": rec.sr_number,
+            "title": rec.title,
+            "short_title": rec.short_title,
+            "abbreviation": rec.abbreviation,
+            "html_url": rec.html_url,
+            "pdf_url": rec.pdf_url,
+            "eli_uri": rec.eli_uri,
+        }
+
     # ── library_recent ──────────────────────────────────────────────────────
     if tool_name == "library_recent":
         days = max(1, min(int(tool_input.get("days") or 7), 90))

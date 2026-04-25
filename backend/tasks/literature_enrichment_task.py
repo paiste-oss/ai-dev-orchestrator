@@ -46,6 +46,117 @@ def enrich_doi_async(self, raw_doi: str) -> dict:
 
 
 @celery_app.task(
+    name="tasks.literature_enrichment_task.enrich_isbn_async",
+    bind=True, max_retries=2, default_retry_delay=60,
+    ignore_result=True,
+    time_limit=120,
+)
+def enrich_isbn_async(self, raw_isbn: str) -> dict:
+    """Phase A.3 — Buch-Anreicherung via OpenLibrary + DOAB."""
+    async def _run() -> dict:
+        from core.database import AsyncSessionLocal
+        from services.book_enrichment import enrich_isbn
+        async with AsyncSessionLocal() as db:
+            try:
+                rec = await enrich_isbn(db, raw_isbn)
+                await db.commit()
+                if rec is None:
+                    return {"isbn": raw_isbn, "status": "invalid_isbn"}
+                return {"isbn": rec.isbn, "status": rec.enrichment_status}
+            except Exception as exc:
+                _log.warning("[Enrich-ISBN-Task] %s fehlgeschlagen: %s", raw_isbn, exc)
+                try: await db.rollback()
+                except Exception: pass
+                return {"isbn": raw_isbn, "status": "error", "error": str(exc)[:200]}
+    return asyncio.run(_run())
+
+
+@celery_app.task(
+    name="tasks.literature_enrichment_task.enrich_sr_async",
+    bind=True, max_retries=2, default_retry_delay=60,
+    ignore_result=True,
+    time_limit=120,
+)
+def enrich_sr_async(self, raw_sr: str) -> dict:
+    """Phase A.3 — Schweizer-Gesetz-Anreicherung via Fedlex."""
+    async def _run() -> dict:
+        from core.database import AsyncSessionLocal
+        from services.law_enrichment import enrich_sr
+        async with AsyncSessionLocal() as db:
+            try:
+                rec = await enrich_sr(db, raw_sr)
+                await db.commit()
+                if rec is None:
+                    return {"sr": raw_sr, "status": "invalid_sr"}
+                return {"sr": rec.sr_number, "status": rec.enrichment_status}
+            except Exception as exc:
+                _log.warning("[Enrich-SR-Task] %s fehlgeschlagen: %s", raw_sr, exc)
+                try: await db.rollback()
+                except Exception: pass
+                return {"sr": raw_sr, "status": "error", "error": str(exc)[:200]}
+    return asyncio.run(_run())
+
+
+@celery_app.task(
+    name="tasks.literature_enrichment_task.backfill_books_index",
+    bind=True,
+    ignore_result=False,
+    time_limit=6 * 3600,
+    soft_time_limit=6 * 3600 - 60,
+)
+def backfill_books_index(self, limit: int | None = None, force: bool = False) -> dict:
+    """Backfill für alle Einträge mit ISBN."""
+    async def _run() -> dict:
+        from core.database import AsyncSessionLocal
+        from sqlalchemy import select
+        from models.literature_entry import LiteratureEntry
+        from services.book_enrichment import enrich_isbn, normalize_isbn
+
+        async with AsyncSessionLocal() as db:
+            stmt = select(LiteratureEntry.isbn).where(
+                LiteratureEntry.is_active.is_(True),
+                LiteratureEntry.isbn.isnot(None),
+            ).distinct()
+            if limit:
+                stmt = stmt.limit(limit)
+            rows = (await db.execute(stmt)).all()
+
+        unique: list[str] = []
+        seen: set[str] = set()
+        for (raw,) in rows:
+            n = normalize_isbn(raw)
+            if n and n not in seen:
+                seen.add(n)
+                unique.append(n)
+
+        _log.info("[Backfill-Books] %d eindeutige ISBNs zu verarbeiten", len(unique))
+        enriched = 0
+        failed = 0
+        for i, isbn in enumerate(unique):
+            async with AsyncSessionLocal() as db:
+                try:
+                    rec = await enrich_isbn(db, isbn, force=force)
+                    await db.commit()
+                    if rec and rec.enrichment_status == "enriched":
+                        enriched += 1
+                    else:
+                        failed += 1
+                except Exception as exc:
+                    _log.warning("[Backfill-Books] %s: %s", isbn, exc)
+                    try: await db.rollback()
+                    except Exception: pass
+                    failed += 1
+            await asyncio.sleep(0.5)
+            if (i + 1) % 100 == 0:
+                _log.info("[Backfill-Books] %d/%d (✓%d ✗%d)", i + 1, len(unique), enriched, failed)
+
+        result = {"total": len(unique), "enriched": enriched, "failed": failed}
+        _log.info("[Backfill-Books] fertig: %s", result)
+        return result
+    return asyncio.run(_run())
+
+
+@celery_app.task(
     name="tasks.literature_enrichment_task.backfill_global_index",
     bind=True,
     ignore_result=False,

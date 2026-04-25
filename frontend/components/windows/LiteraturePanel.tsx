@@ -81,6 +81,20 @@ interface GlobalPoolHit {
   in_my_library: boolean;
 }
 
+interface BookPoolHit {
+  isbn: string;
+  title: string | null;
+  subtitle: string | null;
+  authors: string[] | null;
+  year: number | null;
+  publisher: string | null;
+  description: string | null;
+  cover_url: string | null;
+  oa_url: string | null;
+  oa_license: string | null;
+  in_my_library: boolean;
+}
+
 interface OrphanPdf {
   id: string;
   filename: string;
@@ -644,15 +658,22 @@ function SortableGrid({ sortKey, sortDir, onSort, allSelected, someSelected, onT
 
 // ── Discovery-Panel (Phase A.2 — Wissenspool durchsuchen) ─────────────────────
 
+type DiscoveryMode = "papers" | "books";
+
 function DiscoveryPanel({
-  onAdd, onAddWithOa, busyDoi,
+  onAdd, onAddWithOa, onAddBook, onAddBookWithOa, busyDoi, busyIsbn,
 }: {
   onAdd: (hit: GlobalPoolHit) => void;
   onAddWithOa: (hit: GlobalPoolHit) => void;
+  onAddBook: (hit: BookPoolHit) => void;
+  onAddBookWithOa: (hit: BookPoolHit) => void;
   busyDoi: string | null;
+  busyIsbn: string | null;
 }) {
+  const [mode, setMode] = useState<DiscoveryMode>("papers");
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<GlobalPoolHit[]>([]);
+  const [paperResults, setPaperResults] = useState<GlobalPoolHit[]>([]);
+  const [bookResults, setBookResults] = useState<BookPoolHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -664,27 +685,55 @@ function DiscoveryPanel({
     setError(null);
     setSearched(true);
     try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/literature/global/search?q=${encodeURIComponent(q)}&limit=30`);
+      const url = mode === "papers"
+        ? `${BACKEND_URL}/v1/literature/global/search?q=${encodeURIComponent(q)}&limit=30`
+        : `${BACKEND_URL}/v1/literature/books/search?q=${encodeURIComponent(q)}&limit=30`;
+      const res = await apiFetch(url);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: "Fehler bei der Suche" })) as { detail?: string };
         setError(err.detail || "Fehler bei der Suche");
-        setResults([]);
+        setPaperResults([]); setBookResults([]);
       } else {
-        const data = await res.json() as { results: GlobalPoolHit[] };
-        setResults(data.results || []);
+        if (mode === "papers") {
+          const data = await res.json() as { results: GlobalPoolHit[] };
+          setPaperResults(data.results || []);
+          setBookResults([]);
+        } else {
+          const data = await res.json() as { results: BookPoolHit[] };
+          setBookResults(data.results || []);
+          setPaperResults([]);
+        }
       }
     } catch {
       setError("Netzwerk-Fehler");
-      setResults([]);
+      setPaperResults([]); setBookResults([]);
     } finally { setLoading(false); }
   }
+
+  const results = mode === "papers" ? paperResults : bookResults;
 
   return (
     <div className="flex-1 overflow-auto px-3 py-2 flex flex-col gap-2">
       <div className="text-[11px] text-blue-300/90 bg-blue-950/30 border border-blue-800/30 rounded-lg px-3 py-2 shrink-0">
-        Durchsuche den globalen Wissenspool (Crossref + Unpaywall). Treffer können
-        mit einem Klick deiner Library hinzugefügt werden, bei Open-Access-Papern
-        wird auf Wunsch das offizielle PDF gleich heruntergeladen.
+        Durchsuche den globalen Wissenspool ({mode === "papers" ? "Crossref + Unpaywall" : "OpenLibrary + DOAB"}).
+        Treffer können mit einem Klick deiner Library hinzugefügt werden, bei
+        Open-Access-Werken wird auf Wunsch das offizielle PDF gleich heruntergeladen.
+      </div>
+
+      {/* Type-Tabs */}
+      <div className="flex gap-1 shrink-0 border-b border-white/8 -mx-3 px-3">
+        <button onClick={() => { setMode("papers"); setSearched(false); setError(null); }}
+          className={`px-3 py-1.5 text-xs border-b-2 transition-colors ${mode === "papers" ? "border-[var(--accent)] text-white font-medium" : "border-transparent text-gray-500 hover:text-gray-300"}`}>
+          📄 Paper
+        </button>
+        <button onClick={() => { setMode("books"); setSearched(false); setError(null); }}
+          className={`px-3 py-1.5 text-xs border-b-2 transition-colors ${mode === "books" ? "border-[var(--accent)] text-white font-medium" : "border-transparent text-gray-500 hover:text-gray-300"}`}>
+          📚 Bücher
+        </button>
+        <span className="flex-1" />
+        <span className="text-[10px] text-gray-600 self-center pr-1">
+          Gesetze: im Chat fragen (z. B. „SR 220" oder „Obligationenrecht")
+        </span>
       </div>
 
       <div className="flex gap-2 shrink-0">
@@ -693,7 +742,9 @@ function DiscoveryPanel({
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") runSearch(); }}
-          placeholder="Suche nach Titel, Thema, Autor… (Volltext über Titel + Abstract)"
+          placeholder={mode === "papers"
+            ? "Suche nach Titel, Thema, Autor… (Volltext über Titel + Abstract)"
+            : "Suche nach Buchtitel, Beschreibung… (OpenLibrary + DOAB)"}
           className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50"
         />
         <button onClick={runSearch} disabled={loading || !query.trim()}
@@ -727,7 +778,72 @@ function DiscoveryPanel({
         </div>
       )}
 
-      {results.map(hit => {
+      {mode === "books" && bookResults.map(hit => {
+        const isBusy = busyIsbn === hit.isbn;
+        return (
+          <div key={hit.isbn} className="rounded-lg border border-white/10 bg-white/3 hover:bg-white/5 transition-colors">
+            <div className="px-3 py-2 flex flex-col gap-1">
+              <div className="flex items-start gap-3">
+                {hit.cover_url ? (
+                  <img src={hit.cover_url} alt="" className="w-12 h-16 object-cover rounded shrink-0 border border-white/10" />
+                ) : (
+                  <span className="text-2xl shrink-0 mt-0.5">📚</span>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-white font-medium break-words">{hit.title}</p>
+                  {hit.subtitle && <p className="text-[11px] text-gray-400 break-words">{hit.subtitle}</p>}
+                  {(hit.authors?.length || hit.year || hit.publisher) && (
+                    <p className="text-[10px] text-gray-500 mt-0.5">
+                      {(hit.authors || []).slice(0, 4).join("; ")}
+                      {hit.authors && hit.authors.length > 4 && " …"}
+                      {hit.year ? ` · ${hit.year}` : ""}
+                      {hit.publisher ? ` · ${hit.publisher}` : ""}
+                    </p>
+                  )}
+                </div>
+                <span className="shrink-0 text-[9px] text-gray-600 font-mono">ISBN {hit.isbn}</span>
+              </div>
+              {hit.description && (
+                <p className="text-[11px] text-gray-400 leading-relaxed line-clamp-3 ml-15">{hit.description}</p>
+              )}
+            </div>
+            <div className="px-3 py-1.5 border-t border-white/6 flex items-center gap-3 text-[11px]">
+              {hit.in_my_library ? (
+                <span className="text-emerald-400 flex items-center gap-1">
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  Bereits in deiner Library
+                </span>
+              ) : (
+                <>
+                  <button onClick={() => onAddBook(hit)} disabled={isBusy}
+                    className="text-[var(--accent-light)] hover:underline disabled:opacity-40">
+                    Zur Library hinzufügen
+                  </button>
+                  {hit.oa_url && (
+                    <button onClick={() => onAddBookWithOa(hit)} disabled={isBusy}
+                      className="text-blue-300 hover:underline disabled:opacity-40 flex items-center gap-1"
+                      title={`Open Access${hit.oa_license ? ` (${hit.oa_license})` : ""} — PDF wird automatisch geladen`}>
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                      </svg>
+                      + OA-PDF
+                    </button>
+                  )}
+                </>
+              )}
+              <span className="flex-1" />
+              {hit.oa_url && (
+                <span className="text-[9px] uppercase tracking-wider text-blue-400/80">OA</span>
+              )}
+              {isBusy && <IconSpinner />}
+            </div>
+          </div>
+        );
+      })}
+
+      {mode === "papers" && paperResults.map(hit => {
         const isBusy = busyDoi === hit.doi;
         return (
           <div key={hit.doi} className="rounded-lg border border-white/10 bg-white/3 hover:bg-white/5 transition-colors">
@@ -1748,6 +1864,57 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   // Open-Access PDF abholen (Phase A.2)
   const [fetchingOaPdf, setFetchingOaPdf] = useState<string | null>(null);
   const [discoveryBusyDoi, setDiscoveryBusyDoi] = useState<string | null>(null);
+  const [discoveryBusyIsbn, setDiscoveryBusyIsbn] = useState<string | null>(null);
+
+  async function handleAddBookFromPool(hit: BookPoolHit, withOa: boolean) {
+    if (hit.in_my_library) return;
+    setDiscoveryBusyIsbn(hit.isbn);
+    try {
+      // Lege einen neuen Book-Eintrag direkt mit den Pool-Metadaten an.
+      // OA-PDF müsste manuell heruntergeladen werden; vereinfacht: nur Eintrag erstellen.
+      const body: Record<string, unknown> = {
+        entry_type: "book",
+        title: hit.title || `ISBN ${hit.isbn}`,
+        authors: hit.authors,
+        year: hit.year,
+        publisher: hit.publisher,
+        isbn: hit.isbn,
+        abstract: hit.description,
+        notes: hit.subtitle ? `Subtitle: ${hit.subtitle}` : undefined,
+      };
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
+        setImportMsg({ type: "err", text: err.detail || t("err.generic") });
+        return;
+      }
+      let created: LitEntry = await res.json();
+
+      // OA-PDF herunterladen und anhängen, falls gewünscht
+      if (withOa && hit.oa_url) {
+        try {
+          const oaRes = await fetch(hit.oa_url);
+          if (oaRes.ok) {
+            const blob = await oaRes.blob();
+            if (blob.type.includes("pdf") || blob.size > 1000) {
+              const fd = new FormData();
+              fd.append("file", new File([blob], `${hit.isbn}.pdf`, { type: "application/pdf" }));
+              const pdfRes = await apiFetchForm(`${BACKEND_URL}/v1/literature/${created.id}/pdf`, fd);
+              if (pdfRes.ok) created = await pdfRes.json();
+            }
+          }
+        } catch { /* OA-Download optional */ }
+      }
+      setEntries(prev => [created, ...prev]);
+      const pdfNote = created.pdf_s3_key ? " · OA-PDF angehängt" : "";
+      setImportMsg({ type: "ok", text: `"${created.title.slice(0, 60)}" zur Library hinzugefügt${pdfNote}` });
+    } catch {
+      setImportMsg({ type: "err", text: t("err.network") });
+    } finally { setDiscoveryBusyIsbn(null); }
+  }
 
   async function handleAddFromGlobalPool(hit: GlobalPoolHit, withOa: boolean) {
     if (hit.in_my_library) return;
@@ -3013,8 +3180,11 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
           {typeFilter === "discovery" ? (
             <DiscoveryPanel
               busyDoi={discoveryBusyDoi}
+              busyIsbn={discoveryBusyIsbn}
               onAdd={(hit) => handleAddFromGlobalPool(hit, false)}
               onAddWithOa={(hit) => handleAddFromGlobalPool(hit, true)}
+              onAddBook={(hit) => handleAddBookFromPool(hit, false)}
+              onAddBookWithOa={(hit) => handleAddBookFromPool(hit, true)}
             />
           ) : typeFilter === "orphans" ? (
             <OrphansList

@@ -105,6 +105,59 @@ LIBRARY_TOOL_DEFS = [
         },
     },
     {
+        "name": "book_global_search",
+        "description": (
+            "Durchsucht den Bücher-Pool (OpenLibrary + DOAB) per Volltext auf "
+            "Titel, Subtitle und Beschreibung. Nutze für Anfragen zu Büchern "
+            "die NICHT in der eigenen Library sind, oder für Buchempfehlungen. "
+            "DOAB-Treffer sind Open-Access (oa_url für Direct-Download). "
+            "OpenLibrary liefert Cover, Verlag, Editionen, Beschreibung."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Suchbegriff (Titel oder Thema)."},
+                "limit": {"type": "integer", "description": "Max. Treffer (1-50). Default 10."},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "book_get_by_isbn",
+        "description": (
+            "Holt vollständige Buch-Metadaten via ISBN (10 oder 13 Stellen). "
+            "Nutze wenn Nutzer eine ISBN nennt oder Detail zu einem book_global_search-Treffer braucht."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "isbn": {"type": "string", "description": "ISBN-10 oder ISBN-13 (mit oder ohne Bindestriche)."},
+            },
+            "required": ["isbn"],
+        },
+    },
+    {
+        "name": "law_get_by_sr",
+        "description": (
+            "Holt Schweizer Bundesrecht via SR-Nummer (Systematische Sammlung). "
+            "Beispiele: '220' = Obligationenrecht (OR), '101' = Bundesverfassung (BV), "
+            "'311.0' = Strafgesetzbuch (StGB). Liefert Titel, Abkürzung, ELI-URI, "
+            "Direct-Links zu PDF und HTML-Version. Alle Schweizer Bundesgesetze sind "
+            "frei verfügbar. Bei Anfragen zu CH-Gesetzen IMMER dieses Tool nutzen statt "
+            "web_search."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "sr_number": {
+                    "type": "string",
+                    "description": "SR-Nummer wie '220', 'SR 220', '281.1' — mit oder ohne 'SR'-Prefix.",
+                },
+            },
+            "required": ["sr_number"],
+        },
+    },
+    {
         "name": "library_recent",
         "description": (
             "Zeigt die zuletzt hinzugefügten Bibliotheks-Einträge. Nutze für Fragen wie "
