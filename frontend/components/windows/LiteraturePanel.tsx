@@ -635,9 +635,9 @@ function PdfPreview({
 // ── Grid-Header (sortierbar) ──────────────────────────────────────────────────
 
 function SortableGrid({ sortKey, sortDir, onSort, allSelected, someSelected, onToggleAll, titleColWidth, onStartTitleResize }: {
-  sortKey: "title" | "authors" | "year" | "journal" | "type";
+  sortKey: "title" | "authors" | "year" | "journal" | "type" | "oa";
   sortDir: "asc" | "desc";
-  onSort: (k: "title" | "authors" | "year" | "journal" | "type") => void;
+  onSort: (k: "title" | "authors" | "year" | "journal" | "type" | "oa") => void;
   allSelected: boolean;
   someSelected: boolean;
   onToggleAll: () => void;
@@ -660,9 +660,17 @@ function SortableGrid({ sortKey, sortDir, onSort, allSelected, someSelected, onT
   return (
     <div data-lit-grid="1"
       className="grid items-center gap-2 px-3 py-1.5 border-b border-white/8 sticky top-0 bg-black/40 backdrop-blur-sm z-10"
-      style={{ gridTemplateColumns: `32px ${titleColWidth}px 56px 180px 180px 60px` }}>
+      style={{ gridTemplateColumns: `32px 24px ${titleColWidth}px 56px 180px 180px 60px` }}>
       <input ref={headerRef} type="checkbox" checked={allSelected} onChange={onToggleAll}
         className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" title="Alle (de-)selektieren" />
+      <button onClick={() => onSort("oa")}
+        title={`Open Access${arrow("oa") ? " (sortiert)" : ""}`}
+        className={`flex items-center justify-center hover:text-blue-300 transition-colors ${sortKey === "oa" ? "text-[var(--accent-light)]" : "text-gray-600"}`}>
+        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="5" y="11" width="14" height="10" rx="2"/>
+          <path d="M8 11V7a4 4 0 0 1 8 0"/>
+        </svg>
+      </button>
       <div className="relative">
         <Th k="title" label="Titel" />
         {/* Resize-Handle für die Titel-Spalte */}
@@ -1813,7 +1821,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   const [pendingPdfFile, setPendingPdfFile] = useState<File | null>(null);
 
   // Grid-Sortierung + Multi-Select
-  type SortKey = "title" | "authors" | "year" | "journal" | "type";
+  type SortKey = "title" | "authors" | "year" | "journal" | "type" | "oa";
   const [sortKey, setSortKey] = useState<SortKey>("title");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -2232,7 +2240,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       titleColRef.current = w;
       // Direkt alle Grid-Templates im DOM updaten — kein React-Re-Render
       document.querySelectorAll<HTMLElement>("[data-lit-grid='1']").forEach(el => {
-        el.style.gridTemplateColumns = `32px ${w}px 56px 180px 180px 60px`;
+        el.style.gridTemplateColumns = `32px 24px ${w}px 56px 180px 180px 60px`;
       });
     };
     const onUp = () => {
@@ -2466,6 +2474,11 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       bv = (b.journal ?? b.publisher ?? "").toLowerCase();
     }
     else if (sortKey === "type") { av = a.entry_type; bv = b.entry_type; }
+    else if (sortKey === "oa") {
+      // OA-verfügbar zuerst (1), sonst 0 — DESC zeigt OA oben
+      av = a.oa_available ? 1 : 0;
+      bv = b.oa_available ? 1 : 0;
+    }
     if (av < bv) return sortDir === "asc" ? -1 : 1;
     if (av > bv) return sortDir === "asc" ? 1 : -1;
     return 0;
@@ -3213,7 +3226,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
             </div>
           ) : (
             <div className="flex-1 overflow-auto">
-              <div style={{ minWidth: `${32 + titleColWidth + 56 + 180 + 180 + 60 + 24}px` }}>
+              <div style={{ minWidth: `${32 + 24 + titleColWidth + 56 + 180 + 180 + 60 + 24}px` }}>
                 {/* Grid-Header */}
                 <SortableGrid sortKey={sortKey} sortDir={sortDir} onSort={toggleSort}
                   allSelected={selectedIds.size > 0 && sorted.every(e => selectedIds.has(e.id))}
@@ -3250,23 +3263,20 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                       onClick={() => selectEntry(entry)}
                       title={hasPdf ? undefined : "Kein PDF hinterlegt"}
                       className={`group grid items-center gap-2 px-3 py-1.5 border-b border-white/4 cursor-pointer transition-colors border-l-2 ${isActive ? "bg-[var(--accent-10)]" : isChecked ? "bg-white/3" : "hover:bg-white/3"} ${hasPdf ? "border-l-transparent" : "border-l-amber-500/50"}`}
-                      style={{ gridTemplateColumns: `32px ${titleColWidth}px 56px 180px 180px 60px` }}>
+                      style={{ gridTemplateColumns: `32px 24px ${titleColWidth}px 56px 180px 180px 60px` }}>
                       <input type="checkbox" checked={isChecked} onClick={e => toggleRowSelect(entry.id, e)} onChange={() => {}}
                         className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" />
+                      <span className="flex items-center justify-center"
+                        title={entry.oa_available ? "Open Access verfügbar (Wissenspool)" : ""}>
+                        {entry.oa_available && (
+                          <svg className="w-3 h-3 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="5" y="11" width="14" height="10" rx="2"/>
+                            <path d="M8 11V7a4 4 0 0 1 8 0"/>
+                          </svg>
+                        )}
+                      </span>
                       <div className="min-w-0">
-                        <p className={`text-xs font-medium truncate ${hasPdf ? "text-white" : "text-gray-500"}`}>
-                          {entry.oa_available && (
-                            <span title="Open Access verfügbar (Wissenspool)"
-                              className="inline-flex items-center mr-1 align-middle text-blue-400">
-                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                {/* Open-Padlock — international anerkanntes OA-Symbol */}
-                                <rect x="5" y="11" width="14" height="10" rx="2"/>
-                                <path d="M8 11V7a4 4 0 0 1 8 0"/>
-                              </svg>
-                            </span>
-                          )}
-                          {entry.title}
-                        </p>
+                        <p className={`text-xs font-medium truncate ${hasPdf ? "text-white" : "text-gray-500"}`}>{entry.title}</p>
                         {entryGroups.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-0.5">
                             {entryGroups.map(g => (
