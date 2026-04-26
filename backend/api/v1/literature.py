@@ -1156,6 +1156,13 @@ async def _bulk_meta_refresh_task(
                         state["processed"] += 1
                         await _publish()
                         continue
+                    # Idempotenz: bei Task-Retry (z. B. nach Worker-Crash) überspringe
+                    # bereits verarbeitete Einträge silent — Counter zeigt's an.
+                    if (entry.meta_refreshed_count or 0) > 0:
+                        state["unchanged"] += 1
+                        state["processed"] += 1
+                        await _publish()
+                        continue
 
                     extracted = await _extract_pdf_meta_for_entry(entry)
                     if extracted is None:

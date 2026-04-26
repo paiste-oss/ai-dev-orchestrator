@@ -234,6 +234,8 @@ def backfill_books_index(self, limit: int | None = None, force: bool = False) ->
     name="tasks.literature_enrichment_task.bulk_zip_process",
     bind=True,
     ignore_result=True,
+    acks_late=True,
+    reject_on_worker_lost=True,
     time_limit=12 * 3600,
     soft_time_limit=12 * 3600 - 60,
 )
@@ -256,6 +258,8 @@ def bulk_zip_process(self, zip_path_str: str, customer_id_str: str, upload_id: s
     name="tasks.literature_enrichment_task.bulk_meta_refresh",
     bind=True,
     ignore_result=False,
+    acks_late=True,        # erst nach Erfolg acken — bei Worker-Crash requeue
+    reject_on_worker_lost=True,
     time_limit=12 * 3600,  # 3000+ Einträge bei ~3-5s/PDF (Haiku) brauchen Stunden
     soft_time_limit=12 * 3600 - 60,
 )
