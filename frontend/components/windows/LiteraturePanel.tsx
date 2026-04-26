@@ -1282,7 +1282,7 @@ function valuesEqual(a: unknown, b: unknown): boolean {
 
 interface BulkRefreshStatus {
   job_id: string;
-  status: "processing" | "done" | "error";
+  status: "processing" | "done" | "error" | "cancelled";
   total: number;
   processed: number;
   updated: number;
@@ -1300,13 +1300,17 @@ function BulkRefreshBanner({
   onUndo,
   onShowDetails,
   onDismiss,
+  onCancel,
   undoing,
+  cancelling,
 }: {
   status: BulkRefreshStatus;
   onUndo: () => void;
   onShowDetails: () => void;
   onDismiss: () => void;
+  onCancel: () => void;
   undoing: boolean;
+  cancelling: boolean;
 }) {
   const pct = status.total > 0 ? Math.round((status.processed / status.total) * 100) : 0;
 
@@ -1314,8 +1318,18 @@ function BulkRefreshBanner({
     return (
       <div className="mx-3 mt-2 shrink-0 rounded-lg bg-[var(--accent-10)] border border-[var(--accent-30)] px-3 py-2">
         <div className="flex items-center gap-2 text-xs text-[var(--accent-light)]">
+          {/* Cancel-X links — rot bei Hover */}
+          <button onClick={onCancel} disabled={cancelling}
+            title={cancelling ? "Wird abgebrochen…" : "Bulk-Refresh abbrechen"}
+            className="w-5 h-5 flex items-center justify-center rounded hover:bg-red-500/30 hover:text-red-300 text-gray-400 transition-colors disabled:opacity-50 shrink-0">
+            {cancelling ? <IconSpinner /> : (
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            )}
+          </button>
           <IconSpinner />
-          <span className="font-medium">PDF-Metadaten werden verbessert</span>
+          <span className="font-medium">{cancelling ? "Wird abgebrochen…" : "PDF-Metadaten werden verbessert"}</span>
           <span className="text-gray-300">— {status.processed} von {status.total}</span>
           <span className="flex-1" />
           <span className="text-[10px] text-gray-400">{pct}%</span>
@@ -1327,11 +1341,23 @@ function BulkRefreshBanner({
     );
   }
 
-  if (status.status === "error") {
+  if (status.status === "error" || status.status === "cancelled") {
+    const isCancel = status.status === "cancelled";
     return (
-      <div className="mx-3 mt-2 shrink-0 rounded-lg bg-red-950/50 border border-red-800/50 px-3 py-2 text-xs text-red-300 flex items-center gap-2">
-        <span>⚠️</span>
-        <span className="flex-1 break-words">PDF-Metadaten-Verbesserung fehlgeschlagen: {status.error_msg || "Unbekannter Fehler"}</span>
+      <div className={`mx-3 mt-2 shrink-0 rounded-lg px-3 py-2 text-xs flex items-center gap-2 ${isCancel ? "bg-amber-950/50 border border-amber-800/50 text-amber-300" : "bg-red-950/50 border border-red-800/50 text-red-300"}`}>
+        <span>{isCancel ? "⏹" : "⚠️"}</span>
+        <span className="flex-1 break-words">
+          {isCancel
+            ? `Abgebrochen bei ${status.processed} von ${status.total} (${status.updated} bereits verbessert)`
+            : `PDF-Metadaten-Verbesserung fehlgeschlagen: ${status.error_msg || "Unbekannter Fehler"}`}
+        </span>
+        {isCancel && status.can_undo && (
+          <button onClick={onUndo} disabled={undoing}
+            className="hover:underline disabled:opacity-50 flex items-center gap-1 shrink-0">
+            {undoing ? <IconSpinner /> : null}
+            {undoing ? "Setze zurück…" : "Rückgängig"}
+          </button>
+        )}
         <button onClick={onDismiss} className="hover:underline shrink-0">Schliessen</button>
       </div>
     );
@@ -2131,6 +2157,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   }, []);
   const [bulkStatus, setBulkStatus] = useState<BulkRefreshStatus | null>(null);
   const [bulkUndoing, setBulkUndoing] = useState(false);
+  const [bulkCancelling, setBulkCancelling] = useState(false);
   const [bulkAuditOpen, setBulkAuditOpen] = useState(false);
   const bulkPollRef = useRef<number | null>(null);
 
@@ -2175,6 +2202,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       setBulkStatus(s);
       if (s.status !== "processing") {
         stopBulkPolling();
+        setBulkCancelling(false);
         loadAllRef.current();
       }
     }, 4000);
@@ -2211,23 +2239,13 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       return;
     }
 
+    // Kein confirm() mehr — Job startet direkt. Abbruch jederzeit über das X
+    // im Progress-Banner möglich. Bei "alle bereits geprüft" force=True automatisch.
     let force = false;
     let toProcess = fresh;
     if (fresh.length === 0 && alreadyDone > 0) {
-      // Alle ausgewählten wurden schon mal verbessert
-      if (!confirm(`Alle ${alreadyDone} ausgewählten Einträge wurden bereits geprüft. Trotzdem nochmal durchlaufen lassen?`)) return;
       force = true;
       toProcess = withPdf;
-    } else if (alreadyDone > 0) {
-      // Mischung — Default: nur die noch nicht durchgelaufenen
-      const ok = confirm(
-        `${fresh.length} Einträge werden geprüft.\n` +
-        `${alreadyDone} wurden bereits geprüft und werden übersprungen.\n\n` +
-        "OK = nur die neuen prüfen   ·   Abbrechen = nichts tun",
-      );
-      if (!ok) return;
-    } else {
-      if (!confirm(`PDF-Metadaten von ${fresh.length} Einträg(en) verbessern? Das läuft im Hintergrund.`)) return;
     }
 
     try {
@@ -2263,6 +2281,27 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       setSelectedIds(new Set());
     } catch {
       setImportMsg({ type: "err", text: t("err.generic") });
+    }
+  }
+
+  async function handleBulkCancel() {
+    if (!bulkStatus || bulkStatus.status !== "processing") return;
+    setBulkCancelling(true);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/refresh-meta-bulk/${bulkStatus.job_id}/cancel`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        setImportMsg({ type: "err", text: t("err.generic") });
+      }
+      // State bleibt vorerst processing — der Worker ändert ihn beim nächsten
+      // Loop-Durchlauf auf 'cancelled' (max ein Eintrag-Zyklus = 3-5s Verzögerung)
+    } catch {
+      setImportMsg({ type: "err", text: t("err.network") });
+    } finally {
+      // bulkCancelling-Flag wird beim nächsten Status-Poll automatisch zurückgesetzt
+      // wenn status != processing
     }
   }
 
@@ -3155,6 +3194,8 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
         <BulkRefreshBanner
           status={bulkStatus}
           onUndo={handleBulkUndo}
+          onCancel={handleBulkCancel}
+          cancelling={bulkCancelling}
           onShowDetails={() => setBulkAuditOpen(true)}
           onDismiss={handleDismissBulkBanner}
           undoing={bulkUndoing}

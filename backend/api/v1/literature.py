@@ -1106,6 +1106,10 @@ def _bulk_redis_key(customer_id: uuid.UUID, job_id: str) -> str:
     return f"lit_bulk_meta:{customer_id}:{job_id}"
 
 
+def _bulk_cancel_key(customer_id: uuid.UUID, job_id: str) -> str:
+    return f"lit_bulk_meta_cancel:{customer_id}:{job_id}"
+
+
 async def _bulk_meta_refresh_task(
     entry_ids: list[str],
     customer_id_str: str,
@@ -1141,8 +1145,20 @@ async def _bulk_meta_refresh_task(
 
     try:
         await _publish()
+        cancel_key = _bulk_cancel_key(customer_id, job_id)
 
         for eid_str in entry_ids:
+            # Co-operative cancel: vor jedem Eintrag prüfen ob Stop signalisiert wurde
+            cancel_flag = await r.get(cancel_key)
+            if cancel_flag:
+                state["status"] = "cancelled"
+                state["error_msg"] = "Vom Nutzer abgebrochen"
+                state["completed_at"] = datetime.utcnow().isoformat()
+                await _publish()
+                _log.info("[Literatur/Bulk-Meta] Job %s vom Nutzer abgebrochen bei %d/%d",
+                          job_id, state["processed"], state["total"])
+                await r.delete(cancel_key)
+                return
             try:
                 async with AsyncSessionLocal() as db:
                     entry = await db.get(LiteratureEntry, uuid.UUID(eid_str))
@@ -1327,6 +1343,27 @@ async def get_bulk_refresh_status(
         raise HTTPException(status_code=404, detail="Job nicht gefunden oder abgelaufen")
     data = _json.loads(raw)
     return BulkRefreshStatusResponse(**data)
+
+
+@router.post("/refresh-meta-bulk/{job_id}/cancel")
+async def cancel_bulk_refresh_meta(
+    job_id: str,
+    user: Customer = Depends(get_current_user),
+):
+    """Setzt ein Cancel-Flag in Redis. Der laufende Task prüft das vor jedem
+    Eintrag und beendet sich graceful (Status='cancelled')."""
+    if not re.match(r'^[a-f0-9]{32}$', job_id):
+        raise HTTPException(status_code=422, detail="Ungültige Job-ID")
+    import redis.asyncio as aioredis
+    from core.config import settings as _settings
+    r = aioredis.from_url(_settings.redis_url)
+    try:
+        # 6h TTL — falls das Cancel-Signal nicht gleich vom Worker abgeholt wird
+        await r.set(_bulk_cancel_key(user.id, job_id), "1", ex=21600)
+    finally:
+        await r.aclose()
+    _log.info("[Literatur/Bulk-Meta] Cancel-Signal für Job %s gesetzt von Kunde %s", job_id, user.id)
+    return {"ok": True}
 
 
 @router.post("/refresh-meta-bulk/{job_id}/undo", response_model=BulkRefreshUndoResponse)
