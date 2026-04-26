@@ -137,6 +137,26 @@ LIBRARY_TOOL_DEFS = [
         },
     },
     {
+        "name": "patent_get_by_number",
+        "description": (
+            "Holt Patent-Details via Publikationsnummer (z. B. 'US10000000B2', "
+            "'EP1234567A1', 'WO2020/123456'). Liefert immer Direct-Links zu "
+            "Google Patents, Espacenet und USPTO (für US-Patente) — Title und "
+            "Abstract per Best-Effort-Scrape. Bei Patent-Anfragen IMMER dieses "
+            "Tool nutzen statt web_search; Patente sind per Definition öffentlich."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "publication_number": {
+                    "type": "string",
+                    "description": "Patent-Nummer mit Country-Code, z. B. 'US10000000B2', 'EP1234567A1', 'CH 700 000 A2', 'WO2020/123456'",
+                },
+            },
+            "required": ["publication_number"],
+        },
+    },
+    {
         "name": "law_get_by_sr",
         "description": (
             "Holt Schweizer Bundesrecht via SR-Nummer (Systematische Sammlung). "

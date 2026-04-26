@@ -42,6 +42,7 @@ import models.literature_orphan_pdf  # noqa: F401
 import models.literature_global_index  # noqa: F401
 import models.book_global_index  # noqa: F401
 import models.law_global_index  # noqa: F401
+import models.patent_global_index  # noqa: F401
 
 os.environ["OPENAI_API_KEY"] = settings.openai_api_key or "NA"
 

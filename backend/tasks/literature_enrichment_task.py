@@ -72,6 +72,32 @@ def enrich_isbn_async(self, raw_isbn: str) -> dict:
 
 
 @celery_app.task(
+    name="tasks.literature_enrichment_task.enrich_patent_async",
+    bind=True, max_retries=2, default_retry_delay=60,
+    ignore_result=True,
+    time_limit=120,
+)
+def enrich_patent_async(self, raw_number: str) -> dict:
+    """Phase A.4 — Patent-Anreicherung via Google Patents (URL-only + Best-Effort-Scrape)."""
+    async def _run() -> dict:
+        from core.database import AsyncSessionLocal
+        from services.patent_enrichment import enrich_patent
+        async with AsyncSessionLocal() as db:
+            try:
+                rec = await enrich_patent(db, raw_number)
+                await db.commit()
+                if rec is None:
+                    return {"pn": raw_number, "status": "invalid_number"}
+                return {"pn": rec.publication_number, "status": rec.enrichment_status}
+            except Exception as exc:
+                _log.warning("[Enrich-Patent-Task] %s fehlgeschlagen: %s", raw_number, exc)
+                try: await db.rollback()
+                except Exception: pass
+                return {"pn": raw_number, "status": "error", "error": str(exc)[:200]}
+    return asyncio.run(_run())
+
+
+@celery_app.task(
     name="tasks.literature_enrichment_task.enrich_sr_async",
     bind=True, max_retries=2, default_retry_delay=60,
     ignore_result=True,

@@ -313,18 +313,25 @@ def _deindex_entry(entry: LiteratureEntry) -> None:
             _log.warning("Qdrant-Deindexierung fehlgeschlagen: %s", e)
 
 
-def _trigger_global_enrichment(doi: str | None, isbn: str | None = None) -> None:
-    """Feuer-und-vergiss: schickt DOI und/oder ISBN an Celery für Anreicherung.
-    Fehler beim Trigger sind nicht kritisch — Worker offline ist akzeptabel."""
+def _trigger_global_enrichment(doi: str | None, isbn: str | None = None,
+                                entry_type: str | None = None) -> None:
+    """Feuer-und-vergiss: schickt Identifier an Celery für Anreicherung.
+    DOI → Crossref/Unpaywall. ISBN → OpenLibrary/DOAB. Patent (entry_type='patent'
+    + Nummer im DOI-Feld) → Google Patents."""
     try:
-        if doi:
+        if entry_type == "patent" and doi:
+            # Bei Patenten ist die Publikationsnummer oft im DOI-Feld gespeichert
+            from tasks.literature_enrichment_task import enrich_patent_async
+            enrich_patent_async.delay(doi)
+        elif doi:
             from tasks.literature_enrichment_task import enrich_doi_async
             enrich_doi_async.delay(doi)
         if isbn:
             from tasks.literature_enrichment_task import enrich_isbn_async
             enrich_isbn_async.delay(isbn)
     except Exception as exc:
-        _log.info("[Literatur/Global-Trigger] doi=%s isbn=%s: %s — Worker evtl. offline", doi, isbn, exc)
+        _log.info("[Literatur/Global-Trigger] doi=%s isbn=%s type=%s: %s",
+                  doi, isbn, entry_type, exc)
 
 
 async def _create_entry_from_dict(
@@ -362,7 +369,7 @@ async def _create_entry_from_dict(
         await db.flush()  # ID für sofortige Qdrant-Indexierung nötig
         _index_entry(entry)
     # Phase A — globale Anreicherung anstossen (asynchron via Celery)
-    _trigger_global_enrichment(entry.doi, entry.isbn)
+    _trigger_global_enrichment(entry.doi, entry.isbn, entry.entry_type)
     return entry
 
 
@@ -1468,6 +1475,52 @@ async def get_book_entry(
     out = BookIndexEntry.model_validate(rec, from_attributes=True)
     out.in_my_library = in_my
     return out
+
+
+# ── Patente (Phase A.4 — Google Patents / EPO) ────────────────────────────────
+
+class PatentIndexEntry(BaseModel):
+    publication_number: str
+    country_code: str | None
+    kind_code: str | None
+    title: str | None
+    abstract: str | None
+    inventors: list[str] | None
+    assignees: list[str] | None
+    publication_date: datetime | None = None
+    google_patents_url: str | None
+    espacenet_url: str | None
+    uspto_url: str | None
+    pdf_url: str | None
+    enrichment_status: str
+
+    model_config = {"from_attributes": True}
+
+
+@router.get("/patents/{publication_number}", response_model=PatentIndexEntry)
+async def get_patent_entry(
+    publication_number: str,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Patent-Details via Publikationsnummer (z. B. 'US10000000B2', 'EP1234567A1').
+    Liefert immer mindestens die öffentlichen Direct-Links zu Google Patents,
+    Espacenet, USPTO. Title/Inventoren/Abstract via Best-Effort-Scrape."""
+    from models.patent_global_index import PatentGlobalIndex
+    from services.patent_enrichment import enrich_patent, normalize_patent_number
+
+    parts = normalize_patent_number(publication_number)
+    if not parts:
+        raise HTTPException(status_code=422, detail="Ungültige Patent-Publikationsnummer (Format: 'US10000000B2', 'EP1234567A1', 'WO2020123456')")
+
+    pn = parts["pn"]
+    rec = await db.get(PatentGlobalIndex, pn)
+    if not rec or rec.enrichment_status == "pending":
+        rec = await enrich_patent(db, pn)
+        await db.commit()
+    if not rec:
+        raise HTTPException(status_code=404, detail=f"Patent {pn} nicht auflösbar")
+    return rec
 
 
 # ── Schweizer Gesetze (Phase A.3 — Fedlex) ────────────────────────────────────

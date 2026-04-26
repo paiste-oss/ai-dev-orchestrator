@@ -338,6 +338,36 @@ async def _handle_library(tool_name: str, tool_input: dict, customer_id: str | N
             "oa_url": rec.oa_url, "oa_license": rec.oa_license,
         }
 
+    # ── patent_get_by_number ───────────────────────────────────────────────
+    if tool_name == "patent_get_by_number":
+        raw = (tool_input.get("publication_number") or "").strip()
+        from services.patent_enrichment import normalize_patent_number, enrich_patent
+        from models.patent_global_index import PatentGlobalIndex
+        parts = normalize_patent_number(raw)
+        if not parts:
+            return {"error": f"Ungültige Patent-Nummer: {raw} (erwartet z.B. 'US10000000B2', 'EP1234567A1')"}
+        pn = parts["pn"]
+        async with AsyncSessionLocal() as db:
+            rec = await db.get(PatentGlobalIndex, pn)
+            if not rec or rec.enrichment_status == "pending":
+                rec = await enrich_patent(db, pn)
+                await db.commit()
+            if not rec:
+                return {"error": f"Patent {pn} nicht auflösbar"}
+        return {
+            "publication_number": rec.publication_number,
+            "country_code": rec.country_code,
+            "kind_code": rec.kind_code,
+            "title": rec.title,
+            "abstract": rec.abstract,
+            "inventors": rec.inventors or [],
+            "assignees": rec.assignees or [],
+            "google_patents_url": rec.google_patents_url,
+            "espacenet_url": rec.espacenet_url,
+            "uspto_url": rec.uspto_url,
+            "pdf_url": rec.pdf_url,
+        }
+
     # ── law_get_by_sr ──────────────────────────────────────────────────────
     if tool_name == "law_get_by_sr":
         raw = (tool_input.get("sr_number") or "").strip()
