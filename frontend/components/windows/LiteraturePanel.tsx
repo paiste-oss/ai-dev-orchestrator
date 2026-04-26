@@ -399,6 +399,21 @@ function DetailPanel({
               <p className="text-sm text-white">{entry.edition}</p>
             </div>
           )}
+          {entry.entry_type === "book" && entry.book_title && (
+            <div className="col-span-2">
+              <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">Buch-Titel</p>
+              <p className="text-sm text-white">{entry.book_title}</p>
+            </div>
+          )}
+          {entry.entry_type === "book" && (entry.chapter_number || entry.chapter_name) && (
+            <div className="col-span-2">
+              <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">Kapitel</p>
+              <p className="text-sm text-white">
+                {entry.chapter_number && <span className="font-mono mr-2">Nr. {entry.chapter_number}</span>}
+                {entry.chapter_name}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Tags */}
@@ -3594,9 +3609,9 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                       const grp = it.group;
                       const sample = grp.sample;
                       const isOpen = expandedBooks.has(grp.key);
-                      // Gemeinsame Felder aus dem ersten Eintrag
+                      // Gemeinsame Felder aus dem ersten Eintrag — Verlag statt Autoren
+                      // weil Kapitel-Autoren oft wechseln, der Verlag aber gleich bleibt
                       const titleDisplay = sample.book_title || sample.title;
-                      const author = (sample.authors || []).slice(0, 2).join("; ");
                       const yearStr = sample.year ? String(sample.year) : "";
                       const publisherStr = sample.publisher || "";
                       const anyOa = grp.entries.some(e => e.oa_available);
@@ -3631,8 +3646,8 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                             </span>
                           </div>
                           <span className="text-[11px] text-gray-400 tabular-nums">{yearStr}</span>
-                          <span className="text-[11px] text-gray-400 truncate" title={author}>{author}</span>
                           <span className="text-[11px] text-gray-400 truncate" title={publisherStr}>{publisherStr}</span>
+                          <span className="text-[11px] text-gray-500 truncate" title={sample.isbn || ""}>{sample.isbn ? `ISBN ${sample.isbn}` : ""}</span>
                         </div>
                       );
                     }

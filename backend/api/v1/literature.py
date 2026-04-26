@@ -843,6 +843,7 @@ _META_FIELDS = {
     "entry_type", "title", "authors", "year", "abstract",
     "journal", "volume", "issue", "pages", "doi",
     "publisher", "isbn", "edition",
+    "book_title", "chapter_number", "chapter_name",
 }
 # Felder, die in der DB als VARCHAR/TEXT liegen — falls Haiku/Crossref einen
 # Integer (z.B. volume=12) liefert, müssen wir ihn vor dem Schreiben zu str casten.
@@ -850,6 +851,7 @@ _META_STRING_FIELDS = {
     "entry_type", "title", "abstract",
     "journal", "volume", "issue", "pages", "doi",
     "publisher", "isbn", "edition",
+    "book_title", "chapter_number", "chapter_name",
 }
 
 
@@ -896,12 +898,20 @@ async def _extract_pdf_meta_from_bytes(
                 "content": (
                     "Extrahiere bibliografische Metadaten aus diesem PDF-Text-Anfang.\n"
                     "Antworte NUR mit einem JSON-Objekt, kein Text davor oder danach, keine Code-Fence.\n"
-                    "Fehlende Felder als null. Autoren im Format ['Nachname, Vorname', ...].\n\n"
+                    "Fehlende Felder als null. Autoren im Format ['Nachname, Vorname', ...].\n"
+                    "WICHTIG bei Büchern (entry_type='book'): Wenn das PDF ein einzelnes\n"
+                    "Kapitel aus einem Sammelband/Lehrbuch ist, fülle aus:\n"
+                    "  - book_title = Titel des GANZEN Buches (gleich für alle Kapitel)\n"
+                    "  - title = Titel des Kapitels\n"
+                    "  - chapter_number = Kapitelnummer (z. B. '5' oder '5.2')\n"
+                    "  - chapter_name = Kapitelname (oft identisch mit title)\n"
+                    "Bei einem ganzen Buch (kein Kapitel-PDF): book_title = title, chapter_* = null.\n\n"
                     f"PDF-Text:\n{pdf_text[:4000]}\n\n"
                     "JSON-Schema:\n"
                     '{"entry_type":"paper|book|patent","title":null,"authors":null,'
                     '"year":null,"abstract":null,"journal":null,"volume":null,"issue":null,'
-                    '"pages":null,"doi":null,"publisher":null,"isbn":null,"edition":null}'
+                    '"pages":null,"doi":null,"publisher":null,"isbn":null,"edition":null,'
+                    '"book_title":null,"chapter_number":null,"chapter_name":null}'
                 ),
             }],
             model="claude-haiku-4-5-20251001",
@@ -975,7 +985,8 @@ def _compute_proposed_changes(entry: LiteratureEntry, extracted: dict) -> dict:
 
     # Felder die nur leere ersetzen
     fill_only_empty = {"abstract", "doi", "year", "journal", "volume", "issue",
-                       "pages", "publisher", "isbn", "edition"}
+                       "pages", "publisher", "isbn", "edition",
+                       "book_title", "chapter_number", "chapter_name"}
     for f in fill_only_empty:
         new_val = extracted.get(f)
         cur_val = getattr(entry, f, None)
