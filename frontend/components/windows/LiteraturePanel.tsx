@@ -2850,13 +2850,11 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
 
   async function handlePromoteOrphan(orphan: OrphanPdf) {
     const meta = orphan.extracted_meta || {};
-    const fallbackTitle = (meta.title || orphan.filename.replace(/\.pdf$/i, "")).trim();
-    const titleInput = prompt("Titel für den neuen Eintrag:", fallbackTitle);
-    if (!titleInput || !titleInput.trim()) return;
+    const title = (meta.title || orphan.filename.replace(/\.pdf$/i, "")).trim() || "Neuer Eintrag";
 
     setOrphanBusy(orphan.id);
     try {
-      const body: Record<string, unknown> = { entry_type: "paper", title: titleInput.trim() };
+      const body: Record<string, unknown> = { entry_type: "paper", title };
       const transferable = ["authors", "year", "abstract", "journal", "volume", "issue",
         "pages", "doi", "publisher", "isbn", "edition"] as const;
       for (const k of transferable) {
@@ -2875,8 +2873,18 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       const created: LitEntry = await res.json();
       setEntries(prev => [created, ...prev]);
       setOrphans(prev => prev.filter(o => o.id !== orphan.id));
+
+      // Direkt zum neuen Eintrag wechseln: aus Orphan-View raus, Detail-Panel mit Metadaten,
+      // PDF automatisch im Viewer öffnen
+      setTypeFilter("all");
       setSelected(created);
-      setImportMsg({ type: "ok", text: `Neuer Eintrag angelegt: "${created.title.slice(0, 60)}"` });
+      setShowForm(false);
+      setShowDetail(true);
+      if (created.pdf_s3_key) {
+        // Kurze Verzögerung damit setSelected propagiert ist (PdfPreview lädt ohnehin schon)
+        setTimeout(() => handlePdfOpen(created), 50);
+      }
+      setImportMsg({ type: "ok", text: `Neuer Eintrag angelegt: "${created.title.slice(0, 60)}". Du kannst die Metadaten via Edit-Button anpassen.` });
     } finally { setOrphanBusy(null); }
   }
 
