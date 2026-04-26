@@ -660,7 +660,7 @@ function SortableGrid({ sortKey, sortDir, onSort, allSelected, someSelected, onT
   return (
     <div data-lit-grid="1"
       className="grid items-center gap-2 px-3 py-1.5 border-b border-white/8 sticky top-0 bg-black/40 backdrop-blur-sm z-10"
-      style={{ gridTemplateColumns: `32px 24px ${titleColWidth}px 56px 180px 180px 60px` }}>
+      style={{ gridTemplateColumns: `32px 24px ${titleColWidth}px 56px 180px 180px` }}>
       <input ref={headerRef} type="checkbox" checked={allSelected} onChange={onToggleAll}
         className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" title="Alle (de-)selektieren" />
       <button onClick={() => onSort("oa")}
@@ -681,7 +681,6 @@ function SortableGrid({ sortKey, sortDir, onSort, allSelected, someSelected, onT
       <Th k="year" label="Jahr" />
       <Th k="authors" label="Autoren" />
       <Th k="journal" label="Journal" />
-      <span></span>
     </div>
   );
 }
@@ -2355,7 +2354,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       titleColRef.current = w;
       // Direkt alle Grid-Templates im DOM updaten — kein React-Re-Render
       document.querySelectorAll<HTMLElement>("[data-lit-grid='1']").forEach(el => {
-        el.style.gridTemplateColumns = `32px 24px ${w}px 56px 180px 180px 60px`;
+        el.style.gridTemplateColumns = `32px 24px ${w}px 56px 180px 180px`;
       });
     };
     const onUp = () => {
@@ -3299,6 +3298,29 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                   Array.from(selectedIds).forEach(id => handleDelete(id));
                   setSelectedIds(new Set());
                 }} className="text-red-400 hover:underline">Löschen</button>
+
+                {/* Per-Eintrag-Toggles nur wenn genau 1 Eintrag ausgewählt */}
+                {selectedIds.size === 1 && (() => {
+                  const e = entries.find(x => x.id === Array.from(selectedIds)[0]);
+                  if (!e) return null;
+                  return (
+                    <>
+                      <span className="opacity-30">·</span>
+                      <button onClick={() => handleToggleFlag(e, "is_favorite")}
+                        title={e.is_favorite ? "Aus Favoriten entfernen" : "Als Favorit markieren"}
+                        className="hover:underline flex items-center gap-1">
+                        {e.is_favorite ? <IconStarFilled /> : <span className="text-gray-500"><IconStar /></span>}
+                        {e.is_favorite ? "Favorit" : "Favorit"}
+                      </button>
+                      <button onClick={() => handleToggleFlag(e, "read_later")}
+                        title={e.read_later ? "Aus 'Zu lesen' entfernen" : "Zu 'Zu lesen' hinzufügen"}
+                        className="hover:underline flex items-center gap-1">
+                        {e.read_later ? <IconBookmarkFilled /> : <span className="text-gray-500"><IconBookmarkOutline /></span>}
+                        Zu lesen
+                      </button>
+                    </>
+                  );
+                })()}
               </div>
             );
           })()}
@@ -3341,7 +3363,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
             </div>
           ) : (
             <div className="flex-1 overflow-auto">
-              <div style={{ minWidth: `${32 + 24 + titleColWidth + 56 + 180 + 180 + 60 + 24}px` }}>
+              <div style={{ minWidth: `${32 + 24 + titleColWidth + 56 + 180 + 180 + 24}px` }}>
                 {/* Grid-Header */}
                 <SortableGrid sortKey={sortKey} sortDir={sortDir} onSort={toggleSort}
                   allSelected={selectedIds.size > 0 && sorted.every(e => selectedIds.has(e.id))}
@@ -3378,7 +3400,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                       onClick={() => selectEntry(entry)}
                       title={hasPdf ? undefined : "Kein PDF hinterlegt"}
                       className={`group grid items-center gap-2 px-3 py-1.5 border-b border-white/4 cursor-pointer transition-colors border-l-2 ${isActive ? "bg-[var(--accent-10)]" : isChecked ? "bg-white/3" : "hover:bg-white/3"} ${hasPdf ? "border-l-transparent" : "border-l-amber-500/50"}`}
-                      style={{ gridTemplateColumns: `32px 24px ${titleColWidth}px 56px 180px 180px 60px` }}>
+                      style={{ gridTemplateColumns: `32px 24px ${titleColWidth}px 56px 180px 180px` }}>
                       <input type="checkbox" checked={isChecked} onClick={e => toggleRowSelect(entry.id, e)} onChange={() => {}}
                         className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" />
                       <span className="flex items-center justify-center"
@@ -3391,7 +3413,12 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                         )}
                       </span>
                       <div className="min-w-0">
-                        <p className={`text-xs font-medium truncate ${hasPdf ? "text-white" : "text-gray-500"}`}>{entry.title}</p>
+                        <p className={`text-xs font-medium truncate ${hasPdf ? "text-white" : "text-gray-500"} flex items-center gap-1`}>
+                          {uploadingPdf === entry.id && <span className="shrink-0"><IconSpinner /></span>}
+                          {entry.is_favorite && <span className="shrink-0" title="Favorit"><IconStarFilled /></span>}
+                          {entry.read_later && <span className="shrink-0" title="Zu lesen"><IconBookmarkFilled /></span>}
+                          <span className="truncate">{entry.title}</span>
+                        </p>
                         {entryGroups.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-0.5">
                             {entryGroups.map(g => (
@@ -3403,19 +3430,6 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                       <span className="text-[11px] text-gray-400 tabular-nums">{yearStr}</span>
                       <span className="text-[11px] text-gray-400 truncate" title={(entry.authors ?? []).join("; ")}>{fmtAuthors(entry.authors)}</span>
                       <span className="text-[11px] text-gray-400 truncate" title={journalStr}>{journalStr}</span>
-                      <div className="flex items-center justify-end gap-0.5" onClick={e => e.stopPropagation()}>
-                        {uploadingPdf === entry.id && <IconSpinner />}
-                        <button onClick={() => handleToggleFlag(entry, "is_favorite")}
-                          title={entry.is_favorite ? "Favorit entfernen" : "Favorit"}
-                          className="p-0.5 rounded transition-colors">
-                          {entry.is_favorite ? <IconStarFilled /> : <span className="text-gray-600 hover:text-yellow-400 block opacity-0 group-hover:opacity-100 transition-opacity"><IconStar /></span>}
-                        </button>
-                        <button onClick={() => handleToggleFlag(entry, "read_later")}
-                          title={entry.read_later ? "Aus 'Zu lesen' entfernen" : "Zu lesen"}
-                          className="p-0.5 rounded transition-colors">
-                          {entry.read_later ? <IconBookmarkFilled /> : <span className="text-gray-600 hover:text-blue-400 block opacity-0 group-hover:opacity-100 transition-opacity"><IconBookmarkOutline /></span>}
-                        </button>
-                      </div>
                     </div>
                   );
                 })}
