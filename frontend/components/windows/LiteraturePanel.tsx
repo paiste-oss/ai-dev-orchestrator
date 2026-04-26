@@ -686,9 +686,9 @@ function SortableGrid({ sortKey, sortDir, onSort, allSelected, someSelected, onT
   );
 }
 
-// ── Discovery-Panel (Phase A.2 — Wissenspool durchsuchen) ─────────────────────
+// ── Discovery-Panel (Phase A.2/A.4 — Wissenspool durchsuchen) ─────────────────
 
-type DiscoveryMode = "papers" | "books";
+type DiscoveryFilter = "all" | "papers" | "books";
 
 function DiscoveryPanel({
   onAdd, onAddWithOa, onAddBook, onAddBookWithOa, busyDoi, busyIsbn,
@@ -700,7 +700,7 @@ function DiscoveryPanel({
   busyDoi: string | null;
   busyIsbn: string | null;
 }) {
-  const [mode, setMode] = useState<DiscoveryMode>("papers");
+  const [filter, setFilter] = useState<DiscoveryFilter>("all");
   const [query, setQuery] = useState("");
   const [paperResults, setPaperResults] = useState<GlobalPoolHit[]>([]);
   const [bookResults, setBookResults] = useState<BookPoolHit[]>([]);
@@ -708,73 +708,92 @@ function DiscoveryPanel({
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Quick-Lookup state für Patente und CH-Gesetze
+  const [patentInput, setPatentInput] = useState("");
+  const [srInput, setSrInput] = useState("");
+  const [lookupBusy, setLookupBusy] = useState<"patent" | "sr" | null>(null);
+  const [lookupResult, setLookupResult] = useState<{ kind: "patent" | "sr"; data: Record<string, unknown> } | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+
   async function runSearch() {
     const q = query.trim();
     if (!q) return;
     setLoading(true);
     setError(null);
     setSearched(true);
+    setLookupResult(null);
     try {
-      const url = mode === "papers"
-        ? `${BACKEND_URL}/v1/literature/global/search?q=${encodeURIComponent(q)}&limit=30`
-        : `${BACKEND_URL}/v1/literature/books/search?q=${encodeURIComponent(q)}&limit=30`;
-      const res = await apiFetch(url);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: "Fehler bei der Suche" })) as { detail?: string };
-        setError(err.detail || "Fehler bei der Suche");
-        setPaperResults([]); setBookResults([]);
-      } else {
-        if (mode === "papers") {
-          const data = await res.json() as { results: GlobalPoolHit[] };
-          setPaperResults(data.results || []);
-          setBookResults([]);
-        } else {
-          const data = await res.json() as { results: BookPoolHit[] };
-          setBookResults(data.results || []);
-          setPaperResults([]);
-        }
-      }
+      // Beide Endpoints parallel — Pool-Suche ist günstig (Postgres FTS / Qdrant)
+      const [paperRes, bookRes] = await Promise.all([
+        apiFetch(`${BACKEND_URL}/v1/literature/global/search?q=${encodeURIComponent(q)}&limit=30`),
+        apiFetch(`${BACKEND_URL}/v1/literature/books/search?q=${encodeURIComponent(q)}&limit=20`),
+      ]);
+      const papers = paperRes.ok
+        ? ((await paperRes.json()) as { results: GlobalPoolHit[] }).results || []
+        : [];
+      const books = bookRes.ok
+        ? ((await bookRes.json()) as { results: BookPoolHit[] }).results || []
+        : [];
+      setPaperResults(papers);
+      setBookResults(books);
     } catch {
       setError("Netzwerk-Fehler");
       setPaperResults([]); setBookResults([]);
     } finally { setLoading(false); }
   }
 
-  const results = mode === "papers" ? paperResults : bookResults;
+  async function lookupPatent() {
+    const pn = patentInput.trim();
+    if (!pn) return;
+    setLookupBusy("patent");
+    setLookupError(null);
+    setLookupResult(null);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/patents/${encodeURIComponent(pn)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Patent nicht auflösbar" })) as { detail?: string };
+        setLookupError(err.detail || "Patent nicht auflösbar");
+      } else {
+        setLookupResult({ kind: "patent", data: await res.json() });
+      }
+    } catch { setLookupError("Netzwerk-Fehler"); }
+    finally { setLookupBusy(null); }
+  }
+
+  async function lookupSr() {
+    const sr = srInput.trim();
+    if (!sr) return;
+    setLookupBusy("sr");
+    setLookupError(null);
+    setLookupResult(null);
+    try {
+      const res = await apiFetch(`${BACKEND_URL}/v1/literature/laws/${encodeURIComponent(sr)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "SR-Nummer nicht auflösbar" })) as { detail?: string };
+        setLookupError(err.detail || "SR-Nummer nicht auflösbar");
+      } else {
+        setLookupResult({ kind: "sr", data: await res.json() });
+      }
+    } catch { setLookupError("Netzwerk-Fehler"); }
+    finally { setLookupBusy(null); }
+  }
+
+  const showPapers = filter === "all" || filter === "papers";
+  const showBooks = filter === "all" || filter === "books";
+  const visiblePapers = showPapers ? paperResults : [];
+  const visibleBooks = showBooks ? bookResults : [];
+  const totalVisible = visiblePapers.length + visibleBooks.length;
 
   return (
     <div className="flex-1 overflow-auto px-3 py-2 flex flex-col gap-2">
-      <div className="text-[11px] text-blue-300/90 bg-blue-950/30 border border-blue-800/30 rounded-lg px-3 py-2 shrink-0">
-        Durchsuche den globalen Wissenspool ({mode === "papers" ? "Crossref + Unpaywall" : "OpenLibrary + DOAB"}).
-        Treffer können mit einem Klick deiner Library hinzugefügt werden, bei
-        Open-Access-Werken wird auf Wunsch das offizielle PDF gleich heruntergeladen.
-      </div>
-
-      {/* Type-Tabs */}
-      <div className="flex gap-1 shrink-0 border-b border-white/8 -mx-3 px-3">
-        <button onClick={() => { setMode("papers"); setSearched(false); setError(null); }}
-          className={`px-3 py-1.5 text-xs border-b-2 transition-colors ${mode === "papers" ? "border-[var(--accent)] text-white font-medium" : "border-transparent text-gray-500 hover:text-gray-300"}`}>
-          📄 Paper
-        </button>
-        <button onClick={() => { setMode("books"); setSearched(false); setError(null); }}
-          className={`px-3 py-1.5 text-xs border-b-2 transition-colors ${mode === "books" ? "border-[var(--accent)] text-white font-medium" : "border-transparent text-gray-500 hover:text-gray-300"}`}>
-          📚 Bücher
-        </button>
-        <span className="flex-1" />
-        <span className="text-[10px] text-gray-600 self-center pr-1">
-          Gesetze: im Chat fragen (z. B. „SR 220" oder „Obligationenrecht")
-        </span>
-      </div>
-
+      {/* Hauptsuche — geht über Paper + Bücher parallel */}
       <div className="flex gap-2 shrink-0">
         <input
           autoFocus
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") runSearch(); }}
-          placeholder={mode === "papers"
-            ? "Suche nach Titel, Thema, Autor… (Volltext über Titel + Abstract)"
-            : "Suche nach Buchtitel, Beschreibung… (OpenLibrary + DOAB)"}
+          placeholder="Suche im Wissenspool — Paper (Crossref) + Bücher (OpenLibrary)…"
           className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50"
         />
         <button onClick={runSearch} disabled={loading || !query.trim()}
@@ -783,6 +802,102 @@ function DiscoveryPanel({
           Suchen
         </button>
       </div>
+
+      {/* Type-Filter-Chips — werden erst nach erster Suche aktiv */}
+      {searched && (
+        <div className="flex gap-1 shrink-0 text-[11px]">
+          <button onClick={() => setFilter("all")}
+            className={`px-2 py-0.5 rounded-full border transition-colors ${filter === "all" ? "bg-[var(--accent-20)] text-[var(--accent-light)] border-[var(--accent-30)]" : "text-gray-500 border-white/10 hover:text-gray-300"}`}>
+            Alle ({paperResults.length + bookResults.length})
+          </button>
+          <button onClick={() => setFilter("papers")} disabled={!paperResults.length}
+            className={`px-2 py-0.5 rounded-full border transition-colors disabled:opacity-30 ${filter === "papers" ? "bg-[var(--accent-20)] text-[var(--accent-light)] border-[var(--accent-30)]" : "text-gray-500 border-white/10 hover:text-gray-300"}`}>
+            📄 Paper ({paperResults.length})
+          </button>
+          <button onClick={() => setFilter("books")} disabled={!bookResults.length}
+            className={`px-2 py-0.5 rounded-full border transition-colors disabled:opacity-30 ${filter === "books" ? "bg-[var(--accent-20)] text-[var(--accent-light)] border-[var(--accent-30)]" : "text-gray-500 border-white/10 hover:text-gray-300"}`}>
+            📚 Bücher ({bookResults.length})
+          </button>
+        </div>
+      )}
+
+      {/* Quick-Lookup für Identifier-basierte Typen */}
+      <details className="shrink-0 group" open={!searched}>
+        <summary className="text-[11px] text-gray-500 hover:text-gray-300 cursor-pointer select-none py-1 px-2 rounded hover:bg-white/3 list-none flex items-center gap-1">
+          <svg className="w-3 h-3 transition-transform group-open:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+          Quick-Lookup: Patent oder Schweizer Gesetz (per Identifier)
+        </summary>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1 px-2 pb-2">
+          <div className="flex gap-1">
+            <input value={patentInput} onChange={e => setPatentInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") lookupPatent(); }}
+              placeholder="📜 Patent (z. B. US10000000B2, EP1234567A1)"
+              className="flex-1 bg-white/5 border border-white/10 rounded px-2 py-1 text-[11px] text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50" />
+            <button onClick={lookupPatent} disabled={lookupBusy === "patent" || !patentInput.trim()}
+              className="px-2 py-1 rounded text-[11px] bg-white/5 hover:bg-white/10 text-gray-300 disabled:opacity-40">
+              {lookupBusy === "patent" ? <IconSpinner /> : "↗"}
+            </button>
+          </div>
+          <div className="flex gap-1">
+            <input value={srInput} onChange={e => setSrInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") lookupSr(); }}
+              placeholder="⚖️ CH-Gesetz (z. B. SR 220, 311.0)"
+              className="flex-1 bg-white/5 border border-white/10 rounded px-2 py-1 text-[11px] text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50" />
+            <button onClick={lookupSr} disabled={lookupBusy === "sr" || !srInput.trim()}
+              className="px-2 py-1 rounded text-[11px] bg-white/5 hover:bg-white/10 text-gray-300 disabled:opacity-40">
+              {lookupBusy === "sr" ? <IconSpinner /> : "↗"}
+            </button>
+          </div>
+        </div>
+        {lookupError && (
+          <div className="text-[11px] text-red-300 bg-red-950/40 border border-red-800/40 rounded mx-2 mb-2 px-2 py-1">
+            ⚠️ {lookupError}
+          </div>
+        )}
+        {lookupResult && (
+          <div className="rounded-lg border border-blue-500/30 bg-blue-950/20 mx-2 mb-2 px-3 py-2 text-[11px]">
+            {lookupResult.kind === "patent" ? (
+              <>
+                <p className="text-white font-medium">📜 {String(lookupResult.data.publication_number)}</p>
+                {!!lookupResult.data.title && <p className="text-gray-300 mt-1">{String(lookupResult.data.title)}</p>}
+                {Array.isArray(lookupResult.data.inventors) && lookupResult.data.inventors.length > 0 && (
+                  <p className="text-gray-500 text-[10px] mt-0.5">{(lookupResult.data.inventors as string[]).slice(0, 4).join("; ")}</p>
+                )}
+                <div className="flex gap-2 mt-1.5 flex-wrap">
+                  {!!lookupResult.data.google_patents_url && (
+                    <a href={String(lookupResult.data.google_patents_url)} target="_blank" rel="noopener noreferrer"
+                      className="text-blue-300 hover:underline">Google Patents ↗</a>
+                  )}
+                  {!!lookupResult.data.espacenet_url && (
+                    <a href={String(lookupResult.data.espacenet_url)} target="_blank" rel="noopener noreferrer"
+                      className="text-blue-300 hover:underline">Espacenet ↗</a>
+                  )}
+                  {!!lookupResult.data.pdf_url && (
+                    <a href={String(lookupResult.data.pdf_url)} target="_blank" rel="noopener noreferrer"
+                      className="text-blue-300 hover:underline">PDF ↗</a>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-white font-medium">⚖️ SR {String(lookupResult.data.sr_number)}</p>
+                {!!lookupResult.data.title && <p className="text-gray-300 mt-1">{String(lookupResult.data.title)}</p>}
+                {!!lookupResult.data.abbreviation && <p className="text-gray-500 text-[10px]">{String(lookupResult.data.abbreviation)}</p>}
+                <div className="flex gap-2 mt-1.5 flex-wrap">
+                  {!!lookupResult.data.html_url && (
+                    <a href={String(lookupResult.data.html_url)} target="_blank" rel="noopener noreferrer"
+                      className="text-blue-300 hover:underline">Fedlex ↗</a>
+                  )}
+                  {!!lookupResult.data.pdf_url && (
+                    <a href={String(lookupResult.data.pdf_url)} target="_blank" rel="noopener noreferrer"
+                      className="text-blue-300 hover:underline">PDF ↗</a>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </details>
 
       {error && (
         <div className="text-[11px] text-red-300 bg-red-950/40 border border-red-800/40 rounded-lg px-3 py-2 shrink-0">
@@ -793,22 +908,22 @@ function DiscoveryPanel({
       {!searched && !loading && (
         <div className="flex flex-col items-center justify-center flex-1 gap-2 text-center py-8">
           <span className="text-4xl opacity-20">🌐</span>
-          <p className="text-gray-500 text-xs">Tippe einen Suchbegriff ein</p>
+          <p className="text-gray-500 text-xs">Tippe einen Suchbegriff ein für die Volltext-Suche</p>
           <p className="text-[10px] text-gray-700 max-w-md">
-            Der Pool enthält alle DOIs aus den Bibliotheken aller Baddi-Nutzer
-            mit Crossref-Metadaten und Open-Access-Verfügbarkeit.
+            Pool enthält DOIs (Crossref + Unpaywall) und ISBNs (OpenLibrary + DOAB) aus
+            allen Baddi-Bibliotheken. Patente und Gesetze via Quick-Lookup oben.
           </p>
         </div>
       )}
 
-      {searched && !loading && results.length === 0 && !error && (
+      {searched && !loading && totalVisible === 0 && !error && (
         <div className="flex flex-col items-center justify-center flex-1 gap-2 text-center py-8">
           <span className="text-3xl opacity-20">🔍</span>
-          <p className="text-gray-500 text-xs">Keine Treffer — der Pool wächst mit jeder neuen Bibliothek</p>
+          <p className="text-gray-500 text-xs">Keine Treffer im Pool</p>
         </div>
       )}
 
-      {mode === "books" && bookResults.map(hit => {
+      {showBooks && bookResults.map(hit => {
         const isBusy = busyIsbn === hit.isbn;
         return (
           <div key={hit.isbn} className="rounded-lg border border-white/10 bg-white/3 hover:bg-white/5 transition-colors">
@@ -873,7 +988,7 @@ function DiscoveryPanel({
         );
       })}
 
-      {mode === "papers" && paperResults.map(hit => {
+      {showPapers && paperResults.map(hit => {
         const isBusy = busyDoi === hit.doi;
         return (
           <div key={hit.doi} className="rounded-lg border border-white/10 bg-white/3 hover:bg-white/5 transition-colors">
