@@ -86,15 +86,18 @@ export default function FileViewerWindow(props: Props) {
           {effectiveTabs.map(tab => {
             const isActive = tab.key === activeKey;
             const ext = (tab.fileType ?? tab.filename.split(".").pop() ?? "").toLowerCase();
+            // Sprechender Tab-Name: Literatur-/Dokument-Title bevorzugt, Filename als Fallback
+            const displayName = tab.literatureTitle || tab.filename;
+            const tooltip = tab.literatureTitle ? `${tab.literatureTitle}\n${tab.filename}` : tab.filename;
             return (
               <div key={tab.key}
                 onClick={() => setActive(tab.key)}
                 className={`group shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md cursor-pointer text-xs select-none transition-colors ${
                   isActive ? "bg-white/15 text-white" : "text-gray-400 hover:text-white hover:bg-white/5"
                 }`}
-                title={tab.filename}>
+                title={tooltip}>
                 <span className="text-sm leading-none">{fileIcon(ext, tab.mimeType)}</span>
-                <span className="truncate max-w-[140px]">{tab.filename}</span>
+                <span className="truncate max-w-[200px]">{displayName}</span>
                 <button onClick={e => { e.stopPropagation(); closeTab(tab.key); }}
                   className={`ml-1 w-3.5 h-3.5 flex items-center justify-center rounded text-gray-500 hover:text-red-400 transition-all ${isActive ? "opacity-70" : "opacity-0 group-hover:opacity-70"}`}
                   title="Tab schliessen">×</button>
