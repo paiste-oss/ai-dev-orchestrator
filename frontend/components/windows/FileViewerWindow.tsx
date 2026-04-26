@@ -99,8 +99,12 @@ export default function FileViewerWindow(props: Props) {
                 <span className="text-sm leading-none">{fileIcon(ext, tab.mimeType)}</span>
                 <span className="truncate max-w-[200px]">{displayName}</span>
                 <button onClick={e => { e.stopPropagation(); closeTab(tab.key); }}
-                  className={`ml-1 w-3.5 h-3.5 flex items-center justify-center rounded text-gray-500 hover:text-red-400 transition-all ${isActive ? "opacity-70" : "opacity-0 group-hover:opacity-70"}`}
-                  title="Tab schliessen">×</button>
+                  className="ml-1 w-5 h-5 flex items-center justify-center rounded text-gray-300 hover:text-white hover:bg-red-500/70 transition-colors"
+                  title="Tab schliessen" aria-label="Tab schliessen">
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
               </div>
             );
           })}
