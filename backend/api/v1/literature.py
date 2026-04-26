@@ -85,6 +85,7 @@ class LiteratureEntryOut(BaseModel):
     group_ids: list[uuid.UUID]  # many-to-many: ein Eintrag kann in mehreren Gruppen sein
     has_meta_backup: bool  # True wenn metadata_backup gesetzt ist (Undo möglich)
     meta_refreshed_count: int = 0
+    oa_available: bool = False  # True wenn DOI im globalen Pool mit oa_url
     import_source: str
     created_at: datetime
 
@@ -395,6 +396,7 @@ async def list_my_literature(
     user: Customer = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    from models.literature_global_index import LiteratureGlobalIndex
     stmt = select(LiteratureEntry).where(
         LiteratureEntry.customer_id == user.id,
         LiteratureEntry.is_active.is_(True),
@@ -402,7 +404,28 @@ async def list_my_literature(
     if entry_type:
         stmt = stmt.where(LiteratureEntry.entry_type == entry_type)
     result = await db.execute(stmt)
-    return result.scalars().all()
+    entries = list(result.scalars().all())
+
+    # OA-Verfügbarkeit aus globalem Pool — eine Query statt N+1
+    dois = [e.doi.strip().lower() for e in entries if e.doi]
+    oa_dois: set[str] = set()
+    if dois:
+        oa_q = await db.execute(
+            select(LiteratureGlobalIndex.doi).where(
+                LiteratureGlobalIndex.doi.in_(dois),
+                LiteratureGlobalIndex.oa_url.isnot(None),
+                LiteratureGlobalIndex.enrichment_status == "enriched",
+            )
+        )
+        oa_dois = {d for (d,) in oa_q.all()}
+
+    out = []
+    for e in entries:
+        item = LiteratureEntryOut.model_validate(e, from_attributes=True)
+        if e.doi and e.doi.strip().lower() in oa_dois:
+            item.oa_available = True
+        out.append(item)
+    return out
 
 
 @router.post("/", response_model=LiteratureEntryOut, status_code=201)

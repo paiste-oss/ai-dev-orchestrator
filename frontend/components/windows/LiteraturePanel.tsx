@@ -55,6 +55,7 @@ interface LitEntry {
   group_ids: string[];
   has_meta_backup?: boolean;
   meta_refreshed_count?: number;
+  oa_available?: boolean;
   import_source: string;
   created_at: string;
 }
@@ -3253,7 +3254,19 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                       <input type="checkbox" checked={isChecked} onClick={e => toggleRowSelect(entry.id, e)} onChange={() => {}}
                         className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" />
                       <div className="min-w-0">
-                        <p className={`text-xs font-medium truncate ${hasPdf ? "text-white" : "text-gray-500"}`}>{entry.title}</p>
+                        <p className={`text-xs font-medium truncate ${hasPdf ? "text-white" : "text-gray-500"}`}>
+                          {entry.oa_available && (
+                            <span title="Open Access verfügbar (Wissenspool)"
+                              className="inline-flex items-center mr-1 align-middle text-blue-400">
+                              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                {/* Open-Padlock — international anerkanntes OA-Symbol */}
+                                <rect x="5" y="11" width="14" height="10" rx="2"/>
+                                <path d="M8 11V7a4 4 0 0 1 8 0"/>
+                              </svg>
+                            </span>
+                          )}
+                          {entry.title}
+                        </p>
                         {entryGroups.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-0.5">
                             {entryGroups.map(g => (
