@@ -405,13 +405,16 @@ function DetailPanel({
               <p className="text-sm text-white">{entry.book_title}</p>
             </div>
           )}
-          {entry.entry_type === "book" && (entry.chapter_number || entry.chapter_name) && (
+          {entry.entry_type === "book" && entry.chapter_number && (
+            <div>
+              <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">Kapitel-Nummer</p>
+              <p className="text-sm text-white font-mono">{entry.chapter_number}</p>
+            </div>
+          )}
+          {entry.entry_type === "book" && entry.chapter_name && (
             <div className="col-span-2">
-              <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">Kapitel</p>
-              <p className="text-sm text-white">
-                {entry.chapter_number && <span className="font-mono mr-2">Nr. {entry.chapter_number}</span>}
-                {entry.chapter_name}
-              </p>
+              <p className="text-[11px] text-gray-400 uppercase tracking-wider font-medium mb-0.5">Kapitel-Name</p>
+              <p className="text-sm text-white">{entry.chapter_name}</p>
             </div>
           )}
         </div>
