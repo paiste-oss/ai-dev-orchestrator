@@ -238,6 +238,15 @@ async def enrich_doi(db: AsyncSession, raw_doi: str, force: bool = False) -> Lit
         existing.enrichment_error = "Beide APIs nicht erreichbar"
 
     existing.last_enriched_at = now
+
+    # Phase A.4 — Qdrant: Title+Abstract in globaler Semantik-Collection
+    if existing.enrichment_status == "enriched" and existing.title and existing.abstract:
+        try:
+            from services.vector_store import store_global_abstract
+            store_global_abstract(existing.doi, existing.title, existing.abstract)
+        except Exception as exc:
+            _log.info("[Enrichment/Qdrant] %s nicht indexiert: %s", existing.doi, exc)
+
     return existing
 
 

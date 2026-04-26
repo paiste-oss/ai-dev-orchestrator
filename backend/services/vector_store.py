@@ -203,6 +203,76 @@ def search_customer_documents(
     ]
 
 
+# ── Globaler Wissenspool (Phase A — customer-unabhängig) ────────────────────
+
+GLOBAL_ABSTRACTS_COLLECTION = "literature_global_abstracts"
+
+
+def store_global_abstract(
+    doi: str,
+    title: str,
+    abstract: str,
+) -> str | None:
+    """Speichert einen Title+Abstract als Embedding im globalen Pool.
+    Schlüssel ist der DOI (lowercase). Idempotent: bei wiederholtem Call wird
+    der bestehende Eintrag überschrieben."""
+    if not abstract or not abstract.strip():
+        return None
+    text = (title or "") + "\n\n" + abstract
+    if len(text.strip()) < 50:
+        return None
+
+    embedding = get_embedding(text[:8000])
+    if embedding is None:
+        return None
+
+    client = get_qdrant()
+    ensure_collection(client, GLOBAL_ABSTRACTS_COLLECTION, len(embedding))
+
+    # DOI als deterministischer Point-ID via UUID5 (stable, idempotent)
+    import uuid as _uuid
+    point_id = str(_uuid.uuid5(_uuid.NAMESPACE_URL, f"doi:{doi.lower()}"))
+
+    client.upsert(
+        collection_name=GLOBAL_ABSTRACTS_COLLECTION,
+        points=[PointStruct(
+            id=point_id,
+            vector=embedding,
+            payload={"doi": doi.lower(), "title": title or "", "abstract_preview": abstract[:600]},
+        )],
+    )
+    return point_id
+
+
+def search_global_abstracts(query: str, top_k: int = 20) -> List[dict]:
+    """Semantische Suche im globalen Pool — keine customer-Filterung,
+    da nur öffentliche Metadaten (Title + Abstract)."""
+    if not query.strip():
+        return []
+    query_vec = get_embedding(query)
+    if query_vec is None:
+        return []
+    client = get_qdrant()
+    existing = [c.name for c in client.get_collections().collections]
+    if GLOBAL_ABSTRACTS_COLLECTION not in existing:
+        return []
+    response = client.query_points(
+        collection_name=GLOBAL_ABSTRACTS_COLLECTION,
+        query=query_vec,
+        limit=top_k,
+        with_payload=True,
+    )
+    return [
+        {
+            "score": hit.score,
+            "doi": hit.payload.get("doi", ""),
+            "title": hit.payload.get("title", ""),
+            "abstract_preview": hit.payload.get("abstract_preview", ""),
+        }
+        for hit in response.points
+    ]
+
+
 def delete_document_vectors(
     document_id: str,
     collection_name: str = "customer_documents",

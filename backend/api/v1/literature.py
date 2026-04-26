@@ -1618,20 +1618,34 @@ async def search_global_index(
         raise HTTPException(status_code=422, detail="Suchbegriff darf nicht leer sein")
     limit = max(1, min(limit, 50))
 
-    # Postgres FTS — 'simple' (sprachneutral) damit DE/EN/Mischformen funktionieren
-    tsv = func.to_tsvector("simple",
-        func.coalesce(LiteratureGlobalIndex.title, "") + " " + func.coalesce(LiteratureGlobalIndex.abstract, ""))
-    tsq = func.plainto_tsquery("simple", q)
-    rank = func.ts_rank(tsv, tsq)
+    # Hybrid-Suche: zuerst Qdrant (semantisch), Fallback auf Postgres FTS
+    rows: list[LiteratureGlobalIndex] = []
+    try:
+        from services.vector_store import search_global_abstracts
+        semantic_hits = search_global_abstracts(q, top_k=limit)
+        if semantic_hits:
+            dois = [h["doi"] for h in semantic_hits]
+            stmt = select(LiteratureGlobalIndex).where(LiteratureGlobalIndex.doi.in_(dois))
+            row_map = {r.doi: r for r in (await db.execute(stmt)).scalars().all()}
+            # Reihenfolge nach Qdrant-Score beibehalten
+            rows = [row_map[d] for d in dois if d in row_map]
+    except Exception as exc:
+        _log.info("[Search/Qdrant] Fallback auf FTS: %s", exc)
 
-    stmt = (
-        select(LiteratureGlobalIndex)
-        .where(tsv.op("@@")(tsq))
-        .where(LiteratureGlobalIndex.enrichment_status == "enriched")
-        .order_by(rank.desc())
-        .limit(limit)
-    )
-    rows = (await db.execute(stmt)).scalars().all()
+    if not rows:
+        # FTS-Fallback (oder wenn Qdrant leer)
+        tsv = func.to_tsvector("simple",
+            func.coalesce(LiteratureGlobalIndex.title, "") + " " + func.coalesce(LiteratureGlobalIndex.abstract, ""))
+        tsq = func.plainto_tsquery("simple", q)
+        rank = func.ts_rank(tsv, tsq)
+        stmt = (
+            select(LiteratureGlobalIndex)
+            .where(tsv.op("@@")(tsq))
+            .where(LiteratureGlobalIndex.enrichment_status == "enriched")
+            .order_by(rank.desc())
+            .limit(limit)
+        )
+        rows = list((await db.execute(stmt)).scalars().all())
 
     # Welche dieser DOIs hat der Kunde bereits?
     if rows:

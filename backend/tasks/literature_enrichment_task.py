@@ -124,6 +124,54 @@ def enrich_sr_async(self, raw_sr: str) -> dict:
 
 
 @celery_app.task(
+    name="tasks.literature_enrichment_task.backfill_qdrant_abstracts",
+    bind=True,
+    ignore_result=False,
+    time_limit=6 * 3600,
+    soft_time_limit=6 * 3600 - 60,
+)
+def backfill_qdrant_abstracts(self, limit: int | None = None) -> dict:
+    """Phase A.4 — alle bereits enriched DOIs (mit Title + Abstract) in die
+    Qdrant Semantic-Search-Collection einspielen. Einmalig nach Deploy nötig;
+    künftige enrich_doi-Calls indexieren automatisch."""
+    async def _run() -> dict:
+        from core.database import AsyncSessionLocal
+        from sqlalchemy import select
+        from models.literature_global_index import LiteratureGlobalIndex
+        from services.vector_store import store_global_abstract
+
+        async with AsyncSessionLocal() as db:
+            stmt = select(LiteratureGlobalIndex).where(
+                LiteratureGlobalIndex.enrichment_status == "enriched",
+                LiteratureGlobalIndex.title.isnot(None),
+                LiteratureGlobalIndex.abstract.isnot(None),
+            )
+            if limit:
+                stmt = stmt.limit(limit)
+            rows = (await db.execute(stmt)).scalars().all()
+
+        _log.info("[Qdrant-Backfill] %d Einträge mit Title+Abstract zu indexieren", len(rows))
+        indexed = 0
+        skipped = 0
+        for i, rec in enumerate(rows):
+            try:
+                pid = store_global_abstract(rec.doi, rec.title, rec.abstract)
+                if pid:
+                    indexed += 1
+                else:
+                    skipped += 1
+            except Exception as exc:
+                _log.warning("[Qdrant-Backfill] %s: %s", rec.doi, exc)
+                skipped += 1
+            if (i + 1) % 100 == 0:
+                _log.info("[Qdrant-Backfill] %d/%d (✓%d ✗%d)", i + 1, len(rows), indexed, skipped)
+        result = {"total": len(rows), "indexed": indexed, "skipped": skipped}
+        _log.info("[Qdrant-Backfill] fertig: %s", result)
+        return result
+    return asyncio.run(_run())
+
+
+@celery_app.task(
     name="tasks.literature_enrichment_task.backfill_books_index",
     bind=True,
     ignore_result=False,

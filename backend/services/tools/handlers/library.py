@@ -186,19 +186,34 @@ async def _handle_library(tool_name: str, tool_input: dict, customer_id: str | N
 
         from models.literature_global_index import LiteratureGlobalIndex
         async with AsyncSessionLocal() as db:
-            tsv = sa_func.to_tsvector("simple",
-                sa_func.coalesce(LiteratureGlobalIndex.title, "") + " " +
-                sa_func.coalesce(LiteratureGlobalIndex.abstract, ""))
-            tsq = sa_func.plainto_tsquery("simple", query)
-            rank = sa_func.ts_rank(tsv, tsq)
-            stmt = (
-                select(LiteratureGlobalIndex)
-                .where(tsv.op("@@")(tsq))
-                .where(LiteratureGlobalIndex.enrichment_status == "enriched")
-                .order_by(rank.desc())
-                .limit(limit)
-            )
-            rows = (await db.execute(stmt)).scalars().all()
+            # Hybrid: Qdrant zuerst, FTS-Fallback
+            rows = []
+            try:
+                from services.vector_store import search_global_abstracts
+                hits = search_global_abstracts(query, top_k=limit)
+                if hits:
+                    dois = [h["doi"] for h in hits]
+                    rmap = {r.doi: r for r in (await db.execute(
+                        select(LiteratureGlobalIndex).where(LiteratureGlobalIndex.doi.in_(dois))
+                    )).scalars().all()}
+                    rows = [rmap[d] for d in dois if d in rmap]
+            except Exception:
+                pass
+
+            if not rows:
+                tsv = sa_func.to_tsvector("simple",
+                    sa_func.coalesce(LiteratureGlobalIndex.title, "") + " " +
+                    sa_func.coalesce(LiteratureGlobalIndex.abstract, ""))
+                tsq = sa_func.plainto_tsquery("simple", query)
+                rank = sa_func.ts_rank(tsv, tsq)
+                stmt = (
+                    select(LiteratureGlobalIndex)
+                    .where(tsv.op("@@")(tsq))
+                    .where(LiteratureGlobalIndex.enrichment_status == "enriched")
+                    .order_by(rank.desc())
+                    .limit(limit)
+                )
+                rows = list((await db.execute(stmt)).scalars().all())
 
             my_dois: set[str] = set()
             if rows:
