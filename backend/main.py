@@ -74,7 +74,66 @@ async def lifespan(app: FastAPI):
     from services.s3_storage import setup_bucket_cors
     init_firebase()
     await setup_bucket_cors()
+    # Recover orphane Bulk-Jobs (Worker beim letzten Restart gekillt) — auf
+    # cancelled setzen damit Frontend sie als beendet anzeigt
+    try:
+        await _recover_orphan_bulk_jobs()
+    except Exception as exc:
+        import logging
+        logging.getLogger("uvicorn.error").warning("[Boot] Bulk-Job-Recovery fehlgeschlagen: %s", exc)
     yield
+
+
+async def _recover_orphan_bulk_jobs() -> None:
+    """Beim Backend-Start: alle 'processing'-Bulk-Jobs in Redis prüfen.
+    Wenn ein Job seit > 60s keine Update bekommen hat (started_at oder completed_at
+    Timestamp), dann ist sein Worker tot — auf 'cancelled' setzen."""
+    import json as _json
+    from datetime import datetime, timedelta
+    import redis.asyncio as aioredis
+    from core.config import settings
+
+    r = aioredis.from_url(settings.redis_url)
+    try:
+        keys = await r.keys("lit_bulk_meta:*")
+        # Filter out cancel-keys (lit_bulk_meta_cancel:*)
+        keys = [k for k in keys if b":lit_bulk_meta_cancel:" not in k and not (
+            isinstance(k, bytes) and k.startswith(b"lit_bulk_meta_cancel:")
+        ) and not (isinstance(k, str) and k.startswith("lit_bulk_meta_cancel:"))]
+        recovered = 0
+        for k in keys:
+            raw = await r.get(k)
+            if not raw:
+                continue
+            try:
+                data = _json.loads(raw)
+            except Exception:
+                continue
+            if data.get("status") != "processing":
+                continue
+            # Wenn started_at > 60s zurückliegt, gilt der Job als verwaist
+            started = data.get("started_at")
+            if started:
+                try:
+                    started_dt = datetime.fromisoformat(started.replace("Z", ""))
+                    if (datetime.utcnow() - started_dt) < timedelta(seconds=60):
+                        # Job läuft erst kurz — könnte ein gerade gestarteter sein
+                        continue
+                except Exception:
+                    pass
+            data["status"] = "cancelled"
+            data["error_msg"] = "Backend-Restart hat den Job abgebrochen. Bereits verbesserte Einträge sind gespeichert."
+            data["completed_at"] = datetime.utcnow().isoformat()
+            await r.set(k, _json.dumps(data), ex=21600)
+            # Auch Cancel-Flag löschen falls vorhanden
+            cancel_key = (k.decode() if isinstance(k, bytes) else k).replace("lit_bulk_meta:", "lit_bulk_meta_cancel:")
+            await r.delete(cancel_key)
+            recovered += 1
+        if recovered:
+            import logging
+            logging.getLogger("uvicorn.error").info("[Boot] %d orphane Bulk-Jobs auf cancelled gesetzt", recovered)
+    finally:
+        await r.aclose()
 
 
 app = FastAPI(title="AI Buddy", version="2.0.0", lifespan=lifespan, docs_url=None, redoc_url=None)
