@@ -958,10 +958,10 @@ def _compute_proposed_changes(entry: LiteratureEntry, extracted: dict) -> dict:
         if new_val and not cur_val:
             proposed[f] = new_val
 
-    # entry_type nur falls aktueller default 'paper' und PDF was anderes erkennt
-    new_type = extracted.get("entry_type")
-    if new_type and new_type in _VALID_ENTRY_TYPES and new_type != entry.entry_type and entry.entry_type == "paper":
-        proposed["entry_type"] = new_type
+    # entry_type wird NICHT mehr auto-vorgeschlagen — Haiku verwechselt zu oft
+    # Konferenzbeiträge, Theses, Reports mit "book". User kann den Type-Vorschlag
+    # weiterhin im Diff-Modal manuell anhaken (extracted wird angezeigt), aber im
+    # Bulk-Refresh bleibt der ursprüngliche Type unangetastet.
 
     return proposed
 
