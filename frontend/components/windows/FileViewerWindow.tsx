@@ -1,11 +1,14 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+import { apiFetch } from "@/lib/auth";
+import { BACKEND_URL } from "@/lib/config";
 import { useT } from "@/lib/i18n";
 import WindowFrame from "./WindowFrame";
 
 interface Tab {
   key: string;
-  url: string;
+  url?: string;  // optional — bei Persist-Restore zunächst leer, wird per useEffect nachgeladen
   filename: string;
   fileType?: string;
   mimeType?: string;
@@ -59,6 +62,39 @@ export default function FileViewerWindow(props: Props) {
   const activeKey = props.activeKey ?? effectiveTabs[0]?.key ?? null;
   const active = effectiveTabs.find(t => t.key === activeKey) ?? effectiveTabs[0] ?? null;
 
+  // Re-Fetch nach Reload: Tabs ohne URL haben eine literatureEntryId oder
+  // documentEntryId — Blob neu laden und zurück in die Tab-Daten schreiben
+  const refetchedKeys = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!props.onUpdateData) return;
+    const needsFetch = effectiveTabs.filter(t => !t.url && (t.literatureEntryId || t.documentEntryId) && !refetchedKeys.current.has(t.key));
+    if (needsFetch.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      for (const tab of needsFetch) {
+        refetchedKeys.current.add(tab.key);
+        try {
+          const url = tab.literatureEntryId
+            ? `${BACKEND_URL}/v1/literature/${tab.literatureEntryId}/pdf`
+            : `${BACKEND_URL}/v1/documents/mine/${tab.documentEntryId}/content`;
+          const res = await apiFetch(url);
+          if (!res.ok) continue;
+          const blob = await res.blob();
+          if (cancelled) return;
+          const blobUrl = URL.createObjectURL(blob);
+          // Aktuellen Tab-Set vom Parent holen statt closure-stale-Wert nehmen
+          props.onUpdateData?.({
+            tabs: (props.tabs ?? effectiveTabs).map(t => t.key === tab.key ? { ...t, url: blobUrl } : t),
+          });
+        } catch { /* still */ }
+      }
+    })();
+    return () => { cancelled = true; };
+    // effectiveTabs.length statt -Array vermeidet Re-Run bei jedem Render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveTabs.length]);
+
   function setActive(key: string) {
     if (props.onUpdateData) props.onUpdateData({ activeKey: key });
   }
@@ -68,7 +104,7 @@ export default function FileViewerWindow(props: Props) {
     const idx = effectiveTabs.findIndex(t => t.key === key);
     if (idx < 0) return;
     const closed = effectiveTabs[idx];
-    if (closed.url.startsWith("blob:")) {
+    if (closed.url && closed.url.startsWith("blob:")) {
       try { URL.revokeObjectURL(closed.url); } catch { /* ignore */ }
     }
     const nextTabs = effectiveTabs.filter(t => t.key !== key);
@@ -127,6 +163,16 @@ function FileContent({ tab, t }: { tab: Tab; t: (key: string, vars?: Record<stri
   const isPdf   = ext === "pdf";
   const isAudio = AUDIO_TYPES.includes(ext) || (tab.mimeType ?? "").startsWith("audio/");
   const isText  = TEXT_TYPES.includes(ext);
+
+  // Wird gerade nachgeladen (Tab nach Reload restored, URL fehlt noch)
+  if (!tab.url) {
+    return (
+      <div className="flex items-center justify-center h-full text-gray-500 text-xs gap-2">
+        <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+        Datei wird geladen…
+      </div>
+    );
+  }
 
   if (isImage) {
     return (

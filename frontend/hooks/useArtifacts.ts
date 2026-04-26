@@ -11,7 +11,18 @@ const storageKey  = (userId: string) => `baddi:artifacts:${encodeURIComponent(us
 const LEGACY_KEYS = ["baddi:artifacts", "baddi_canvas_cards"];
 
 // Typen mit temporären blob-URLs oder großen binären Daten — nicht persistieren
-const SKIP_PERSIST_TYPES = new Set(["file_viewer"]);
+const SKIP_PERSIST_TYPES = new Set<string>([]);
+
+interface FileViewerTab {
+  key: string;
+  url?: string;
+  filename: string;
+  fileType?: string;
+  mimeType?: string;
+  literatureEntryId?: string;
+  literatureTitle?: string;
+  documentEntryId?: string;
+}
 
 function sanitizeForStorage(state: ArtifactState): ArtifactState {
   return {
@@ -21,8 +32,29 @@ function sanitizeForStorage(state: ArtifactState): ArtifactState {
       .map((a) => {
         if (!a.data) return a;
         const { screenshot_b64: _omit, ...rest } = a.data as Record<string, unknown>;
+        // file_viewer: blob:-URLs sind nach Reload tot, ENTFERNEN damit das
+        // Window beim Restore neu fetched. Tabs ohne entry-id (chat-uploads etc.)
+        // werden komplett verworfen — die kann man nach Reload nicht wiederherstellen.
+        if (a.type === "file_viewer") {
+          const tabs = (rest.tabs as FileViewerTab[] | undefined) ?? [];
+          const restorable = tabs
+            .filter((t) => t.literatureEntryId || t.documentEntryId)
+            .map((t) => {
+              const { url, ...meta } = t;
+              if (url && !url.startsWith("blob:")) return t; // permanente URLs behalten
+              return meta;
+            });
+          if (restorable.length === 0) return null;
+          // Wenn aktive Tab nicht mehr restorable → erste verbleibende Tab aktiv
+          const stillActive = restorable.some(t => t.key === rest.activeKey);
+          return {
+            ...a,
+            data: { ...rest, tabs: restorable, activeKey: stillActive ? rest.activeKey : restorable[0].key },
+          };
+        }
         return { ...a, data: rest };
-      }),
+      })
+      .filter((a): a is ArtifactEntry => a !== null),
   };
 }
 
