@@ -2781,8 +2781,15 @@ async def upload_pdf_chunk(
     await r.set(f"lit_bulk:{user.id}:{upload_id}", _json.dumps({"status": "processing", "upload_id": upload_id}), ex=21600)
     await r.aclose()
 
-    background_tasks.add_task(_bulk_zip_background_task, str(assembled_path), str(user.id), upload_id)
-    _log.info("[Literatur/ZIP] Alle %d Chunks erhalten, starte Verarbeitung: %s", total_chunks, upload_id)
+    # Celery-Task statt FastAPI-BackgroundTask: überlebt Backend-Restarts
+    try:
+        from tasks.literature_enrichment_task import bulk_zip_process
+        bulk_zip_process.delay(str(assembled_path), str(user.id), upload_id)
+    except Exception as exc:
+        _log.error("[Literatur/ZIP] Celery-Trigger fehlgeschlagen: %s", exc)
+        # Fallback auf BackgroundTask wenn Celery nicht erreichbar
+        background_tasks.add_task(_bulk_zip_background_task, str(assembled_path), str(user.id), upload_id)
+    _log.info("[Literatur/ZIP] Alle %d Chunks erhalten, an Celery delegiert: %s", total_chunks, upload_id)
     return ChunkUploadResponse(upload_id=upload_id, chunks_received=received, total_chunks=total_chunks, status="processing")
 
 

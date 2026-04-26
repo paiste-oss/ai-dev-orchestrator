@@ -157,6 +157,28 @@ def backfill_books_index(self, limit: int | None = None, force: bool = False) ->
 
 
 @celery_app.task(
+    name="tasks.literature_enrichment_task.bulk_zip_process",
+    bind=True,
+    ignore_result=True,
+    time_limit=12 * 3600,
+    soft_time_limit=12 * 3600 - 60,
+)
+def bulk_zip_process(self, zip_path_str: str, customer_id_str: str, upload_id: str) -> dict:
+    """ZIP-Verarbeitung als Celery-Task. Überlebt Backend-Restarts wie
+    bulk_meta_refresh — wichtig bei grossen Bibliotheken (4000+ PDFs, mehrere
+    Stunden Laufzeit mit LLM-Fallback)."""
+    async def _run() -> dict:
+        import sys as _sys
+        for p in ("/app", "/app/backend"):
+            if p not in _sys.path:
+                _sys.path.insert(0, p)
+        from api.v1.literature import _bulk_zip_background_task
+        await _bulk_zip_background_task(zip_path_str, customer_id_str, upload_id)
+        return {"upload_id": upload_id, "status": "done"}
+    return asyncio.run(_run())
+
+
+@celery_app.task(
     name="tasks.literature_enrichment_task.bulk_meta_refresh",
     bind=True,
     ignore_result=False,
