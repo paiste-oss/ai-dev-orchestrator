@@ -2962,7 +2962,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
           <button
             className={`flex-1 flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${typeFilter === type && !groupFilter ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
             onClick={() => { onToggle(); setTypeFilter(type); setGroupFilter(null); }}>
-            <span>{icon}</span>
+            <span className="inline-flex w-4 justify-center text-[13px] leading-none shrink-0">{icon}</span>
             <span className="flex-1 text-left">{label}</span>
             <span className="text-[10px] text-gray-600">{count}</span>
           </button>
@@ -2999,7 +2999,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                 <div key={grp.id}>
                   {/* Group row */}
                   <div
-                    className={`flex items-center gap-1 rounded-lg px-1.5 py-1 group/grp transition-colors ${isGrpActive ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : isDragOver ? "bg-white/10 text-white" : "text-gray-500 hover:bg-white/5 hover:text-gray-300"}`}
+                    className={`flex items-center gap-1 rounded-lg px-1.5 py-1 group/grp transition-colors ${isGrpActive ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : isDragOver ? "bg-white/10 text-white" : "text-gray-300 hover:bg-white/5 hover:text-white"}`}
                     onDragOver={e => handleDragOver(e, grp.id)}
                     onDragLeave={handleDragLeave}
                     onDrop={e => handleDrop(e, grp.id)}
@@ -3023,7 +3023,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                           onClick={() => { setGroupFilter(isGrpActive ? null : grp.id); setTypeFilter(type); }}>
                           {grp.name}
                         </button>
-                        <span className="text-[10px] text-gray-700 shrink-0 group-hover/grp:hidden">{grpCount > 0 ? grpCount : ""}</span>
+                        <span className="text-[10px] text-gray-500 shrink-0 group-hover/grp:hidden">{grpCount > 0 ? grpCount : ""}</span>
                         <div className="hidden group-hover/grp:flex items-center gap-0.5 shrink-0">
                           <button onClick={() => setAddingGroupFor(isAddingFolder ? null : { type: entryType, parentId: grp.id })} title="Ordner hinzufügen" className="p-0.5 hover:text-white"><IconPlus /></button>
                           <button onClick={() => { setRenamingId(grp.id); setRenameVal(grp.name); }} title="Umbenennen" className="p-0.5 hover:text-white"><IconPencilTiny /></button>
@@ -3048,7 +3048,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                         const isDragOverFolder = dragOverGroupId === folder.id;
                         return (
                           <div key={folder.id}
-                            className={`flex items-center gap-1 rounded-lg px-1.5 py-1 group/folder transition-colors ${isFolderActive ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : isDragOverFolder ? "bg-white/10 text-white" : "text-gray-500 hover:bg-white/5 hover:text-gray-300"}`}
+                            className={`flex items-center gap-1 rounded-lg px-1.5 py-1 group/folder transition-colors ${isFolderActive ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : isDragOverFolder ? "bg-white/10 text-white" : "text-gray-300 hover:bg-white/5 hover:text-white"}`}
                             onDragOver={e => handleDragOver(e, folder.id)}
                             onDragLeave={handleDragLeave}
                             onDrop={e => handleDrop(e, folder.id)}
@@ -3067,7 +3067,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                                   onClick={() => { setGroupFilter(isFolderActive ? null : folder.id); setTypeFilter(type); }}>
                                   {folder.name}
                                 </button>
-                                <span className="text-[10px] text-gray-700 shrink-0 group-hover/folder:hidden">{folderCount > 0 ? folderCount : ""}</span>
+                                <span className="text-[10px] text-gray-500 shrink-0 group-hover/folder:hidden">{folderCount > 0 ? folderCount : ""}</span>
                                 <div className="hidden group-hover/folder:flex items-center gap-0.5 shrink-0">
                                   <button onClick={() => setRenamingId(folder.id)} title="Umbenennen" className="p-0.5 hover:text-white"><IconPencilTiny /></button>
                                   <button onClick={() => handleDeleteGroup(folder.id)} title="Löschen" className="p-0.5 hover:text-red-400"><IconTrashTiny /></button>
@@ -3220,7 +3220,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
             {/* Alle */}
             <button onClick={() => { setTypeFilter("all"); setGroupFilter(null); }}
               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${typeFilter === "all" && !groupFilter ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
-              <span>📚</span>
+              <span className="inline-flex w-4 justify-center text-[13px] leading-none shrink-0">📚</span>
               <span className="flex-1 text-left">Alle</span>
               <span className="text-[10px] text-gray-600">{entries.length}</span>
             </button>
@@ -3229,7 +3229,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
             {newEntries.length > 0 && (
               <button onClick={() => { setTypeFilter("new"); setGroupFilter(null); }}
                 className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors mt-0.5 ${typeFilter === "new" ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
-                <span className="text-[11px]">🆕</span>
+                <span className="inline-flex w-4 justify-center text-[13px] leading-none shrink-0">🆕</span>
                 <span className="flex-1 text-left">Neu hinzugefügt</span>
                 <span className="text-[10px] text-gray-600">{newEntries.length}</span>
               </button>
@@ -3250,7 +3250,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
           {/* Favoriten */}
           <button onClick={() => setTypeFilter("favorites")}
             className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors ${typeFilter === "favorites" ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
-            <span className="text-yellow-400 text-[11px]">★</span>
+            <span className="inline-flex w-4 justify-center text-[13px] leading-none shrink-0 text-yellow-400">★</span>
             <span className="flex-1 text-left">Favoriten</span>
             {favorites.length > 0 && <span className="text-[10px] text-gray-600">{favorites.length}</span>}
           </button>
@@ -3258,7 +3258,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
           {/* Zu Lesen */}
           <button onClick={() => setTypeFilter("read_later")}
             className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors mt-0.5 ${typeFilter === "read_later" ? "bg-[var(--accent-20)] text-[var(--accent-light)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}>
-            <span className="text-blue-400 text-[11px]">🔖</span>
+            <span className="inline-flex w-4 justify-center text-[13px] leading-none shrink-0">🔖</span>
             <span className="flex-1 text-left">Zu lesen</span>
             {readLaterEntries.length > 0 && <span className="text-[10px] text-gray-600">{readLaterEntries.length}</span>}
           </button>
@@ -3271,10 +3271,12 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
               <button onClick={() => { setTypeFilter("oa"); setGroupFilter(null); }}
                 className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors mt-0.5 ${typeFilter === "oa" ? "bg-blue-500/20 text-blue-300" : "text-blue-400/80 hover:bg-blue-500/10 hover:text-blue-200"}`}
                 title="Nur Einträge mit Open-Access-Verfügbarkeit (aus Wissenspool)">
-                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="5" y="11" width="14" height="10" rx="2"/>
-                  <path d="M8 11V7a4 4 0 0 1 8 0"/>
-                </svg>
+                <span className="inline-flex w-4 justify-center shrink-0">
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="5" y="11" width="14" height="10" rx="2"/>
+                    <path d="M8 11V7a4 4 0 0 1 8 0"/>
+                  </svg>
+                </span>
                 <span className="flex-1 text-left">Open Access</span>
                 <span className="text-[10px] opacity-80">{oaCount}</span>
               </button>
@@ -3285,7 +3287,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
           <button onClick={() => { setTypeFilter("discovery"); setGroupFilter(null); setSelectedIds(new Set()); }}
             className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors mt-0.5 ${typeFilter === "discovery" ? "bg-blue-500/20 text-blue-300" : "text-blue-400/80 hover:bg-blue-500/10 hover:text-blue-200"}`}
             title="Globaler Wissenspool — Crossref + Unpaywall">
-            <span className="text-[11px]">🌐</span>
+            <span className="inline-flex w-4 justify-center text-[13px] leading-none shrink-0">🌐</span>
             <span className="flex-1 text-left">Wissenspool</span>
           </button>
 
@@ -3294,7 +3296,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
             <button onClick={() => { setTypeFilter("orphans"); setGroupFilter(null); }}
               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors mt-0.5 ${typeFilter === "orphans" ? "bg-amber-500/20 text-amber-300" : "text-amber-400/80 hover:bg-amber-500/10 hover:text-amber-200"}`}
               title="PDFs aus dem ZIP-Upload, die keinem XML-Eintrag zugeordnet werden konnten">
-              <span className="text-[11px]">📥</span>
+              <span className="inline-flex w-4 justify-center text-[13px] leading-none shrink-0">📥</span>
               <span className="flex-1 text-left">Unbekannte PDFs</span>
               <span className="text-[10px] opacity-80">{orphans.length}</span>
             </button>
