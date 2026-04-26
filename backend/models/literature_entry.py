@@ -52,6 +52,12 @@ class LiteratureEntry(Base):
     publisher: Mapped[str | None] = mapped_column(String(512), nullable=True)
     isbn: Mapped[str | None] = mapped_column(String(256), nullable=True)
     edition: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Für Buch-Kapitel: gemeinsamer Buch-Titel als Gruppierungs-Key.
+    # Mehrere Einträge mit gleichem book_title (oder gleicher ISBN) gehören
+    # zum selben Buch und werden im Grid als ausklappbare Gruppe dargestellt.
+    book_title: Mapped[str | None] = mapped_column(Text, nullable=True)
+    chapter_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    chapter_name: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Gemeinsam
     tags: Mapped[list | None] = mapped_column(JSONB, nullable=True)

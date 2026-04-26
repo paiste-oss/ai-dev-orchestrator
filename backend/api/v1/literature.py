@@ -75,6 +75,9 @@ class LiteratureEntryOut(BaseModel):
     publisher: str | None
     isbn: str | None
     edition: str | None
+    book_title: str | None = None
+    chapter_number: str | None = None
+    chapter_name: str | None = None
     tags: list[str] | None
     notes: str | None
     pdf_s3_key: str | None
@@ -133,6 +136,9 @@ class LiteratureCreateRequest(BaseModel):
     publisher: str | None = None
     isbn: str | None = None
     edition: str | None = None
+    book_title: str | None = None
+    chapter_number: str | None = None
+    chapter_name: str | None = None
     tags: list[str] | None = None
     notes: str | None = None
     baddi_readable: bool = True
@@ -153,6 +159,9 @@ class LiteratureUpdateRequest(BaseModel):
     publisher: str | None = None
     isbn: str | None = None
     edition: str | None = None
+    book_title: str | None = None
+    chapter_number: str | None = None
+    chapter_name: str | None = None
     tags: list[str] | None = None
     notes: str | None = None
     baddi_readable: bool | None = None
@@ -359,6 +368,9 @@ async def _create_entry_from_dict(
         publisher=data.get("publisher"),
         isbn=data.get("isbn"),
         edition=data.get("edition"),
+        book_title=data.get("book_title"),
+        chapter_number=data.get("chapter_number"),
+        chapter_name=data.get("chapter_name"),
         tags=data.get("tags"),
         notes=data.get("notes"),
         baddi_readable=data.get("baddi_readable", True),

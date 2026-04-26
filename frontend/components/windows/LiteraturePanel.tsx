@@ -45,6 +45,9 @@ interface LitEntry {
   publisher: string | null;
   isbn: string | null;
   edition: string | null;
+  book_title?: string | null;
+  chapter_number?: string | null;
+  chapter_name?: string | null;
   tags: string[] | null;
   notes: string | null;
   pdf_s3_key: string | null;
@@ -1871,6 +1874,30 @@ function EntryForm({
           </>
         )}
 
+        {/* Buch-Kapitel-Felder — gruppieren mehrere Kapitel zum selben Buch */}
+        {form.entry_type === "book" && (
+          <div className="rounded-lg border border-white/10 bg-white/3 p-2.5 space-y-2">
+            <p className="text-[10px] uppercase tracking-wider text-gray-500">Bei Buch-Kapiteln ausfüllen — gruppiert die Einträge im Grid</p>
+            <div>
+              <label className={labelClass}>Buch-Titel <span className="text-gray-600">(Parent — gleich für alle Kapitel)</span></label>
+              <input value={form.book_title || ""} onChange={e => set("book_title", e.target.value)}
+                placeholder="Lithium-Ion Batteries: Advances and Applications" className={`${inputClass} mt-1`} />
+            </div>
+            <div className="grid grid-cols-[80px_1fr] gap-2">
+              <div>
+                <label className={labelClass}>Kapitel-Nr.</label>
+                <input value={form.chapter_number || ""} onChange={e => set("chapter_number", e.target.value)}
+                  placeholder="5 / 5.2" className={`${inputClass} mt-1`} />
+              </div>
+              <div>
+                <label className={labelClass}>Kapitel-Name</label>
+                <input value={form.chapter_name || ""} onChange={e => set("chapter_name", e.target.value)}
+                  placeholder="Cathode Materials" className={`${inputClass} mt-1`} />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Patent-Felder */}
         {isPatent && (
           <>
@@ -1991,6 +2018,8 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   // Groups state
   const [groups, setGroups] = useState<LitGroup[]>([]);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  // Welche Buch-Gruppen sind im Grid ausgeklappt (Key = ISBN oder book_title)
+  const [expandedBooks, setExpandedBooks] = useState<Set<string>>(new Set());
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameVal, setRenameVal] = useState("");
   const [addingGroupFor, setAddingGroupFor] = useState<{ type: EntryType; parentId: string | null } | null>(null);
@@ -2689,7 +2718,8 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       // explizit damit die Wartung einfacher ist und keine Daten ungewollt überschrieben werden)
       const allowedFields: (keyof LitEntry)[] = ["entry_type", "title", "authors", "year",
         "abstract", "journal", "volume", "issue", "pages", "doi", "url", "publisher",
-        "isbn", "edition", "tags", "notes", "baddi_readable"];
+        "isbn", "edition", "book_title", "chapter_number", "chapter_name",
+        "tags", "notes", "baddi_readable"];
       const body: Record<string, unknown> = {};
       for (const k of allowedFields) {
         if (data[k] !== undefined) body[k] = data[k];
@@ -3501,59 +3531,171 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                   }} />
 
 
-                {sorted.map(entry => {
-                  const isActive = selected?.id === entry.id && (showDetail || showForm);
-                  const isChecked = selectedIds.has(entry.id);
-                  const entryGroups = entry.group_ids
-                    .map(gid => groups.find(g => g.id === gid))
-                    .filter((g): g is LitGroup => !!g);
-                  const hasPdf = !!entry.pdf_s3_key;
-                  const yearStr = entry.year ? String(entry.year) : "";
-                  const journalStr = entry.entry_type === "patent"
-                    ? (entry.journal ?? entry.isbn ?? "")
-                    : (entry.journal ?? entry.publisher ?? "");
-                  return (
-                    <div key={entry.id}
-                      data-lit-grid="1"
-                      draggable
-                      onDragStart={e => handleDragStart(e, entry.id)}
-                      onClick={() => selectEntry(entry)}
-                      onDoubleClick={() => { if (hasPdf) handlePdfOpen(entry); }}
-                      title={hasPdf ? "Doppelklick öffnet PDF im Viewer" : "Kein PDF hinterlegt"}
-                      className={`group grid items-center gap-2 px-3 py-1.5 border-b border-white/4 cursor-pointer transition-colors border-l-2 ${isActive ? "bg-[var(--accent-10)]" : isChecked ? "bg-white/3" : "hover:bg-white/3"} ${hasPdf ? "border-l-transparent" : "border-l-amber-500/50"}`}
-                      style={{ gridTemplateColumns: `32px 24px ${titleColWidth}px 56px 180px 180px` }}>
-                      <input type="checkbox" checked={isChecked} onClick={e => toggleRowSelect(entry.id, e)} onChange={() => {}}
-                        className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" />
-                      <span className="flex items-center justify-center"
-                        title={entry.oa_available ? "Open Access verfügbar (Wissenspool)" : ""}>
-                        {entry.oa_available && (
-                          <svg className="w-3 h-3 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="5" y="11" width="14" height="10" rx="2"/>
-                            <path d="M8 11V7a4 4 0 0 1 8 0"/>
-                          </svg>
-                        )}
-                      </span>
-                      <div className="min-w-0">
-                        <p className={`text-xs font-medium truncate ${hasPdf ? "text-white" : "text-gray-500"} flex items-center gap-1`}>
-                          {uploadingPdf === entry.id && <span className="shrink-0"><IconSpinner /></span>}
-                          {entry.is_favorite && <span className="shrink-0" title="Favorit"><IconStarFilled /></span>}
-                          {entry.read_later && <span className="shrink-0" title="Zu lesen"><IconBookmarkFilled /></span>}
-                          <span className="truncate">{entry.title}</span>
-                        </p>
-                        {entryGroups.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-0.5">
-                            {entryGroups.map(g => (
-                              <span key={g.id} className="text-[9px] text-amber-600/80 flex items-center gap-0.5"><IconFolder />{g.name}</span>
-                            ))}
+                {(() => {
+                  // Buch-Gruppierung: bei typeFilter='book' Einträge mit gleicher
+                  // ISBN oder gleichem book_title zusammenfassen
+                  type BookGroup = { key: string; entries: LitEntry[]; sample: LitEntry };
+                  const groupKey = (e: LitEntry): string => {
+                    const isbn = (e.isbn || "").trim();
+                    if (isbn) return `isbn:${isbn.toLowerCase()}`;
+                    const bt = (e.book_title || "").trim();
+                    if (bt) return `bt:${bt.toLowerCase()}`;
+                    return "";
+                  };
+                  type Item =
+                    | { kind: "single"; entry: LitEntry; indent?: boolean }
+                    | { kind: "parent"; group: BookGroup }
+                    | { kind: "child"; entry: LitEntry; group: BookGroup };
+
+                  let items: Item[] = [];
+                  if (typeFilter === "book") {
+                    const groupsMap = new Map<string, LitEntry[]>();
+                    const standalone: LitEntry[] = [];
+                    for (const e of sorted) {
+                      const k = groupKey(e);
+                      if (!k) { standalone.push(e); continue; }
+                      groupsMap.set(k, [...(groupsMap.get(k) || []), e]);
+                    }
+                    // Gruppen mit nur 1 Eintrag → standalone
+                    for (const [k, list] of groupsMap.entries()) {
+                      if (list.length === 1) { standalone.push(list[0]); groupsMap.delete(k); }
+                    }
+                    // Gruppen sortiert nach erstem-Eintrag-Position; standalone behält sorted-order
+                    const sortedKeys = [...groupsMap.keys()].sort((a, b) => {
+                      const ai = sorted.findIndex(e => groupKey(e) === a);
+                      const bi = sorted.findIndex(e => groupKey(e) === b);
+                      return ai - bi;
+                    });
+                    const handled = new Set<string>();
+                    for (const e of sorted) {
+                      const k = groupKey(e);
+                      if (k && groupsMap.has(k)) {
+                        if (!handled.has(k)) {
+                          handled.add(k);
+                          const list = groupsMap.get(k)!;
+                          const sample = list[0];
+                          const grp: BookGroup = { key: k, entries: list, sample };
+                          items.push({ kind: "parent", group: grp });
+                          if (expandedBooks.has(k)) {
+                            for (const child of list) items.push({ kind: "child", entry: child, group: grp });
+                          }
+                        }
+                      } else {
+                        items.push({ kind: "single", entry: e });
+                      }
+                    }
+                    void sortedKeys; // sortierung ist implizit über sorted-order
+                  } else {
+                    items = sorted.map(e => ({ kind: "single", entry: e }));
+                  }
+
+                  return items.map((it, idx) => {
+                    if (it.kind === "parent") {
+                      const grp = it.group;
+                      const sample = grp.sample;
+                      const isOpen = expandedBooks.has(grp.key);
+                      // Gemeinsame Felder aus dem ersten Eintrag
+                      const titleDisplay = sample.book_title || sample.title;
+                      const author = (sample.authors || []).slice(0, 2).join("; ");
+                      const yearStr = sample.year ? String(sample.year) : "";
+                      const publisherStr = sample.publisher || "";
+                      const anyOa = grp.entries.some(e => e.oa_available);
+                      return (
+                        <div key={`parent-${grp.key}`}
+                          data-lit-grid="1"
+                          onClick={() => setExpandedBooks(prev => {
+                            const s = new Set(prev);
+                            if (s.has(grp.key)) s.delete(grp.key); else s.add(grp.key);
+                            return s;
+                          })}
+                          className="grid items-center gap-2 px-3 py-1.5 border-b border-white/8 cursor-pointer bg-white/[0.04] hover:bg-white/[0.07] transition-colors border-l-2 border-l-blue-400/40"
+                          style={{ gridTemplateColumns: `32px 24px ${titleColWidth}px 56px 180px 180px` }}>
+                          <span className="flex items-center justify-center text-gray-400">
+                            <svg className={`w-3 h-3 transition-transform ${isOpen ? "rotate-90" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                          </span>
+                          <span className="flex items-center justify-center" title={anyOa ? "Mind. 1 Kapitel ist Open Access" : ""}>
+                            {anyOa && (
+                              <svg className="w-3 h-3 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="5" y="11" width="14" height="10" rx="2"/>
+                                <path d="M8 11V7a4 4 0 0 1 8 0"/>
+                              </svg>
+                            )}
+                          </span>
+                          <div className="min-w-0 flex items-center gap-2">
+                            <span className="text-base shrink-0">📚</span>
+                            <p className="text-xs font-semibold text-white truncate" title={titleDisplay}>{titleDisplay}</p>
+                            <span className="shrink-0 text-[10px] text-blue-300/80 bg-blue-500/15 border border-blue-500/30 rounded px-1.5 py-0.5">
+                              {grp.entries.length} Kapitel
+                            </span>
                           </div>
-                        )}
+                          <span className="text-[11px] text-gray-400 tabular-nums">{yearStr}</span>
+                          <span className="text-[11px] text-gray-400 truncate" title={author}>{author}</span>
+                          <span className="text-[11px] text-gray-400 truncate" title={publisherStr}>{publisherStr}</span>
+                        </div>
+                      );
+                    }
+
+                    const entry = it.kind === "child" ? it.entry : it.entry;
+                    const indent = it.kind === "child";
+                    const isActive = selected?.id === entry.id && (showDetail || showForm);
+                    const isChecked = selectedIds.has(entry.id);
+                    const entryGroups = entry.group_ids
+                      .map(gid => groups.find(g => g.id === gid))
+                      .filter((g): g is LitGroup => !!g);
+                    const hasPdf = !!entry.pdf_s3_key;
+                    const yearStr = entry.year ? String(entry.year) : "";
+                    const journalStr = entry.entry_type === "patent"
+                      ? (entry.journal ?? entry.isbn ?? "")
+                      : (entry.journal ?? entry.publisher ?? "");
+                    // Bei Kapitel-Child: Title = "Nr. Name" wenn vorhanden
+                    const displayTitle = indent && (entry.chapter_number || entry.chapter_name)
+                      ? `${entry.chapter_number ? `Kap. ${entry.chapter_number}` : ""}${entry.chapter_number && entry.chapter_name ? " · " : ""}${entry.chapter_name || ""}`
+                      : entry.title;
+                    return (
+                      <div key={entry.id}
+                        data-lit-grid="1"
+                        draggable
+                        onDragStart={e => handleDragStart(e, entry.id)}
+                        onClick={() => selectEntry(entry)}
+                        onDoubleClick={() => { if (hasPdf) handlePdfOpen(entry); }}
+                        title={hasPdf ? "Doppelklick öffnet PDF im Viewer" : "Kein PDF hinterlegt"}
+                        className={`group grid items-center gap-2 px-3 py-1.5 border-b border-white/4 cursor-pointer transition-colors border-l-2 ${isActive ? "bg-[var(--accent-10)]" : isChecked ? "bg-white/3" : "hover:bg-white/3"} ${hasPdf ? "border-l-transparent" : "border-l-amber-500/50"} ${indent ? "pl-8" : ""}`}
+                        style={{ gridTemplateColumns: `32px 24px ${titleColWidth}px 56px 180px 180px` }}>
+                        <input type="checkbox" checked={isChecked} onClick={e => toggleRowSelect(entry.id, e)} onChange={() => {}}
+                          className="w-3.5 h-3.5 accent-[var(--accent)] cursor-pointer" />
+                        <span className="flex items-center justify-center"
+                          title={entry.oa_available ? "Open Access verfügbar (Wissenspool)" : ""}>
+                          {entry.oa_available && (
+                            <svg className="w-3 h-3 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="5" y="11" width="14" height="10" rx="2"/>
+                              <path d="M8 11V7a4 4 0 0 1 8 0"/>
+                            </svg>
+                          )}
+                        </span>
+                        <div className="min-w-0">
+                          <p className={`text-xs ${indent ? "" : "font-medium"} truncate ${hasPdf ? "text-white" : "text-gray-500"} flex items-center gap-1`}>
+                            {uploadingPdf === entry.id && <span className="shrink-0"><IconSpinner /></span>}
+                            {entry.is_favorite && <span className="shrink-0" title="Favorit"><IconStarFilled /></span>}
+                            {entry.read_later && <span className="shrink-0" title="Zu lesen"><IconBookmarkFilled /></span>}
+                            <span className="truncate">{displayTitle}</span>
+                          </p>
+                          {entryGroups.length > 0 && !indent && (
+                            <div className="flex flex-wrap gap-1 mt-0.5">
+                              {entryGroups.map(g => (
+                                <span key={g.id} className="text-[9px] text-amber-600/80 flex items-center gap-0.5"><IconFolder />{g.name}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-gray-400 tabular-nums">{indent ? (entry.pages || "") : yearStr}</span>
+                        <span className="text-[11px] text-gray-400 truncate" title={(entry.authors ?? []).join("; ")}>{indent ? "" : fmtAuthors(entry.authors)}</span>
+                        <span className="text-[11px] text-gray-400 truncate" title={journalStr}>{indent ? "" : journalStr}</span>
                       </div>
-                      <span className="text-[11px] text-gray-400 tabular-nums">{yearStr}</span>
-                      <span className="text-[11px] text-gray-400 truncate" title={(entry.authors ?? []).join("; ")}>{fmtAuthors(entry.authors)}</span>
-                      <span className="text-[11px] text-gray-400 truncate" title={journalStr}>{journalStr}</span>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             </div>
           )}
