@@ -68,7 +68,7 @@ interface LitGroup {
   position: number;
 }
 
-type SidebarFilter = "all" | "new" | EntryType | "favorites" | "read_later" | "orphans" | "discovery";
+type SidebarFilter = "all" | "new" | EntryType | "favorites" | "read_later" | "oa" | "orphans" | "discovery";
 
 interface GlobalPoolHit {
   doi: string;
@@ -2572,7 +2572,8 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
     if (typeFilter === "new") { if (now - new Date(e.created_at).getTime() >= _24h) return false; }
     else if (typeFilter === "favorites") { if (!e.is_favorite) return false; }
     else if (typeFilter === "read_later") { if (!e.read_later) return false; }
-    else if (typeFilter !== "all") { if (e.entry_type !== typeFilter) return false; }
+    else if (typeFilter === "oa") { if (!e.oa_available) return false; }
+    else if (typeFilter !== "all" && typeFilter !== "discovery" && typeFilter !== "orphans") { if (e.entry_type !== typeFilter) return false; }
     if (groupFilter) {
       const grp = groups.find(g => g.id === groupFilter);
       if (grp) {
@@ -3261,6 +3262,24 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
             <span className="flex-1 text-left">Zu lesen</span>
             {readLaterEntries.length > 0 && <span className="text-[10px] text-gray-600">{readLaterEntries.length}</span>}
           </button>
+
+          {/* Open Access — Filter auf Einträge mit OA-Link im Pool */}
+          {(() => {
+            const oaCount = entries.filter(e => e.oa_available).length;
+            if (oaCount === 0) return null;
+            return (
+              <button onClick={() => { setTypeFilter("oa"); setGroupFilter(null); }}
+                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs transition-colors mt-0.5 ${typeFilter === "oa" ? "bg-blue-500/20 text-blue-300" : "text-blue-400/80 hover:bg-blue-500/10 hover:text-blue-200"}`}
+                title="Nur Einträge mit Open-Access-Verfügbarkeit (aus Wissenspool)">
+                <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="5" y="11" width="14" height="10" rx="2"/>
+                  <path d="M8 11V7a4 4 0 0 1 8 0"/>
+                </svg>
+                <span className="flex-1 text-left">Open Access</span>
+                <span className="text-[10px] opacity-80">{oaCount}</span>
+              </button>
+            );
+          })()}
 
           {/* Wissenspool / Discovery — Phase A */}
           <button onClick={() => { setTypeFilter("discovery"); setGroupFilter(null); setSelectedIds(new Set()); }}
