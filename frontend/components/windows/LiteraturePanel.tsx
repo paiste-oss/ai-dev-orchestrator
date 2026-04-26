@@ -1911,7 +1911,26 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   const t = useT();
   const [entries, setEntries] = useState<LitEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  // Suche persistent pro User — überlebt Window-Switch + Reload solange eingeloggt.
+  // Wird nur durch X-Button explizit geleert (siehe Toolbar unten).
+  const searchStorageKey = useMemo(() => {
+    const email = getSession()?.email;
+    return email ? `baddi:lit_search:${encodeURIComponent(email)}` : null;
+  }, []);
+  const [search, setSearch] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const email = getSession()?.email;
+      if (!email) return "";
+      return localStorage.getItem(`baddi:lit_search:${encodeURIComponent(email)}`) || "";
+    } catch { return ""; }
+  });
+  useEffect(() => {
+    if (!searchStorageKey) return;
+    if (search) localStorage.setItem(searchStorageKey, search);
+    else localStorage.removeItem(searchStorageKey);
+  }, [search, searchStorageKey]);
+
   const [typeFilter, setTypeFilter] = useState<SidebarFilter>("all");
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [openTypes, setOpenTypes] = useState<Record<EntryType, boolean>>({
@@ -3074,8 +3093,19 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       <div className="flex items-center gap-2 px-3 py-2 border-b window-border-soft shrink-0">
         {/* Spacer in Sidebar-Breite damit das Suchfeld bündig zur Listen-Spalte beginnt */}
         <div className="w-44 shrink-0" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche in Literatur…"
-          className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50" />
+        <div className="flex-1 min-w-0 relative">
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche in Literatur…"
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 pr-7 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50" />
+          {search && (
+            <button onClick={() => setSearch("")} title="Suche leeren"
+              className="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-white hover:bg-white/10 transition-colors">
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          )}
+        </div>
         <button onClick={() => importInputRef.current?.click()}
           disabled={importing}
           title="RIS / EndNote XML importieren"
