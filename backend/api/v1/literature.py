@@ -446,19 +446,22 @@ async def list_my_literature(
         )
         overridden_dois = {d for (d,) in ov_q.all()}
 
-    # Patent-Pool: Patente sind per Definition öffentlich. Wenn der Eintrag
-    # eine Pub-Nummer im DOI-Feld hat und im patent_global_index ist → OA
+    # Patent-Pool: Patente sind per Definition öffentlich. Pub-Nummer kann im
+    # doi-Feld ODER im title-Feld stehen (EndNote-Import speichert sie oft als Titel).
     patent_pns: set[str] = set()
-    pn_to_normalized: dict[str, str] = {}  # original-doi-lower → normalized pub-nr
+    pn_by_entry_id: dict[uuid.UUID, str] = {}  # entry.id → normalized pub-nr
     for e in entries:
-        if e.entry_type == "patent" and e.doi:
-            parts = normalize_patent_number(e.doi)
-            if parts:
-                pn_to_normalized[e.doi.strip().lower()] = parts["pn"]
-    if pn_to_normalized:
+        if e.entry_type == "patent":
+            for src in (e.doi, e.title):
+                if not src: continue
+                parts = normalize_patent_number(src)
+                if parts:
+                    pn_by_entry_id[e.id] = parts["pn"]
+                    break
+    if pn_by_entry_id:
         pn_q = await db.execute(
             select(PatentGlobalIndex.publication_number).where(
-                PatentGlobalIndex.publication_number.in_(list(set(pn_to_normalized.values()))),
+                PatentGlobalIndex.publication_number.in_(list(set(pn_by_entry_id.values()))),
             )
         )
         patent_pns = {pn for (pn,) in pn_q.all()}
@@ -469,8 +472,8 @@ async def list_my_literature(
         doi_norm = e.doi.strip().lower() if e.doi else None
         if doi_norm and doi_norm in overridden_dois:
             pass  # User hat OA explizit ausgeblendet
-        elif e.entry_type == "patent" and doi_norm:
-            pn = pn_to_normalized.get(doi_norm)
+        elif e.entry_type == "patent":
+            pn = pn_by_entry_id.get(e.id)
             if pn and pn in patent_pns:
                 item.oa_available = True
         elif doi_norm and doi_norm in oa_dois:
@@ -2103,7 +2106,8 @@ async def get_entry_oa_info(
 
     # Patente: per Definition öffentlich — eigener Pool (patent_global_index)
     if entry.entry_type == "patent":
-        parts = normalize_patent_number(entry.doi)
+        # Pub-Nummer kann im doi-Feld ODER im title-Feld stehen
+        parts = normalize_patent_number(entry.doi) or normalize_patent_number(entry.title)
         if not parts:
             return {"available": False, "reason": "invalid_patent_number"}
         # User-Override für Patent-Nummer als "Pseudo-DOI" verwenden

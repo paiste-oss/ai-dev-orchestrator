@@ -488,6 +488,8 @@ function PdfPreview({
   onToggleReadLater,
   onEdit,
   onPdfUpload,
+  orphanPreview,
+  onCloseOrphanPreview,
 }: {
   entry: LitEntry | null;
   pendingFile?: File | null;
@@ -496,6 +498,8 @@ function PdfPreview({
   onToggleReadLater: (entry: LitEntry) => void;
   onEdit: (entry: LitEntry) => void;
   onPdfUpload?: (entry: LitEntry, file: File) => void;
+  orphanPreview?: { url: string; filename: string } | null;
+  onCloseOrphanPreview?: () => void;
 }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -573,7 +577,20 @@ function PdfPreview({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="shrink-0 flex items-center justify-end gap-0.5 px-3 py-1.5 border-b window-border-soft min-h-[34px]">
-        {entry && (
+        {orphanPreview && (
+          <>
+            <span className="text-[10px] text-amber-300 font-medium truncate flex-1 ml-2" title={orphanPreview.filename}>
+              📥 {orphanPreview.filename}
+            </span>
+            <button onClick={onCloseOrphanPreview} title="Vorschau schliessen"
+              className="p-1 rounded text-gray-500 hover:text-red-400 hover:bg-white/5 transition-colors">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </>
+        )}
+        {!orphanPreview && entry && (
           <>
             <button onClick={() => onToggleFavorite(entry)} title={entry.is_favorite ? "Aus Favoriten entfernen" : "Zu Favoriten"}
               className="p-1 rounded transition-colors hover:scale-110">
@@ -599,13 +616,17 @@ function PdfPreview({
         )}
       </div>
       <div className="flex-1 min-h-0 bg-black/20 relative">
-        {!entry && !pendingFile && (
+        {orphanPreview && (
+          <iframe src={`${orphanPreview.url}#view=FitH&toolbar=0&navpanes=0`}
+            title={orphanPreview.filename} className="w-full h-full border-0 block" />
+        )}
+        {!orphanPreview && !entry && !pendingFile && (
           <div className="flex flex-col items-center justify-center h-full gap-2 window-text-subtle text-xs px-4 text-center">
             <span className="text-3xl opacity-40">📄</span>
             <span>Kein Eintrag ausgewählt</span>
           </div>
         )}
-        {entry && !entry.pdf_s3_key && !pendingFile && (
+        {!orphanPreview && entry && !entry.pdf_s3_key && !pendingFile && (
           <div
             onDragOver={e => { if (onPdfUpload) { e.preventDefault(); setDragActive(true); } }}
             onDragLeave={() => setDragActive(false)}
@@ -632,7 +653,7 @@ function PdfPreview({
             )}
           </div>
         )}
-        {entry?.pdf_s3_key && !pendingFile && loading && (() => {
+        {!orphanPreview && entry?.pdf_s3_key && !pendingFile && loading && (() => {
           const fmtMB = (n: number) => (n / (1024 * 1024)).toFixed(1);
           const pct = totalBytes > 0 ? Math.min(100, Math.round((loadedBytes / totalBytes) * 100)) : 0;
           return (
@@ -659,13 +680,13 @@ function PdfPreview({
             </div>
           );
         })()}
-        {entry?.pdf_s3_key && !pendingFile && error && !loading && (
+        {!orphanPreview && entry?.pdf_s3_key && !pendingFile && error && !loading && (
           <div className="flex flex-col items-center justify-center h-full gap-2 window-text-subtle text-xs px-4 text-center">
             <span className="text-2xl">⚠️</span>
             <span>PDF konnte nicht geladen werden</span>
           </div>
         )}
-        {blobUrl && !loading && !error && (
+        {!orphanPreview && blobUrl && !loading && !error && (
           // PDF-Open-Parameter: view=FitH = Fenster-Breite, toolbar=0 spart Platz
           <iframe src={`${blobUrl}#view=FitH&toolbar=0&navpanes=0`} title={pendingFile?.name ?? entry?.title ?? "PDF"} className="w-full h-full border-0 block" />
         )}
@@ -2561,6 +2582,8 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
   const zipInputRef = useRef<HTMLInputElement>(null);
 
   const [orphans, setOrphans] = useState<OrphanPdf[]>([]);
+  // Orphan-PDF im Preview-Pane statt im globalen Viewer anzeigen
+  const [orphanPreview, setOrphanPreview] = useState<{ url: string; filename: string } | null>(null);
   const [orphanAssignFor, setOrphanAssignFor] = useState<OrphanPdf | null>(null);
   const [orphanBusy, setOrphanBusy] = useState<string | null>(null);
 
@@ -2912,12 +2935,13 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
       const res = await apiFetch(`${BACKEND_URL}/v1/literature/orphans/${orphan.id}/pdf`);
       if (!res.ok) { setImportMsg({ type: "err", text: t("err.generic") }); return; }
       const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      if (onOpenFile) {
-        onOpenFile({ url: blobUrl, filename: orphan.filename, fileType: "pdf", literatureTitle: orphan.filename });
-      } else {
-        window.open(blobUrl, "_blank", "noopener");
+      // Alte Blob-URL freigeben damit kein Memory-Leak
+      if (orphanPreview?.url) {
+        try { URL.revokeObjectURL(orphanPreview.url); } catch { /* still */ }
       }
+      const blobUrl = URL.createObjectURL(blob);
+      // PDF im Vorschau-Fenster (PdfPreview) statt im globalen Viewer anzeigen
+      setOrphanPreview({ url: blobUrl, filename: orphan.filename });
     } catch {
       setImportMsg({ type: "err", text: t("err.network") });
     }
@@ -3792,6 +3816,11 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
               onToggleReadLater={e => handleToggleFlag(e, "read_later")}
               onEdit={openEdit}
               onPdfUpload={handlePdfUpload}
+              orphanPreview={orphanPreview}
+              onCloseOrphanPreview={() => {
+                if (orphanPreview?.url) { try { URL.revokeObjectURL(orphanPreview.url); } catch { /* still */ } }
+                setOrphanPreview(null);
+              }}
             />
           </div>
         </div>
