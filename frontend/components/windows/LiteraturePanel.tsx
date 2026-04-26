@@ -3446,7 +3446,8 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                       draggable
                       onDragStart={e => handleDragStart(e, entry.id)}
                       onClick={() => selectEntry(entry)}
-                      title={hasPdf ? undefined : "Kein PDF hinterlegt"}
+                      onDoubleClick={() => { if (hasPdf) handlePdfOpen(entry); }}
+                      title={hasPdf ? "Doppelklick öffnet PDF im Viewer" : "Kein PDF hinterlegt"}
                       className={`group grid items-center gap-2 px-3 py-1.5 border-b border-white/4 cursor-pointer transition-colors border-l-2 ${isActive ? "bg-[var(--accent-10)]" : isChecked ? "bg-white/3" : "hover:bg-white/3"} ${hasPdf ? "border-l-transparent" : "border-l-amber-500/50"}`}
                       style={{ gridTemplateColumns: `32px 24px ${titleColWidth}px 56px 180px 180px` }}>
                       <input type="checkbox" checked={isChecked} onClick={e => toggleRowSelect(entry.id, e)} onChange={() => {}}
