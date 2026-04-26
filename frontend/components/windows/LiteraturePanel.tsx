@@ -199,9 +199,7 @@ function DetailPanel({
   onPdfOpen,
   onRefreshMeta,
   onRestoreMeta,
-  onFetchOaPdf,
   refreshingMeta,
-  fetchingOaPdf,
   onToggleFavorite,
   onToggleReadLater,
   deleting,
@@ -215,9 +213,7 @@ function DetailPanel({
   onPdfOpen: (entry: LitEntry) => void;
   onRefreshMeta: (entry: LitEntry) => void;
   onRestoreMeta: (entry: LitEntry) => void;
-  onFetchOaPdf: (entry: LitEntry) => void;
   refreshingMeta: boolean;
-  fetchingOaPdf: boolean;
   onToggleFavorite: (entry: LitEntry) => void;
   onToggleReadLater: (entry: LitEntry) => void;
   deleting: string | null;
@@ -255,16 +251,16 @@ function DetailPanel({
           ✓ {entry.meta_refreshed_count}×
         </span>
       )}
-      {entry && oaInfo?.available && !entry.pdf_s3_key && (
-        <button onClick={() => onFetchOaPdf(entry)} disabled={fetchingOaPdf}
-          title={`Open-Access-PDF herunterladen (${oaInfo.oa_status ?? "OA"}${oaInfo.oa_license ? ` · ${oaInfo.oa_license}` : ""})`}
-          className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/25 hover:text-blue-200 transition-colors flex items-center gap-1 disabled:opacity-50">
-          {fetchingOaPdf ? <IconSpinner /> : (
-            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-          )}
-          {fetchingOaPdf ? "Lade…" : "Open Access"}
+      {entry && oaInfo?.available && !entry.pdf_s3_key && oaInfo.oa_url && (
+        <button onClick={() => window.open(oaInfo.oa_url!, "_blank", "noopener,noreferrer")}
+          title={`OA-Seite öffnen (${oaInfo.oa_status ?? "OA"}${oaInfo.oa_license ? ` · ${oaInfo.oa_license}` : ""}) — danach PDF herunterladen und auf diesen Eintrag drag-droppen`}
+          className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/25 hover:text-blue-200 transition-colors flex items-center gap-1">
+          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+          Open Access
         </button>
       )}
       {entry && entry.has_meta_backup && (
@@ -448,6 +444,7 @@ function PdfPreview({
   onToggleFavorite,
   onToggleReadLater,
   onEdit,
+  onPdfUpload,
 }: {
   entry: LitEntry | null;
   pendingFile?: File | null;
@@ -455,12 +452,15 @@ function PdfPreview({
   onToggleFavorite: (entry: LitEntry) => void;
   onToggleReadLater: (entry: LitEntry) => void;
   onEdit: (entry: LitEntry) => void;
+  onPdfUpload?: (entry: LitEntry, file: File) => void;
 }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [loadedBytes, setLoadedBytes] = useState(0);
   const [totalBytes, setTotalBytes] = useState(0);
+  const [dragActive, setDragActive] = useState(false);
+  const dropPdfInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setError(false);
@@ -563,9 +563,30 @@ function PdfPreview({
           </div>
         )}
         {entry && !entry.pdf_s3_key && !pendingFile && (
-          <div className="flex flex-col items-center justify-center h-full gap-2 window-text-subtle text-xs px-4 text-center">
+          <div
+            onDragOver={e => { if (onPdfUpload) { e.preventDefault(); setDragActive(true); } }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={e => {
+              if (!onPdfUpload || !entry) return;
+              e.preventDefault();
+              setDragActive(false);
+              const f = Array.from(e.dataTransfer.files).find(x => x.type === "application/pdf" || x.name.toLowerCase().endsWith(".pdf"));
+              if (f) onPdfUpload(entry, f);
+            }}
+            className={`flex flex-col items-center justify-center h-full gap-3 window-text-subtle text-xs px-4 text-center transition-colors ${dragActive ? "bg-blue-500/10 outline-dashed outline-2 outline-blue-400/40 outline-offset-[-8px]" : ""}`}>
             <span className="text-3xl opacity-40">📎</span>
             <span>Kein PDF angehängt</span>
+            {onPdfUpload && (
+              <>
+                <span className="text-[10px] opacity-60">PDF hierher ziehen oder</span>
+                <button onClick={() => dropPdfInputRef.current?.click()}
+                  className="text-[10px] text-[var(--accent-light)] hover:underline">
+                  PDF auswählen
+                </button>
+                <input ref={dropPdfInputRef} type="file" accept=".pdf,application/pdf" className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) onPdfUpload(entry, f); e.target.value = ""; }} />
+              </>
+            )}
           </div>
         )}
         {entry?.pdf_s3_key && !pendingFile && loading && (() => {
@@ -1861,8 +1882,9 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
     }
   }
 
-  // Open-Access PDF abholen (Phase A.2)
-  const [fetchingOaPdf, setFetchingOaPdf] = useState<string | null>(null);
+  // OA-Button öffnet jetzt die Verlags-Seite im Tab — der alte Server-Auto-Fetch
+  // (handleFetchOaPdf) wurde entfernt: niedrige Erfolgsquote durch Verlags-Bot-
+  // Blocking. User lädt PDF im Browser, drag-droppt es auf den Eintrag.
   const [discoveryBusyDoi, setDiscoveryBusyDoi] = useState<string | null>(null);
   const [discoveryBusyIsbn, setDiscoveryBusyIsbn] = useState<string | null>(null);
 
@@ -1938,31 +1960,6 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
     } finally { setDiscoveryBusyDoi(null); }
   }
 
-  async function handleFetchOaPdf(entry: LitEntry) {
-    if (entry.pdf_s3_key) return;
-    if (!confirm("Offizielles Open-Access-PDF von der Verlags-Seite herunterladen und an diesen Eintrag anhängen?")) return;
-    setFetchingOaPdf(entry.id);
-    try {
-      const res = await apiFetch(`${BACKEND_URL}/v1/literature/${entry.id}/fetch-oa-pdf`, {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: t("err.generic") })) as { detail?: string };
-        setImportMsg({ type: "err", text: err.detail || t("err.generic") });
-        return;
-      }
-      const updated: LitEntry = await res.json();
-      setEntries(prev => prev.map(e => e.id === updated.id ? updated : e));
-      if (selected?.id === updated.id) setSelected(updated);
-      const sizeMb = (updated.pdf_size_bytes / (1024 * 1024)).toFixed(1);
-      setImportMsg({ type: "ok", text: `Open-Access-PDF angehängt (${sizeMb} MB)` });
-    } catch {
-      setImportMsg({ type: "err", text: t("err.network") });
-    } finally {
-      setFetchingOaPdf(null);
-    }
-  }
 
   async function handleRestoreMeta(entry: LitEntry) {
     if (!entry.has_meta_backup) return;
@@ -3334,9 +3331,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                     onPdfOpen={handlePdfOpen}
                     onRefreshMeta={handleRefreshMeta}
                     onRestoreMeta={handleRestoreMeta}
-                    onFetchOaPdf={handleFetchOaPdf}
                     refreshingMeta={refreshingMeta}
-                    fetchingOaPdf={fetchingOaPdf === selected?.id}
                     onToggleFavorite={e => handleToggleFlag(e, "is_favorite")}
                     onToggleReadLater={e => handleToggleFlag(e, "read_later")}
                     deleting={deleting}
@@ -3362,6 +3357,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
               onToggleFavorite={e => handleToggleFlag(e, "is_favorite")}
               onToggleReadLater={e => handleToggleFlag(e, "read_later")}
               onEdit={openEdit}
+              onPdfUpload={handlePdfUpload}
             />
           </div>
         </div>
