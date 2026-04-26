@@ -3070,8 +3070,12 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
 
   return (
     <WindowFrame>
-      {/* Toolbar — nur Aktions-Buttons; Suchfeld liegt oben in der Listenspalte */}
-      <div className="flex items-center justify-end gap-2 px-3 py-2 border-b window-border-soft shrink-0">
+      {/* Toolbar — Suchfeld (linksbündig zur Listenspalte) + Aktions-Buttons rechts */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b window-border-soft shrink-0">
+        {/* Spacer in Sidebar-Breite damit das Suchfeld bündig zur Listen-Spalte beginnt */}
+        <div className="w-44 shrink-0" />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche in Literatur…"
+          className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50" />
         <button onClick={() => importInputRef.current?.click()}
           disabled={importing}
           title="RIS / EndNote XML importieren"
@@ -3251,13 +3255,8 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
         {/* T-Layout: oben Liste, unten Detail | PDF */}
         <div ref={tBodyRef} className="flex-1 min-w-0 flex flex-col overflow-hidden">
 
-        {/* List (oben) — Suchfeld + Grid mit sortierbaren Spalten */}
+        {/* List (oben) — Grid mit sortierbaren Spalten (Suchfeld liegt jetzt in der Toolbar) */}
         <div ref={topPanelRef} className="overflow-hidden flex flex-col" style={{ height: `${topPercent}%` }}>
-          {/* Suchfeld — bündig zur Listenspalte (geht nicht über die Buttons rechts) */}
-          <div className="shrink-0 px-3 pt-2 pb-1.5">
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Suche in Literatur…"
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-gray-600 outline-none focus:border-[var(--accent)]/50" />
-          </div>
 
           {/* Selektions-Aktionen — bleibt sichtbar beim Scrollen (außerhalb des Scroll-Containers) */}
           {selectedIds.size > 0 && (() => {
