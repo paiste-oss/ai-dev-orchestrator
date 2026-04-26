@@ -81,7 +81,7 @@ export default function FileViewerWindow(props: Props) {
 
   return (
     <WindowFrame noBackground>
-      {effectiveTabs.length > 1 && (
+      {effectiveTabs.length >= 1 && (
         <div className="shrink-0 flex items-center gap-1 px-2 py-1 border-b window-border-soft overflow-x-auto scrollbar-hide bg-black/30">
           {effectiveTabs.map(tab => {
             const isActive = tab.key === activeKey;

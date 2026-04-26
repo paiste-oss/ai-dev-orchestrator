@@ -372,7 +372,7 @@ export default function ChatPage() {
         if (!contentRes.ok) return;
         const blob = await contentRes.blob();
         const url = URL.createObjectURL(blob);
-        openArtifact("file_viewer", `📄 ${doc.original_filename}`, {
+        openArtifact("file_viewer", "📄 Viewer", {
           url, filename: doc.original_filename, fileType: doc.file_type, mimeType: doc.mime_type,
         });
       });
@@ -450,7 +450,7 @@ export default function ChatPage() {
     // Dedupe (gleiche key wird ersetzt) und auf 12 Tabs limitieren
     const filtered = existingTabs.filter(t => t.key !== newKey);
     const tabs = [...filtered, newTab].slice(-12);
-    openArtifact("file_viewer", `${icon} ${filename}`, { tabs, activeKey: newKey });
+    openArtifact("file_viewer", "📄 Viewer", { tabs, activeKey: newKey });
   }, [openArtifact, artifacts]);
 
   const handleRemoveGeneratedImage = useCallback((msgId: string) => {
@@ -589,7 +589,7 @@ export default function ChatPage() {
       onAfterSend: () => setInput(""),
       onFilesChange: setAttachedFiles,
       onFileUploaded: ({ filename, blobUrl, fileType }: UploadedFileInfo) => {
-        openArtifact("file_viewer", `📄 ${filename}`, { url: blobUrl, filename, fileType });
+        openArtifact("file_viewer", "📄 Viewer", { url: blobUrl, filename, fileType });
       },
       setSpeaking,
       focusTextarea: () => textareaRef.current?.focus(),

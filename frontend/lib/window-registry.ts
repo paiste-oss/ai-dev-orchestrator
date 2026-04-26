@@ -62,7 +62,7 @@ export const WINDOW_MODULES: WindowModuleDefinition[] = [
   },
   {
     id: "file_viewer",
-    label: "Datei-Viewer",
+    label: "Viewer",
     icon: "📄",
     description: "Wird automatisch geöffnet beim Doppelklick auf eine Datei im Dokumentenfenster.",
     defaultWidth: 680,

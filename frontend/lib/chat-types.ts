@@ -178,7 +178,7 @@ export const ARTIFACT_META: Record<string, { icon: string; label: string }> = {
   geo_map:         { icon: "🗺",  label: "Karte" },
   assistenz:       { icon: "🤖", label: "Assistent" },
   documents:       { icon: "📁", label: "Dokumente" },
-  file_viewer:     { icon: "📄", label: "Datei" },
+  file_viewer:     { icon: "📄", label: "Viewer" },
   diktieren:       { icon: "🎤", label: "Diktat" },
   memory:          { icon: "🧠", label: "Erinnerungen" },
 };
