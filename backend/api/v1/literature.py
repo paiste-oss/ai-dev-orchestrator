@@ -397,6 +397,7 @@ async def list_my_literature(
     db: AsyncSession = Depends(get_db),
 ):
     from models.literature_global_index import LiteratureGlobalIndex
+    from models.literature_oa import LiteratureOaOverride
     stmt = select(LiteratureEntry).where(
         LiteratureEntry.customer_id == user.id,
         LiteratureEntry.is_active.is_(True),
@@ -409,6 +410,7 @@ async def list_my_literature(
     # OA-Verfügbarkeit aus globalem Pool — eine Query statt N+1
     dois = [e.doi.strip().lower() for e in entries if e.doi]
     oa_dois: set[str] = set()
+    overridden_dois: set[str] = set()
     if dois:
         oa_q = await db.execute(
             select(LiteratureGlobalIndex.doi).where(
@@ -419,10 +421,20 @@ async def list_my_literature(
         )
         oa_dois = {d for (d,) in oa_q.all()}
 
+        # Per-User-Overrides: User hat den Eintrag als "nicht OA" markiert
+        ov_q = await db.execute(
+            select(LiteratureOaOverride.doi).where(
+                LiteratureOaOverride.customer_id == user.id,
+                LiteratureOaOverride.doi.in_(dois),
+            )
+        )
+        overridden_dois = {d for (d,) in ov_q.all()}
+
     out = []
     for e in entries:
         item = LiteratureEntryOut.model_validate(e, from_attributes=True)
-        if e.doi and e.doi.strip().lower() in oa_dois:
+        doi_norm = e.doi.strip().lower() if e.doi else None
+        if doi_norm and doi_norm in oa_dois and doi_norm not in overridden_dois:
             item.oa_available = True
         out.append(item)
     return out
@@ -2025,6 +2037,7 @@ async def get_entry_oa_info(
 ):
     """Gibt Open-Access-Info für einen Eintrag zurück (für Frontend-Button-Anzeige).
     {available: bool, oa_url, oa_status, oa_license} oder {available: false, reason}.
+    Per-User-Override wird respektiert.
     """
     entry = await db.get(LiteratureEntry, entry_id)
     if not entry or not entry.is_active or entry.customer_id != user.id:
@@ -2033,10 +2046,16 @@ async def get_entry_oa_info(
         return {"available": False, "reason": "no_doi"}
 
     from models.literature_global_index import LiteratureGlobalIndex
+    from models.literature_oa import LiteratureOaOverride
     from services.literature_enrichment import normalize_doi
     norm = normalize_doi(entry.doi)
     if not norm:
         return {"available": False, "reason": "invalid_doi"}
+
+    # User-Override hat Vorrang
+    ov = await db.get(LiteratureOaOverride, (user.id, norm))
+    if ov:
+        return {"available": False, "reason": "user_overridden"}
 
     rec = await db.get(LiteratureGlobalIndex, norm)
     if not rec:
@@ -2051,6 +2070,61 @@ async def get_entry_oa_info(
         "oa_status": rec.oa_status,
         "oa_license": rec.oa_license,
     }
+
+
+@router.post("/{entry_id}/oa-override")
+async def set_oa_override(
+    entry_id: uuid.UUID,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """User markiert: dieser Eintrag ist nicht (mehr) Open Access.
+    Wirkt nur lokal — der globale Pool bleibt unverändert. Admin sieht
+    diese Overrides im Admin-Bereich und kann sie bestätigen → Pool-Eintrag
+    wird dann global blockiert."""
+    from models.literature_oa import LiteratureOaOverride
+    from services.literature_enrichment import normalize_doi
+    entry = await db.get(LiteratureEntry, entry_id)
+    if not entry or not entry.is_active or entry.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+    if not entry.doi:
+        raise HTTPException(status_code=422, detail="Eintrag hat keine DOI")
+    norm = normalize_doi(entry.doi)
+    if not norm:
+        raise HTTPException(status_code=422, detail="DOI ungültig")
+    existing = await db.get(LiteratureOaOverride, (user.id, norm))
+    if existing:
+        return {"ok": True, "already_set": True}
+    ov = LiteratureOaOverride(
+        customer_id=user.id, doi=norm, entry_id=entry.id,
+        title_at_override=entry.title[:1000] if entry.title else None,
+    )
+    db.add(ov)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/{entry_id}/oa-override", status_code=204)
+async def remove_oa_override(
+    entry_id: uuid.UUID,
+    user: Customer = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """User nimmt Override zurück — OA-Anzeige greift wieder."""
+    from models.literature_oa import LiteratureOaOverride
+    from services.literature_enrichment import normalize_doi
+    entry = await db.get(LiteratureEntry, entry_id)
+    if not entry or not entry.is_active or entry.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Eintrag nicht gefunden")
+    if not entry.doi:
+        return
+    norm = normalize_doi(entry.doi)
+    if not norm:
+        return
+    ov = await db.get(LiteratureOaOverride, (user.id, norm))
+    if ov:
+        await db.delete(ov)
+        await db.commit()
 
 
 # ── Orphan PDFs (Stufe 3 — Postfach für nicht-zugeordnete PDFs) ───────────────

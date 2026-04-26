@@ -224,6 +224,18 @@ async def enrich_doi(db: AsyncSession, raw_doi: str, force: bool = False) -> Lit
         except Exception as exc:
             _log.warning("[Enrichment/Unpaywall-parse] %s: %s", doi, exc)
 
+    # OA-Blocklist respektieren: Admin hat diese DOI als "nicht mehr OA"
+    # markiert → oa_url/status/license nullen, auch wenn Unpaywall sie liefert
+    try:
+        from models.literature_oa import LiteratureOaBlocklist
+        bl = await db.get(LiteratureOaBlocklist, doi)
+        if bl:
+            existing.oa_url = None
+            existing.oa_status = None
+            existing.oa_license = None
+    except Exception as exc:
+        _log.info("[Enrichment/Blocklist-check] %s: %s", doi, exc)
+
     # Status setzen
     if crossref_404 and unpaywall_404:
         existing.enrichment_status = "failed_404"

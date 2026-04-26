@@ -25,6 +25,7 @@ from . import literature_global_index  # noqa: F401
 from . import book_global_index  # noqa: F401
 from . import law_global_index  # noqa: F401
 from . import patent_global_index  # noqa: F401
+from . import literature_oa  # noqa: F401
 from . import literature_group  # noqa: F401
 from . import literature_orphan_pdf  # noqa: F401
 from . import payment  # noqa: F401

@@ -46,6 +46,7 @@ const NAV: NavEntry[] = [
     children: [
       { label: "Übersicht",      href: "/admin/system",             icon: "◉" },
       { label: "Tagesreport",    href: "/admin/system/tagesreport", icon: "📋" },
+      { label: "Literatur",      href: "/admin/system/literatur",   icon: "📚" },
       { label: "SVG Icons",      href: "/admin/system/icons",       icon: "◈" },
       { label: "Portal",         href: "/admin/settings",           icon: "⊙" },
       { label: "Integrationen",  href: "/admin/integrations",       icon: "⇌" },

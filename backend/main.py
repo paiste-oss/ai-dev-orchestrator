@@ -21,6 +21,7 @@ from api.v1 import (
     integrations_admin, analytics_admin, user_preferences, windows,
     knowledge, stocks, transcribe, health_admin, dictations, assistenz,
     support_admin, flights, email, calendar, invoices, user_home,
+    literature_admin,
 )
 from api.v1 import settings as portal_settings
 from api.v1 import push
@@ -43,6 +44,7 @@ import models.literature_global_index  # noqa: F401
 import models.book_global_index  # noqa: F401
 import models.law_global_index  # noqa: F401
 import models.patent_global_index  # noqa: F401
+import models.literature_oa  # noqa: F401
 
 os.environ["OPENAI_API_KEY"] = settings.openai_api_key or "NA"
 
@@ -194,6 +196,7 @@ app.include_router(stocks.router, prefix="/v1")
 app.include_router(transcribe.router, prefix="/v1")
 app.include_router(dictations.router, prefix="/v1")
 app.include_router(health_admin.router, prefix="/v1")
+app.include_router(literature_admin.router, prefix="/v1")
 app.include_router(assistenz.router, prefix="/v1")
 app.include_router(support_admin.router, prefix="/v1")
 app.include_router(flights.router, prefix="/v1")

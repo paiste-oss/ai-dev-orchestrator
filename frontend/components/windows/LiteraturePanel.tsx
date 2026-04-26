@@ -203,6 +203,7 @@ function DetailPanel({
   refreshingMeta,
   onToggleFavorite,
   onToggleReadLater,
+  onOaHidden,
   deleting,
 }: {
   entry: LitEntry | null;
@@ -217,6 +218,7 @@ function DetailPanel({
   refreshingMeta: boolean;
   onToggleFavorite: (entry: LitEntry) => void;
   onToggleReadLater: (entry: LitEntry) => void;
+  onOaHidden: (entryId: string) => void;
   deleting: string | null;
 }) {
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -253,16 +255,35 @@ function DetailPanel({
         </span>
       )}
       {entry && oaInfo?.available && !entry.pdf_s3_key && oaInfo.oa_url && (
-        <button onClick={() => window.open(oaInfo.oa_url!, "_blank", "noopener,noreferrer")}
-          title={`OA-Seite öffnen (${oaInfo.oa_status ?? "OA"}${oaInfo.oa_license ? ` · ${oaInfo.oa_license}` : ""}) — danach PDF herunterladen und auf diesen Eintrag drag-droppen`}
-          className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/25 hover:text-blue-200 transition-colors flex items-center gap-1">
-          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/>
-            <line x1="10" y1="14" x2="21" y2="3"/>
-          </svg>
-          Open Access
-        </button>
+        <>
+          <button onClick={() => window.open(oaInfo.oa_url!, "_blank", "noopener,noreferrer")}
+            title={`OA-Seite öffnen (${oaInfo.oa_status ?? "OA"}${oaInfo.oa_license ? ` · ${oaInfo.oa_license}` : ""}) — danach PDF herunterladen und auf diesen Eintrag drag-droppen`}
+            className="px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/25 hover:text-blue-200 transition-colors flex items-center gap-1">
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            Open Access
+          </button>
+          <button onClick={async () => {
+              if (!entry) return;
+              try {
+                const res = await apiFetch(`${BACKEND_URL}/v1/literature/${entry.id}/oa-override`, { method: "POST", body: JSON.stringify({}) });
+                if (res.ok) {
+                  setOaInfo({ available: false, reason: "user_overridden" });
+                  onOaHidden(entry.id);
+                }
+              } catch { /* still */ }
+            }}
+            title="Dieser Eintrag ist nicht (mehr) Open Access — als 'nicht OA' markieren. Wirkt nur lokal; Admin sieht alle Markierungen zur Prüfung."
+            className="p-1 rounded text-gray-600 hover:text-red-400 hover:bg-white/5 transition-colors">
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </>
       )}
       {entry && entry.has_meta_backup && (
         <button onClick={() => onRestoreMeta(entry)} title="Letzte Metadaten-Aktualisierung rückgängig machen"
@@ -3586,6 +3607,7 @@ export default function LiteraturePanel({ onOpenFile }: LiteraturePanelProps = {
                     refreshingMeta={refreshingMeta}
                     onToggleFavorite={e => handleToggleFlag(e, "is_favorite")}
                     onToggleReadLater={e => handleToggleFlag(e, "read_later")}
+                    onOaHidden={(id) => setEntries(prev => prev.map(e => e.id === id ? { ...e, oa_available: false } : e))}
                     deleting={deleting}
                   />
                 )}
