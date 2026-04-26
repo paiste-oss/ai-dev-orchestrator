@@ -410,6 +410,8 @@ async def list_my_literature(
 ):
     from models.literature_global_index import LiteratureGlobalIndex
     from models.literature_oa import LiteratureOaOverride
+    from models.patent_global_index import PatentGlobalIndex
+    from services.patent_enrichment import normalize_patent_number
     stmt = select(LiteratureEntry).where(
         LiteratureEntry.customer_id == user.id,
         LiteratureEntry.is_active.is_(True),
@@ -420,7 +422,7 @@ async def list_my_literature(
     entries = list(result.scalars().all())
 
     # OA-Verfügbarkeit aus globalem Pool — eine Query statt N+1
-    dois = [e.doi.strip().lower() for e in entries if e.doi]
+    dois = [e.doi.strip().lower() for e in entries if e.doi and e.entry_type != "patent"]
     oa_dois: set[str] = set()
     overridden_dois: set[str] = set()
     if dois:
@@ -433,20 +435,45 @@ async def list_my_literature(
         )
         oa_dois = {d for (d,) in oa_q.all()}
 
-        # Per-User-Overrides: User hat den Eintrag als "nicht OA" markiert
+    # Per-User-Overrides (für DOIs UND Patent-Nummern)
+    all_keys = [e.doi.strip().lower() for e in entries if e.doi]
+    if all_keys:
         ov_q = await db.execute(
             select(LiteratureOaOverride.doi).where(
                 LiteratureOaOverride.customer_id == user.id,
-                LiteratureOaOverride.doi.in_(dois),
+                LiteratureOaOverride.doi.in_(all_keys),
             )
         )
         overridden_dois = {d for (d,) in ov_q.all()}
+
+    # Patent-Pool: Patente sind per Definition öffentlich. Wenn der Eintrag
+    # eine Pub-Nummer im DOI-Feld hat und im patent_global_index ist → OA
+    patent_pns: set[str] = set()
+    pn_to_normalized: dict[str, str] = {}  # original-doi-lower → normalized pub-nr
+    for e in entries:
+        if e.entry_type == "patent" and e.doi:
+            parts = normalize_patent_number(e.doi)
+            if parts:
+                pn_to_normalized[e.doi.strip().lower()] = parts["pn"]
+    if pn_to_normalized:
+        pn_q = await db.execute(
+            select(PatentGlobalIndex.publication_number).where(
+                PatentGlobalIndex.publication_number.in_(list(set(pn_to_normalized.values()))),
+            )
+        )
+        patent_pns = {pn for (pn,) in pn_q.all()}
 
     out = []
     for e in entries:
         item = LiteratureEntryOut.model_validate(e, from_attributes=True)
         doi_norm = e.doi.strip().lower() if e.doi else None
-        if doi_norm and doi_norm in oa_dois and doi_norm not in overridden_dois:
+        if doi_norm and doi_norm in overridden_dois:
+            pass  # User hat OA explizit ausgeblendet
+        elif e.entry_type == "patent" and doi_norm:
+            pn = pn_to_normalized.get(doi_norm)
+            if pn and pn in patent_pns:
+                item.oa_available = True
+        elif doi_norm and doi_norm in oa_dois:
             item.oa_available = True
         out.append(item)
     return out
@@ -2070,7 +2097,37 @@ async def get_entry_oa_info(
 
     from models.literature_global_index import LiteratureGlobalIndex
     from models.literature_oa import LiteratureOaOverride
+    from models.patent_global_index import PatentGlobalIndex
     from services.literature_enrichment import normalize_doi
+    from services.patent_enrichment import normalize_patent_number, enrich_patent
+
+    # Patente: per Definition öffentlich — eigener Pool (patent_global_index)
+    if entry.entry_type == "patent":
+        parts = normalize_patent_number(entry.doi)
+        if not parts:
+            return {"available": False, "reason": "invalid_patent_number"}
+        # User-Override für Patent-Nummer als "Pseudo-DOI" verwenden
+        ov = await db.get(LiteratureOaOverride, (user.id, entry.doi.strip().lower()))
+        if ov:
+            return {"available": False, "reason": "user_overridden"}
+        rec = await db.get(PatentGlobalIndex, parts["pn"])
+        if not rec:
+            # On-demand-Anreicherung — Patente haben immer URLs
+            rec = await enrich_patent(db, parts["pn"])
+            await db.commit()
+        if not rec:
+            return {"available": False, "reason": "not_indexed_yet"}
+        # Bevorzugt google_patents_url (HTML-Seite mit eingebettetem Viewer)
+        url = rec.google_patents_url or rec.pdf_url
+        if not url:
+            return {"available": False, "reason": "no_url"}
+        return {
+            "available": True,
+            "oa_url": url,
+            "oa_status": "patent",
+            "oa_license": "Public Domain",
+        }
+
     norm = normalize_doi(entry.doi)
     if not norm:
         return {"available": False, "reason": "invalid_doi"}
